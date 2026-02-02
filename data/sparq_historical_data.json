@@ -1,0 +1,849 @@
+{
+  "metadata": {
+    "source": "Seahawks Draft Blog, The Opening, ESPN SPARQ Combines",
+    "years": "2014-2022",
+    "description": "High school SPARQ testing scores for NFL draft prospects. These scores were recorded during Nike SPARQ combines while athletes were in high school.",
+    "note": "SPARQ formula: composite of 40-yard dash, vertical jump, shuttle, and powerball throw. Average score 45-55, elite 85+, record 154.47"
+  },
+  "athletes": [
+    {
+      "name": "Mike Mitchell",
+      "draft_class": 2014,
+      "position": "LB",
+      "college": "Ohio State",
+      "sparq_score": 154.47,
+      "note": "National SPARQ record holder"
+    },
+    {
+      "name": "Malik Jefferson",
+      "draft_class": 2018,
+      "position": "LB",
+      "college": "Texas",
+      "sparq_score": 145.65,
+      "forty": 4.39,
+      "vertical": 40,
+      "shuttle": 4.19,
+      "powerball": 42
+    },
+    {
+      "name": "Nick Chubb",
+      "draft_class": 2018,
+      "position": "RB",
+      "college": "Georgia",
+      "sparq_score": 143.91,
+      "forty": 4.47,
+      "vertical": 41,
+      "shuttle": 4.12,
+      "powerball": 43
+    },
+    {
+      "name": "Derek Stingley Jr",
+      "draft_class": 2022,
+      "position": "CB",
+      "college": "LSU",
+      "sparq_score": 142.74,
+      "forty": 4.30,
+      "vertical": 42
+    },
+    {
+      "name": "Terry McLaurin",
+      "draft_class": 2019,
+      "position": "WR",
+      "college": "Ohio State",
+      "sparq_score": 141.96,
+      "forty": 4.41,
+      "vertical": 42,
+      "shuttle": 4.13
+    },
+    {
+      "name": "Levonta Taylor",
+      "draft_class": 2019,
+      "position": "CB",
+      "college": "Florida State",
+      "sparq_score": 140.16,
+      "forty": 4.38,
+      "vertical": 42
+    },
+    {
+      "name": "Josh Sweat",
+      "draft_class": 2018,
+      "position": "EDGE",
+      "college": "Florida State",
+      "sparq_score": 140.01,
+      "forty": 4.46,
+      "vertical": 39,
+      "shuttle": 4.25,
+      "powerball": 42
+    },
+    {
+      "name": "K.J. Hill",
+      "draft_class": 2019,
+      "position": "WR",
+      "college": "Ohio State",
+      "sparq_score": 133.95,
+      "forty": 4.65,
+      "vertical": 40,
+      "shuttle": 3.88
+    },
+    {
+      "name": "Baron Browning",
+      "draft_class": 2021,
+      "position": "LB",
+      "college": "Ohio State",
+      "sparq_score": 131.91,
+      "forty": 4.56,
+      "vertical": 37.5,
+      "shuttle": 4.18
+    },
+    {
+      "name": "Minkah Fitzpatrick",
+      "draft_class": 2018,
+      "position": "S",
+      "college": "Alabama",
+      "sparq_score": 130.41,
+      "forty": 4.51,
+      "vertical": 36,
+      "shuttle": 3.81,
+      "powerball": 39.5
+    },
+    {
+      "name": "Porter Gustin",
+      "draft_class": 2019,
+      "position": "LB",
+      "college": "USC",
+      "sparq_score": 130.44,
+      "forty": 4.63,
+      "vertical": 34,
+      "shuttle": 4.13
+    },
+    {
+      "name": "Lorenzo Carter",
+      "draft_class": 2018,
+      "position": "LB",
+      "college": "Georgia",
+      "sparq_score": 129.75,
+      "forty": 4.63,
+      "vertical": 40,
+      "shuttle": 4.32,
+      "powerball": 41.5
+    },
+    {
+      "name": "Bryce Love",
+      "draft_class": 2019,
+      "position": "RB",
+      "college": "Stanford",
+      "sparq_score": 129.75,
+      "forty": 4.47,
+      "vertical": 37,
+      "shuttle": 3.90
+    },
+    {
+      "name": "Christian Kirk",
+      "draft_class": 2018,
+      "position": "WR",
+      "college": "Texas A&M",
+      "sparq_score": 129.30,
+      "forty": 4.47,
+      "vertical": 39,
+      "shuttle": 4.25,
+      "powerball": 41.5
+    },
+    {
+      "name": "Damien Harris",
+      "draft_class": 2019,
+      "position": "RB",
+      "college": "Alabama",
+      "sparq_score": 126.93,
+      "forty": 4.48,
+      "vertical": 38,
+      "shuttle": 4.00
+    },
+    {
+      "name": "Marvell Tell",
+      "draft_class": 2019,
+      "position": "S",
+      "college": "USC",
+      "sparq_score": 125.16,
+      "forty": 4.55,
+      "vertical": 39,
+      "shuttle": 4.19
+    },
+    {
+      "name": "Derwin James",
+      "draft_class": 2018,
+      "position": "S",
+      "college": "Florida State",
+      "sparq_score": 124.35,
+      "forty": 4.50,
+      "vertical": 36,
+      "shuttle": 4.21,
+      "powerball": 41
+    },
+    {
+      "name": "Christian Miller",
+      "draft_class": 2019,
+      "position": "EDGE",
+      "college": "Alabama",
+      "sparq_score": 124.17,
+      "forty": 4.74,
+      "vertical": 39,
+      "shuttle": 4.18
+    },
+    {
+      "name": "Devin White",
+      "draft_class": 2019,
+      "position": "LB",
+      "college": "LSU",
+      "sparq_score": 122.19,
+      "forty": 4.57,
+      "vertical": 34,
+      "shuttle": 4.36
+    },
+    {
+      "name": "Royce Freeman",
+      "draft_class": 2018,
+      "position": "RB",
+      "college": "Oregon",
+      "sparq_score": 121.17,
+      "forty": 4.58,
+      "vertical": 34,
+      "shuttle": 4.07,
+      "powerball": 39
+    },
+    {
+      "name": "Saquon Barkley",
+      "draft_class": 2018,
+      "position": "RB",
+      "college": "Penn State",
+      "sparq_score": 116.79,
+      "forty": 4.63,
+      "vertical": 38,
+      "shuttle": 4.06,
+      "powerball": 35
+    },
+    {
+      "name": "Quin Blanding",
+      "draft_class": 2018,
+      "position": "S",
+      "college": "Virginia",
+      "sparq_score": 115.95,
+      "forty": 4.62,
+      "vertical": 37,
+      "shuttle": 4.18,
+      "powerball": 38
+    },
+    {
+      "name": "Grant Delpit",
+      "draft_class": 2020,
+      "position": "S",
+      "college": "LSU",
+      "sparq_score": 114.54,
+      "vertical": 37,
+      "shuttle": 4.04
+    },
+    {
+      "name": "Jeremy Ruckert",
+      "draft_class": 2022,
+      "position": "TE",
+      "college": "Ohio State",
+      "sparq_score": 114.27,
+      "vertical": 35,
+      "shuttle": 4.40
+    },
+    {
+      "name": "Rashaan Evans",
+      "draft_class": 2018,
+      "position": "LB",
+      "college": "Alabama",
+      "sparq_score": 113.7,
+      "forty": 4.51,
+      "vertical": 38.4,
+      "shuttle": 4.27,
+      "powerball": 33
+    },
+    {
+      "name": "M.J. Stewart",
+      "draft_class": 2018,
+      "position": "CB",
+      "college": "North Carolina",
+      "sparq_score": 112.08,
+      "forty": 4.57,
+      "vertical": 34,
+      "shuttle": 4.00,
+      "powerball": 36
+    },
+    {
+      "name": "Bryan Edwards",
+      "draft_class": 2020,
+      "position": "WR",
+      "college": "South Carolina",
+      "sparq_score": 111.96,
+      "forty": 4.53,
+      "vertical": 38,
+      "shuttle": 4.31
+    },
+    {
+      "name": "Jaelen Phillips",
+      "draft_class": 2021,
+      "position": "EDGE",
+      "college": "Miami",
+      "sparq_score": 111.18
+    },
+    {
+      "name": "Austin Bryant",
+      "draft_class": 2019,
+      "position": "EDGE",
+      "college": "Clemson",
+      "sparq_score": 109.80,
+      "forty": 4.99,
+      "vertical": 32,
+      "shuttle": 4.31
+    },
+    {
+      "name": "Rodney Anderson",
+      "draft_class": 2019,
+      "position": "RB",
+      "college": "Oklahoma",
+      "sparq_score": 109.29,
+      "forty": 4.63,
+      "vertical": 37,
+      "shuttle": 3.97
+    },
+    {
+      "name": "Rashan Gary",
+      "draft_class": 2019,
+      "position": "DE",
+      "college": "Michigan",
+      "sparq_score": 109.17,
+      "forty": 4.74,
+      "vertical": 32,
+      "shuttle": 4.38
+    },
+    {
+      "name": "Taylor Rapp",
+      "draft_class": 2019,
+      "position": "S",
+      "college": "Washington",
+      "sparq_score": 108.30,
+      "forty": 4.74,
+      "vertical": 32,
+      "shuttle": 4.09
+    },
+    {
+      "name": "Deionte Thompson",
+      "draft_class": 2019,
+      "position": "S",
+      "college": "Alabama",
+      "sparq_score": 107.40,
+      "forty": 4.77,
+      "vertical": 36,
+      "shuttle": 3.98
+    },
+    {
+      "name": "Jerome Baker",
+      "draft_class": 2018,
+      "position": "LB",
+      "college": "Ohio State",
+      "sparq_score": 106.35,
+      "forty": 4.54,
+      "vertical": 34,
+      "shuttle": 4.09,
+      "powerball": 35.5
+    },
+    {
+      "name": "Ed Oliver",
+      "draft_class": 2019,
+      "position": "DT",
+      "college": "Houston",
+      "sparq_score": 105.63,
+      "forty": 4.87,
+      "vertical": 30,
+      "shuttle": 4.52
+    },
+    {
+      "name": "Trayvon Mullen",
+      "draft_class": 2019,
+      "position": "CB",
+      "college": "Clemson",
+      "sparq_score": 101.49,
+      "forty": 4.52,
+      "vertical": 35,
+      "shuttle": 4.24
+    },
+    {
+      "name": "Jerry Tillery",
+      "draft_class": 2019,
+      "position": "DT",
+      "college": "Notre Dame",
+      "sparq_score": 100.14,
+      "forty": 5.17,
+      "vertical": 28,
+      "shuttle": 4.53
+    },
+    {
+      "name": "Kevin Toliver",
+      "draft_class": 2018,
+      "position": "CB",
+      "college": "LSU",
+      "sparq_score": 99.03,
+      "forty": 4.61,
+      "vertical": 37,
+      "shuttle": 4.25,
+      "powerball": 32
+    },
+    {
+      "name": "Roquan Smith",
+      "draft_class": 2018,
+      "position": "LB",
+      "college": "Georgia",
+      "sparq_score": 97.20,
+      "forty": 4.55,
+      "vertical": 35,
+      "shuttle": 4.29,
+      "powerball": 31
+    },
+    {
+      "name": "Josh Rosen",
+      "draft_class": 2018,
+      "position": "QB",
+      "college": "UCLA",
+      "sparq_score": 96.90,
+      "forty": 4.99,
+      "vertical": 32,
+      "shuttle": 4.25,
+      "powerball": 40
+    },
+    {
+      "name": "Armani Watts",
+      "draft_class": 2018,
+      "position": "S",
+      "college": "Texas A&M",
+      "sparq_score": 96.51,
+      "forty": 4.76,
+      "vertical": 35,
+      "shuttle": 4.07,
+      "powerball": 33
+    },
+    {
+      "name": "Cameron Smith",
+      "draft_class": 2019,
+      "position": "LB",
+      "college": "USC",
+      "sparq_score": 96.45,
+      "forty": 4.82,
+      "vertical": 32,
+      "shuttle": 4.28
+    },
+    {
+      "name": "Raekwon Davis",
+      "draft_class": 2019,
+      "position": "DT",
+      "college": "Alabama",
+      "sparq_score": 93.63,
+      "forty": 5.49,
+      "vertical": 26,
+      "shuttle": 4.84
+    },
+    {
+      "name": "Calvin Ridley",
+      "draft_class": 2018,
+      "position": "WR",
+      "college": "Alabama",
+      "sparq_score": 92.70,
+      "forty": 4.54,
+      "vertical": 32,
+      "shuttle": 4.15,
+      "powerball": 32
+    },
+    {
+      "name": "Brian Burns",
+      "draft_class": 2019,
+      "position": "EDGE",
+      "college": "Florida State",
+      "sparq_score": 92.04,
+      "forty": 4.76,
+      "vertical": 34,
+      "shuttle": 4.50
+    },
+    {
+      "name": "Tavarus McFadden",
+      "draft_class": 2018,
+      "position": "CB",
+      "college": "Florida State",
+      "sparq_score": 91.86,
+      "forty": 4.60,
+      "vertical": 32,
+      "shuttle": 4.34,
+      "powerball": 33.5
+    },
+    {
+      "name": "Jonathan Ledbetter",
+      "draft_class": 2019,
+      "position": "DE",
+      "college": "Georgia",
+      "sparq_score": 91.47,
+      "forty": 5.04,
+      "vertical": 28,
+      "shuttle": 4.69
+    },
+    {
+      "name": "Jordan Fuller",
+      "draft_class": 2019,
+      "position": "S",
+      "college": "Ohio State",
+      "sparq_score": 90.96,
+      "forty": 4.51,
+      "vertical": 33,
+      "shuttle": 4.40
+    },
+    {
+      "name": "Quinnen Williams",
+      "draft_class": 2019,
+      "position": "DT",
+      "college": "Alabama",
+      "sparq_score": 90.30,
+      "forty": 5.24,
+      "vertical": 29,
+      "shuttle": 4.72
+    },
+    {
+      "name": "D'Andre Walker",
+      "draft_class": 2019,
+      "position": "EDGE",
+      "college": "Georgia",
+      "sparq_score": 89.91,
+      "forty": 4.63,
+      "vertical": 33,
+      "shuttle": 4.16
+    },
+    {
+      "name": "Dexter Lawrence",
+      "draft_class": 2019,
+      "position": "DT",
+      "college": "Clemson",
+      "sparq_score": 88.98,
+      "forty": 5.03,
+      "vertical": 23,
+      "shuttle": 4.61
+    },
+    {
+      "name": "Drew Lock",
+      "draft_class": 2019,
+      "position": "QB",
+      "college": "Missouri",
+      "sparq_score": 88.38,
+      "forty": 4.84,
+      "vertical": 31,
+      "shuttle": 4.35
+    },
+    {
+      "name": "Jaquan Johnson",
+      "draft_class": 2019,
+      "position": "S",
+      "college": "Miami",
+      "sparq_score": 87.78,
+      "forty": 4.75,
+      "vertical": 33,
+      "shuttle": 4.28
+    },
+    {
+      "name": "Greg Little",
+      "draft_class": 2019,
+      "position": "T",
+      "college": "Ole Miss",
+      "sparq_score": 86.10,
+      "forty": 5.75,
+      "vertical": 26,
+      "shuttle": 4.70
+    },
+    {
+      "name": "Quenton Nelson",
+      "draft_class": 2018,
+      "position": "G",
+      "college": "Notre Dame",
+      "sparq_score": 85.20,
+      "forty": 5.64,
+      "vertical": 24,
+      "shuttle": 4.81,
+      "powerball": 42.5
+    },
+    {
+      "name": "Da'Ron Payne",
+      "draft_class": 2018,
+      "position": "DT",
+      "college": "Alabama",
+      "sparq_score": 84.00,
+      "forty": 5.24,
+      "vertical": 25,
+      "shuttle": 4.80,
+      "powerball": 37.5
+    },
+    {
+      "name": "Jeffrey Simmons",
+      "draft_class": 2019,
+      "position": "DT",
+      "college": "Mississippi State",
+      "sparq_score": 83.79,
+      "forty": 4.96,
+      "vertical": 25,
+      "shuttle": 4.61
+    },
+    {
+      "name": "Derrius Guice",
+      "draft_class": 2018,
+      "position": "RB",
+      "college": "LSU",
+      "sparq_score": 83.37,
+      "forty": 4.61,
+      "vertical": 30,
+      "shuttle": 4.66,
+      "powerball": 35
+    },
+    {
+      "name": "Jonah Williams",
+      "draft_class": 2019,
+      "position": "G",
+      "college": "Alabama",
+      "sparq_score": 82.35,
+      "forty": 5.14,
+      "vertical": 27,
+      "shuttle": 4.66
+    },
+    {
+      "name": "Joe Jackson",
+      "draft_class": 2019,
+      "position": "DE",
+      "college": "Miami",
+      "sparq_score": 80.31,
+      "forty": 4.83,
+      "vertical": 32,
+      "shuttle": 4.93
+    },
+    {
+      "name": "Cody Ford",
+      "draft_class": 2019,
+      "position": "T",
+      "college": "Oklahoma",
+      "sparq_score": 76.71,
+      "forty": 5.53,
+      "vertical": 23,
+      "shuttle": 4.79
+    },
+    {
+      "name": "Tim Settle",
+      "draft_class": 2018,
+      "position": "DT",
+      "college": "Virginia Tech",
+      "sparq_score": 73.17,
+      "forty": 5.35,
+      "vertical": 24,
+      "shuttle": 5.06,
+      "powerball": 31.5
+    },
+    {
+      "name": "Sam Darnold",
+      "draft_class": 2018,
+      "position": "QB",
+      "college": "USC",
+      "sparq_score": 71.25,
+      "forty": 4.96,
+      "vertical": 27,
+      "shuttle": 4.47,
+      "powerball": 35
+    },
+    {
+      "name": "Derrick Nnadi",
+      "draft_class": 2018,
+      "position": "DT",
+      "college": "Florida State",
+      "sparq_score": 70.14,
+      "forty": 5.53,
+      "vertical": 26,
+      "shuttle": 5.06,
+      "powerball": 34
+    },
+    {
+      "name": "Derrick Brown",
+      "draft_class": 2020,
+      "position": "DT",
+      "college": "Auburn",
+      "sparq_score": 64.38,
+      "forty": 5.28,
+      "vertical": 23,
+      "shuttle": 4.82
+    },
+    {
+      "name": "Isaiah Wynn",
+      "draft_class": 2018,
+      "position": "T",
+      "college": "Georgia",
+      "sparq_score": 54.45,
+      "forty": 5.30,
+      "vertical": 27,
+      "shuttle": 5.06,
+      "powerball": 32
+    },
+    {
+      "name": "J.K. Dobbins",
+      "draft_class": 2020,
+      "position": "RB",
+      "college": "Ohio State",
+      "sparq_score": 146.76,
+      "note": "Led all players at The Opening 2016"
+    },
+    {
+      "name": "Cam Akers",
+      "draft_class": 2020,
+      "position": "RB",
+      "college": "Florida State",
+      "forty": 4.41,
+      "vertical": 38.6,
+      "shuttle": 4.18,
+      "powerball": 41,
+      "note": "Earned 5-star rating at The Opening 2016"
+    },
+    {
+      "name": "Rondale Moore",
+      "draft_class": 2021,
+      "position": "WR",
+      "college": "Purdue",
+      "forty": 4.33,
+      "vertical": 43,
+      "shuttle": 4.01
+    },
+    {
+      "name": "Ambry Thomas",
+      "draft_class": 2021,
+      "position": "CB",
+      "college": "Michigan",
+      "forty": 4.43,
+      "vertical": 36,
+      "shuttle": 3.90
+    },
+    {
+      "name": "Tutu Atwell",
+      "draft_class": 2021,
+      "position": "WR",
+      "college": "Louisville",
+      "forty": 4.26,
+      "shuttle": 3.90
+    },
+    {
+      "name": "Javian Hawkins",
+      "draft_class": 2021,
+      "position": "RB",
+      "college": "Louisville",
+      "forty": 4.36,
+      "vertical": 41,
+      "shuttle": 3.95
+    },
+    {
+      "name": "Kyler Gordon",
+      "draft_class": 2022,
+      "position": "CB",
+      "college": "Washington",
+      "vertical": 42.5
+    },
+    {
+      "name": "Xavier Thomas",
+      "draft_class": 2021,
+      "position": "DE",
+      "college": "Clemson",
+      "forty": 4.58,
+      "vertical": 33,
+      "shuttle": 4.30,
+      "note": "Top defensive lineman who tested"
+    },
+    {
+      "name": "Alim McNeill",
+      "draft_class": 2021,
+      "position": "DT",
+      "college": "NC State",
+      "forty": 4.94,
+      "vertical": 34,
+      "shuttle": 4.27
+    },
+    {
+      "name": "Jalen Reagor",
+      "draft_class": 2020,
+      "position": "WR",
+      "college": "TCU",
+      "vertical": 38.5
+    },
+    {
+      "name": "Tee Higgins",
+      "draft_class": 2020,
+      "position": "WR",
+      "college": "Clemson",
+      "vertical": 34,
+      "shuttle": 4.23
+    },
+    {
+      "name": "Haskell Garrett",
+      "draft_class": 2022,
+      "position": "DT",
+      "college": "Ohio State",
+      "forty": 5.13,
+      "shuttle": 4.41
+    },
+    {
+      "name": "Tyson Campbell",
+      "draft_class": 2021,
+      "position": "CB",
+      "college": "Georgia",
+      "forty": 4.47,
+      "vertical": 33,
+      "shuttle": 4.51
+    },
+    {
+      "name": "Elijah Molden",
+      "draft_class": 2021,
+      "position": "CB",
+      "college": "Washington",
+      "vertical": 37,
+      "shuttle": 3.93
+    }
+  ],
+  "percentile_benchmarks": {
+    "sparq_score": {
+      "elite_99th": 145,
+      "excellent_90th": 130,
+      "good_75th": 115,
+      "average_50th": 95,
+      "below_avg_25th": 75
+    },
+    "forty": {
+      "elite_by_position": {
+        "WR": 4.35,
+        "RB": 4.45,
+        "CB": 4.40,
+        "S": 4.50,
+        "LB": 4.55,
+        "EDGE": 4.60,
+        "DT": 5.00
+      }
+    },
+    "vertical": {
+      "elite_by_position": {
+        "WR": 40,
+        "RB": 38,
+        "CB": 38,
+        "S": 38,
+        "LB": 38,
+        "EDGE": 36,
+        "DT": 30
+      }
+    },
+    "shuttle": {
+      "elite_by_position": {
+        "WR": 4.00,
+        "RB": 4.10,
+        "CB": 3.95,
+        "S": 4.10,
+        "LB": 4.20,
+        "EDGE": 4.25,
+        "DT": 4.50
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "main.py"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/cron/content-pipeline",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/cron/lead-qualification",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
