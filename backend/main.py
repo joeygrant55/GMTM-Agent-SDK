@@ -24,26 +24,30 @@ load_dotenv()
 # Import sandbox runner
 from sandbox_runner import run_agent_in_sandbox, AgentResult
 
-# Import Scout AI router
-from scout_router import router as scout_router
+# Import simplified Search API (bypasses Agent SDK)
+from search_api import router as search_router
+
+# Import Agent API
+from agent_api import router as agent_router
 
 app = FastAPI(
-    title="GMTM Agent SDK Backend",
-    description="Orchestrates autonomous marketing agents via Claude Agent SDK + E2B. Includes Scout AI for talent discovery.",
-    version="1.1.0"
+    title="SPARQ Agent Backend",
+    description="AI-powered athlete search and recruiting intelligence.",
+    version="1.0.0"
 )
 
 # Add CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount Scout AI router
-app.include_router(scout_router)
+# Mount API routers
+app.include_router(search_router)
+app.include_router(agent_router)
 
 # ============================================
 # DATA MODELS
