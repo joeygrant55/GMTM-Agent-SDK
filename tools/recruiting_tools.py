@@ -59,9 +59,9 @@ class RecruitingTools:
                 """)
                 top_programs = c.fetchall()
                 
-                # If preferences include region, filter
-                if preferences and preferences.get('region'):
-                    region = preferences['region']
+                # If state filter provided
+                region = state or (preferences.get('region') if preferences else None)
+                if region:
                     c.execute("""
                         SELECT DISTINCT o.organization_id, o.name,
                                l.city, l.province as state,
@@ -108,6 +108,9 @@ class RecruitingTools:
     def analyze_profile(self, athlete: Dict, position: str = None) -> Dict:
         """Analyze athlete's metrics compared to peers"""
         try:
+            user_id = athlete.get('user_id') if isinstance(athlete, dict) else athlete
+            if not position and isinstance(athlete, dict):
+                position = athlete.get('position')
             self._connect()
             with self.db.cursor() as c:
                 # Get athlete's metrics
