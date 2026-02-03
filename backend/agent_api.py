@@ -22,11 +22,13 @@ class CampSearchRequest(BaseModel):
     athlete_id: int
     max_results: int = 10
 
+from typing import Optional
+
 class ChatRequest(BaseModel):
     athlete_id: int
     message: str
     conversation_history: list = []
-    conversation_id: int = None  # Optional - for persistent conversations
+    conversation_id: Optional[int] = None  # Optional - for persistent conversations
 
 class ConversationCreate(BaseModel):
     user_id: int
