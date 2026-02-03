@@ -31,10 +31,21 @@ export default function CampFinder({ athleteId }: CampFinderProps) {
     setError(null)
     
     try {
-      const response = await fetch(`/api/agent/find-camps/${athleteId}?max_results=10`)
+      // Agent research takes 30-40 seconds - no timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
+      
+      // Call backend directly to avoid Next.js proxy timeout
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      const response = await fetch(`${backendUrl}/api/agent/find-camps/${athleteId}?max_results=10`, {
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
       
       if (!response.ok) {
-        throw new Error('Failed to find camps')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || errorData.error || 'Failed to find camps')
       }
       
       const data = await response.json()
@@ -59,7 +70,7 @@ export default function CampFinder({ athleteId }: CampFinderProps) {
           disabled={loading}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
         >
-          {loading ? '🔍 Searching...' : '🤖 Find My Camps'}
+          {loading ? '🤖 Agent researching... (30-40s)' : '🤖 Find My Camps'}
         </button>
       </div>
 

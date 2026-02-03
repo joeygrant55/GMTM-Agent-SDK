@@ -11,15 +11,21 @@ import os
 # Add agents to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import both versions
+# Import agents
 from agents.camp_finder_standalone import CampFinderAgent  # Simple version
 from agents.autonomous_camp_finder import autonomous_camp_finder  # Full Agent SDK version
+from agents.orchestrator_agent import orchestrator  # Unified chat agent
 
 router = APIRouter(prefix="/api", tags=["Agents"])
 
 class CampSearchRequest(BaseModel):
     athlete_id: int
     max_results: int = 10
+
+class ChatRequest(BaseModel):
+    athlete_id: int
+    message: str
+    conversation_history: list = []
 
 @router.post("/agent/find-camps")
 async def find_camps(request: CampSearchRequest):
@@ -72,6 +78,30 @@ async def find_camps_get(athlete_id: int, max_results: int = 10, autonomous: boo
         
         if 'error' in result:
             raise HTTPException(status_code=404, detail=result['error'])
+        
+        return result
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/agent/chat")
+async def agent_chat(request: ChatRequest):
+    """
+    Unified chat interface with orchestrator agent
+    
+    POST /api/agent/chat
+    Body: {
+        "athlete_id": 383,
+        "message": "Find camps near me",
+        "conversation_history": []
+    }
+    """
+    try:
+        result = orchestrator.chat(
+            athlete_id=request.athlete_id,
+            message=request.message,
+            conversation_history=request.conversation_history
+        )
         
         return result
     
