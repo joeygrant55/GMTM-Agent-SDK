@@ -149,7 +149,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     // Add thinking indicator
     const thinkingMessage: Message = {
       role: 'assistant',
-      content: 'Thinking...',
+      content: 'Researching... This can take up to 60 seconds for deep analysis.',
       timestamp: new Date(),
       thinking: true
     }
@@ -157,7 +157,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 min for deep research
+      const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 min for deep research
       
       const response = await fetch(`${backendUrl}/api/agent/chat`, {
         method: 'POST',
