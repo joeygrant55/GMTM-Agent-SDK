@@ -28,7 +28,49 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [conversationId, setConversationId] = useState<number | null>(null)
+  const [conversations, setConversations] = useState<any[]>([])
+  const [showSidebar, setShowSidebar] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+
+  // Load conversations list on mount
+  useEffect(() => {
+    fetch(`${backendUrl}/api/conversations/${athleteId}`)
+      .then(r => r.json())
+      .then(data => setConversations(data.conversations || []))
+      .catch(() => {})
+  }, [athleteId])
+
+  // Load a specific conversation
+  const loadConversation = async (convId: number) => {
+    try {
+      const res = await fetch(`${backendUrl}/api/conversations/${athleteId}/${convId}`)
+      const data = await res.json()
+      setConversationId(convId)
+      const loaded: Message[] = data.messages.map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.created_at),
+        toolsUsed: m.tools_used ? (typeof m.tools_used === 'string' ? JSON.parse(m.tools_used) : m.tools_used) : [],
+        agentSteps: m.agent_steps ? (typeof m.agent_steps === 'string' ? JSON.parse(m.agent_steps) : m.agent_steps) : [],
+      }))
+      setMessages(loaded)
+      setShowSidebar(false)
+    } catch (e) {}
+  }
+
+  // Start new conversation
+  const newConversation = () => {
+    setConversationId(null)
+    setMessages([{
+      role: 'assistant',
+      content: `Hi ${athleteName.split(' ')[0]}! I'm your AI recruiting agent. I can help you:\n\n• Find camps and combines\n• Research coaches and programs\n• Draft emails and messages\n• Analyze your profile and metrics\n• Discover opportunities\n\nWhat would you like help with?`,
+      timestamp: new Date()
+    }])
+    setShowSidebar(false)
+  }
 
   const formatMessageContent = (content: string) => {
     // Convert markdown tables to HTML tables
@@ -110,9 +152,6 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
     setMessages(prev => [...prev, thinkingMessage])
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
-      
-      // Create abort controller with 60 second timeout (agent can take 30-40s)
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 min for deep research
       
@@ -122,7 +161,8 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
         body: JSON.stringify({
           athlete_id: athleteId,
           message: input,
-          conversation_history: messages.slice(-5) // Last 5 messages for context
+          conversation_id: conversationId,
+          conversation_history: conversationId ? [] : messages.slice(-5)
         }),
         signal: controller.signal
       })
@@ -134,6 +174,16 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
       }
 
       const data = await response.json()
+
+      // Save conversation ID for persistence
+      if (data.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id)
+        // Refresh sidebar
+        fetch(`${backendUrl}/api/conversations/${athleteId}`)
+          .then(r => r.json())
+          .then(d => setConversations(d.conversations || []))
+          .catch(() => {})
+      }
 
       // Remove thinking message and add real response with tools used
       setMessages(prev => [
@@ -175,15 +225,64 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[700px]">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[700px] relative">
+      {/* Conversation Sidebar */}
+      {showSidebar && (
+        <div className="absolute inset-0 z-20 flex">
+          <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full rounded-l-xl">
+            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+              <h4 className="font-semibold text-gray-900 text-sm">Your Conversations</h4>
+              <button onClick={() => setShowSidebar(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+            </div>
+            <div className="p-2">
+              <button
+                onClick={newConversation}
+                className="w-full px-3 py-2 bg-sparq-charcoal text-sparq-lime text-sm font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors mb-2"
+              >
+                + New Chat
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-2">
+              {conversations.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-4">No saved chats yet</p>
+              ) : (
+                conversations.map(conv => (
+                  <button
+                    key={conv.id}
+                    onClick={() => loadConversation(conv.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${
+                      conversationId === conv.id 
+                        ? 'bg-sparq-lime/20 text-sparq-charcoal font-medium' 
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    <div className="font-medium truncate">{conv.title}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {conv.message_count} messages • {new Date(conv.updated_at).toLocaleDateString()}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="flex-1 bg-black/20" onClick={() => setShowSidebar(false)} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-gray-200 p-4">
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowSidebar(!showSidebar)} className="text-gray-400 hover:text-gray-600" title="Chat history">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
           <img src="/sparq-logo.jpg" alt="SPARQ" className="w-10 h-10 rounded-full" />
-          <div>
+          <div className="flex-1">
             <h3 className="font-semibold text-gray-900">SPARQ Agent</h3>
             <p className="text-sm text-gray-600">Your AI recruiting coordinator</p>
           </div>
+          <button onClick={newConversation} className="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
+            + New
+          </button>
         </div>
       </div>
 
