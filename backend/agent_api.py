@@ -23,6 +23,7 @@ class CampSearchRequest(BaseModel):
     max_results: int = 10
 
 from typing import Optional
+from fastapi.responses import StreamingResponse
 
 class ChatRequest(BaseModel):
     athlete_id: int
@@ -256,3 +257,101 @@ async def agent_chat(request: ChatRequest):
         if db:
             db.close()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agent/chat/stream")
+async def agent_chat_stream(request: ChatRequest):
+    """SSE streaming chat - shows tool use and text in real-time"""
+    
+    async def event_generator():
+        conversation_id = request.conversation_id
+        conversation_history = request.conversation_history
+        
+        # Load history from DB if conversation exists
+        if conversation_id:
+            try:
+                db = _get_agent_db()
+                with db.cursor() as c:
+                    c.execute(
+                        "SELECT role, content FROM agent_messages WHERE conversation_id = %s ORDER BY created_at",
+                        (conversation_id,)
+                    )
+                    db_messages = c.fetchall()
+                    if db_messages:
+                        conversation_history = [{"role": m["role"], "content": m["content"]} for m in db_messages]
+                db.close()
+            except:
+                pass
+        
+        # Auto-create conversation
+        if not conversation_id:
+            try:
+                db = _get_agent_db()
+                with db.cursor() as c:
+                    title = request.message[:60] + ("..." if len(request.message) > 60 else "")
+                    c.execute(
+                        "INSERT INTO agent_conversations (user_id, title) VALUES (%s, %s)",
+                        (request.athlete_id, title)
+                    )
+                    db.commit()
+                    conversation_id = c.lastrowid
+                db.close()
+            except:
+                pass
+        
+        # Send conversation_id first
+        yield f"event: conversation_id\ndata: {conversation_id}\n\n"
+        
+        full_response = ""
+        tools_used = []
+        agent_steps = []
+        
+        for event in orchestrator.chat_stream(
+            athlete_id=request.athlete_id,
+            message=request.message,
+            conversation_history=conversation_history
+        ):
+            evt = event.get("event", "status")
+            data = event.get("data", "")
+            
+            if evt == "text":
+                full_response += data
+            elif evt == "done":
+                try:
+                    done_data = _json.loads(data)
+                    tools_used = done_data.get("tools_used", [])
+                    agent_steps = done_data.get("agent_steps", [])
+                    full_response = done_data.get("full_response", full_response)
+                except:
+                    pass
+            
+            yield f"event: {evt}\ndata: {data}\n\n"
+        
+        # Save messages to DB
+        if conversation_id:
+            try:
+                db = _get_agent_db()
+                with db.cursor() as c:
+                    c.execute(
+                        "INSERT INTO agent_messages (conversation_id, role, content) VALUES (%s, 'user', %s)",
+                        (conversation_id, request.message)
+                    )
+                    c.execute(
+                        "INSERT INTO agent_messages (conversation_id, role, content, tools_used, agent_steps) VALUES (%s, 'assistant', %s, %s, %s)",
+                        (conversation_id, full_response,
+                         _json.dumps(tools_used), _json.dumps(agent_steps))
+                    )
+                    db.commit()
+                db.close()
+            except:
+                pass
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )

@@ -385,6 +385,209 @@ Always use multiple tools when it makes the answer better. Don't just return raw
             }
         finally:
             self.close_db()
+
+    def chat_stream(self, athlete_id: int, message: str, conversation_history: list = None):
+        """Streaming version - yields SSE events for real-time UI updates.
+        Tool use phase: yields tool_start/tool_done events
+        Text phase: yields text chunks as they stream from Claude
+        """
+        import copy
+        try:
+            self.connect_db()
+            athlete = self._get_athlete_profile(athlete_id)
+            if not athlete:
+                yield {"event": "error", "data": "Athlete not found"}
+                return
+
+            # Build system prompt (same as chat method)
+            system_prompt = f"""You are a SPARQ Agent - an AI recruiting coordinator helping athletes get recruited.
+
+Athlete Profile:
+- Name: {athlete['first_name']} {athlete['last_name']}
+- Position: {athlete.get('position', 'N/A')}
+- Location: {athlete.get('city', 'Unknown')}, {athlete.get('state', 'Unknown')}
+- Sport: {athlete.get('sport', 'Football')}
+- Grad Year: {athlete.get('graduation_year', 'N/A')}
+
+Your Role:
+You are an expert college recruiting advisor — think of yourself as a combination of a top recruiting analyst, a college counselor, and a player's agent. Go DEEP with research.
+
+IMPORTANT: Athlete metrics are mostly SELF-REPORTED (only 3% verified). Always note this.
+
+Think like a $5,000/year recruiting service advisor. Be thorough, specific, and honest.
+Always use multiple tools when it makes the answer better."""
+
+            tools = self._get_tool_definitions()
+
+            messages = []
+            if conversation_history:
+                for msg in conversation_history[-10:]:
+                    if msg.get('role') in ['user', 'assistant']:
+                        messages.append({"role": msg['role'], "content": msg.get('content', '')})
+            messages.append({"role": "user", "content": message})
+
+            tools_used = []
+            agent_steps = []
+            max_iterations = 10
+
+            yield {"event": "status", "data": "Starting research..."}
+
+            for iteration in range(max_iterations):
+                response = self.anthropic.messages.create(
+                    model="claude-opus-4-5-20251101",
+                    max_tokens=8192,
+                    system=system_prompt,
+                    tools=tools,
+                    messages=messages
+                )
+
+                if response.stop_reason != "tool_use":
+                    # Final response - stream it
+                    break
+
+                tool_results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        tool_name = block.name
+                        tool_input = block.input
+                        tools_used.append(tool_name)
+
+                        step = self._get_step_description(tool_name, tool_input)
+                        agent_steps.append(step)
+                        yield {"event": "tool_start", "data": json.dumps({"tool": tool_name, "step": step})}
+
+                        result = self._execute_tool(tool_name, tool_input, athlete)
+
+                        done_step = f"✅ {tool_name} complete"
+                        agent_steps.append(done_step)
+                        yield {"event": "tool_done", "data": json.dumps({"tool": tool_name, "step": done_step})}
+
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps(result)
+                        })
+
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": tool_results})
+
+            # Stream the final text response
+            yield {"event": "status", "data": "Writing report..."}
+
+            # Re-run with streaming for the final text
+            with self.anthropic.messages.stream(
+                model="claude-opus-4-5-20251101",
+                max_tokens=8192,
+                system=system_prompt,
+                messages=messages
+            ) as stream:
+                full_text = ""
+                for text in stream.text_stream:
+                    full_text += text
+                    yield {"event": "text", "data": text}
+
+            yield {"event": "done", "data": json.dumps({
+                "tools_used": tools_used,
+                "agent_steps": agent_steps,
+                "full_response": full_text
+            })}
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            yield {"event": "error", "data": str(e)}
+        finally:
+            self.close_db()
+
+    def _get_tool_definitions(self):
+        """Return tool definitions array (shared between chat and chat_stream)"""
+        return [
+            {
+                "name": "find_camps",
+                "description": "Search for football camps, combines, and showcases.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "location": {"type": "string", "description": "City/state to search near"},
+                        "sport": {"type": "string", "description": "Sport type"},
+                        "max_results": {"type": "integer", "description": "Max results", "default": 5}
+                    }
+                }
+            },
+            {
+                "name": "search_web",
+                "description": "Search the web for recruiting information, coaching staffs, program details, depth charts, etc.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "max_results": {"type": "integer", "description": "Max results", "default": 5}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "get_athlete_stats",
+                "description": "Get the athlete's metrics and stats from the database.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "draft_email",
+                "description": "Draft a personalized email to a college coach.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "coach_name": {"type": "string"},
+                        "school": {"type": "string"},
+                        "email_type": {"type": "string", "enum": ["introduction", "camp_followup", "interest", "visit_request"]}
+                    },
+                    "required": ["school", "email_type"]
+                }
+            },
+            {
+                "name": "match_programs",
+                "description": "Find college programs matching athlete's profile from scholarship offer data.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "state": {"type": "string", "description": "Filter by state"},
+                        "limit": {"type": "integer", "default": 15}
+                    }
+                }
+            },
+            {
+                "name": "analyze_profile",
+                "description": "Compare athlete's metrics to position averages with percentile rankings.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "get_recruiting_calendar",
+                "description": "Get NCAA recruiting calendar dates and deadlines.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "sport": {"type": "string"},
+                        "grad_year": {"type": "integer"}
+                    }
+                }
+            },
+            {
+                "name": "get_film_guidance",
+                "description": "Get position-specific highlight reel and film tips.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "position": {"type": "string"}
+                    }
+                }
+            }
+        ]
     
     def _get_athlete_profile(self, athlete_id: int) -> Optional[Dict]:
         """Get athlete from database"""

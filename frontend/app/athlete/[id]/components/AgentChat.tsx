@@ -146,20 +146,18 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     setInput('')
     setLoading(true)
 
-    // Add thinking indicator
-    const thinkingMessage: Message = {
+    // Add streaming message placeholder
+    const streamingMessage: Message = {
       role: 'assistant',
-      content: 'Researching... This can take up to 60 seconds for deep analysis.',
+      content: '',
       timestamp: new Date(),
-      thinking: true
+      thinking: true,
+      agentSteps: []
     }
-    setMessages(prev => [...prev, thinkingMessage])
+    setMessages(prev => [...prev, streamingMessage])
 
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 min for deep research
-      
-      const response = await fetch(`${backendUrl}/api/agent/chat`, {
+      const response = await fetch(`${backendUrl}/api/agent/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -168,54 +166,138 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
           conversation_id: conversationId,
           conversation_history: conversationId ? [] : messages.slice(-5)
         }),
-        signal: controller.signal
       })
-      
-      clearTimeout(timeoutId)
 
-      if (!response.ok) {
-        throw new Error('Failed to get response from agent')
-      }
+      if (!response.ok) throw new Error('Failed to connect to agent')
 
-      const data = await response.json()
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
 
-      // Save conversation ID for persistence
-      if (data.conversation_id && !conversationId) {
-        setConversationId(data.conversation_id)
-        // Refresh sidebar
-        fetch(`${backendUrl}/api/conversations/${athleteId}`)
-          .then(r => r.json())
-          .then(d => setConversations(d.conversations || []))
-          .catch(() => {})
-      }
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let streamedText = ''
+      let steps: string[] = []
+      let toolsUsed: string[] = []
 
-      // Remove thinking message and add real response with tools used
-      setMessages(prev => [
-        ...prev.slice(0, -1),
-        {
-          role: 'assistant',
-          content: data.response || data.message || 'I encountered an error. Please try again.',
-          timestamp: new Date(),
-          toolsUsed: data.tools_used || [],
-          agentSteps: data.agent_steps || [],
-          structured: data.structured || null
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // Parse SSE events from buffer
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        let eventType = ''
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+
+            if (eventType === 'conversation_id') {
+              const cid = parseInt(data)
+              if (cid && !conversationId) {
+                setConversationId(cid)
+                fetch(`${backendUrl}/api/conversations/${athleteId}`)
+                  .then(r => r.json())
+                  .then(d => setConversations(d.conversations || []))
+                  .catch(() => {})
+              }
+            } else if (eventType === 'status') {
+              // Update thinking status
+              setMessages(prev => {
+                const updated = [...prev]
+                const last = updated[updated.length - 1]
+                if (last?.thinking) {
+                  updated[updated.length - 1] = { ...last, content: data, agentSteps: [...steps] }
+                }
+                return updated
+              })
+            } else if (eventType === 'tool_start') {
+              try {
+                const toolData = JSON.parse(data)
+                steps.push(toolData.step)
+                toolsUsed.push(toolData.tool)
+                setMessages(prev => {
+                  const updated = [...prev]
+                  const last = updated[updated.length - 1]
+                  if (last?.thinking) {
+                    updated[updated.length - 1] = { ...last, content: 'Researching...', agentSteps: [...steps] }
+                  }
+                  return updated
+                })
+              } catch {}
+            } else if (eventType === 'tool_done') {
+              try {
+                const toolData = JSON.parse(data)
+                steps.push(toolData.step)
+                setMessages(prev => {
+                  const updated = [...prev]
+                  const last = updated[updated.length - 1]
+                  if (last?.thinking) {
+                    updated[updated.length - 1] = { ...last, agentSteps: [...steps] }
+                  }
+                  return updated
+                })
+              } catch {}
+            } else if (eventType === 'text') {
+              streamedText += data
+              // Switch from thinking to streaming text
+              setMessages(prev => {
+                const updated = [...prev]
+                const last = updated[updated.length - 1]
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: streamedText,
+                  thinking: false,
+                  agentSteps: [...steps],
+                  toolsUsed: [...toolsUsed]
+                }
+                return updated
+              })
+            } else if (eventType === 'error') {
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = {
+                  role: 'assistant',
+                  content: `Sorry, I encountered an error: ${data}. Please try again.`,
+                  timestamp: new Date(),
+                  thinking: false
+                }
+                return updated
+              })
+            }
+            eventType = ''
+          }
         }
-      ])
+      }
+
+      // Final update with complete data
+      setMessages(prev => {
+        const updated = [...prev]
+        updated[updated.length - 1] = {
+          role: 'assistant',
+          content: streamedText || 'I completed my research. How can I help further?',
+          timestamp: new Date(),
+          thinking: false,
+          toolsUsed,
+          agentSteps: steps
+        }
+        return updated
+      })
 
     } catch (error: any) {
-      // Remove thinking message and show error
-      const errorMessage = error.name === 'AbortError' 
-        ? 'The request took too long. The agent might be doing deep research - please try a simpler question or try again.'
-        : `Sorry, I encountered an error: ${error.message}. Please try again.`
-      
-      setMessages(prev => [
-        ...prev.slice(0, -1),
-        {
+      setMessages(prev => {
+        const updated = [...prev]
+        updated[updated.length - 1] = {
           role: 'assistant',
-          content: errorMessage,
+          content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
           timestamp: new Date()
         }
-      ])
+        return updated
+      })
     } finally {
       setLoading(false)
     }
