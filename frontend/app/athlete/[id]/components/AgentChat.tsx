@@ -291,7 +291,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
                 })
               } catch {}
             } else if (eventType === 'text') {
-              streamedText += data
+              streamedText += data.replace(/\\n/g, '\n')
               // Switch from thinking to streaming text
               setMessages(prev => {
                 const updated = [...prev]

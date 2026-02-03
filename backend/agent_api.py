@@ -315,17 +315,19 @@ async def agent_chat_stream(request: ChatRequest):
             data = event.get("data", "")
             
             if evt == "text":
-                full_response += data
+                full_response += data.replace("\\n", "\n")
             elif evt == "done":
                 try:
                     done_data = _json.loads(data)
                     tools_used = done_data.get("tools_used", [])
                     agent_steps = done_data.get("agent_steps", [])
-                    full_response = done_data.get("full_response", full_response)
+                    # full_response already built from text events
                 except:
                     pass
             
-            yield f"event: {evt}\ndata: {data}\n\n"
+            # SSE data can't contain raw newlines - escape them
+            safe_data = data.replace("\n", "\\n") if evt == "text" else data
+            yield f"event: {evt}\ndata: {safe_data}\n\n"
         
         # Save messages to DB
         if conversation_id:
