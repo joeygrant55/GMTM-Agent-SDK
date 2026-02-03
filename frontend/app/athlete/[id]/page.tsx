@@ -32,9 +32,10 @@ export default function AthleteDashboard() {
     setError(null)
     
     // Fetch specific athlete profile and similar athletes (opportunities)
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
     Promise.all([
-      fetch(`/api/athlete/${athleteId}`),
-      fetch(`/api/search?limit=6`)
+      fetch(`${backendUrl}/api/athlete/${athleteId}`),
+      fetch(`${backendUrl}/api/search?limit=6`)
     ])
       .then(async ([profileRes, oppsRes]) => {
         if (!profileRes.ok) {
