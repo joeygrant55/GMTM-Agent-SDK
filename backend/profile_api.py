@@ -84,7 +84,7 @@ async def get_dashboard(user_id: int):
             
             # Get position
             c.execute("""
-                SELECT p.abbreviation as position
+                SELECT p.name as position
                 FROM user_positions up
                 JOIN positions p ON up.position_id = p.position_id
                 WHERE up.user_id = %s AND up.is_primary = 1
