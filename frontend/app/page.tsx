@@ -26,8 +26,17 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="max-w-7xl mx-auto px-6 pt-20 pb-16">
-        <div className="max-w-4xl">
+      <section className="max-w-7xl mx-auto px-6 pt-20 pb-16 relative">
+        {/* Hero Background */}
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <img 
+            src="/images/hero-bg.png" 
+            alt="" 
+            className="absolute inset-0 w-full h-full object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-sparq-charcoal/80 via-sparq-charcoal/60 to-sparq-charcoal" />
+        </div>
+        <div className="max-w-4xl relative">
           <div className="inline-block px-3 py-1 bg-sparq-lime/10 border border-sparq-lime/20 rounded-full text-sparq-lime text-sm font-medium mb-6">
             AI-Powered Recruiting Intelligence
           </div>
@@ -82,52 +91,76 @@ export default function Home() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 hover:border-sparq-lime/30 transition-colors">
-            <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl mb-5">🏫</div>
-            <h3 className="text-xl font-bold mb-3">College Matching</h3>
-            <p className="text-gray-400 leading-relaxed">
-              Get matched to programs based on your metrics, academics, location, and playing style. See which coaches are recruiting your position.
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
+            <div className="h-32 overflow-hidden">
+              <img src="/images/college-matching.png" alt="College Matching" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-3">College Matching</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Get matched to programs based on your metrics, academics, location, and playing style. See which coaches are recruiting your position.
+              </p>
+            </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 hover:border-sparq-lime/30 transition-colors">
-            <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl mb-5">📊</div>
-            <h3 className="text-xl font-bold mb-3">Profile Analysis</h3>
-            <p className="text-gray-400 leading-relaxed">
-              See how you stack up against other athletes at your position. Know your strengths, areas to improve, and where you rank.
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
+            <div className="h-32 overflow-hidden">
+              <img src="/images/profile-analysis.png" alt="Profile Analysis" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-3">Profile Analysis</h3>
+              <p className="text-gray-400 leading-relaxed">
+                See how you stack up against other athletes at your position. Know your strengths, areas to improve, and where you rank.
+              </p>
+            </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 hover:border-sparq-lime/30 transition-colors">
-            <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl mb-5">🔍</div>
-            <h3 className="text-xl font-bold mb-3">Deep Research</h3>
-            <p className="text-gray-400 leading-relaxed">
-              Your agent researches coaching staffs, depth charts, recruiting classes, and NIL landscapes — so you don't have to.
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
+            <div className="h-32 overflow-hidden">
+              <img src="/images/deep-research.png" alt="Deep Research" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-3">Deep Research</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Your agent researches coaching staffs, depth charts, recruiting classes, and NIL landscapes — so you don't have to.
+              </p>
+            </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 hover:border-sparq-lime/30 transition-colors">
-            <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl mb-5">✉️</div>
-            <h3 className="text-xl font-bold mb-3">Coach Outreach</h3>
-            <p className="text-gray-400 leading-relaxed">
-              Draft personalized emails to coaches with your real metrics. Know what to say, when to reach out, and how to follow up.
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
+            <div className="h-32 overflow-hidden">
+              <img src="/images/coach-outreach.png" alt="Coach Outreach" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-3">Coach Outreach</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Draft personalized emails to coaches with your real metrics. Know what to say, when to reach out, and how to follow up.
+              </p>
+            </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 hover:border-sparq-lime/30 transition-colors">
-            <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl mb-5">🏕️</div>
-            <h3 className="text-xl font-bold mb-3">Camp Finder</h3>
-            <p className="text-gray-400 leading-relaxed">
-              Find camps, combines, and showcases near you. Get verified metrics that coaches trust.
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
+            <div className="h-32 overflow-hidden">
+              <img src="/images/camp-finder.png" alt="Camp Finder" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-3">Camp Finder</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Find camps, combines, and showcases near you. Get verified metrics that coaches trust.
+              </p>
+            </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 hover:border-sparq-lime/30 transition-colors">
-            <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl mb-5">📋</div>
-            <h3 className="text-xl font-bold mb-3">Saved Reports</h3>
-            <p className="text-gray-400 leading-relaxed">
-              Every deep research session generates a report you can save, reference, and share with coaches and family.
-            </p>
+          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
+            <div className="h-32 overflow-hidden">
+              <img src="/images/saved-reports.png" alt="Saved Reports" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-3">Saved Reports</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Every deep research session generates a report you can save, reference, and share with coaches and family.
+              </p>
+            </div>
           </div>
         </div>
       </section>
