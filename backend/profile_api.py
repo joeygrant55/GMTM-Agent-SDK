@@ -85,9 +85,10 @@ async def get_dashboard(user_id: int):
             # Get position
             c.execute("""
                 SELECT p.name as position
-                FROM user_positions up
+                FROM career c
+                JOIN user_positions up ON up.career_id = c.career_id
                 JOIN positions p ON up.position_id = p.position_id
-                WHERE up.user_id = %s AND up.is_primary = 1
+                WHERE c.user_id = %s AND up.is_primary = 1
                 LIMIT 1
             """, (user_id,))
             pos = c.fetchone()
