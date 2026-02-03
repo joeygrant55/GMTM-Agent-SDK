@@ -222,6 +222,53 @@ async def connect_profile(request: ProfileConnect):
         db.close()
 
 
+@router.get("/athlete/search")
+async def search_athletes(name: str):
+    """Search athletes by name (READ ONLY from GMTM)"""
+    if len(name.strip()) < 2:
+        return {"athletes": []}
+    gmtm = _get_gmtm_db()
+    try:
+        with gmtm.cursor() as c:
+            parts = name.strip().split()
+            if len(parts) >= 2:
+                c.execute("""
+                    SELECT u.user_id, u.first_name, u.last_name,
+                           l.city, l.province as state
+                    FROM users u
+                    LEFT JOIN locations l ON u.location_id = l.location_id
+                    WHERE u.first_name LIKE %s AND u.last_name LIKE %s
+                    LIMIT 20
+                """, (f"{parts[0]}%", f"{parts[-1]}%"))
+            else:
+                c.execute("""
+                    SELECT u.user_id, u.first_name, u.last_name,
+                           l.city, l.province as state
+                    FROM users u
+                    LEFT JOIN locations l ON u.location_id = l.location_id
+                    WHERE u.first_name LIKE %s OR u.last_name LIKE %s
+                    LIMIT 20
+                """, (f"{name.strip()}%", f"{name.strip()}%"))
+            athletes = c.fetchall()
+            
+            # Get positions
+            for a in athletes:
+                c.execute("""
+                    SELECT p.name as position
+                    FROM career c
+                    JOIN user_positions up ON up.career_id = c.career_id
+                    JOIN positions p ON up.position_id = p.position_id
+                    WHERE c.user_id = %s AND up.is_primary = 1
+                    LIMIT 1
+                """, (a['user_id'],))
+                pos = c.fetchone()
+                a['position'] = pos['position'] if pos else None
+            
+            return {"athletes": athletes}
+    finally:
+        gmtm.close()
+
+
 @router.get("/profile/by-clerk/{clerk_id}")
 async def get_profile_by_clerk(clerk_id: str):
     """Look up athlete ID from Clerk user ID"""

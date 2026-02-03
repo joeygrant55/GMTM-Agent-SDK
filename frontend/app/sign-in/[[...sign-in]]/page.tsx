@@ -7,7 +7,7 @@ export default function SignInPage() {
         <img src="/sparq-logo.jpg" alt="SPARQ" className="w-16 h-16 rounded-xl mx-auto mb-6" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to SPARQ</h1>
         <p className="text-gray-600 mb-8">Sign in to access your AI recruiting agent</p>
-        <SignIn afterSignInUrl="/athlete/383" />
+        <SignIn afterSignInUrl="/connect" />
       </div>
     </div>
   )
