@@ -52,9 +52,9 @@ app.add_middleware(
 )
 
 # Mount API routers
+app.include_router(profile_router)
 app.include_router(search_router)
 app.include_router(agent_router)
-app.include_router(profile_router)
 app.include_router(reports_router)
 
 # ============================================
