@@ -78,52 +78,99 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
   }
 
   const formatMessageContent = (content: string) => {
-    // Convert markdown tables to HTML tables
-    let formatted = content
-    
-    // Detect markdown tables and convert them
-    const tableRegex = /\|(.+)\|\n\|[-:\| ]+\|\n((?:\|.+\|\n?)+)/gm
-    formatted = formatted.replace(tableRegex, (match, headerRow, bodyRows) => {
-      const headers = headerRow.split('|').map((h: string) => h.trim()).filter((h: string) => h)
-      const rows = bodyRows.trim().split('\n').map((row: string) => 
-        row.split('|').map((cell: string) => cell.trim()).filter((cell: string) => cell)
-      )
-      
-      let table = '<div class="overflow-x-auto my-3"><table class="min-w-full text-sm border border-gray-200 rounded-lg overflow-hidden">'
-      table += '<thead class="bg-gray-900"><tr>'
-      headers.forEach((h: string) => {
-        table += `<th class="px-3 py-2 text-left font-semibold text-sparq-lime border-b border-gray-700">${h}</th>`
+    // Split into lines for processing
+    const lines = content.split('\n')
+    let html = ''
+    let inTable = false
+    let tableHeaders: string[] = []
+    let tableRows: string[][] = []
+
+    const formatInline = (text: string) => {
+      return text
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-sparq-charcoal underline">$1</a>')
+    }
+
+    const flushTable = () => {
+      if (tableHeaders.length === 0) return ''
+      let t = '<div class="overflow-x-auto my-3"><table class="min-w-full text-sm border border-gray-200 rounded-lg overflow-hidden">'
+      t += '<thead class="bg-gray-900"><tr>'
+      tableHeaders.forEach(h => {
+        t += `<th class="px-3 py-2 text-left font-semibold text-sparq-lime border-b border-gray-700">${formatInline(h)}</th>`
       })
-      table += '</tr></thead><tbody>'
-      rows.forEach((row: string[], idx: number) => {
-        const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-        table += `<tr class="${bgClass}">`
-        row.forEach((cell: string) => {
-          table += `<td class="px-3 py-2 border-b border-gray-100 text-gray-700">${cell}</td>`
+      t += '</tr></thead><tbody>'
+      tableRows.forEach((row, idx) => {
+        const bg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+        t += `<tr class="${bg}">`
+        row.forEach(cell => {
+          t += `<td class="px-3 py-2 border-b border-gray-100 text-gray-700">${formatInline(cell)}</td>`
         })
-        table += '</tr>'
+        t += '</tr>'
       })
-      table += '</tbody></table></div>'
-      return table
-    })
-    
-    // Bold text
-    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // Headers
-    formatted = formatted.replace(/^#### (.+)$/gm, '<h5 class="font-semibold text-gray-800 mt-3 mb-1 text-sm">$1</h5>')
-    formatted = formatted.replace(/^### (.+)$/gm, '<h4 class="font-semibold text-gray-900 mt-4 mb-2">$1</h4>')
-    formatted = formatted.replace(/^## (.+)$/gm, '<h3 class="font-bold text-gray-900 mt-4 mb-2 text-lg">$1</h3>')
-    formatted = formatted.replace(/^# (.+)$/gm, '<h2 class="font-bold text-gray-900 mt-4 mb-2 text-xl">$1</h2>')
-    // Horizontal rules
-    formatted = formatted.replace(/^---$/gm, '<hr class="my-3 border-gray-200">')
-    // Bullet points
-    formatted = formatted.replace(/^- (.+)$/gm, '<div class="flex gap-2 ml-2"><span class="text-sparq-lime-dark">•</span><span>$1</span></div>')
-    // URLs
-    formatted = formatted.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-sparq-charcoal hover:text-sparq-charcoal underline">$1</a>')
-    // Emojis as section markers
-    formatted = formatted.replace(/^((?:📊|🏈|🎯|💪|⚠️|✅|🏫|📅|🎥|✉️|🔍|⭐|🌟).+)$/gm, '<div class="font-medium text-gray-900 mt-3">$1</div>')
-    
-    return formatted
+      t += '</tbody></table></div>'
+      tableHeaders = []
+      tableRows = []
+      inTable = false
+      return t
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const trimmed = line.trim()
+
+      // Table detection: line starts and ends with |
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        const cells = trimmed.slice(1, -1).split('|').map(c => c.trim())
+        
+        // Check if this is a separator row (|---|---|---|)
+        if (cells.every(c => /^[-:\s]+$/.test(c))) {
+          inTable = true
+          continue
+        }
+        
+        if (!inTable && tableHeaders.length === 0) {
+          // This is the header row
+          tableHeaders = cells
+          continue
+        }
+        
+        if (inTable) {
+          tableRows.push(cells)
+          continue
+        }
+      } else {
+        // Not a table row - flush any pending table
+        if (inTable || tableHeaders.length > 0) {
+          html += flushTable()
+        }
+      }
+
+      // Headers
+      if (trimmed.startsWith('#### ')) {
+        html += `<h5 class="font-semibold text-gray-800 mt-3 mb-1 text-sm">${formatInline(trimmed.slice(5))}</h5>`
+      } else if (trimmed.startsWith('### ')) {
+        html += `<h4 class="font-semibold text-gray-900 mt-4 mb-2">${formatInline(trimmed.slice(4))}</h4>`
+      } else if (trimmed.startsWith('## ')) {
+        html += `<h3 class="font-bold text-gray-900 mt-4 mb-2 text-lg">${formatInline(trimmed.slice(3))}</h3>`
+      } else if (trimmed.startsWith('# ')) {
+        html += `<h2 class="font-bold text-gray-900 mt-4 mb-2 text-xl">${formatInline(trimmed.slice(2))}</h2>`
+      } else if (trimmed === '---') {
+        html += '<hr class="my-3 border-gray-200">'
+      } else if (trimmed.startsWith('- ')) {
+        html += `<div class="flex gap-2 ml-2 my-0.5"><span class="text-sparq-lime-dark">•</span><span>${formatInline(trimmed.slice(2))}</span></div>`
+      } else if (trimmed === '') {
+        html += '<div class="h-2"></div>'
+      } else {
+        html += `<p class="my-1">${formatInline(trimmed)}</p>`
+      }
+    }
+
+    // Flush any remaining table
+    if (inTable || tableHeaders.length > 0) {
+      html += flushTable()
+    }
+
+    return html
   }
 
   const scrollToBottom = () => {
