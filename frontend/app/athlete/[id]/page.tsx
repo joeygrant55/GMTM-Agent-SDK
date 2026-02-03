@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { UserButton } from '@clerk/nextjs'
 import AgentChat from './components/AgentChat'
 
 interface AthleteProfile {
@@ -120,9 +121,10 @@ export default function AthleteDashboard() {
                 <p className="text-xs text-gray-600">{profile.first_name} {profile.last_name} • {profile.position || 'Athlete'}</p>
               </div>
             </div>
-            <a href="/" className="text-sm text-gray-600 hover:text-gray-900">
-              Dashboard
-            </a>
+            <div className="flex items-center gap-3">
+              <a href="/" className="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
+              <UserButton afterSignOutUrl="/" />
+            </div>
           </div>
         </div>
       </header>
