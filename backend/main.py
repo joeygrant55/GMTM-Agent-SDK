@@ -30,6 +30,9 @@ from search_api import router as search_router
 # Import Agent API
 from agent_api import router as agent_router
 
+# Import Profile API
+from profile_api import router as profile_router
+
 app = FastAPI(
     title="SPARQ Agent Backend",
     description="AI-powered athlete search and recruiting intelligence.",
@@ -48,6 +51,7 @@ app.add_middleware(
 # Mount API routers
 app.include_router(search_router)
 app.include_router(agent_router)
+app.include_router(profile_router)
 
 # ============================================
 # DATA MODELS

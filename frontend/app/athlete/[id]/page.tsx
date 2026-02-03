@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import AgentChat from './components/AgentChat'
+import Dashboard from './components/Dashboard'
 
 interface AthleteProfile {
   user_id: number
@@ -14,9 +15,6 @@ interface AthleteProfile {
   state?: string
   position?: string
   sport?: string
-  avatar_url?: string
-  event_name?: string
-  sparq_score?: number
 }
 
 export default function AthleteDashboard() {
@@ -26,82 +24,48 @@ export default function AthleteDashboard() {
   const [profile, setProfile] = useState<AthleteProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [opportunities, setOpportunities] = useState<AthleteProfile[]>([])
+  const [view, setView] = useState<'dashboard' | 'chat'>('dashboard')
+  const [loadConversationId, setLoadConversationId] = useState<number | null>(null)
 
   useEffect(() => {
     setLoading(true)
-    setError(null)
-    
-    // Fetch specific athlete profile and similar athletes (opportunities)
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
-    Promise.all([
-      fetch(`${backendUrl}/api/athlete/${athleteId}`),
-      fetch(`${backendUrl}/api/search?limit=6`)
-    ])
-      .then(async ([profileRes, oppsRes]) => {
-        if (!profileRes.ok) {
-          const errorData = await profileRes.json()
-          throw new Error(errorData.detail || `Athlete ${athleteId} not found`)
-        }
-        return Promise.all([profileRes.json(), oppsRes.json()])
+    fetch(`${backendUrl}/api/athlete/${athleteId}`)
+      .then(async res => {
+        if (!res.ok) throw new Error(`Athlete ${athleteId} not found`)
+        return res.json()
       })
-      .then(([athleteData, oppsData]) => {
-        // Set the specific athlete profile
-        setProfile(athleteData)
-        setOpportunities(oppsData.athletes || [])
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error('Failed to fetch data:', err)
-        setError(err.message || 'Failed to load athlete data')
-        setLoading(false)
-      })
+      .then(data => { setProfile(data); setLoading(false) })
+      .catch(err => { setError(err.message); setLoading(false) })
   }, [athleteId])
+
+  const handleStartChat = () => {
+    setLoadConversationId(null)
+    setView('chat')
+  }
+
+  const handleLoadChat = (conversationId: number) => {
+    setLoadConversationId(conversationId)
+    setView('chat')
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sparq-lime mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your SPARQ Agent dashboard...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sparq-lime mx-auto"></div>
       </div>
     )
   }
 
-  if (error) {
+  if (error || !profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="text-6xl mb-4">🔍</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Athlete Not Found</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <div className="space-y-3">
-            <a 
-              href="/" 
-              className="inline-block w-full px-6 py-3 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors"
-            >
-              ← Back to Home
-            </a>
-            <div className="text-sm text-gray-500">
-              Try these athlete IDs: 
-              <a href="/athlete/383" className="text-sparq-charcoal hover:text-sparq-lime-dark ml-1">383</a>,
-              <a href="/athlete/435" className="text-sparq-charcoal hover:text-sparq-lime-dark ml-1">435</a>,
-              <a href="/athlete/2370" className="text-sparq-charcoal hover:text-sparq-lime-dark ml-1">2370</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600">No athlete data available</p>
-          <a href="/" className="mt-4 inline-block text-sparq-charcoal hover:text-sparq-lime-dark">
-            ← Back to home
+          <a href="/" className="px-6 py-3 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors">
+            ← Back to Home
           </a>
         </div>
       </div>
@@ -110,7 +74,7 @@ export default function AthleteDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Minimal Header */}
+      {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 py-3 sm:px-6">
           <div className="flex items-center justify-between">
@@ -121,40 +85,49 @@ export default function AthleteDashboard() {
                 <p className="text-xs text-gray-600">{profile.first_name} {profile.last_name} • {profile.position || 'Athlete'}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <a href="/" className="text-sm text-gray-600 hover:text-gray-900">Dashboard</a>
+            <div className="flex items-center gap-2">
+              {/* View Toggle */}
+              <div className="flex bg-gray-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setView('dashboard')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    view === 'dashboard' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Home
+                </button>
+                <button
+                  onClick={() => setView('chat')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    view === 'chat' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Agent
+                </button>
+              </div>
               <UserButton afterSignOutUrl="/" />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Hero Chat Interface */}
+      {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 py-8 sm:px-6">
-        <div className="mb-6 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Your AI Recruiting Coordinator
-          </h2>
-          <p className="text-gray-600">
-            Ask anything about recruiting, camps, coaches, or your athletic career
-          </p>
-        </div>
-
-        {/* Main Chat Interface - Full width, centered */}
-        <div className="max-w-4xl mx-auto">
-          <AgentChat 
+        {view === 'dashboard' ? (
+          <Dashboard
             athleteId={athleteId}
-            athleteName={`${profile.first_name} ${profile.last_name}`}
+            onStartChat={handleStartChat}
+            onLoadChat={handleLoadChat}
           />
-        </div>
-
-        {/* Subtle footer info */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>
-            🏈 {profile.position} • 📍 {profile.city}, {profile.state} 
-            {profile.graduation_year && ` • 🎓 Class of ${profile.graduation_year}`}
-          </p>
-        </div>
+        ) : (
+          <div className="max-w-4xl mx-auto">
+            <AgentChat
+              athleteId={athleteId}
+              athleteName={`${profile.first_name} ${profile.last_name}`}
+              initialConversationId={loadConversationId}
+            />
+          </div>
+        )}
       </main>
     </div>
   )

@@ -16,9 +16,10 @@ interface Message {
 interface AgentChatProps {
   athleteId: string
   athleteName: string
+  initialConversationId?: number | null
 }
 
-export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
+export default function AgentChat({ athleteId, athleteName, initialConversationId }: AgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -35,13 +36,16 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
-  // Load conversations list on mount
+  // Load conversations list on mount + initial conversation if provided
   useEffect(() => {
     fetch(`${backendUrl}/api/conversations/${athleteId}`)
       .then(r => r.json())
       .then(data => setConversations(data.conversations || []))
       .catch(() => {})
-  }, [athleteId])
+    if (initialConversationId) {
+      loadConversation(initialConversationId)
+    }
+  }, [athleteId, initialConversationId])
 
   // Load a specific conversation
   const loadConversation = async (convId: number) => {
