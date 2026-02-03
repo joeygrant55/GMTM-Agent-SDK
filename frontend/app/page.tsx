@@ -43,7 +43,7 @@ export default function Home() {
             <Link href="/sign-up" className="px-8 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-lg hover:bg-sparq-lime-dark transition-colors">
               Get Started Free
             </Link>
-            <Link href="/athlete/383" className="px-8 py-4 border border-white/20 text-white font-medium text-lg rounded-lg hover:bg-white/5 transition-colors">
+            <Link href="/demo" className="px-8 py-4 border border-white/20 text-white font-medium text-lg rounded-lg hover:bg-white/5 transition-colors">
               See Demo →
             </Link>
           </div>
@@ -222,12 +222,12 @@ export default function Home() {
                 placeholder="Athlete ID"
                 className="px-4 py-4 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 w-36"
               />
-              <button 
-                onClick={() => athleteId && (window.location.href = `/athlete/${athleteId}`)}
+              <Link 
+                href="/demo"
                 className="px-6 py-4 border border-white/20 text-white font-medium rounded-lg hover:bg-white/5 transition-colors"
               >
                 Try Demo
-              </button>
+              </Link>
             </div>
           </div>
         </div>
