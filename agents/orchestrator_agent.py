@@ -18,8 +18,8 @@ load_dotenv('/Users/joey/GMTM-Agent-SDK/backend/.env')
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.web_tools import web_tools
 
-# OpenAI for GPT-5.2
-from openai import OpenAI
+# Anthropic for Claude
+from anthropic import Anthropic
 
 class OrchestratorAgent:
     """
@@ -28,7 +28,7 @@ class OrchestratorAgent:
     """
     
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        self.anthropic = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
         self.web_tools = web_tools
         self.db = None
         
@@ -64,78 +64,66 @@ class OrchestratorAgent:
             
             print(f"\n💬 Athlete {athlete['first_name']} asks: {message}")
             
-            # Define all available tools (OpenAI format)
+            # Define all available tools (Anthropic format)
             tools = [
                 {
-                    "type": "function",
-                    "function": {
-                        "name": "find_camps",
-                        "description": "Search for football camps, combines, and showcases. Use when athlete asks about camps, training events, or testing opportunities.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "location": {
-                                    "type": "string",
-                                    "description": "City or state to search (e.g., 'Texas', 'Houston')"
-                                },
-                                "max_results": {
-                                    "type": "integer",
-                                    "description": "Maximum number of camps to find",
-                                    "default": 5
-                                }
+                    "name": "find_camps",
+                    "description": "Search for football camps, combines, and showcases. Use when athlete asks about camps, training events, or testing opportunities.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "City or state to search (e.g., 'Texas', 'Houston')"
                             },
-                            "required": ["location"]
-                        }
+                            "max_results": {
+                                "type": "integer",
+                                "description": "Maximum number of camps to find",
+                                "default": 5
+                            }
+                        },
+                        "required": ["location"]
                     }
                 },
                 {
-                    "type": "function",
-                    "function": {
-                        "name": "search_web",
-                        "description": "Search the web for general recruiting information, news, or resources.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "query": {
-                                    "type": "string",
-                                    "description": "Search query"
-                                }
-                            },
-                            "required": ["query"]
-                        }
+                    "name": "search_web",
+                    "description": "Search the web for general recruiting information, news, or resources.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query"
+                            }
+                        },
+                        "required": ["query"]
                     }
                 },
                 {
-                    "type": "function",
-                    "function": {
-                        "name": "get_athlete_stats",
-                        "description": "Get athlete's metrics, SPARQ scores, and profile information from database.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {},
-                            "required": []
-                        }
+                    "name": "get_athlete_stats",
+                    "description": "Get athlete's metrics, SPARQ scores, and profile information from database.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
                     }
                 },
                 {
-                    "type": "function",
-                    "function": {
-                        "name": "draft_email",
-                        "description": "Draft a personalized email to a coach or recruiter.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "recipient": {
-                                    "type": "string",
-                                    "description": "Who the email is to (e.g., 'Coach at University of Houston')"
-                                },
-                                "purpose": {
-                                    "type": "string",
-                                    "description": "Purpose of email (e.g., 'introduction', 'camp follow-up')"
-                                }
+                    "name": "draft_email",
+                    "description": "Draft a personalized email to a coach or recruiter.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "recipient": {
+                                "type": "string",
+                                "description": "Who the email is to (e.g., 'Coach at University of Houston')"
                             },
-                            "required": ["recipient", "purpose"]
-                        }
+                            "purpose": {
+                                "type": "string",
+                                "description": "Purpose of email (e.g., 'introduction', 'camp follow-up')"
+                            }
+                        },
+                        "required": ["recipient", "purpose"]
                     }
                 }
             ]
@@ -205,76 +193,64 @@ Decide which tools to use based on what the athlete asks. You can use multiple t
             all_tool_results = []  # Store all tool execution results
             max_iterations = 2  # Allow up to 2 rounds of tool use (faster response)
             
-            # Convert to OpenAI message format (system goes first)
-            openai_messages = [{"role": "system", "content": system_prompt}] + messages
-            
             for iteration in range(max_iterations):
-                response = self.client.chat.completions.create(
-                    model="gpt-5.2",
-                    max_completion_tokens=4096,
+                response = self.anthropic.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=4096,
+                    system=system_prompt,
                     tools=tools,
-                    messages=openai_messages
+                    messages=messages
                 )
                 
-                message = response.choices[0].message
-                finish_reason = response.choices[0].finish_reason
+                print(f"   Iteration {iteration + 1}: {response.stop_reason}")
                 
-                print(f"   Iteration {iteration + 1}: {finish_reason}")
-                
-                if finish_reason != "tool_calls" or not message.tool_calls:
+                if response.stop_reason != "tool_use":
                     # Agent finished - no more tools needed
                     break
                 
                 # Execute tools if agent wants them
                 tool_results = []
                 
-                for tool_call in message.tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_input = json.loads(tool_call.function.arguments)
-                    tools_used.append(tool_name)
-                    
-                    # Add step for UI visibility
-                    step_description = self._get_step_description(tool_name, tool_input)
-                    agent_steps.append(step_description)
-                    print(f"   🔧 {step_description}")
-                    
-                    # Execute tool
-                    result = self._execute_tool(tool_name, tool_input, athlete)
-                    all_tool_results.append(result)  # Store for camp card extraction
-                    
-                    # Add result step
-                    if result.get("success"):
-                        if tool_name == "find_camps":
-                            agent_steps.append(f"✅ Found {result.get('camps_found', 0)} camps")
-                        else:
-                            agent_steps.append(f"✅ {tool_name} complete")
-                    
-                    tool_results.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": json.dumps(result)
-                    })
+                for content_block in response.content:
+                    if content_block.type == "tool_use":
+                        tool_name = content_block.name
+                        tool_input = content_block.input
+                        tools_used.append(tool_name)
+                        
+                        # Add step for UI visibility
+                        step_description = self._get_step_description(tool_name, tool_input)
+                        agent_steps.append(step_description)
+                        print(f"   🔧 {step_description}")
+                        
+                        # Execute tool
+                        result = self._execute_tool(tool_name, tool_input, athlete)
+                        all_tool_results.append(result)  # Store for camp card extraction
+                        
+                        # Add result step
+                        if result.get("success"):
+                            if tool_name == "find_camps":
+                                agent_steps.append(f"✅ Found {result.get('camps_found', 0)} camps")
+                            else:
+                                agent_steps.append(f"✅ {tool_name} complete")
+                        
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": content_block.id,
+                            "content": json.dumps(result)
+                        })
                 
-                # Add assistant message with tool calls
-                openai_messages.append({
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {"name": tc.function.name, "arguments": tc.function.arguments}
-                        } for tc in message.tool_calls
-                    ]
-                })
-                
-                # Add tool results
-                openai_messages.extend(tool_results)
+                # Add tool results to conversation
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": tool_results})
                 
                 # Continue loop - agent may want to use more tools
             
             # After loop, extract final response
-            response_text = message.content or ""
+            response_text = ""
+            for content_block in response.content:
+                if hasattr(content_block, 'text'):
+                    response_text = content_block.text
+                    break
             
             # Extract structured data if agent found camps
             structured_data = None
