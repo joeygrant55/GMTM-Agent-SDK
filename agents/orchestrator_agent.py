@@ -273,7 +273,7 @@ Always use multiple tools when it makes the answer better. Don't just return raw
             tools_used = []
             agent_steps = []  # Track what agent is doing for UI
             all_tool_results = []  # Store all tool execution results
-            max_iterations = 2  # Allow up to 2 rounds of tool use (faster response)
+            max_iterations = 5  # Allow enough rounds for deep research (like Claude Code)
             
             for iteration in range(max_iterations):
                 response = self.anthropic.messages.create(

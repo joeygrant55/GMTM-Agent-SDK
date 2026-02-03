@@ -114,7 +114,7 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
       
       // Create abort controller with 60 second timeout (agent can take 30-40s)
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000)
+      const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 min for deep research
       
       const response = await fetch(`${backendUrl}/api/agent/chat`, {
         method: 'POST',
