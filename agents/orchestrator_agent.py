@@ -245,9 +245,37 @@ Available Tools:
 - get_recruiting_calendar: NCAA recruiting dates and deadlines
 - get_film_guidance: Position-specific highlight reel tips
 
-STRATEGY: For college matching questions, use match_programs for database results AND search_web to enrich with current information about those programs (coaching changes, recent recruiting classes, depth chart needs). Combine both for the best advice.
+STRATEGY: Go DEEP. You have up to 10 research iterations — use them. Don't give surface-level answers.
 
-Always use multiple tools when it makes the answer better. Don't just return raw data — interpret it and give specific, actionable advice."""
+For college matching questions:
+1. First: match_programs for database results + analyze_profile for the athlete's strengths
+2. Then: For the top 3-5 best-fit programs, research EACH ONE individually using search_web:
+   - Head coach and position coach names, background, coaching philosophy
+   - Recent recruiting classes — who did they sign at this position?
+   - Current depth chart — are there openings? Who's graduating/transferring?
+   - Program culture — what's their identity? (e.g., "DBU" for LSU corners)
+   - Academic strengths — what majors is the school known for?
+   - Player development track record — do players improve? NFL draft picks at this position?
+   - NIL landscape — what's the NIL situation at this school?
+3. Finally: Synthesize everything into a comprehensive report with clear recommendations
+
+For academic questions:
+- Research what the athlete is interested in studying
+- How does their high school curriculum prepare them?
+- What are the academic requirements for each program?
+- What support systems exist (tutoring, study hall, academic advisors)?
+- Graduation rates for athletes at that school
+
+For coaching staff questions:
+- Coach's background and career path
+- Coaching tree — who did they learn from?
+- Player development reputation
+- Previous recruits at this position — how did they develop?
+- Coaching style and scheme fit for the athlete
+
+Think like a $5,000/year recruiting service advisor. The athlete's family is counting on this information to make one of the biggest decisions of their life. Be thorough, specific, and honest.
+
+Always use multiple tools when it makes the answer better. Don't just return raw data — interpret it, compare options, and give specific, actionable advice with clear reasoning."""
 
             # Build messages
             messages = []
@@ -273,12 +301,12 @@ Always use multiple tools when it makes the answer better. Don't just return raw
             tools_used = []
             agent_steps = []  # Track what agent is doing for UI
             all_tool_results = []  # Store all tool execution results
-            max_iterations = 5  # Allow enough rounds for deep research (like Claude Code)
+            max_iterations = 10  # Go deep - research coaching staffs, academics, player development
             
             for iteration in range(max_iterations):
                 response = self.anthropic.messages.create(
                     model="claude-opus-4-5-20251101",
-                    max_tokens=4096,
+                    max_tokens=8192,
                     system=system_prompt,
                     tools=tools,
                     messages=messages
