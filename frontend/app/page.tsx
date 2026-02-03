@@ -12,12 +12,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-sparq-charcoal rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">⚡</span>
               </div>
               <h1 className="text-2xl font-bold text-gray-900">SPARQ Agent</h1>
             </div>
-            <button className="px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700">
+            <button className="px-4 py-2 text-sm font-medium text-sparq-charcoal hover:text-indigo-700">
               Sign In with GMTM
             </button>
           </div>
@@ -29,7 +29,7 @@ export default function Home() {
         <div className="text-center">
           <h2 className="text-5xl font-extrabold text-gray-900 sm:text-6xl">
             Your 24/7 AI
-            <span className="text-indigo-600"> Recruiting Coordinator</span>
+            <span className="text-sparq-charcoal"> Recruiting Coordinator</span>
           </h2>
           <p className="mt-6 text-xl text-gray-600 max-w-2xl mx-auto">
             From youth camps to professional tryouts, SPARQ Agent finds opportunities, 
@@ -40,15 +40,15 @@ export default function Home() {
         {/* Quick Stats */}
         <div className="mt-12 grid grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-indigo-600">75K+</div>
+            <div className="text-3xl font-bold text-sparq-charcoal">75K+</div>
             <div className="mt-2 text-sm text-gray-600">Athletes Tracked</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-indigo-600">7K+</div>
+            <div className="text-3xl font-bold text-sparq-charcoal">7K+</div>
             <div className="mt-2 text-sm text-gray-600">SPARQ Verified</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-indigo-600">24/7</div>
+            <div className="text-3xl font-bold text-sparq-charcoal">24/7</div>
             <div className="mt-2 text-sm text-gray-600">Always Working</div>
           </div>
         </div>
@@ -76,13 +76,13 @@ export default function Home() {
                     window.location.href = `/athlete/${athleteId}`
                   }
                 }}
-                className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                className="px-6 py-3 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors"
               >
                 View Dashboard
               </button>
             </div>
             <p className="mt-3 text-sm text-gray-500 text-center">
-              Or <a href="/athlete/383" className="text-indigo-600 hover:text-indigo-700 font-medium">try athlete #383</a>
+              Or <a href="/athlete/383" className="text-sparq-charcoal hover:text-indigo-700 font-medium">try athlete #383</a>
             </p>
           </div>
         </div>

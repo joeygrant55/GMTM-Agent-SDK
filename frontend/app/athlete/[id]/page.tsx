@@ -61,7 +61,7 @@ export default function AthleteDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sparq-lime mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading your SPARQ Agent dashboard...</p>
         </div>
       </div>
@@ -78,15 +78,15 @@ export default function AthleteDashboard() {
           <div className="space-y-3">
             <a 
               href="/" 
-              className="inline-block w-full px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              className="inline-block w-full px-6 py-3 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors"
             >
               ← Back to Home
             </a>
             <div className="text-sm text-gray-500">
               Try these athlete IDs: 
-              <a href="/athlete/383" className="text-indigo-600 hover:text-indigo-700 ml-1">383</a>,
-              <a href="/athlete/435" className="text-indigo-600 hover:text-indigo-700 ml-1">435</a>,
-              <a href="/athlete/2370" className="text-indigo-600 hover:text-indigo-700 ml-1">2370</a>
+              <a href="/athlete/383" className="text-sparq-charcoal hover:text-sparq-lime-dark ml-1">383</a>,
+              <a href="/athlete/435" className="text-sparq-charcoal hover:text-sparq-lime-dark ml-1">435</a>,
+              <a href="/athlete/2370" className="text-sparq-charcoal hover:text-sparq-lime-dark ml-1">2370</a>
             </div>
           </div>
         </div>
@@ -99,7 +99,7 @@ export default function AthleteDashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">No athlete data available</p>
-          <a href="/" className="mt-4 inline-block text-indigo-600 hover:text-indigo-700">
+          <a href="/" className="mt-4 inline-block text-sparq-charcoal hover:text-sparq-lime-dark">
             ← Back to home
           </a>
         </div>
@@ -114,9 +114,7 @@ export default function AthleteDashboard() {
         <div className="max-w-5xl mx-auto px-4 py-3 sm:px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">⚡</span>
-              </div>
+              <img src="/sparq-logo.jpg" alt="SPARQ" className="w-8 h-8 rounded-lg" />
               <div>
                 <h1 className="text-lg font-bold text-gray-900">SPARQ Agent</h1>
                 <p className="text-xs text-gray-600">{profile.first_name} {profile.last_name} • {profile.position || 'Athlete'}</p>
