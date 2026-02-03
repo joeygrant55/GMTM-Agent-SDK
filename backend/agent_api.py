@@ -89,15 +89,19 @@ async def find_camps_get(athlete_id: int, max_results: int = 10, autonomous: boo
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-def _get_db():
+def _get_agent_db():
+    """Connect to Railway MySQL for agent conversations (separate from gmtm DB)"""
     import pymysql
     from dotenv import load_dotenv
     load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
     load_dotenv()
     return pymysql.connect(
-        host=os.getenv('DB_HOST'), user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'), database='gmtm',
-        port=3306, cursorclass=pymysql.cursors.DictCursor
+        host=os.getenv('AGENT_DB_HOST', 'mysql.railway.internal'),
+        port=int(os.getenv('AGENT_DB_PORT', '3306')),
+        user=os.getenv('AGENT_DB_USER', 'root'),
+        password=os.getenv('AGENT_DB_PASSWORD', ''),
+        database=os.getenv('AGENT_DB_NAME', 'railway'),
+        cursorclass=pymysql.cursors.DictCursor
     )
 
 import json as _json
@@ -107,7 +111,7 @@ import json as _json
 @router.get("/conversations/{user_id}")
 async def list_conversations(user_id: int):
     """List all conversations for an athlete"""
-    db = _get_db()
+    db = _get_agent_db()
     try:
         with db.cursor() as c:
             c.execute("""
@@ -128,7 +132,7 @@ async def list_conversations(user_id: int):
 @router.post("/conversations")
 async def create_conversation(request: ConversationCreate):
     """Create a new conversation"""
-    db = _get_db()
+    db = _get_agent_db()
     try:
         with db.cursor() as c:
             c.execute(
@@ -144,7 +148,7 @@ async def create_conversation(request: ConversationCreate):
 @router.get("/conversations/{user_id}/{conversation_id}")
 async def get_conversation(user_id: int, conversation_id: int):
     """Get all messages in a conversation"""
-    db = _get_db()
+    db = _get_agent_db()
     try:
         with db.cursor() as c:
             c.execute(
@@ -170,7 +174,7 @@ async def get_conversation(user_id: int, conversation_id: int):
 @router.delete("/conversations/{conversation_id}")
 async def delete_conversation(conversation_id: int):
     """Delete a conversation"""
-    db = _get_db()
+    db = _get_agent_db()
     try:
         with db.cursor() as c:
             c.execute("DELETE FROM agent_conversations WHERE id = %s", (conversation_id,))
@@ -194,7 +198,7 @@ async def agent_chat(request: ChatRequest):
         
         # If conversation_id, load history from DB
         if conversation_id:
-            db = _get_db()
+            db = _get_agent_db()
             with db.cursor() as c:
                 c.execute(
                     "SELECT role, content FROM agent_messages WHERE conversation_id = %s ORDER BY created_at",
@@ -206,7 +210,7 @@ async def agent_chat(request: ChatRequest):
         
         # If no conversation_id, auto-create one
         if not conversation_id:
-            db = db or _get_db()
+            db = db or _get_agent_db()
             with db.cursor() as c:
                 # Auto-title from first message
                 title = request.message[:60] + ("..." if len(request.message) > 60 else "")
