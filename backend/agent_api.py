@@ -263,7 +263,7 @@ async def agent_chat(request: ChatRequest):
 async def agent_chat_stream(request: ChatRequest):
     """SSE streaming chat - shows tool use and text in real-time"""
     
-    async def event_generator():
+    def event_generator():
         conversation_id = request.conversation_id
         conversation_history = request.conversation_history
         
