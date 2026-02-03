@@ -12,7 +12,9 @@ from dotenv import load_dotenv
 import pymysql
 
 # Load environment
-load_dotenv('/Users/joey/GMTM-Agent-SDK/backend/.env')
+# Load env from multiple possible locations
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend', '.env'))
+load_dotenv()  # Also load from current dir or environment
 
 # Add tools to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -195,7 +197,7 @@ Decide which tools to use based on what the athlete asks. You can use multiple t
             
             for iteration in range(max_iterations):
                 response = self.anthropic.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model="claude-opus-4-5-20251101",
                     max_tokens=4096,
                     system=system_prompt,
                     tools=tools,

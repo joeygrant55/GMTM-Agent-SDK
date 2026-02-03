@@ -5,22 +5,20 @@ fastapi>=0.104.0
 uvicorn>=0.24.0
 pydantic>=2.5.0
 
-# E2B Sandbox
-e2b-code-interpreter>=0.0.10
+# AI Models
+anthropic>=0.40.0
+openai>=2.0.0
 
-# Claude Agent SDK
-claude-agent-sdk>=0.1.0
+# Database
+pymysql>=1.1.0
+
+# Web Research
+requests>=2.31.0
+beautifulsoup4>=4.12.0
 
 # Environment & Utilities
 python-dotenv>=1.0.0
 httpx>=0.25.0
 
-# Scout AI - Authentication & WebSocket
-PyJWT>=2.8.0
-websockets>=12.0
-
-# Database
-mysql-connector-python>=8.2.0
-
-# Optional: For local development
-# watchfiles>=0.21.0  # Auto-reload
+# CORS
+starlette>=0.27.0
