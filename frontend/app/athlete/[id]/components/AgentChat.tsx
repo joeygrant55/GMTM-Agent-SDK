@@ -7,6 +7,7 @@ interface Message {
   content: string
   timestamp: Date
   thinking?: boolean
+  streaming?: boolean  // Currently receiving streamed text
   thinkingSteps?: string[]
   toolsUsed?: string[]
   agentSteps?: string[]  // Step-by-step what agent did
@@ -252,6 +253,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
                   ...last,
                   content: streamedText,
                   thinking: false,
+                  streaming: true,
                   agentSteps: [...steps],
                   toolsUsed: [...toolsUsed]
                 }
@@ -274,7 +276,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
         }
       }
 
-      // Final update with complete data
+      // Final update - streaming complete, now format properly
       setMessages(prev => {
         const updated = [...prev]
         updated[updated.length - 1] = {
@@ -282,6 +284,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
           content: streamedText || 'I completed my research. How can I help further?',
           timestamp: new Date(),
           thinking: false,
+          streaming: false,
           toolsUsed,
           agentSteps: steps
         }
@@ -458,11 +461,15 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
                     
                     {/* Main text content */}
                     <div className="prose prose-sm max-w-none text-gray-700">
-                      <div 
-                        dangerouslySetInnerHTML={{ 
-                          __html: formatMessageContent(message.content) 
-                        }}
-                      />
+                      {message.streaming ? (
+                        <div className="whitespace-pre-wrap">{message.content}<span className="animate-pulse">▊</span></div>
+                      ) : (
+                        <div 
+                          dangerouslySetInnerHTML={{ 
+                            __html: formatMessageContent(message.content) 
+                          }}
+                        />
+                      )}
                     </div>
                     
                     <div className="text-xs text-gray-400 mt-3">
