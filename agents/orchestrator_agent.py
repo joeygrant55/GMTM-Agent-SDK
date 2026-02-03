@@ -19,6 +19,7 @@ load_dotenv()  # Also load from current dir or environment
 # Add tools to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.web_tools import web_tools
+from tools.recruiting_tools import recruiting_tools
 
 # Anthropic for Claude
 from anthropic import Anthropic
@@ -32,6 +33,7 @@ class OrchestratorAgent:
     def __init__(self):
         self.anthropic = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
         self.web_tools = web_tools
+        self.recruiting_tools = recruiting_tools
         self.db = None
         
     def connect_db(self):
@@ -127,6 +129,66 @@ class OrchestratorAgent:
                         },
                         "required": ["recipient", "purpose"]
                     }
+                },
+                {
+                    "name": "match_programs",
+                    "description": "Find college programs that match the athlete's profile. Searches by sport, position, and location. Shows which programs actively recruit athletes at this position based on scholarship offer history.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "state": {
+                                "type": "string",
+                                "description": "State to filter programs (e.g., 'Texas', 'California'). Optional - leave empty for nationwide."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max programs to return",
+                                "default": 15
+                            }
+                        },
+                        "required": []
+                    }
+                },
+                {
+                    "name": "analyze_profile",
+                    "description": "Analyze the athlete's metrics compared to position averages. Shows percentile rankings, strengths, weaknesses, and areas to improve. Use when athlete asks about their recruiting profile, where they stand, or how to improve.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                },
+                {
+                    "name": "get_recruiting_calendar",
+                    "description": "Get NCAA recruiting calendar info: contact periods, dead periods, evaluation periods, signing days, and key deadlines. Personalized to the athlete's graduation year and sport.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "sport": {
+                                "type": "string",
+                                "description": "Sport (e.g., 'football', 'basketball'). Defaults to athlete's sport."
+                            },
+                            "grad_year": {
+                                "type": "integer",
+                                "description": "Graduation year. Defaults to athlete's grad year."
+                            }
+                        },
+                        "required": []
+                    }
+                },
+                {
+                    "name": "get_film_guidance",
+                    "description": "Get position-specific film and highlight reel guidance. What coaches look for, best platforms (Hudl, etc.), how to structure highlights, and tips for getting noticed.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "position": {
+                                "type": "string",
+                                "description": "Position for specific guidance. Defaults to athlete's position."
+                            }
+                        },
+                        "required": []
+                    }
                 }
             ]
             
@@ -165,9 +227,14 @@ Available Tools:
 - find_camps: Find training camps and combines
 - search_web: Research recruiting info
 - get_athlete_stats: Get athlete's metrics
-- draft_email: Write emails to coaches
+- draft_email: Write personalized emails to coaches (introduction, camp follow-up, interest expression, visit request)
+- match_programs: Find college programs matching athlete's position, sport, and location preferences
+- analyze_profile: Compare athlete's metrics to position averages, show strengths/weaknesses
+- get_recruiting_calendar: NCAA recruiting calendar, key dates, dead periods, signing days
+- get_film_guidance: Position-specific highlight reel tips, what coaches look for, best platforms
 
-Decide which tools to use based on what the athlete asks. You can use multiple tools in one response."""
+Decide which tools to use based on what the athlete asks. You can use multiple tools in one response.
+For draft_email: Include the athlete's actual metrics and position details. Use proper recruiting etiquette. Offer multiple template styles."""
 
             # Build messages
             messages = []
@@ -357,27 +424,69 @@ Decide which tools to use based on what the athlete asks. You can use multiple t
             
             elif tool_name == "draft_email":
                 recipient = tool_input["recipient"]
-                purpose = tool_input["purpose"]
-                
-                # Simple email template (could be enhanced with Claude)
-                email = f"""Subject: {athlete['first_name']} {athlete['last_name']} - {athlete.get('position', 'Football')} Prospect
+                purpose = tool_input.get("purpose", "introduction")
 
-Dear {recipient},
+                # Get athlete metrics for personalization
+                metrics_str = ""
+                try:
+                    with self.db.cursor() as cursor:
+                        cursor.execute("""
+                            SELECT title, value, unit FROM metrics
+                            WHERE user_id = %s AND is_current = 1
+                            ORDER BY percentile DESC LIMIT 5
+                        """, (athlete['user_id'],))
+                        top_metrics = cursor.fetchall()
+                        if top_metrics:
+                            metrics_str = "\n".join([f"- {m['title']}: {m['value']} {m.get('unit','')}" for m in top_metrics])
+                except Exception:
+                    pass
 
-My name is {athlete['first_name']} {athlete['last_name']}, and I'm a {athlete.get('position', 'football player')} from {athlete.get('city', '')}, {athlete.get('state', '')} (Class of {athlete.get('graduation_year', 'TBD')}).
-
-[Purpose: {purpose}]
-
-I'm very interested in your program and would love to learn more about opportunities at your school.
-
-Best regards,
-{athlete['first_name']} {athlete['last_name']}"""
-                
+                # Return context for Claude to generate the actual email
                 return {
                     "success": True,
-                    "email": email
+                    "template_type": purpose,
+                    "recipient": recipient,
+                    "athlete_name": f"{athlete['first_name']} {athlete['last_name']}",
+                    "position": athlete.get('position', 'N/A'),
+                    "city": athlete.get('city', ''),
+                    "state": athlete.get('state', ''),
+                    "grad_year": athlete.get('graduation_year', 'TBD'),
+                    "top_metrics": metrics_str or "No verified metrics available",
+                    "instructions": "Generate a polished, personalized recruiting email using the athlete info above. Follow NCAA recruiting etiquette. Be professional but genuine. Include the athlete's key metrics. Vary tone by purpose: 'introduction' = formal first contact, 'camp follow-up' = reference specific camp attended, 'interest expression' = show knowledge of the program, 'visit request' = ask about unofficial/official visit."
                 }
             
+            elif tool_name == "match_programs":
+                state = tool_input.get("state", None)
+                limit = tool_input.get("limit", 15)
+                result = self.recruiting_tools.match_programs(athlete, state=state, limit=limit)
+                return result
+
+            elif tool_name == "analyze_profile":
+                result = self.recruiting_tools.analyze_profile(athlete)
+                return result
+
+            elif tool_name == "get_recruiting_calendar":
+                sport = tool_input.get("sport", athlete.get('sport', 'football'))
+                grad_year = tool_input.get("grad_year", athlete.get('graduation_year', 2026))
+                query = f"NCAA {sport} recruiting calendar {grad_year} contact periods dead periods evaluation periods signing day"
+                results = self.web_tools.search_web(query, max_results=8)
+                return {
+                    "success": True,
+                    "sport": sport,
+                    "grad_year": grad_year,
+                    "results": results
+                }
+
+            elif tool_name == "get_film_guidance":
+                position = tool_input.get("position", athlete.get('position', 'athlete'))
+                query = f"{position} football highlight reel tips what coaches look for film breakdown Hudl 2025"
+                results = self.web_tools.search_web(query, max_results=8)
+                return {
+                    "success": True,
+                    "position": position,
+                    "results": results
+                }
+
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         
@@ -418,6 +527,16 @@ Best regards,
             return "📊 Analyzing your metrics..."
         elif tool_name == "draft_email":
             return "✉️ Drafting email..."
+        elif tool_name == "match_programs":
+            state = tool_input.get("state", "nationwide")
+            return f"🏫 Finding matching college programs ({state})..."
+        elif tool_name == "analyze_profile":
+            return "📈 Analyzing your recruiting profile vs position averages..."
+        elif tool_name == "get_recruiting_calendar":
+            return "📅 Looking up NCAA recruiting calendar..."
+        elif tool_name == "get_film_guidance":
+            pos = tool_input.get("position", "your position")
+            return f"🎬 Getting film guidance for {pos}..."
         else:
             return f"🔧 Running {tool_name}..."
 
