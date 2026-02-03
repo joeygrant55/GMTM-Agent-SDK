@@ -343,9 +343,40 @@ async def agent_chat_stream(request: ChatRequest):
                         (conversation_id, full_response,
                          _json.dumps(tools_used), _json.dumps(agent_steps))
                     )
+                    
+                    # Auto-save as report if it was deep research (3+ tools used)
+                    if len(tools_used) >= 3 and len(full_response) > 500:
+                        # Detect report type
+                        msg_lower = request.message.lower()
+                        if any(w in msg_lower for w in ['college', 'program', 'school', 'university', 'fit']):
+                            report_type = 'college_fit'
+                        elif any(w in msg_lower for w in ['profile', 'metric', 'stats', 'compare', 'analysis']):
+                            report_type = 'profile_analysis'
+                        elif any(w in msg_lower for w in ['camp', 'combine', 'showcase']):
+                            report_type = 'camp_research'
+                        else:
+                            report_type = 'research'
+                        
+                        title = request.message[:80] + ("..." if len(request.message) > 80 else "")
+                        summary = full_response[:200] + "..."
+                        
+                        c.execute("""
+                            INSERT INTO agent_reports (user_id, conversation_id, report_type, title, content, summary, metadata)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            request.athlete_id, conversation_id, report_type, title,
+                            full_response, summary,
+                            _json.dumps({"tools_used": tools_used, "agent_steps": agent_steps})
+                        ))
+                        
+                        report_id = c.lastrowid
+                        # Send report saved event
+                        yield f"event: report_saved\ndata: {_json.dumps({'report_id': report_id, 'report_type': report_type, 'title': title})}\n\n"
+                    
                     db.commit()
                 db.close()
-            except:
+            except Exception as e:
+                print(f"DB save error: {e}")
                 pass
     
     return StreamingResponse(

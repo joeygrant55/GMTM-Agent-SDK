@@ -6,6 +6,7 @@ interface DashboardProps {
   athleteId: string
   onStartChat: () => void
   onLoadChat: (conversationId: number) => void
+  onViewReport: (reportId: number) => void
 }
 
 const PLATFORM_META: Record<string, { label: string, icon: string, placeholder: string }> = {
@@ -19,8 +20,16 @@ const PLATFORM_META: Record<string, { label: string, icon: string, placeholder: 
   personal_website: { label: 'Website', icon: '🌐', placeholder: 'https://yoursite.com' },
 }
 
-export default function Dashboard({ athleteId, onStartChat, onLoadChat }: DashboardProps) {
+const REPORT_TYPE_META: Record<string, { label: string, icon: string, color: string }> = {
+  college_fit: { label: 'College Fit', icon: '🏫', color: 'bg-blue-50 text-blue-700' },
+  profile_analysis: { label: 'Profile Analysis', icon: '📊', color: 'bg-green-50 text-green-700' },
+  camp_research: { label: 'Camp Research', icon: '🏕️', color: 'bg-orange-50 text-orange-700' },
+  research: { label: 'Research', icon: '📋', color: 'bg-gray-50 text-gray-700' },
+}
+
+export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewReport }: DashboardProps) {
   const [data, setData] = useState<any>(null)
+  const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [addingLink, setAddingLink] = useState(false)
   const [newLink, setNewLink] = useState({ platform: '', url: '' })
@@ -28,10 +37,14 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat }: Dashbo
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
   useEffect(() => {
-    fetch(`${backendUrl}/api/dashboard/${athleteId}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch(`${backendUrl}/api/dashboard/${athleteId}`).then(r => r.json()),
+      fetch(`${backendUrl}/api/reports/${athleteId}`).then(r => r.json()).catch(() => ({ reports: [] }))
+    ]).then(([dashData, reportsData]) => {
+      setData(dashData)
+      setReports(reportsData.reports || [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [athleteId])
 
   const addLink = async () => {
@@ -146,6 +159,38 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat }: Dashbo
           </button>
         )}
       </div>
+
+      {/* Saved Reports */}
+      {reports.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="font-semibold text-gray-900 mb-3">📋 Your Reports</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {reports.map((report: any) => {
+              const meta = REPORT_TYPE_META[report.report_type] || REPORT_TYPE_META.research
+              return (
+                <button
+                  key={report.id}
+                  onClick={() => onViewReport(report.id)}
+                  className="text-left p-4 border border-gray-200 rounded-lg hover:border-sparq-lime transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${meta.color}`}>
+                      {meta.icon} {meta.label}
+                    </span>
+                  </div>
+                  <div className="font-medium text-sm text-gray-900 truncate mt-1">{report.title}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {new Date(report.created_at).toLocaleDateString()}
+                  </div>
+                  {report.summary && (
+                    <p className="text-xs text-gray-500 mt-2 line-clamp-2">{report.summary}</p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Links Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import AgentChat from './components/AgentChat'
 import Dashboard from './components/Dashboard'
+import ReportView from './components/ReportView'
 
 interface AthleteProfile {
   user_id: number
@@ -24,8 +25,9 @@ export default function AthleteDashboard() {
   const [profile, setProfile] = useState<AthleteProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<'dashboard' | 'chat'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'chat' | 'report'>('dashboard')
   const [loadConversationId, setLoadConversationId] = useState<number | null>(null)
+  const [viewReportId, setViewReportId] = useState<number | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -47,6 +49,11 @@ export default function AthleteDashboard() {
   const handleLoadChat = (conversationId: number) => {
     setLoadConversationId(conversationId)
     setView('chat')
+  }
+
+  const handleViewReport = (reportId: number) => {
+    setViewReportId(reportId)
+    setView('report')
   }
 
   if (loading) {
@@ -118,6 +125,13 @@ export default function AthleteDashboard() {
             athleteId={athleteId}
             onStartChat={handleStartChat}
             onLoadChat={handleLoadChat}
+            onViewReport={handleViewReport}
+          />
+        ) : view === 'report' && viewReportId ? (
+          <ReportView
+            athleteId={athleteId}
+            reportId={viewReportId}
+            onBack={() => setView('dashboard')}
           />
         ) : (
           <div className="max-w-4xl mx-auto">
