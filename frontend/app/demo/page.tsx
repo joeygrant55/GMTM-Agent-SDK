@@ -126,6 +126,8 @@ export default function DemoPage() {
       // Add empty assistant message
       setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true }])
 
+      let currentEvent = ''
+
       while (reader) {
         const { done, value } = await reader.read()
         if (done) break
@@ -136,40 +138,32 @@ export default function DemoPage() {
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            const eventType = line.slice(7).trim()
-            const nextLine = lines[lines.indexOf(line) + 1]
-            if (nextLine?.startsWith('data: ')) {
+            currentEvent = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            const rawData = line.slice(6)
+
+            if (currentEvent === 'text') {
+              // Text events: data is raw text, not JSON
+              const chunk = rawData.replace(/\\n/g, '\n')
+              fullText += chunk
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = { role: 'assistant', content: fullText, streaming: true }
+                return updated
+              })
+            } else if (currentEvent === 'tool_start') {
               try {
-                const data = JSON.parse(nextLine.slice(6))
-                if (eventType === 'tool_start') {
-                  toolsUsed.push(data.tool)
-                  setActiveTools(prev => [...prev, data.tool])
-                } else if (eventType === 'tool_done') {
-                  setActiveTools(prev => prev.filter(t => t !== data.tool))
-                } else if (eventType === 'text') {
-                  const chunk = (data.content || '').replace(/\\n/g, '\n')
-                  fullText += chunk
-                  setMessages(prev => {
-                    const updated = [...prev]
-                    updated[updated.length - 1] = { role: 'assistant', content: fullText, streaming: true }
-                    return updated
-                  })
-                }
+                const data = JSON.parse(rawData)
+                toolsUsed.push(data.tool)
+                setActiveTools(prev => [...prev, data.tool])
+              } catch {}
+            } else if (currentEvent === 'tool_done') {
+              try {
+                const data = JSON.parse(rawData)
+                setActiveTools(prev => prev.filter(t => t !== data.tool))
               } catch {}
             }
-          } else if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              if (data.content) {
-                const chunk = data.content.replace(/\\n/g, '\n')
-                fullText += chunk
-                setMessages(prev => {
-                  const updated = [...prev]
-                  updated[updated.length - 1] = { role: 'assistant', content: fullText, streaming: true }
-                  return updated
-                })
-              }
-            } catch {}
+            currentEvent = ''
           }
         }
       }
