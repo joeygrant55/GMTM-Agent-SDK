@@ -31,17 +31,50 @@ export default function AgentChat({ athleteId, athleteName }: AgentChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const formatMessageContent = (content: string) => {
-    // Convert markdown-style formatting to HTML
+    // Convert markdown tables to HTML tables
     let formatted = content
-      // Bold text
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      // Headers
-      .replace(/^### (.+)$/gm, '<h4 class="font-semibold text-gray-900 mt-3 mb-2">$1</h4>')
-      .replace(/^## (.+)$/gm, '<h3 class="font-bold text-gray-900 mt-4 mb-2">$1</h3>')
-      // Bullet points
-      .replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
-      // URLs
-      .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700 underline">$1</a>')
+    
+    // Detect markdown tables and convert them
+    const tableRegex = /\|(.+)\|\n\|[-:\| ]+\|\n((?:\|.+\|\n?)+)/gm
+    formatted = formatted.replace(tableRegex, (match, headerRow, bodyRows) => {
+      const headers = headerRow.split('|').map((h: string) => h.trim()).filter((h: string) => h)
+      const rows = bodyRows.trim().split('\n').map((row: string) => 
+        row.split('|').map((cell: string) => cell.trim()).filter((cell: string) => cell)
+      )
+      
+      let table = '<div class="overflow-x-auto my-3"><table class="min-w-full text-sm border border-gray-200 rounded-lg overflow-hidden">'
+      table += '<thead class="bg-indigo-50"><tr>'
+      headers.forEach((h: string) => {
+        table += `<th class="px-3 py-2 text-left font-semibold text-indigo-900 border-b border-gray-200">${h}</th>`
+      })
+      table += '</tr></thead><tbody>'
+      rows.forEach((row: string[], idx: number) => {
+        const bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+        table += `<tr class="${bgClass}">`
+        row.forEach((cell: string) => {
+          table += `<td class="px-3 py-2 border-b border-gray-100 text-gray-700">${cell}</td>`
+        })
+        table += '</tr>'
+      })
+      table += '</tbody></table></div>'
+      return table
+    })
+    
+    // Bold text
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    // Headers
+    formatted = formatted.replace(/^#### (.+)$/gm, '<h5 class="font-semibold text-gray-800 mt-3 mb-1 text-sm">$1</h5>')
+    formatted = formatted.replace(/^### (.+)$/gm, '<h4 class="font-semibold text-gray-900 mt-4 mb-2">$1</h4>')
+    formatted = formatted.replace(/^## (.+)$/gm, '<h3 class="font-bold text-gray-900 mt-4 mb-2 text-lg">$1</h3>')
+    formatted = formatted.replace(/^# (.+)$/gm, '<h2 class="font-bold text-gray-900 mt-4 mb-2 text-xl">$1</h2>')
+    // Horizontal rules
+    formatted = formatted.replace(/^---$/gm, '<hr class="my-3 border-gray-200">')
+    // Bullet points
+    formatted = formatted.replace(/^- (.+)$/gm, '<div class="flex gap-2 ml-2"><span class="text-indigo-400">•</span><span>$1</span></div>')
+    // URLs
+    formatted = formatted.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700 underline">$1</a>')
+    // Emojis as section markers
+    formatted = formatted.replace(/^((?:📊|🏈|🎯|💪|⚠️|✅|🏫|📅|🎥|✉️|🔍|⭐|🌟).+)$/gm, '<div class="font-medium text-gray-900 mt-3">$1</div>')
     
     return formatted
   }
