@@ -361,39 +361,39 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[700px] relative">
-      {/* Conversation Sidebar */}
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[calc(100dvh-10rem)] md:h-[700px] relative">
+      {/* Conversation Sidebar - Full width on mobile, 288px on desktop */}
       {showSidebar && (
-        <div className="absolute inset-0 z-20 flex">
-          <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full rounded-l-xl">
-            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-              <h4 className="font-semibold text-gray-900 text-sm">Your Conversations</h4>
-              <button onClick={() => setShowSidebar(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+        <div className="fixed inset-0 z-30 md:absolute md:inset-0 md:z-20 flex">
+          <div className="w-full max-w-sm md:w-72 bg-white border-r border-gray-200 flex flex-col h-full md:rounded-l-xl">
+            <div className="p-4 md:p-3 border-b border-gray-200 flex items-center justify-between">
+              <h4 className="font-semibold text-gray-900">Your Conversations</h4>
+              <button onClick={() => setShowSidebar(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 text-xl">✕</button>
             </div>
-            <div className="p-2">
+            <div className="p-3 md:p-2">
               <button
                 onClick={newConversation}
-                className="w-full px-3 py-2 bg-sparq-charcoal text-sparq-lime text-sm font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors mb-2"
+                className="w-full px-4 py-3 md:px-3 md:py-2 bg-sparq-charcoal text-sparq-lime font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors mb-2"
               >
                 + New Chat
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-2 pb-2">
+            <div className="flex-1 overflow-y-auto px-3 md:px-2 pb-3 md:pb-2">
               {conversations.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center py-4">No saved chats yet</p>
+                <p className="text-gray-400 text-center py-6 md:py-4">No saved chats yet</p>
               ) : (
                 conversations.map(conv => (
                   <button
                     key={conv.id}
                     onClick={() => loadConversation(conv.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${
+                    className={`w-full text-left px-4 py-3 md:px-3 md:py-2 rounded-lg mb-2 md:mb-1 transition-colors ${
                       conversationId === conv.id 
                         ? 'bg-sparq-lime/20 text-sparq-charcoal font-medium' 
                         : 'hover:bg-gray-100 text-gray-700'
                     }`}
                   >
                     <div className="font-medium truncate">{conv.title}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
+                    <div className="text-xs text-gray-400 mt-1 md:mt-0.5">
                       {conv.message_count} messages • {new Date(conv.updated_at).toLocaleDateString()}
                     </div>
                   </button>
@@ -401,29 +401,29 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
               )}
             </div>
           </div>
-          <div className="flex-1 bg-black/20" onClick={() => setShowSidebar(false)} />
+          <div className="flex-1 bg-black/30 md:bg-black/20" onClick={() => setShowSidebar(false)} />
         </div>
       )}
 
       {/* Header */}
-      <div className="border-b border-gray-200 p-4">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowSidebar(!showSidebar)} className="text-gray-400 hover:text-gray-600" title="Chat history">
+      <div className="border-b border-gray-200 p-3 md:p-4">
+        <div className="flex items-center gap-2 md:gap-3">
+          <button onClick={() => setShowSidebar(!showSidebar)} className="p-2 -ml-2 text-gray-400 hover:text-gray-600" title="Chat history">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
-          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-10 h-10 rounded-full" />
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">SPARQ Agent</h3>
-            <p className="text-sm text-gray-600">Your AI recruiting coordinator</p>
+          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-8 h-8 md:w-10 md:h-10 rounded-full" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 text-sm md:text-base">SPARQ Agent</h3>
+            <p className="text-xs md:text-sm text-gray-600 truncate">Your AI recruiting coordinator</p>
           </div>
-          <button onClick={newConversation} className="text-sm px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
+          <button onClick={newConversation} className="text-sm px-3 py-2 md:py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap">
             + New
           </button>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
         {messages.map((message, idx) => (
           <div
             key={idx}
@@ -532,7 +532,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 p-3 md:p-4">
         <div className="flex gap-2">
           <textarea
             value={input}
@@ -540,41 +540,42 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
             onKeyDown={handleKeyPress}
             placeholder="Ask me anything about recruiting..."
             disabled={loading}
-            rows={2}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sparq-lime focus:border-sparq-lime resize-none disabled:opacity-50"
+            rows={1}
+            className="flex-1 px-3 md:px-4 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sparq-lime focus:border-sparq-lime resize-none disabled:opacity-50 text-base md:text-sm min-h-[44px]"
           />
           <button
             onClick={sendMessage}
             disabled={loading || !input.trim()}
-            className="px-6 py-2 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 md:px-6 py-3 md:py-2 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
           >
             {loading ? '...' : 'Send'}
           </button>
         </div>
-        <div className="mt-2 flex gap-2 flex-wrap">
+        {/* Quick prompts - horizontal scroll on mobile, wrap on desktop */}
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1 md:pb-0 md:flex-wrap md:overflow-visible -mx-3 px-3 md:mx-0 md:px-0">
           {!loading && messages.length <= 1 && (
             <>
               <button
                 onClick={() => setInput('What college programs are the best fit for me?')}
-                className="px-3 py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors"
+                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 🏫 Match me to colleges
               </button>
               <button
                 onClick={() => setInput('How do my metrics compare to other athletes at my position?')}
-                className="px-3 py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors"
+                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 📊 Analyze my profile
               </button>
               <button
                 onClick={() => setInput('Find camps near me')}
-                className="px-3 py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors"
+                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 🏕️ Find camps
               </button>
               <button
                 onClick={() => setInput('Help me write an introduction email to a college coach')}
-                className="px-3 py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors"
+                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
               >
                 ✉️ Email a coach
               </button>

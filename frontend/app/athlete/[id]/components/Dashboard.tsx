@@ -82,19 +82,19 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
   return (
     <div className="space-y-6">
       {/* Profile Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-sparq-charcoal rounded-full flex items-center justify-center">
-              <span className="text-sparq-lime text-2xl font-bold">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-sparq-charcoal rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-sparq-lime text-lg sm:text-2xl font-bold">
                 {profile.first_name?.[0]}{profile.last_name?.[0]}
               </span>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
                 {profile.first_name} {profile.last_name}
               </h2>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 truncate">
                 {profile.position} • {profile.city}, {profile.state}
               </p>
               {offer_count > 0 && (
@@ -104,10 +104,10 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
               )}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500 mb-1">Profile Completeness</div>
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:text-right">
+            <div className="text-xs sm:text-sm text-gray-500">Profile</div>
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+              <div className="w-20 sm:w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-sparq-lime rounded-full transition-all"
                   style={{ width: `${completeness}%` }}
@@ -120,11 +120,11 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
         {/* Key Metrics */}
         {metrics.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {metrics.slice(0, 8).map((m: any) => (
-              <div key={m.title} className="bg-gray-50 rounded-lg px-3 py-2">
-                <div className="text-xs text-gray-500">{m.title}</div>
-                <div className="font-semibold text-gray-900">
+              <div key={m.title} className="bg-gray-50 rounded-lg px-2 sm:px-3 py-2">
+                <div className="text-xs text-gray-500 truncate">{m.title}</div>
+                <div className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                   {m.value} {m.unit || ''}
                   {m.verified ? ' ✅' : ''}
                 </div>
@@ -135,13 +135,13 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <button
           onClick={onStartChat}
-          className="bg-sparq-charcoal text-white rounded-xl p-5 text-left hover:bg-sparq-charcoal-light transition-colors"
+          className="bg-sparq-charcoal text-white rounded-xl p-4 sm:p-5 text-left hover:bg-sparq-charcoal-light transition-colors active:scale-[0.98]"
         >
-          <div className="text-sparq-lime text-2xl mb-2">⚡</div>
-          <div className="font-semibold text-lg">New Research</div>
+          <div className="text-sparq-lime text-xl sm:text-2xl mb-2">⚡</div>
+          <div className="font-semibold text-base sm:text-lg">New Research</div>
           <div className="text-gray-400 text-sm mt-1">
             Ask your agent about colleges, camps, recruiting strategies
           </div>
@@ -149,10 +149,10 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
         {recent_chats.length > 0 && (
           <button
             onClick={() => onLoadChat(recent_chats[0].id)}
-            className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:border-sparq-lime transition-colors"
+            className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 text-left hover:border-sparq-lime transition-colors active:scale-[0.98]"
           >
-            <div className="text-2xl mb-2">💬</div>
-            <div className="font-semibold text-lg text-gray-900">Continue Last Chat</div>
+            <div className="text-xl sm:text-2xl mb-2">💬</div>
+            <div className="font-semibold text-base sm:text-lg text-gray-900">Continue Last Chat</div>
             <div className="text-gray-500 text-sm mt-1 truncate">
               {recent_chats[0].title}
             </div>
@@ -162,9 +162,9 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
       {/* Saved Reports */}
       {reports.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
           <h3 className="font-semibold text-gray-900 mb-3">📋 Your Reports</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {reports.map((report: any) => {
               const meta = REPORT_TYPE_META[report.report_type] || REPORT_TYPE_META.research
               return (
@@ -193,15 +193,15 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
       )}
 
       {/* Links Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-4">
           <div>
             <h3 className="font-semibold text-gray-900">Your Links</h3>
             <p className="text-sm text-gray-500">Add your profiles so your agent can research deeper</p>
           </div>
           <button
             onClick={() => setAddingLink(!addingLink)}
-            className="text-sm px-3 py-1.5 bg-sparq-charcoal text-sparq-lime rounded-lg hover:bg-sparq-charcoal-light transition-colors"
+            className="text-sm px-3 py-2 sm:py-1.5 bg-sparq-charcoal text-sparq-lime rounded-lg hover:bg-sparq-charcoal-light transition-colors self-start sm:self-auto"
           >
             + Add Link
           </button>
@@ -306,22 +306,22 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
       {/* Recent Chats */}
       {recent_chats.length > 1 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
           <h3 className="font-semibold text-gray-900 mb-3">Recent Research</h3>
           <div className="space-y-2">
             {recent_chats.map((chat: any) => (
               <button
                 key={chat.id}
                 onClick={() => onLoadChat(chat.id)}
-                className="w-full flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                className="w-full flex items-center justify-between py-3 sm:py-2 px-3 bg-gray-50 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors text-left"
               >
-                <div>
+                <div className="min-w-0 flex-1 mr-2">
                   <div className="font-medium text-sm text-gray-900 truncate">{chat.title}</div>
                   <div className="text-xs text-gray-400">
                     {chat.message_count} messages • {new Date(chat.updated_at).toLocaleDateString()}
                   </div>
                 </div>
-                <span className="text-gray-400">→</span>
+                <span className="text-gray-400 flex-shrink-0">→</span>
               </button>
             ))}
           </div>
