@@ -305,7 +305,7 @@ Always use multiple tools when it makes the answer better. Don't just return raw
             
             for iteration in range(max_iterations):
                 response = self.anthropic.messages.create(
-                    model="claude-opus-4-5-20251101",
+                    model="claude-opus-4-6",
                     max_tokens=8192,
                     system=system_prompt,
                     tools=tools,
@@ -434,7 +434,7 @@ Always use multiple tools when it makes the answer better."""
 
             for iteration in range(max_iterations):
                 response = self.anthropic.messages.create(
-                    model="claude-opus-4-5-20251101",
+                    model="claude-opus-4-6",
                     max_tokens=8192,
                     system=system_prompt,
                     tools=tools,
@@ -476,7 +476,7 @@ Always use multiple tools when it makes the answer better."""
 
             # Re-run with streaming for the final text
             with self.anthropic.messages.stream(
-                model="claude-opus-4-5-20251101",
+                model="claude-opus-4-6",
                 max_tokens=8192,
                 system=system_prompt,
                 messages=messages

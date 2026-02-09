@@ -253,7 +253,7 @@ def estimate_cost(tokens_used: int, model: str = "claude-sonnet-4-20250514") -> 
     pricing = {
         "claude-haiku-4-20250514": {"input": 0.25, "output": 1.25},
         "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
-        "claude-opus-4-5-20251101": {"input": 15.0, "output": 75.0},
+        "claude-opus-4-6": {"input": 15.0, "output": 75.0},
     }
 
     # Assume 50/50 input/output split for estimation
