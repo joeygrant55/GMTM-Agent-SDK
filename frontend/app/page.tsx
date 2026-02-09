@@ -5,28 +5,50 @@ import Link from 'next/link'
 
 export default function Home() {
   const [athleteId, setAthleteId] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-sparq-charcoal text-white">
       {/* Nav */}
       <nav className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/sparq-logo.jpg" alt="SPARQ" className="w-10 h-10 rounded-lg" />
             <span className="text-xl font-bold">SPARQ Agent</span>
           </div>
-          <div className="flex items-center gap-6">
+          {/* Desktop nav */}
+          <div className="hidden sm:flex items-center gap-6">
             <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="text-sm text-gray-400 hover:text-white transition-colors">Pricing</a>
             <Link href="/sign-in" className="px-4 py-2 text-sm font-medium bg-sparq-lime text-sparq-charcoal rounded-lg hover:bg-sparq-lime-dark transition-colors">
               Sign In
             </Link>
           </div>
+          {/* Mobile hamburger */}
+          <button onClick={() => setMenuOpen(!menuOpen)} className="sm:hidden p-2 -mr-2 text-gray-400 hover:text-white">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {menuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+        {/* Mobile menu */}
+        {menuOpen && (
+          <div className="sm:hidden border-t border-white/10 px-4 py-4 space-y-3">
+            <a href="#features" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-400 hover:text-white py-2">Features</a>
+            <a href="#pricing" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-400 hover:text-white py-2">Pricing</a>
+            <Link href="/sign-in" className="block w-full text-center px-4 py-3 text-sm font-medium bg-sparq-lime text-sparq-charcoal rounded-lg hover:bg-sparq-lime-dark transition-colors">
+              Sign In
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}
-      <section className="max-w-7xl mx-auto px-6 pt-20 pb-16 relative">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-12 sm:pb-16 relative">
         {/* Hero Background */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <img 
@@ -40,12 +62,12 @@ export default function Home() {
           <div className="inline-block px-3 py-1 bg-sparq-lime/10 border border-sparq-lime/20 rounded-full text-sparq-lime text-sm font-medium mb-6">
             AI-Powered Recruiting Intelligence
           </div>
-          <h1 className="text-5xl sm:text-7xl font-extrabold leading-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-tight">
             Your Personal
             <br />
             <span className="text-sparq-lime">Recruiting Advisor</span>
           </h1>
-          <p className="mt-6 text-xl text-gray-400 max-w-2xl leading-relaxed">
+          <p className="mt-4 sm:mt-6 text-base sm:text-xl text-gray-400 max-w-2xl leading-relaxed">
             Get $5,000-level recruiting guidance for a fraction of the cost. SPARQ Agent analyzes your profile, matches you to programs, researches coaching staffs, and helps you get recruited — 24/7.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
@@ -61,36 +83,36 @@ export default function Home() {
 
       {/* Stats Bar */}
       <section className="border-y border-white/10 bg-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
           <div className="text-center">
-            <div className="text-3xl font-bold text-sparq-lime">75,000+</div>
+            <div className="text-2xl sm:text-3xl font-bold text-sparq-lime">75,000+</div>
             <div className="text-sm text-gray-400 mt-1">Athlete Profiles</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-sparq-lime">2,900+</div>
+            <div className="text-2xl sm:text-3xl font-bold text-sparq-lime">2,900+</div>
             <div className="text-sm text-gray-400 mt-1">College Programs</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-sparq-lime">131K</div>
+            <div className="text-2xl sm:text-3xl font-bold text-sparq-lime">131K</div>
             <div className="text-sm text-gray-400 mt-1">Performance Metrics</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-sparq-lime">24/7</div>
+            <div className="text-2xl sm:text-3xl font-bold text-sparq-lime">24/7</div>
             <div className="text-sm text-gray-400 mt-1">Always Available</div>
           </div>
         </div>
       </section>
 
       {/* Features */}
-      <section id="features" className="max-w-7xl mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold">Everything You Need to <span className="text-sparq-lime">Get Recruited</span></h2>
-          <p className="mt-4 text-gray-400 text-lg max-w-2xl mx-auto">
+      <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <div className="text-center mb-10 sm:mb-16">
+          <h2 className="text-2xl sm:text-4xl font-bold">Everything You Need to <span className="text-sparq-lime">Get Recruited</span></h2>
+          <p className="mt-4 text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
             SPARQ Agent combines AI intelligence with real recruiting data to give you an unfair advantage.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
           <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-sparq-lime/30 transition-colors group">
             <div className="h-32 overflow-hidden">
               <img src="/images/college-matching.png" alt="College Matching" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -167,9 +189,9 @@ export default function Home() {
 
       {/* How It Works */}
       <section className="border-y border-white/10 bg-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-20">
-          <h2 className="text-4xl font-bold text-center mb-16">How It <span className="text-sparq-lime">Works</span></h2>
-          <div className="grid md:grid-cols-3 gap-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
+          <h2 className="text-2xl sm:text-4xl font-bold text-center mb-10 sm:mb-16">How It <span className="text-sparq-lime">Works</span></h2>
+          <div className="grid sm:grid-cols-3 gap-8 sm:gap-12">
             <div className="text-center">
               <div className="w-16 h-16 bg-sparq-lime text-sparq-charcoal rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-5">1</div>
               <h3 className="text-xl font-bold mb-2">Create Your Profile</h3>
@@ -190,11 +212,11 @@ export default function Home() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="max-w-7xl mx-auto px-6 py-20">
-        <h2 className="text-4xl font-bold text-center mb-4">Simple <span className="text-sparq-lime">Pricing</span></h2>
-        <p className="text-center text-gray-400 mb-16 text-lg">Recruiting services charge $2,000-5,000/year. We don't.</p>
+      <section id="pricing" className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
+        <h2 className="text-2xl sm:text-4xl font-bold text-center mb-4">Simple <span className="text-sparq-lime">Pricing</span></h2>
+        <p className="text-center text-gray-400 mb-10 sm:mb-16 text-base sm:text-lg">Recruiting services charge $2,000-5,000/year. We don&apos;t.</p>
         
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid sm:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
           {/* Free */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-8">
             <h3 className="text-xl font-bold">Free</h3>
@@ -238,9 +260,9 @@ export default function Home() {
 
       {/* CTA */}
       <section className="border-t border-white/10 bg-white/5">
-        <div className="max-w-4xl mx-auto px-6 py-20 text-center">
-          <h2 className="text-4xl font-bold mb-4">Ready to Get Recruited?</h2>
-          <p className="text-gray-400 text-lg mb-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
+          <h2 className="text-2xl sm:text-4xl font-bold mb-4">Ready to Get Recruited?</h2>
+          <p className="text-gray-400 text-base sm:text-lg mb-8">
             Join thousands of athletes using AI to navigate the recruiting process.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
@@ -268,12 +290,12 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-8 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <img src="/sparq-logo.jpg" alt="SPARQ" className="w-6 h-6 rounded" />
             <span className="text-sm text-gray-500">SPARQ Agent</span>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs sm:text-sm text-gray-500">
             Powered by SPARQ data • Built for athletes
           </p>
         </div>

@@ -59,8 +59,8 @@ export default function CampFinder({ athleteId }: CampFinderProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">🏕️ Camp Finder Agent</h3>
           <p className="text-sm text-gray-600">AI-powered camp discovery & matching</p>
@@ -68,7 +68,7 @@ export default function CampFinder({ athleteId }: CampFinderProps) {
         <button
           onClick={findCamps}
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+          className="px-4 py-3 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm min-h-[44px]"
         >
           {loading ? '🤖 Agent researching... (30-40s)' : '🤖 Find My Camps'}
         </button>
@@ -95,22 +95,22 @@ export default function CampFinder({ athleteId }: CampFinderProps) {
               key={idx}
               className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors"
             >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                <div className="flex-1 min-w-0">
                   <h5 className="font-semibold text-gray-900">{camp.name}</h5>
-                  <div className="flex items-center gap-3 text-sm text-gray-600 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-gray-600 mt-1">
                     <span>📅 {camp.date}</span>
                     <span>📍 {camp.location}</span>
                     {camp.cost && <span>💰 ${camp.cost}</span>}
                     {camp.distance_miles && <span>🚗 {camp.distance_miles} miles</span>}
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
+                <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-0">
                   <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
                     Score: {camp.fit_score}
                   </div>
                   {camp.deadline && (
-                    <span className="text-xs text-gray-500 mt-1">
+                    <span className="text-xs text-gray-500 sm:mt-1">
                       Deadline: {camp.deadline}
                     </span>
                   )}

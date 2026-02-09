@@ -68,7 +68,9 @@ export default function AthleteDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="text-6xl mb-4">🔍</div>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+          </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Athlete Not Found</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <a href="/" className="px-6 py-3 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors">

@@ -144,13 +144,22 @@ const COLLEGES = [
   },
 ]
 
+const TIMELINE_ICONS: Record<string, React.ReactNode> = {
+  bolt: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 01.12-.381z"/></svg>,
+  building: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/></svg>,
+  film: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4zm2 0h1V9h-1v2zm1-4V5h-1v2h1zM5 5v2H4V5h1zm-1 4h1v2H4V9zm0 4h1v2H4v-2z" clipRule="evenodd"/></svg>,
+  run: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"/></svg>,
+  football: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11a1 1 0 11-2 0 1 1 0 012 0zm-1-3a1 1 0 01-1-1V6a1 1 0 112 0v3a1 1 0 01-1 1z"/></svg>,
+  pen: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>,
+}
+
 const TIMELINE = [
-  { date: 'Feb 2026', event: 'SPARQ profile created — agent analysis begins', icon: '⚡', active: true },
-  { date: 'Mar 2026', event: 'Junior Day visits — TCU, Baylor, Arkansas', icon: '🏟️', active: false },
-  { date: 'Apr 2026', event: 'Spring evaluation period — send updated film', icon: '🎬', active: false },
-  { date: 'Jun 2026', event: 'Camp circuit — TCU Elite, Baylor Showcase', icon: '🏃', active: false },
-  { date: 'Sep 2026', event: 'Senior season kicks off — agent tracks live stats', icon: '🏈', active: false },
-  { date: 'Dec 2026', event: 'Early signing period — commit window opens', icon: '✍️', active: false },
+  { date: 'Feb 2026', event: 'SPARQ profile created — agent analysis begins', iconKey: 'bolt', active: true },
+  { date: 'Mar 2026', event: 'Junior Day visits — TCU, Baylor, Arkansas', iconKey: 'building', active: false },
+  { date: 'Apr 2026', event: 'Spring evaluation period — send updated film', iconKey: 'film', active: false },
+  { date: 'Jun 2026', event: 'Camp circuit — TCU Elite, Baylor Showcase', iconKey: 'run', active: false },
+  { date: 'Sep 2026', event: 'Senior season kicks off — agent tracks live stats', iconKey: 'football', active: false },
+  { date: 'Dec 2026', event: 'Early signing period — commit window opens', iconKey: 'pen', active: false },
 ]
 
 const DRAFT_EMAIL = `Dear Coach Perry,
@@ -582,10 +591,22 @@ export default function DemoPage() {
 
                   {/* Season Stats */}
                   <div className="mt-4 flex flex-wrap gap-3 text-xs">
-                    <span className="px-3 py-1.5 bg-white/5 rounded-full text-gray-300">🏈 {ATHLETE.interceptions} INT</span>
-                    <span className="px-3 py-1.5 bg-white/5 rounded-full text-gray-300">💪 {ATHLETE.tackles} Tackles</span>
-                    <span className="px-3 py-1.5 bg-white/5 rounded-full text-gray-300">🛡️ {ATHLETE.passBreakups} PBU</span>
-                    <span className="px-3 py-1.5 bg-sparq-lime/10 rounded-full text-sparq-lime font-semibold">🏆 {ATHLETE.honors}</span>
+                    <span className="px-3 py-1.5 bg-white/5 rounded-full text-gray-300 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-sparq-lime" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4z"/></svg>
+                      {ATHLETE.interceptions} INT
+                    </span>
+                    <span className="px-3 py-1.5 bg-white/5 rounded-full text-gray-300 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-sparq-lime" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd"/></svg>
+                      {ATHLETE.tackles} Tackles
+                    </span>
+                    <span className="px-3 py-1.5 bg-white/5 rounded-full text-gray-300 flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-sparq-lime" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                      {ATHLETE.passBreakups} PBU
+                    </span>
+                    <span className="px-3 py-1.5 bg-sparq-lime/10 rounded-full text-sparq-lime font-semibold flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd"/></svg>
+                      {ATHLETE.honors}
+                    </span>
                   </div>
                 </div>
 
@@ -647,7 +668,9 @@ export default function DemoPage() {
         <Section delay={7800}>
           <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
-              <span className="text-lg">✉️</span>
+              <div className="w-8 h-8 rounded-lg bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-sparq-lime" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+              </div>
               <div>
                 <h3 className="text-white font-bold text-sm">Draft Outreach — TCU</h3>
                 <p className="text-gray-500 text-[11px]">AI-generated introduction to Coach Mark Perry</p>
@@ -679,12 +702,79 @@ export default function DemoPage() {
           </div>
         </Section>
 
+        {/* ===== SHARE THIS REPORT ===== */}
+        <Section delay={10000}>
+          <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 text-sparq-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935-2.186 2.25 2.25 0 0 0-3.935 2.186Zm0-12.814a2.25 2.25 0 1 0 3.933 2.185 2.25 2.25 0 0 0-3.933-2.185Z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-sm">Share This Report</h3>
+                <p className="text-gray-500 text-[11px]">Post your SPARQ card to social media</p>
+              </div>
+            </div>
+            <div className="p-5 sm:p-8">
+              {/* Preview card */}
+              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#141414] to-[#0a0a0a] max-w-lg mx-auto">
+                <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-sparq-lime/5 blur-3xl pointer-events-none" />
+                <div className="relative p-5 flex items-center gap-5">
+                  <div className="flex-1">
+                    <div className="inline-flex px-2 py-0.5 bg-sparq-lime/10 border border-sparq-lime/20 rounded-full text-sparq-lime text-[10px] font-bold uppercase tracking-wider mb-2">
+                      Football · CB
+                    </div>
+                    <div className="text-xl font-black text-white">{ATHLETE.name}</div>
+                    <div className="flex gap-1.5 mt-2">
+                      {[`${ATHLETE.fortyYard}s 40yd`, `${ATHLETE.tackles} Tackles`, `${ATHLETE.interceptions} INT`].map((s, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-[10px] text-gray-400 font-medium">{s}</span>
+                      ))}
+                    </div>
+                    <p className="text-gray-600 text-[10px] mt-2">Top Match: <span className="text-sparq-lime font-bold">TCU 94%</span></p>
+                  </div>
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-sparq-lime/12 to-sparq-lime/3 border-2 border-sparq-lime/30 flex items-center justify-center flex-shrink-0">
+                    <div className="text-center">
+                      <div className="text-[8px] font-bold text-gray-500 uppercase">SPARQ</div>
+                      <div className="text-3xl font-black text-sparq-lime leading-none">94</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t border-white/5 px-5 py-2 flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-sparq-lime flex items-center justify-center">
+                    <span className="text-black text-[8px] font-black">S</span>
+                  </div>
+                  <span className="text-gray-600 text-[10px]">Powered by SPARQ</span>
+                </div>
+              </div>
+
+              {/* Share buttons */}
+              <div className="flex gap-3 mt-5 max-w-lg mx-auto">
+                <button className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-sparq-lime text-sparq-charcoal font-bold text-sm rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935-2.186 2.25 2.25 0 0 0-3.935 2.186Zm0-12.814a2.25 2.25 0 1 0 3.933 2.185 2.25 2.25 0 0 0-3.933-2.185Z" />
+                  </svg>
+                  Share My Card
+                </button>
+                <button className="px-5 py-3 bg-white/5 border border-white/10 text-gray-300 font-bold text-sm rounded-xl hover:bg-white/10 transition-all">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Section>
+
         {/* ===== BOTTOM CTA ===== */}
         <Section delay={14000}>
           <div className="relative mt-8 mb-4">
             <div className="absolute inset-0 bg-gradient-to-r from-sparq-lime/5 via-sparq-lime/10 to-sparq-lime/5 rounded-3xl blur-xl" />
             <div className="relative bg-gradient-to-b from-sparq-charcoal-light to-sparq-charcoal border border-sparq-lime/20 rounded-3xl px-6 py-10 sm:py-14 text-center">
-              <div className="text-sparq-lime text-sm font-bold uppercase tracking-wider mb-3">⚡ Report Complete</div>
+              <div className="text-sparq-lime text-sm font-bold uppercase tracking-wider mb-3 flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 01.12-.381z"/></svg>
+                Report Complete
+              </div>
               <h2 className="text-2xl sm:text-4xl font-black text-white mb-3 leading-tight">
                 This took SPARQ Agent <span className="text-sparq-lime">30 seconds.</span>
                 <br />
@@ -856,9 +946,9 @@ function TimelineItem({ item, index, delay }: {
       <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm z-10 ${
         item.active
           ? 'bg-sparq-lime text-sparq-charcoal shadow-lg shadow-sparq-lime/30'
-          : 'bg-sparq-charcoal-light border border-white/10'
+          : 'bg-sparq-charcoal-light border border-white/10 text-gray-500'
       }`}>
-        {item.icon}
+        {TIMELINE_ICONS[item.iconKey] || item.iconKey}
       </div>
       <div className={`pb-4 ${item.active ? '' : 'opacity-70'}`}>
         <div className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${item.active ? 'text-sparq-lime' : 'text-gray-500'}`}>

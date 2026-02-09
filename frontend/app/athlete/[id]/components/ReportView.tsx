@@ -118,9 +118,9 @@ export default function ReportView({ athleteId, reportId, onBack }: ReportViewPr
       </div>
 
       {/* Report Document */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{report.title}</h1>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-8 lg:p-12">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{report.title}</h1>
           <p className="text-sm text-gray-500">
             Generated {new Date(report.created_at).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
