@@ -170,6 +170,111 @@ JoJo Earle
 SPARQ Profile: sparq.io/athletes/383`
 
 // ============================================================
+// AGENT TOOL-CALL FEED
+// ============================================================
+
+const AGENT_STEPS = [
+  { label: 'Fetching athlete profile...', time: '0.3s' },
+  { label: 'Analyzing 131K performance metrics...', time: '1.2s' },
+  { label: 'Matching against 2,932 programs...', time: '2.1s' },
+  { label: 'Computing percentile rankings...', time: '0.8s' },
+  { label: 'Evaluating scholarship likelihood...', time: '0.6s' },
+  { label: 'Generating recruiting report...', time: '0.4s' },
+]
+
+function AgentToolCallFeed({ onComplete }: { onComplete?: () => void }) {
+  const [completedSteps, setCompletedSteps] = useState(-1)
+  const [allDone, setAllDone] = useState(false)
+  const stepDelay = 800 // ms between steps
+  const completeDelay = 600 // ms for spinner→check transition
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    AGENT_STEPS.forEach((_, i) => {
+      // Show step (appear)
+      timers.push(setTimeout(() => {
+        // Step is now visible (handled by render logic)
+      }, i * stepDelay))
+      // Complete step
+      timers.push(setTimeout(() => {
+        setCompletedSteps(i)
+      }, i * stepDelay + completeDelay))
+    })
+    // All done
+    timers.push(setTimeout(() => {
+      setAllDone(true)
+      onComplete?.()
+    }, AGENT_STEPS.length * stepDelay + completeDelay + 300))
+    return () => timers.forEach(clearTimeout)
+  }, [onComplete])
+
+  // How many steps are visible (appeared)
+  const [visibleCount, setVisibleCount] = useState(0)
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    AGENT_STEPS.forEach((_, i) => {
+      timers.push(setTimeout(() => setVisibleCount(i + 1), i * stepDelay))
+    })
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  return (
+    <div className={`rounded-xl border bg-black/40 overflow-hidden transition-all duration-700 ${allDone ? 'border-sparq-lime/30 bg-sparq-lime/[0.03]' : 'border-white/10'}`}>
+      {/* Terminal header */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 bg-white/[0.02]">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+        </div>
+        <span className="text-[11px] text-gray-500 font-mono ml-2">sparq-agent v1.0</span>
+        {allDone && (
+          <span className="ml-auto text-[10px] text-sparq-lime font-mono font-semibold animate-fadeIn">
+            ✓ Complete
+          </span>
+        )}
+      </div>
+      {/* Steps */}
+      <div className="px-4 py-3 space-y-1">
+        {AGENT_STEPS.map((step, i) => {
+          if (i >= visibleCount) return null
+          const isCompleted = i <= completedSteps
+          const isCurrent = i === visibleCount - 1 && !isCompleted
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-2.5 font-mono text-sm animate-fadeIn"
+              style={{ animationDuration: '0.3s' }}
+            >
+              {/* Icon */}
+              <span className="w-4 flex-shrink-0 text-center">
+                {isCompleted ? (
+                  <span className="text-[#CDDC39] font-bold">✓</span>
+                ) : isCurrent ? (
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-gray-600">○</span>
+                )}
+              </span>
+              {/* Label */}
+              <span className={`flex-1 ${isCompleted ? 'text-gray-400' : isCurrent ? 'text-white' : 'text-gray-600'}`}>
+                {step.label}
+              </span>
+              {/* Time */}
+              {isCompleted && (
+                <span className="text-gray-600 text-xs font-mono tabular-nums animate-fadeIn">
+                  {step.time}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
 // ANIMATION HELPERS
 // ============================================================
 
@@ -428,14 +533,9 @@ export default function DemoPage() {
 
       <main className="max-w-5xl mx-auto px-4 py-6 sm:py-10 space-y-8 sm:space-y-12">
 
-        {/* ===== GENERATING BANNER ===== */}
+        {/* ===== AGENT TOOL-CALL FEED ===== */}
         <Section delay={0}>
-          <div className="flex items-center gap-3 px-4 py-3 bg-sparq-lime/5 border border-sparq-lime/20 rounded-xl text-sm">
-            <div className="w-5 h-5 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            <span className="text-gray-300">
-              <span className="text-sparq-lime font-semibold">SPARQ Agent</span> analyzed 2,932 programs, 131K metrics, and 47 verified data points to generate this report.
-            </span>
-          </div>
+          <AgentToolCallFeed />
         </Section>
 
         {/* ===== ATHLETE PROFILE CARD ===== */}
