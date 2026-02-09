@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
 
 interface AthleteResult {
   user_id: number
@@ -13,7 +12,9 @@ interface AthleteResult {
 }
 
 export default function ConnectProfile() {
-  const { user } = useUser()
+  // Clerk auth disabled until NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is configured
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user: any = null
   const [mode, setMode] = useState<'choice' | 'id' | 'search'>('choice')
   const [athleteId, setAthleteId] = useState('')
   const [searchName, setSearchName] = useState('')

@@ -12,11 +12,21 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+  if (clerkKey) {
+    return (
+      <ClerkProvider publishableKey={clerkKey}>
+        <html lang="en">
+          <body className="bg-gray-50">{children}</body>
+        </html>
+      </ClerkProvider>
+    )
+  }
+
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className="bg-gray-50">{children}</body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body className="bg-gray-50">{children}</body>
+    </html>
   )
 }
