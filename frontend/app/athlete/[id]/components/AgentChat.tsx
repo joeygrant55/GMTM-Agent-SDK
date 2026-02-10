@@ -21,19 +21,21 @@ interface AgentChatProps {
   initialConversationId?: number | null
 }
 
-// Tool name → friendly description + icon
+// Tool name → friendly description
 const TOOL_DESCRIPTIONS: Record<string, { text: string; icon: string }> = {
-  college_matcher: { text: 'Matching you to college programs...', icon: '🎯' },
-  profile_analyzer: { text: 'Analyzing your athletic profile...', icon: '📊' },
+  college_matcher: { text: 'Matching against college programs...', icon: '🎯' },
+  profile_analyzer: { text: 'Analyzing athletic profile...', icon: '📊' },
   coach_lookup: { text: 'Researching coaching staffs...', icon: '🏈' },
-  camp_finder: { text: 'Finding camps and combines near you...', icon: '🏕️' },
-  calendar_check: { text: 'Checking recruiting calendar dates...', icon: '📅' },
-  film_guide: { text: 'Reviewing film and highlight resources...', icon: '🎬' },
-  brave_search: { text: 'Searching the web for latest info...', icon: '🔍' },
+  camp_finder: { text: 'Finding camps and combines...', icon: '🏕️' },
+  calendar_check: { text: 'Checking recruiting calendar...', icon: '📅' },
+  film_guide: { text: 'Reviewing film resources...', icon: '🎬' },
+  brave_search: { text: 'Searching the web...', icon: '🔍' },
+  fetch_metrics: { text: 'Loading performance metrics...', icon: '⚡' },
+  scholarship_check: { text: 'Evaluating scholarship likelihood...', icon: '🎓' },
 }
 
 const getToolInfo = (toolName: string) =>
-  TOOL_DESCRIPTIONS[toolName] || { text: 'Working on it...', icon: '⚙️' }
+  TOOL_DESCRIPTIONS[toolName] || { text: `Running ${toolName.replace(/_/g, ' ')}...`, icon: '⚙️' }
 
 // Quick action cards
 const QUICK_ACTIONS = [
@@ -785,7 +787,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
   )
 }
 
-/* ── Thinking Card with theatrical step tracker ── */
+/* ── /demo-style Terminal Thinking Feed ── */
 function ThinkingCard({
   steps,
   parseSteps,
@@ -794,66 +796,59 @@ function ThinkingCard({
   parseSteps: (s: string[]) => { tool: string; status: 'active' | 'done'; text: string; icon: string }[]
 }) {
   const timeline = parseSteps(steps)
+  const allDone = timeline.length > 0 && timeline.every(s => s.status === 'done')
 
   return (
-    <div className="bg-[#141414] rounded-xl border border-white/[0.06] overflow-hidden w-full">
-      {/* Progress bar */}
-      <div className="h-0.5 bg-white/[0.04] overflow-hidden">
-        <div className="h-full bg-[#c8ff00] animate-thinking-progress rounded-full" />
+    <div className={`rounded-xl border bg-black/40 overflow-hidden transition-all duration-700 w-full ${
+      allDone ? 'border-[#c8ff00]/30 bg-[#c8ff00]/[0.03]' : 'border-white/10'
+    }`}>
+      {/* Terminal header */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 bg-white/[0.02]">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+        </div>
+        <span className="text-[11px] text-gray-500 font-mono ml-2">sparq-agent</span>
+        {allDone && (
+          <span className="ml-auto text-[10px] text-[#c8ff00] font-mono font-semibold">
+            ✓ Complete
+          </span>
+        )}
+        {!allDone && (
+          <div className="ml-auto h-0.5 w-16 bg-white/[0.04] rounded-full overflow-hidden">
+            <div className="h-full bg-[#c8ff00] animate-thinking-progress rounded-full" />
+          </div>
+        )}
       </div>
 
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-5 h-5 rounded-full bg-[#c8ff00]/10 flex items-center justify-center">
-            <span className="text-[#c8ff00] text-[10px] font-bold font-display">S</span>
-          </div>
-          <span className="text-xs font-medium text-white/50">SPARQ Agent</span>
-          <span className="text-[10px] text-white/20">is working...</span>
-        </div>
-
-        {/* Step timeline */}
+      {/* Steps */}
+      <div className="px-4 py-3 space-y-1">
         {timeline.length > 0 ? (
-          <div className="space-y-2.5 ml-1">
-            {timeline.map((step, sidx) => (
-              <div
-                key={sidx}
-                className="flex items-start gap-2.5 animate-slideIn"
-                style={{ animationDelay: `${sidx * 100}ms` }}
-              >
-                {/* Status indicator */}
-                <div className="mt-0.5 flex-shrink-0">
-                  {step.status === 'done' ? (
-                    <div className="w-4 h-4 rounded-full bg-[#c8ff00]/20 flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-[#c8ff00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-4 h-4 rounded-full bg-[#c8ff00]/20 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-[#c8ff00] animate-pulse" />
-                    </div>
-                  )}
-                </div>
-                {/* Step text */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm">{step.icon}</span>
-                  <span
-                    className={`text-xs ${
-                      step.status === 'done' ? 'text-white/40' : 'text-white/70'
-                    }`}
-                  >
-                    {step.text}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2.5 ml-1">
-            <div className="w-4 h-4 rounded-full bg-[#c8ff00]/20 flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full bg-[#c8ff00] animate-pulse" />
+          timeline.map((step, sidx) => (
+            <div
+              key={sidx}
+              className="flex items-center gap-2.5 font-mono text-sm animate-slideIn"
+              style={{ animationDelay: `${sidx * 80}ms` }}
+            >
+              {/* Icon */}
+              <span className="w-4 flex-shrink-0 text-center">
+                {step.status === 'done' ? (
+                  <span className="text-[#c8ff00] font-bold">✓</span>
+                ) : (
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-[#c8ff00] border-t-transparent rounded-full animate-spin" />
+                )}
+              </span>
+              {/* Label */}
+              <span className={`flex-1 ${step.status === 'done' ? 'text-gray-400' : 'text-white'}`}>
+                {step.text}
+              </span>
             </div>
-            <span className="text-xs text-white/50">Getting started...</span>
+          ))
+        ) : (
+          <div className="flex items-center gap-2.5 font-mono text-sm">
+            <span className="inline-block w-3.5 h-3.5 border-2 border-[#c8ff00] border-t-transparent rounded-full animate-spin" />
+            <span className="text-white">Getting started...</span>
           </div>
         )}
       </div>

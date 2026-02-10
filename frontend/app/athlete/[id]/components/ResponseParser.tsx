@@ -480,11 +480,11 @@ export default function ResponseParser({ content, onAction }: ResponseParserProp
 
           case 'colleges':
             return (
-              <div
-                key={i}
-                className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 scrollbar-hide"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
+              <div key={i} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">College Matches</span>
+                  <span className="text-[#c8ff00] text-xs font-bold">{seg.data.length} matches</span>
+                </div>
                 {seg.data.map((college, cidx) => (
                   <CollegeMatchCard key={cidx} data={college} index={cidx} />
                 ))}
