@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 interface AthleteResult {
   user_id: number
@@ -12,9 +13,7 @@ interface AthleteResult {
 }
 
 export default function ConnectProfile() {
-  // Clerk auth disabled until NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is configured
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user: any = null
+  const { user } = useUser()
   const [mode, setMode] = useState<'choice' | 'id' | 'search'>('choice')
   const [athleteId, setAthleteId] = useState('')
   const [searchName, setSearchName] = useState('')
@@ -26,19 +25,22 @@ export default function ConnectProfile() {
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
-  // Check if already connected
+  // Check if already connected — redirect immediately if so
   useEffect(() => {
     if (user?.id) {
+      setLoading(true)
       fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
         .then(r => r.json())
         .then(data => {
           if (data.found && data.user_id) {
             window.location.href = `/athlete/${data.user_id}`
+          } else {
+            setLoading(false)
           }
         })
-        .catch(() => {})
+        .catch(() => setLoading(false))
     }
-  }, [user?.id])
+  }, [user?.id, backendUrl])
 
   const lookupById = async () => {
     if (!athleteId.trim()) return
@@ -73,16 +75,14 @@ export default function ConnectProfile() {
   }
 
   const connectProfile = async (userId: number) => {
+    if (!user) return
     setLoading(true)
     try {
-      // If Clerk auth is available, persist the connection
-      if (user?.id) {
-        await fetch(`${backendUrl}/api/profile/connect`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, clerk_id: user.id })
-        })
-      }
+      await fetch(`${backendUrl}/api/profile/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, clerk_id: user.id })
+      })
       setConnected(true)
       setTimeout(() => {
         window.location.href = `/athlete/${userId}`
@@ -91,6 +91,18 @@ export default function ConnectProfile() {
       setError('Failed to connect profile. Try again.')
     }
     setLoading(false)
+  }
+
+  // Show loading while checking if already connected
+  if (loading && mode === 'choice' && !results.length && !preview) {
+    return (
+      <div className="min-h-screen bg-sparq-charcoal flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Checking your profile...</p>
+        </div>
+      </div>
+    )
   }
 
   if (connected) {
@@ -106,13 +118,13 @@ export default function ConnectProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-sparq-charcoal flex items-start sm:items-center justify-center px-4 pt-12 sm:pt-0">
+    <div className="min-h-screen bg-sparq-charcoal flex items-center justify-center px-4">
       <div className="max-w-lg w-full">
         {/* Logo */}
-        <div className="text-center mb-6 sm:mb-8">
-          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl mx-auto mb-3 sm:mb-4" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Connect Your Profile</h1>
-          <p className="text-gray-400 mt-2 text-sm sm:text-base px-4 sm:px-0">
+        <div className="text-center mb-8">
+          <img src="/sparq-logo-white.png" alt="SPARQ" className="h-10 w-auto mx-auto mb-6" />
+          <h1 className="text-3xl font-bold text-white">Connect Your Profile</h1>
+          <p className="text-gray-400 mt-2">
             Link your SPARQ/GMTM athlete profile to get personalized recruiting advice.
           </p>
         </div>
@@ -122,30 +134,26 @@ export default function ConnectProfile() {
           <div className="space-y-4">
             <button
               onClick={() => setMode('id')}
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 sm:p-6 text-left hover:border-sparq-lime/30 active:bg-white/10 transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-6 text-left hover:border-sparq-lime/30 transition-colors"
             >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-sparq-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
-                </div>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl">🔢</div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white">I Know My Athlete Number</h3>
-                  <p className="text-gray-400 text-xs sm:text-sm">Enter your GMTM athlete ID to connect instantly</p>
+                  <h3 className="text-lg font-bold text-white">I Know My Athlete Number</h3>
+                  <p className="text-gray-400 text-sm">Enter your GMTM athlete ID to connect instantly</p>
                 </div>
               </div>
             </button>
 
             <button
               onClick={() => setMode('search')}
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 sm:p-6 text-left hover:border-sparq-lime/30 active:bg-white/10 transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-6 text-left hover:border-sparq-lime/30 transition-colors"
             >
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-11 h-11 sm:w-12 sm:h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-sparq-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                </div>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl">🔍</div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white">Search By Name</h3>
-                  <p className="text-gray-400 text-xs sm:text-sm">Find your profile by searching your name</p>
+                  <h3 className="text-lg font-bold text-white">Search By Name</h3>
+                  <p className="text-gray-400 text-sm">Find your profile by searching your name</p>
                 </div>
               </div>
             </button>
@@ -160,7 +168,7 @@ export default function ConnectProfile() {
 
         {/* Lookup by ID */}
         {mode === 'id' && !preview && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 sm:p-8">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-8">
             <button onClick={() => { setMode('choice'); setError('') }} className="text-gray-400 text-sm hover:text-white mb-4">← Back</button>
             <h2 className="text-xl font-bold text-white mb-4">Enter Your Athlete Number</h2>
             <p className="text-gray-400 text-sm mb-6">
@@ -189,7 +197,7 @@ export default function ConnectProfile() {
 
         {/* Preview / Confirm */}
         {preview && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 sm:p-8">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-8">
             <button onClick={() => { setPreview(null); setError('') }} className="text-gray-400 text-sm hover:text-white mb-4">← Back</button>
             <h2 className="text-xl font-bold text-white mb-6">Is This You?</h2>
             <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
@@ -229,7 +237,7 @@ export default function ConnectProfile() {
 
         {/* Search by Name */}
         {mode === 'search' && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 sm:p-8">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-8">
             <button onClick={() => { setMode('choice'); setError(''); setResults([]) }} className="text-gray-400 text-sm hover:text-white mb-4">← Back</button>
             <h2 className="text-xl font-bold text-white mb-4">Search By Name</h2>
             <div className="flex gap-3 mb-4">
