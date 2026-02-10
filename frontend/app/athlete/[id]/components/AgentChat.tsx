@@ -1,17 +1,18 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import ResponseParser from './ResponseParser'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: Date
   thinking?: boolean
-  streaming?: boolean  // Currently receiving streamed text
+  streaming?: boolean
   thinkingSteps?: string[]
   toolsUsed?: string[]
-  agentSteps?: string[]  // Step-by-step what agent did
-  structured?: any // Structured data for cards/actions
+  agentSteps?: string[]
+  structured?: any
 }
 
 interface AgentChatProps {
@@ -20,35 +21,85 @@ interface AgentChatProps {
   initialConversationId?: number | null
 }
 
+// Tool name → friendly description + icon
+const TOOL_DESCRIPTIONS: Record<string, { text: string; icon: string }> = {
+  college_matcher: { text: 'Matching you to college programs...', icon: '🎯' },
+  profile_analyzer: { text: 'Analyzing your athletic profile...', icon: '📊' },
+  coach_lookup: { text: 'Researching coaching staffs...', icon: '🏈' },
+  camp_finder: { text: 'Finding camps and combines near you...', icon: '🏕️' },
+  calendar_check: { text: 'Checking recruiting calendar dates...', icon: '📅' },
+  film_guide: { text: 'Reviewing film and highlight resources...', icon: '🎬' },
+  brave_search: { text: 'Searching the web for latest info...', icon: '🔍' },
+}
+
+const getToolInfo = (toolName: string) =>
+  TOOL_DESCRIPTIONS[toolName] || { text: 'Working on it...', icon: '⚙️' }
+
+// Quick action cards
+const QUICK_ACTIONS = [
+  {
+    icon: '🎯',
+    title: 'Find My Colleges',
+    desc: 'Get matched to programs that fit you',
+    prompt: 'What college programs are the best fit for me?',
+  },
+  {
+    icon: '✉️',
+    title: 'Email a Coach',
+    desc: 'Draft a personalized intro email',
+    prompt: 'Help me write an introduction email to a college coach',
+  },
+  {
+    icon: '📊',
+    title: 'Analyze My Profile',
+    desc: 'See how your metrics stack up',
+    prompt: 'How do my metrics compare to other athletes at my position?',
+  },
+  {
+    icon: '🏕️',
+    title: 'Find Camps',
+    desc: 'Camps & combines near you',
+    prompt: 'Find camps near me',
+  },
+]
+
+// Inline "What's next?" suggestions (smaller, horizontal)
+const FOLLOWUP_ACTIONS = [
+  { icon: '🎯', label: 'Find colleges', prompt: 'What college programs are the best fit for me?' },
+  { icon: '✉️', label: 'Email a coach', prompt: 'Help me write an introduction email to a college coach' },
+  { icon: '📊', label: 'Analyze profile', prompt: 'How do my metrics compare to other athletes at my position?' },
+  { icon: '🏕️', label: 'Find camps', prompt: 'Find camps near me' },
+]
+
 export default function AgentChat({ athleteId, athleteName, initialConversationId }: AgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: `Hi ${athleteName.split(' ')[0]}! I'm your AI recruiting agent. I can help you:\n\n• Find camps and combines\n• Research coaches and programs\n• Draft emails and messages\n• Analyze your profile and metrics\n• Discover opportunities\n\nWhat would you like help with?`,
-      timestamp: new Date()
-    }
+      content: `What's up ${athleteName.split(' ')[0]}! 👋 I'm your SPARQ recruiting agent — here to help you find the right programs, connect with coaches, and level up your recruiting game.\n\nWhat do you want to work on?`,
+      timestamp: new Date(),
+    },
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [conversationId, setConversationId] = useState<number | null>(null)
   const [conversations, setConversations] = useState<any[]>([])
   const [showSidebar, setShowSidebar] = useState(false)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
-  // Load conversations list on mount + initial conversation if provided
   useEffect(() => {
     fetch(`${backendUrl}/api/conversations/${athleteId}`)
-      .then(r => r.json())
-      .then(data => setConversations(data.conversations || []))
+      .then((r) => r.json())
+      .then((data) => setConversations(data.conversations || []))
       .catch(() => {})
     if (initialConversationId) {
       loadConversation(initialConversationId)
     }
   }, [athleteId, initialConversationId])
 
-  // Load a specific conversation
   const loadConversation = async (convId: number) => {
     try {
       const res = await fetch(`${backendUrl}/api/conversations/${athleteId}/${convId}`)
@@ -58,27 +109,35 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
         role: m.role,
         content: m.content,
         timestamp: new Date(m.created_at),
-        toolsUsed: m.tools_used ? (typeof m.tools_used === 'string' ? JSON.parse(m.tools_used) : m.tools_used) : [],
-        agentSteps: m.agent_steps ? (typeof m.agent_steps === 'string' ? JSON.parse(m.agent_steps) : m.agent_steps) : [],
+        toolsUsed: m.tools_used
+          ? typeof m.tools_used === 'string'
+            ? JSON.parse(m.tools_used)
+            : m.tools_used
+          : [],
+        agentSteps: m.agent_steps
+          ? typeof m.agent_steps === 'string'
+            ? JSON.parse(m.agent_steps)
+            : m.agent_steps
+          : [],
       }))
       setMessages(loaded)
       setShowSidebar(false)
     } catch (e) {}
   }
 
-  // Start new conversation
   const newConversation = () => {
     setConversationId(null)
-    setMessages([{
-      role: 'assistant',
-      content: `Hi ${athleteName.split(' ')[0]}! I'm your AI recruiting agent. I can help you:\n\n• Find camps and combines\n• Research coaches and programs\n• Draft emails and messages\n• Analyze your profile and metrics\n• Discover opportunities\n\nWhat would you like help with?`,
-      timestamp: new Date()
-    }])
+    setMessages([
+      {
+        role: 'assistant',
+        content: `What's up ${athleteName.split(' ')[0]}! 👋 I'm your SPARQ recruiting agent — here to help you find the right programs, connect with coaches, and level up your recruiting game.\n\nWhat do you want to work on?`,
+        timestamp: new Date(),
+      },
+    ])
     setShowSidebar(false)
   }
 
   const formatMessageContent = (content: string) => {
-    // Split into lines for processing
     const lines = content.split('\n')
     let html = ''
     let inTable = false
@@ -87,23 +146,27 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
     const formatInline = (text: string) => {
       return text
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-sparq-charcoal underline">$1</a>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+        .replace(
+          /(https?:\/\/[^\s<]+)/g,
+          '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-[#c8ff00] hover:underline">$1</a>'
+        )
     }
 
     const flushTable = () => {
       if (tableHeaders.length === 0) return ''
-      let t = '<div class="overflow-x-auto my-3"><table class="min-w-full text-sm border border-gray-200 rounded-lg overflow-hidden">'
-      t += '<thead class="bg-gray-900"><tr>'
-      tableHeaders.forEach(h => {
-        t += `<th class="px-3 py-2 text-left font-semibold text-sparq-lime border-b border-gray-700">${formatInline(h)}</th>`
+      let t =
+        '<div class="overflow-x-auto my-3 rounded-lg border border-white/[0.06]"><table class="min-w-full text-sm">'
+      t += '<thead class="bg-[#1a1a1a]"><tr>'
+      tableHeaders.forEach((h) => {
+        t += `<th class="px-3 py-2 text-left font-semibold text-[#c8ff00] border-b border-white/[0.06]">${formatInline(h)}</th>`
       })
       t += '</tr></thead><tbody>'
       tableRows.forEach((row, idx) => {
-        const bg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+        const bg = idx % 2 === 0 ? 'bg-[#141414]' : 'bg-[#1a1a1a]'
         t += `<tr class="${bg}">`
-        row.forEach(cell => {
-          t += `<td class="px-3 py-2 border-b border-gray-100 text-gray-700">${formatInline(cell)}</td>`
+        row.forEach((cell) => {
+          t += `<td class="px-3 py-2 border-b border-white/[0.04] text-white/[0.75]">${formatInline(cell)}</td>`
         })
         t += '</tr>'
       })
@@ -118,54 +181,48 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
       const line = lines[i]
       const trimmed = line.trim()
 
-      // Table detection: line starts and ends with |
       if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-        const cells = trimmed.slice(1, -1).split('|').map(c => c.trim())
-        
-        // Check if this is a separator row (|---|---|---|)
-        if (cells.every(c => /^[-:\s]+$/.test(c))) {
+        const cells = trimmed
+          .slice(1, -1)
+          .split('|')
+          .map((c) => c.trim())
+        if (cells.every((c) => /^[-:\s]+$/.test(c))) {
           inTable = true
           continue
         }
-        
         if (!inTable && tableHeaders.length === 0) {
-          // This is the header row
           tableHeaders = cells
           continue
         }
-        
         if (inTable) {
           tableRows.push(cells)
           continue
         }
       } else {
-        // Not a table row - flush any pending table
         if (inTable || tableHeaders.length > 0) {
           html += flushTable()
         }
       }
 
-      // Headers
       if (trimmed.startsWith('#### ')) {
-        html += `<h5 class="font-semibold text-gray-800 mt-3 mb-1 text-sm">${formatInline(trimmed.slice(5))}</h5>`
+        html += `<h5 class="font-semibold text-white/90 mt-3 mb-1 text-sm">${formatInline(trimmed.slice(5))}</h5>`
       } else if (trimmed.startsWith('### ')) {
-        html += `<h4 class="font-semibold text-gray-900 mt-4 mb-2">${formatInline(trimmed.slice(4))}</h4>`
+        html += `<h4 class="font-semibold text-white mt-4 mb-2 font-display">${formatInline(trimmed.slice(4))}</h4>`
       } else if (trimmed.startsWith('## ')) {
-        html += `<h3 class="font-bold text-gray-900 mt-4 mb-2 text-lg">${formatInline(trimmed.slice(3))}</h3>`
+        html += `<h3 class="font-bold text-white mt-4 mb-2 text-lg font-display">${formatInline(trimmed.slice(3))}</h3>`
       } else if (trimmed.startsWith('# ')) {
-        html += `<h2 class="font-bold text-gray-900 mt-4 mb-2 text-xl">${formatInline(trimmed.slice(2))}</h2>`
+        html += `<h2 class="font-bold text-white mt-4 mb-2 text-xl font-display">${formatInline(trimmed.slice(2))}</h2>`
       } else if (trimmed === '---') {
-        html += '<hr class="my-3 border-gray-200">'
+        html += '<hr class="my-3 border-white/[0.06]">'
       } else if (trimmed.startsWith('- ')) {
-        html += `<div class="flex gap-2 ml-2 my-0.5"><span class="text-sparq-lime-dark">•</span><span>${formatInline(trimmed.slice(2))}</span></div>`
+        html += `<div class="flex gap-2 ml-2 my-0.5"><span class="text-[#c8ff00]">•</span><span class="text-white/[0.85]">${formatInline(trimmed.slice(2))}</span></div>`
       } else if (trimmed === '') {
         html += '<div class="h-2"></div>'
       } else {
-        html += `<p class="my-1">${formatInline(trimmed)}</p>`
+        html += `<p class="my-1 text-white/[0.85]">${formatInline(trimmed)}</p>`
       }
     }
 
-    // Flush any remaining table
     if (inTable || tableHeaders.length > 0) {
       html += flushTable()
     }
@@ -181,28 +238,40 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     scrollToBottom()
   }, [messages])
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return
+  // Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }, [])
+
+  const sendMessage = async (overrideInput?: string) => {
+    const text = overrideInput || input
+    if (!text.trim() || loading) return
 
     const userMessage: Message = {
       role: 'user',
-      content: input,
-      timestamp: new Date()
+      content: text,
+      timestamp: new Date(),
     }
 
-    setMessages(prev => [...prev, userMessage])
+    setMessages((prev) => [...prev, userMessage])
     setInput('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
     setLoading(true)
 
-    // Add streaming message placeholder
     const streamingMessage: Message = {
       role: 'assistant',
       content: '',
       timestamp: new Date(),
       thinking: true,
-      agentSteps: []
+      agentSteps: [],
+      toolsUsed: [],
     }
-    setMessages(prev => [...prev, streamingMessage])
+    setMessages((prev) => [...prev, streamingMessage])
 
     try {
       const response = await fetch(`${backendUrl}/api/agent/chat/stream`, {
@@ -210,9 +279,9 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           athlete_id: athleteId,
-          message: input,
+          message: text,
           conversation_id: conversationId,
-          conversation_history: conversationId ? [] : messages.slice(-5)
+          conversation_history: conversationId ? [] : messages.slice(-5),
         }),
       })
 
@@ -233,9 +302,8 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
         buffer += decoder.decode(value, { stream: true })
 
-        // Parse SSE events from buffer
         const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
+        buffer = lines.pop() || ''
 
         let eventType = ''
         for (const line of lines) {
@@ -249,13 +317,12 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
               if (cid && !conversationId) {
                 setConversationId(cid)
                 fetch(`${backendUrl}/api/conversations/${athleteId}`)
-                  .then(r => r.json())
-                  .then(d => setConversations(d.conversations || []))
+                  .then((r) => r.json())
+                  .then((d) => setConversations(d.conversations || []))
                   .catch(() => {})
               }
             } else if (eventType === 'status') {
-              // Update thinking status
-              setMessages(prev => {
+              setMessages((prev) => {
                 const updated = [...prev]
                 const last = updated[updated.length - 1]
                 if (last?.thinking) {
@@ -266,13 +333,18 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
             } else if (eventType === 'tool_start') {
               try {
                 const toolData = JSON.parse(data)
-                steps.push(toolData.step)
+                steps.push(`tool_start:${toolData.tool}`)
                 toolsUsed.push(toolData.tool)
-                setMessages(prev => {
+                setMessages((prev) => {
                   const updated = [...prev]
                   const last = updated[updated.length - 1]
                   if (last?.thinking) {
-                    updated[updated.length - 1] = { ...last, content: 'Researching...', agentSteps: [...steps] }
+                    updated[updated.length - 1] = {
+                      ...last,
+                      content: 'Researching...',
+                      agentSteps: [...steps],
+                      toolsUsed: [...toolsUsed],
+                    }
                   }
                   return updated
                 })
@@ -280,20 +352,19 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
             } else if (eventType === 'tool_done') {
               try {
                 const toolData = JSON.parse(data)
-                steps.push(toolData.step)
-                setMessages(prev => {
+                steps.push(`tool_done:${toolData.tool}`)
+                setMessages((prev) => {
                   const updated = [...prev]
                   const last = updated[updated.length - 1]
                   if (last?.thinking) {
-                    updated[updated.length - 1] = { ...last, agentSteps: [...steps] }
+                    updated[updated.length - 1] = { ...last, agentSteps: [...steps], toolsUsed: [...toolsUsed] }
                   }
                   return updated
                 })
               } catch {}
             } else if (eventType === 'text') {
               streamedText += data.replace(/\\n/g, '\n')
-              // Switch from thinking to streaming text
-              setMessages(prev => {
+              setMessages((prev) => {
                 const updated = [...prev]
                 const last = updated[updated.length - 1]
                 updated[updated.length - 1] = {
@@ -302,18 +373,18 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
                   thinking: false,
                   streaming: true,
                   agentSteps: [...steps],
-                  toolsUsed: [...toolsUsed]
+                  toolsUsed: [...toolsUsed],
                 }
                 return updated
               })
             } else if (eventType === 'error') {
-              setMessages(prev => {
+              setMessages((prev) => {
                 const updated = [...prev]
                 updated[updated.length - 1] = {
                   role: 'assistant',
-                  content: `Sorry, I encountered an error: ${data}. Please try again.`,
+                  content: `Something went wrong: ${data}. Try again?`,
                   timestamp: new Date(),
-                  thinking: false
+                  thinking: false,
                 }
                 return updated
               })
@@ -323,28 +394,26 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
         }
       }
 
-      // Final update - streaming complete, now format properly
-      setMessages(prev => {
+      setMessages((prev) => {
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: streamedText || 'I completed my research. How can I help further?',
+          content: streamedText || 'Done! What else can I help with?',
           timestamp: new Date(),
           thinking: false,
           streaming: false,
           toolsUsed,
-          agentSteps: steps
+          agentSteps: steps,
         }
         return updated
       })
-
     } catch (error: any) {
-      setMessages(prev => {
+      setMessages((prev) => {
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: `Sorry, I encountered an error: ${error.message}. Please try again.`,
-          timestamp: new Date()
+          content: `Sorry, something went wrong: ${error.message}. Try again?`,
+          timestamp: new Date(),
         }
         return updated
       })
@@ -360,63 +429,118 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     }
   }
 
+  const copyToClipboard = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text)
+    setCopiedIdx(idx)
+    setTimeout(() => setCopiedIdx(null), 2000)
+  }
+
+  // Determine if we should show the big action grid
+  const showActionGrid = messages.length <= 1
+  // Show inline followups after last assistant message (when not loading)
+  const lastMsg = messages[messages.length - 1]
+  const showFollowups = !loading && !showActionGrid && lastMsg?.role === 'assistant' && !lastMsg.thinking && !lastMsg.streaming
+
+  // Parse agentSteps into timeline items for thinking display
+  const parseSteps = (steps: string[]) => {
+    const timeline: { tool: string; status: 'active' | 'done'; text: string; icon: string }[] = []
+    const toolStatus: Record<string, 'active' | 'done'> = {}
+
+    for (const step of steps) {
+      if (step.startsWith('tool_start:')) {
+        const tool = step.replace('tool_start:', '')
+        toolStatus[tool] = 'active'
+        const info = getToolInfo(tool)
+        timeline.push({ tool, status: 'active', text: info.text, icon: info.icon })
+      } else if (step.startsWith('tool_done:')) {
+        const tool = step.replace('tool_done:', '')
+        toolStatus[tool] = 'done'
+        // Update existing entry
+        const existing = timeline.find((t) => t.tool === tool && t.status === 'active')
+        if (existing) existing.status = 'done'
+      }
+    }
+    return timeline
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-[calc(100dvh-10rem)] md:h-[700px] relative">
-      {/* Conversation Sidebar - Full width on mobile, 288px on desktop */}
+    <div className="bg-[#0a0a0a] rounded-2xl border border-white/[0.06] flex flex-col h-[calc(100dvh-10rem)] md:h-[700px] relative overflow-hidden">
+      {/* Conversation Sidebar */}
       {showSidebar && (
         <div className="fixed inset-0 z-30 md:absolute md:inset-0 md:z-20 flex">
-          <div className="w-full max-w-sm md:w-72 bg-white border-r border-gray-200 flex flex-col h-full md:rounded-l-xl">
-            <div className="p-4 md:p-3 border-b border-gray-200 flex items-center justify-between">
-              <h4 className="font-semibold text-gray-900">Your Conversations</h4>
-              <button onClick={() => setShowSidebar(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <div className="w-full max-w-sm md:w-72 bg-[#0a0a0a] border-r border-white/[0.06] flex flex-col h-full md:rounded-l-2xl">
+            <div className="p-4 md:p-3 border-b border-white/[0.06] flex items-center justify-between">
+              <h4 className="font-semibold text-white font-display">Your Conversations</h4>
+              <button
+                onClick={() => setShowSidebar(false)}
+                className="p-2 -mr-2 text-white/40 hover:text-white/70 text-xl"
+              >
+                ✕
+              </button>
             </div>
             <div className="p-3 md:p-2">
               <button
                 onClick={newConversation}
-                className="w-full px-4 py-3 md:px-3 md:py-2 bg-sparq-charcoal text-sparq-lime font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors mb-2"
+                className="w-full px-4 py-3 md:px-3 md:py-2 bg-[#c8ff00] text-[#0a0a0a] font-semibold rounded-lg hover:bg-[#d4ff33] transition-colors"
               >
                 + New Chat
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 md:px-2 pb-3 md:pb-2">
               {conversations.length === 0 ? (
-                <p className="text-gray-400 text-center py-6 md:py-4">No saved chats yet</p>
+                <p className="text-white/30 text-center py-6 md:py-4 text-sm">No saved chats yet</p>
               ) : (
-                conversations.map(conv => (
+                conversations.map((conv) => (
                   <button
                     key={conv.id}
                     onClick={() => loadConversation(conv.id)}
                     className={`w-full text-left px-4 py-3 md:px-3 md:py-2 rounded-lg mb-2 md:mb-1 transition-colors ${
-                      conversationId === conv.id 
-                        ? 'bg-sparq-lime/20 text-sparq-charcoal font-medium' 
-                        : 'hover:bg-gray-100 text-gray-700'
+                      conversationId === conv.id
+                        ? 'bg-[#c8ff00]/15 text-[#c8ff00] font-medium'
+                        : 'hover:bg-white/[0.04] text-white/70'
                     }`}
                   >
-                    <div className="font-medium truncate">{conv.title}</div>
-                    <div className="text-xs text-gray-400 mt-1 md:mt-0.5">
-                      {conv.message_count} messages • {new Date(conv.updated_at).toLocaleDateString()}
+                    <div className="font-medium truncate text-sm">{conv.title}</div>
+                    <div className="text-xs text-white/30 mt-1 md:mt-0.5">
+                      {conv.message_count} messages •{' '}
+                      {new Date(conv.updated_at).toLocaleDateString()}
                     </div>
                   </button>
                 ))
               )}
             </div>
           </div>
-          <div className="flex-1 bg-black/30 md:bg-black/20" onClick={() => setShowSidebar(false)} />
+          <div className="flex-1 bg-black/50" onClick={() => setShowSidebar(false)} />
         </div>
       )}
 
       {/* Header */}
-      <div className="border-b border-gray-200 p-3 md:p-4">
+      <div className="border-b border-white/[0.06] px-3 py-2.5 md:px-4 md:py-3 bg-[#0a0a0a]">
         <div className="flex items-center gap-2 md:gap-3">
-          <button onClick={() => setShowSidebar(!showSidebar)} className="p-2 -ml-2 text-gray-400 hover:text-gray-600" title="Chat history">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <button
+            onClick={() => setShowSidebar(!showSidebar)}
+            className="p-2 -ml-2 text-white/40 hover:text-white/70"
+            title="Chat history"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </button>
-          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-8 h-8 md:w-10 md:h-10 rounded-full" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm md:text-base">SPARQ Agent</h3>
-            <p className="text-xs md:text-sm text-gray-600 truncate">Your AI recruiting coordinator</p>
+          {/* SPARQ Logo */}
+          <div className="w-8 h-8 rounded-full bg-[#141414] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+            <span className="text-[#c8ff00] font-bold text-xs font-display">S</span>
           </div>
-          <button onClick={newConversation} className="text-sm px-3 py-2 md:py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-white text-sm md:text-base font-display">SPARQ Agent</h3>
+              <span className="w-2 h-2 rounded-full bg-[#c8ff00] animate-pulse" />
+            </div>
+            <p className="text-xs text-white/40 truncate">Your AI recruiting coordinator</p>
+          </div>
+          <button
+            onClick={newConversation}
+            className="text-xs px-3 py-1.5 bg-white/[0.06] text-white/60 rounded-lg hover:bg-white/[0.1] hover:text-white/80 transition-colors"
+          >
             + New
           </button>
         </div>
@@ -425,77 +549,71 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
         {messages.map((message, idx) => (
-          <div
-            key={idx}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] ${
-                message.role === 'user' ? '' : 'w-full'
-              }`}
-            >
+          <div key={idx} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[90%] md:max-w-[85%] ${message.role === 'user' ? '' : 'w-full'}`}>
               {message.role === 'user' ? (
-                // User message
-                <div className="bg-sparq-charcoal text-white rounded-lg p-3">
-                  <div className="whitespace-pre-wrap">{message.content}</div>
-                  <div className="text-xs mt-1 text-indigo-200">
+                /* User message — dark card with lime left border */
+                <div className="bg-[#141414] border-l-2 border-[#c8ff00] rounded-lg p-3">
+                  <div className="whitespace-pre-wrap text-white/[0.9] text-sm">{message.content}</div>
+                  <div className="text-[10px] mt-1.5 text-white/25">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ) : message.thinking ? (
-                // Thinking indicator
-                <div className="bg-sparq-lime/10 border border-indigo-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
-                    <span className="text-sm font-medium text-sparq-charcoal">Agent is thinking...</span>
-                  </div>
-                </div>
+                /* Theatrical thinking / progress tracker */
+                <ThinkingCard steps={message.agentSteps || []} parseSteps={parseSteps} />
               ) : (
-                // Assistant response
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  {/* Agent steps - what it did */}
+                /* Assistant response */
+                <div className="bg-[#141414] rounded-xl border border-white/[0.06]">
+                  {/* Agent steps collapsed */}
                   {message.agentSteps && message.agentSteps.length > 0 && (
-                    <div className="px-4 pt-3 pb-2 border-b border-gray-100 bg-sparq-lime/10">
-                      <div className="text-xs font-medium text-sparq-charcoal mb-2">Agent Activity:</div>
-                      <div className="space-y-1">
-                        {message.agentSteps.map((step, sidx) => (
-                          <div key={sidx} className="text-xs text-gray-700">
-                            {step}
-                          </div>
-                        ))}
+                    <div className="px-4 pt-3 pb-2 border-b border-white/[0.04]">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {(message.toolsUsed || [])
+                          .filter((v, i, a) => a.indexOf(v) === i)
+                          .map((tool, tidx) => {
+                            const info = getToolInfo(tool)
+                            return (
+                              <span
+                                key={tidx}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.04] text-[10px] text-white/40"
+                              >
+                                <span>{info.icon}</span>
+                                {tool.replace(/_/g, ' ')}
+                              </span>
+                            )
+                          })}
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Main content */}
                   <div className="p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 bg-sparq-lime/20 rounded-full flex items-center justify-center">
-                        <span className="text-sm">🤖</span>
+                      <div className="w-5 h-5 rounded-full bg-[#c8ff00]/10 flex items-center justify-center">
+                        <span className="text-[#c8ff00] text-[10px] font-bold font-display">S</span>
                       </div>
-                      <span className="text-sm font-medium text-gray-900">SPARQ Agent</span>
+                      <span className="text-xs font-medium text-white/50">SPARQ Agent</span>
                     </div>
-                    
+
                     {/* Structured data (camp cards) */}
                     {message.structured?.camps && (
                       <div className="space-y-3 mb-4">
-                        {message.structured.camps.map((camp: any, idx: number) => (
-                          <div 
-                            key={idx}
-                            className="border border-gray-200 rounded-lg p-4 hover:border-sparq-lime hover:shadow-sm transition-all"
+                        {message.structured.camps.map((camp: any, cidx: number) => (
+                          <div
+                            key={cidx}
+                            className="border border-white/[0.06] rounded-lg p-4 hover:border-[#c8ff00]/30 transition-all bg-white/[0.02]"
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1">
-                                <h4 className="font-semibold text-gray-900 mb-1">
-                                  {camp.name}
-                                </h4>
+                                <h4 className="font-semibold text-white mb-1">{camp.name}</h4>
                               </div>
                               {camp.url && (
                                 <a
                                   href={camp.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="px-4 py-2 bg-sparq-charcoal text-white text-sm font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors whitespace-nowrap"
+                                  className="px-3 py-1.5 bg-[#c8ff00] text-[#0a0a0a] text-xs font-semibold rounded-lg hover:bg-[#d4ff33] transition-colors whitespace-nowrap"
                                 >
                                   Learn More →
                                 </a>
@@ -505,22 +623,56 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
                         ))}
                       </div>
                     )}
-                    
+
                     {/* Main text content */}
-                    <div className="prose prose-sm max-w-none text-gray-700">
+                    <div className="text-sm leading-relaxed">
                       {message.streaming ? (
-                        <div className="whitespace-pre-wrap">{message.content}<span className="animate-pulse">▊</span></div>
+                        <div className="whitespace-pre-wrap text-white/[0.85]">
+                          {message.content}
+                          <span className="inline-block w-1.5 h-4 bg-[#c8ff00] animate-pulse ml-0.5 -mb-0.5 rounded-sm" />
+                        </div>
                       ) : (
-                        <div 
-                          dangerouslySetInnerHTML={{ 
-                            __html: formatMessageContent(message.content) 
-                          }}
+                        <ResponseParser
+                          content={message.content}
+                          onAction={(text) => sendMessage(text)}
                         />
                       )}
                     </div>
-                    
-                    <div className="text-xs text-gray-400 mt-3">
-                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                    {/* Footer: timestamp + actions */}
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/[0.04]">
+                      <div className="text-[10px] text-white/20">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {message.content.length > 200 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => copyToClipboard(message.content, idx)}
+                            className="text-[10px] text-white/25 hover:text-white/50 transition-colors flex items-center gap-1"
+                          >
+                            {copiedIdx === idx ? (
+                              <>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                  />
+                                </svg>
+                                Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -528,60 +680,182 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
             </div>
           </div>
         ))}
+
+        {/* Inline followups — horizontal scroll */}
+        {showFollowups && (
+          <div className="pt-2">
+            <p className="text-[10px] uppercase tracking-wider text-white/20 mb-2 ml-1">What&apos;s next?</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3 md:mx-0 md:px-0">
+              {FOLLOWUP_ACTIONS.map((action, aidx) => (
+                <button
+                  key={aidx}
+                  onClick={() => sendMessage(action.prompt)}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[#141414] border border-white/[0.06] rounded-full text-xs text-white/60 hover:border-[#c8ff00]/30 hover:text-[#c8ff00] transition-all"
+                >
+                  <span>{action.icon}</span>
+                  <span>{action.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-200 p-3 md:p-4">
-        <div className="flex gap-2">
+      {/* Quick Action Grid — shows when conversation has ≤1 message */}
+      {showActionGrid && (
+        <div className="px-3 pb-2 md:px-4">
+          <div className="grid grid-cols-2 gap-2">
+            {QUICK_ACTIONS.map((action, aidx) => (
+              <button
+                key={aidx}
+                onClick={() => sendMessage(action.prompt)}
+                className="bg-[#141414] border border-white/[0.06] rounded-xl p-3 md:p-4 text-left hover:border-[#c8ff00]/30 hover:bg-[#1a1a1a] transition-all active:scale-[0.97] group"
+              >
+                <div className="text-xl md:text-2xl mb-1.5">{action.icon}</div>
+                <div className="font-semibold text-white text-sm font-display">{action.title}</div>
+                <div className="text-[11px] text-white/35 mt-0.5 leading-tight">{action.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input Bar */}
+      <div className="border-t border-white/[0.06] p-3 md:p-4 bg-[#0a0a0a]">
+        <div className="flex items-end gap-2">
+          {/* Attach placeholder */}
+          <button
+            className="p-2 text-white/20 hover:text-white/40 transition-colors flex-shrink-0 mb-0.5"
+            title="Attach (coming soon)"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+              />
+            </svg>
+          </button>
+
           <textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              autoResize()
+            }}
             onKeyDown={handleKeyPress}
-            placeholder="Ask me anything about recruiting..."
+            placeholder="Ask anything about recruiting..."
             disabled={loading}
             rows={1}
-            className="flex-1 px-3 md:px-4 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sparq-lime focus:border-sparq-lime resize-none disabled:opacity-50 text-base md:text-sm min-h-[44px]"
+            className="flex-1 px-3 py-2.5 bg-[#141414] border border-white/[0.06] rounded-xl text-white/90 placeholder-white/25 focus:ring-1 focus:ring-[#c8ff00]/50 focus:border-[#c8ff00]/50 resize-none disabled:opacity-40 text-sm min-h-[42px] max-h-[120px] outline-none transition-all"
           />
+
+          {/* Mic placeholder */}
           <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim()}
-            className="px-4 md:px-6 py-3 md:py-2 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+            className="p-2 text-white/20 hover:text-white/40 transition-colors flex-shrink-0 mb-0.5"
+            title="Voice input (coming soon)"
           >
-            {loading ? '...' : 'Send'}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+              />
+            </svg>
+          </button>
+
+          {/* Send button */}
+          <button
+            onClick={() => sendMessage()}
+            disabled={loading || !input.trim()}
+            className="p-2.5 bg-[#c8ff00] text-[#0a0a0a] rounded-xl hover:bg-[#d4ff33] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0 mb-0.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+            </svg>
           </button>
         </div>
-        {/* Quick prompts - horizontal scroll on mobile, wrap on desktop */}
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-1 md:pb-0 md:flex-wrap md:overflow-visible -mx-3 px-3 md:mx-0 md:px-0">
-          {!loading && messages.length <= 1 && (
-            <>
-              <button
-                onClick={() => setInput('What college programs are the best fit for me?')}
-                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
-              >
-                🏫 Match me to colleges
-              </button>
-              <button
-                onClick={() => setInput('How do my metrics compare to other athletes at my position?')}
-                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
-              >
-                📊 Analyze my profile
-              </button>
-              <button
-                onClick={() => setInput('Find camps near me')}
-                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
-              >
-                🏕️ Find camps
-              </button>
-              <button
-                onClick={() => setInput('Help me write an introduction email to a college coach')}
-                className="px-3 py-2 md:py-1 text-sm bg-gray-900 text-sparq-lime rounded-full hover:bg-gray-800 transition-colors whitespace-nowrap flex-shrink-0"
-              >
-                ✉️ Email a coach
-              </button>
-            </>
-          )}
+      </div>
+    </div>
+  )
+}
+
+/* ── Thinking Card with theatrical step tracker ── */
+function ThinkingCard({
+  steps,
+  parseSteps,
+}: {
+  steps: string[]
+  parseSteps: (s: string[]) => { tool: string; status: 'active' | 'done'; text: string; icon: string }[]
+}) {
+  const timeline = parseSteps(steps)
+
+  return (
+    <div className="bg-[#141414] rounded-xl border border-white/[0.06] overflow-hidden w-full">
+      {/* Progress bar */}
+      <div className="h-0.5 bg-white/[0.04] overflow-hidden">
+        <div className="h-full bg-[#c8ff00] animate-thinking-progress rounded-full" />
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-5 h-5 rounded-full bg-[#c8ff00]/10 flex items-center justify-center">
+            <span className="text-[#c8ff00] text-[10px] font-bold font-display">S</span>
+          </div>
+          <span className="text-xs font-medium text-white/50">SPARQ Agent</span>
+          <span className="text-[10px] text-white/20">is working...</span>
         </div>
+
+        {/* Step timeline */}
+        {timeline.length > 0 ? (
+          <div className="space-y-2.5 ml-1">
+            {timeline.map((step, sidx) => (
+              <div
+                key={sidx}
+                className="flex items-start gap-2.5 animate-slideIn"
+                style={{ animationDelay: `${sidx * 100}ms` }}
+              >
+                {/* Status indicator */}
+                <div className="mt-0.5 flex-shrink-0">
+                  {step.status === 'done' ? (
+                    <div className="w-4 h-4 rounded-full bg-[#c8ff00]/20 flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-[#c8ff00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-4 h-4 rounded-full bg-[#c8ff00]/20 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-[#c8ff00] animate-pulse" />
+                    </div>
+                  )}
+                </div>
+                {/* Step text */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{step.icon}</span>
+                  <span
+                    className={`text-xs ${
+                      step.status === 'done' ? 'text-white/40' : 'text-white/70'
+                    }`}
+                  >
+                    {step.text}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5 ml-1">
+            <div className="w-4 h-4 rounded-full bg-[#c8ff00]/20 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-[#c8ff00] animate-pulse" />
+            </div>
+            <span className="text-xs text-white/50">Getting started...</span>
+          </div>
+        )}
       </div>
     </div>
   )

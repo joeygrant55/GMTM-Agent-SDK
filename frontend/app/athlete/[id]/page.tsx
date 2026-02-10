@@ -58,22 +58,22 @@ export default function AthleteDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sparq-lime mx-auto"></div>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#c8ff00] mx-auto"></div>
       </div>
     )
   }
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#141414] flex items-center justify-center">
+            <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Athlete Not Found</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <a href="/" className="px-6 py-3 bg-sparq-charcoal text-white font-medium rounded-lg hover:bg-sparq-charcoal-light transition-colors">
+          <h2 className="text-2xl font-bold text-white mb-2 font-display">Athlete Not Found</h2>
+          <p className="text-white/50 mb-6">{error}</p>
+          <a href="/" className="px-6 py-3 bg-[#c8ff00] text-[#0a0a0a] font-semibold rounded-lg hover:bg-[#d4ff33] transition-colors">
             ← Back to Home
           </a>
         </div>
@@ -82,25 +82,27 @@ export default function AthleteDashboard() {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen min-h-[100dvh] bg-[#0a0a0a]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-[#0a0a0a] border-b border-white/[0.06] sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-3 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              <img src="/sparq-logo.jpg" alt="SPARQ" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex-shrink-0" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#141414] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+                <span className="text-[#c8ff00] font-bold text-xs font-display">S</span>
+              </div>
               <div className="min-w-0">
-                <h1 className="text-sm sm:text-lg font-bold text-gray-900 truncate">SPARQ Agent</h1>
-                <p className="text-xs text-gray-600 truncate hidden sm:block">{profile.first_name} {profile.last_name} • {profile.position || 'Athlete'}</p>
+                <h1 className="text-sm sm:text-lg font-bold text-white truncate font-display">SPARQ Agent</h1>
+                <p className="text-xs text-white/40 truncate hidden sm:block">{profile.first_name} {profile.last_name} • {profile.position || 'Athlete'}</p>
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {/* View Toggle */}
-              <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <div className="flex bg-white/[0.06] rounded-lg p-0.5">
                 <button
                   onClick={() => setView('dashboard')}
                   className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors ${
-                    view === 'dashboard' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'
+                    view === 'dashboard' ? 'bg-[#141414] shadow-sm text-white font-medium' : 'text-white/40 hover:text-white/60'
                   }`}
                 >
                   Home
@@ -108,7 +110,7 @@ export default function AthleteDashboard() {
                 <button
                   onClick={() => setView('chat')}
                   className={`px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors ${
-                    view === 'chat' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'
+                    view === 'chat' ? 'bg-[#141414] shadow-sm text-white font-medium' : 'text-white/40 hover:text-white/60'
                   }`}
                 >
                   Agent

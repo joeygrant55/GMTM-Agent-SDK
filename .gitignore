@@ -47,3 +47,6 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+video/node_modules/
+video/out/
