@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from typing import Optional
 import os
 import json
+import hmac
+import hashlib
+import base64
 import pymysql
 from dotenv import load_dotenv
 
@@ -116,5 +119,92 @@ async def delete_report(report_id: int):
             c.execute("DELETE FROM agent_reports WHERE id = %s", (report_id,))
             db.commit()
             return {"deleted": True}
+    finally:
+        db.close()
+
+
+# ============================================================
+# SHAREABLE REPORT LINKS
+# Token format: base64url(user_id:report_id) + "." + hmac[:12]
+# No DB migration needed — token is self-contained and signed.
+# ============================================================
+
+def _get_share_secret() -> bytes:
+    secret = os.getenv("SHARE_TOKEN_SECRET", "sparq-share-default-secret-change-in-prod")
+    return secret.encode()
+
+
+def _make_share_token(user_id: int, report_id: int) -> str:
+    payload = f"{user_id}:{report_id}".encode()
+    payload_b64 = base64.urlsafe_b64encode(payload).rstrip(b"=").decode()
+    sig = hmac.new(_get_share_secret(), payload, hashlib.sha256).hexdigest()[:12]
+    return f"{payload_b64}.{sig}"
+
+
+def _decode_share_token(token: str) -> tuple[int, int]:
+    """Returns (user_id, report_id) or raises HTTPException."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 2:
+            raise ValueError("bad format")
+        payload_b64, provided_sig = parts
+        # Re-pad base64
+        padding = 4 - len(payload_b64) % 4
+        payload = base64.urlsafe_b64decode(payload_b64 + "=" * (padding % 4))
+        expected_sig = hmac.new(_get_share_secret(), payload, hashlib.sha256).hexdigest()[:12]
+        if not hmac.compare_digest(provided_sig, expected_sig):
+            raise ValueError("invalid signature")
+        uid, rid = payload.decode().split(":")
+        return int(uid), int(rid)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Invalid or expired share link")
+
+
+@router.get("/reports/{user_id}/{report_id}/share-token")
+async def get_share_token(user_id: int, report_id: int):
+    """Generate a shareable token for a report (no DB change needed)."""
+    # Verify the report exists and belongs to this user
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                "SELECT id, title FROM agent_reports WHERE id = %s AND user_id = %s",
+                (report_id, user_id)
+            )
+            report = c.fetchone()
+            if not report:
+                raise HTTPException(status_code=404, detail="Report not found")
+    finally:
+        db.close()
+
+    token = _make_share_token(user_id, report_id)
+    base_url = os.getenv("FRONTEND_URL", "https://sparq-agent.vercel.app")
+    return {
+        "token": token,
+        "url": f"{base_url}/report/{token}",
+        "title": report["title"],
+    }
+
+
+@router.get("/reports/public/{token}")
+async def get_public_report(token: str):
+    """Fetch a report by share token — no auth required."""
+    user_id, report_id = _decode_share_token(token)
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("""
+                SELECT r.id, r.report_type, r.title, r.content, r.summary,
+                       r.created_at, u.first_name, u.last_name, u.position, u.sport,
+                       u.graduation_year, u.city, u.state
+                FROM agent_reports r
+                JOIN users u ON r.user_id = u.user_id
+                WHERE r.id = %s AND r.user_id = %s
+            """, (report_id, user_id))
+            report = c.fetchone()
+            if not report:
+                raise HTTPException(status_code=404, detail="Report not found")
+            report["created_at"] = str(report["created_at"])
+            return report
     finally:
         db.close()

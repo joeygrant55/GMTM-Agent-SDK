@@ -49,8 +49,28 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
   const [loading, setLoading] = useState(true)
   const [addingLink, setAddingLink] = useState(false)
   const [newLink, setNewLink] = useState({ platform: '', url: '' })
+  const [sharingReportId, setSharingReportId] = useState<number | null>(null)
+  const [copiedReportId, setCopiedReportId] = useState<number | null>(null)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+
+  const shareReport = async (e: React.MouseEvent, reportId: number) => {
+    e.stopPropagation()
+    setSharingReportId(reportId)
+    try {
+      const res = await fetch(`${backendUrl}/api/reports/${athleteId}/${reportId}/share-token`)
+      if (!res.ok) throw new Error('failed')
+      const { url } = await res.json()
+      await navigator.clipboard.writeText(url)
+      setCopiedReportId(reportId)
+      setTimeout(() => setCopiedReportId(null), 2500)
+    } catch {
+      // Fallback — just copy current page URL
+      await navigator.clipboard.writeText(window.location.href)
+    } finally {
+      setSharingReportId(null)
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -234,27 +254,51 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {reports.map((report: any) => {
               const meta = REPORT_TYPE_META[report.report_type] || REPORT_TYPE_META.research
+              const isCopied = copiedReportId === report.id
+              const isSharing = sharingReportId === report.id
               return (
-                <button
+                <div
                   key={report.id}
+                  className="relative text-left p-4 bg-black/20 border border-white/[0.06] rounded-xl hover:border-sparq-lime/30 transition-all group cursor-pointer"
                   onClick={() => onViewReport(report.id)}
-                  className="text-left p-4 bg-black/20 border border-white/[0.06] rounded-xl hover:border-sparq-lime/30 transition-all group"
                 >
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-start justify-between gap-2 mb-2">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full border ${meta.color}`}>
                       {meta.icon} {meta.label}
                     </span>
+                    {/* Share button */}
+                    <button
+                      onClick={(e) => shareReport(e, report.id)}
+                      title="Copy shareable link"
+                      className="flex-shrink-0 p-1.5 rounded-lg bg-white/5 hover:bg-sparq-lime/10 border border-white/10 hover:border-sparq-lime/30 transition-all"
+                    >
+                      {isSharing ? (
+                        <svg className="w-3 h-3 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                      ) : isCopied ? (
+                        <svg className="w-3 h-3 text-sparq-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3 text-gray-500 group-hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935-2.186 2.25 2.25 0 0 0-3.935 2.186Zm0-12.814a2.25 2.25 0 1 0 3.933 2.185 2.25 2.25 0 0 0-3.933-2.185Z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                   <div className="font-medium text-sm text-white truncate group-hover:text-sparq-lime transition-colors">
                     {report.title}
                   </div>
-                  <div className="text-[11px] text-gray-600 mt-1">
-                    {new Date(report.created_at).toLocaleDateString()}
+                  <div className="text-[11px] text-gray-600 mt-1 flex items-center gap-2">
+                    <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                    {isCopied && <span className="text-sparq-lime text-[10px] font-medium">Link copied!</span>}
                   </div>
                   {report.summary && (
                     <p className="text-xs text-gray-500 mt-2 line-clamp-2">{report.summary}</p>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
