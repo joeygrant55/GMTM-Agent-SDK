@@ -19,6 +19,7 @@ interface AgentChatProps {
   athleteId: string
   athleteName: string
   initialConversationId?: number | null
+  autoStartMessage?: string | null
 }
 
 // Tool name → friendly description
@@ -73,7 +74,7 @@ const FOLLOWUP_ACTIONS = [
   { icon: '🏕️', label: 'Find camps', prompt: 'Find camps near me' },
 ]
 
-export default function AgentChat({ athleteId, athleteName, initialConversationId }: AgentChatProps) {
+export default function AgentChat({ athleteId, athleteName, initialConversationId, autoStartMessage }: AgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -92,6 +93,8 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
+  const autoStartFired = useRef(false)
+
   useEffect(() => {
     fetch(`${backendUrl}/api/conversations/${athleteId}`)
       .then((r) => r.json())
@@ -101,6 +104,16 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
       loadConversation(initialConversationId)
     }
   }, [athleteId, initialConversationId])
+
+  // Auto-send first message for new users (first-run experience)
+  useEffect(() => {
+    if (!autoStartMessage || initialConversationId || autoStartFired.current) return
+    autoStartFired.current = true
+    const timer = setTimeout(() => {
+      sendMessage(autoStartMessage)
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [autoStartMessage])
 
   const loadConversation = async (convId: number) => {
     try {

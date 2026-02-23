@@ -7,6 +7,7 @@ interface DashboardProps {
   onStartChat: () => void
   onLoadChat: (conversationId: number) => void
   onViewReport: (reportId: number) => void
+  onFirstRun: () => void
 }
 
 const PLATFORM_META: Record<string, { label: string, icon: string, placeholder: string }> = {
@@ -43,7 +44,7 @@ const REPORT_TYPE_META: Record<string, { label: string, icon: React.ReactNode, c
   },
 }
 
-export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewReport }: DashboardProps) {
+export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewReport, onFirstRun }: DashboardProps) {
   const [data, setData] = useState<any>(null)
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,6 +206,36 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
           </div>
         </div>
       </div>
+
+      {/* ===== FIRST-RUN WELCOME BANNER ===== */}
+      {recent_chats.length === 0 && reports.length === 0 && (
+        <div className="relative overflow-hidden bg-gradient-to-br from-sparq-lime/[0.12] via-sparq-lime/[0.06] to-transparent border border-sparq-lime/30 rounded-2xl p-6 sm:p-8">
+          {/* Background glow */}
+          <div className="absolute -top-10 -right-10 w-48 h-48 bg-sparq-lime/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-sparq-lime/10 border border-sparq-lime/20 rounded-full text-sparq-lime text-xs font-bold mb-4 tracking-wide uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-sparq-lime animate-pulse" />
+              First Analysis Ready
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white mb-2 font-display leading-tight">
+              Ready to find your colleges?
+            </h2>
+            <p className="text-gray-400 text-sm sm:text-base mb-6 max-w-lg leading-relaxed">
+              Your agent has your full athletic profile loaded. Hit the button and it'll analyze your metrics, find your best-fit programs, and show you exactly where you stack up — in about 30 seconds.
+            </p>
+            <button
+              onClick={onFirstRun}
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-sparq-lime text-sparq-charcoal font-bold text-sm rounded-xl hover:bg-sparq-lime-dark active:scale-[0.98] transition-all shadow-lg shadow-sparq-lime/20"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+              </svg>
+              Run My First Analysis
+            </button>
+            <p className="text-gray-600 text-xs mt-3">Takes ~30 seconds · No setup needed</p>
+          </div>
+        </div>
+      )}
 
       {/* ===== QUICK ACTIONS ===== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">

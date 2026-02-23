@@ -28,6 +28,7 @@ export default function AthleteDashboard() {
   const [view, setView] = useState<'dashboard' | 'chat' | 'report'>('dashboard')
   const [loadConversationId, setLoadConversationId] = useState<number | null>(null)
   const [viewReportId, setViewReportId] = useState<number | null>(null)
+  const [autoStartMessage, setAutoStartMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -42,6 +43,13 @@ export default function AthleteDashboard() {
   }, [athleteId])
 
   const handleStartChat = () => {
+    setAutoStartMessage(null)
+    setLoadConversationId(null)
+    setView('chat')
+  }
+
+  const handleFirstRun = () => {
+    setAutoStartMessage('Analyze my recruiting profile and give me a full breakdown — my top college program fits, how my metrics compare, and what I should focus on to improve my recruiting chances.')
     setLoadConversationId(null)
     setView('chat')
   }
@@ -130,6 +138,7 @@ export default function AthleteDashboard() {
             onStartChat={handleStartChat}
             onLoadChat={handleLoadChat}
             onViewReport={handleViewReport}
+            onFirstRun={handleFirstRun}
           />
         ) : view === 'report' && viewReportId ? (
           <ReportView
@@ -143,6 +152,7 @@ export default function AthleteDashboard() {
               athleteId={athleteId}
               athleteName={`${profile.first_name} ${profile.last_name}`}
               initialConversationId={loadConversationId}
+              autoStartMessage={autoStartMessage}
             />
           </div>
         )}
