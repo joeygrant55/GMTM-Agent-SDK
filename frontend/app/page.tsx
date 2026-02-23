@@ -263,7 +263,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
           <h2 className="text-2xl sm:text-4xl font-bold mb-4">Ready to Get Recruited?</h2>
           <p className="text-gray-400 text-base sm:text-lg mb-8">
-            Join thousands of athletes using AI to navigate the recruiting process.
+            Built on 75,000 athlete profiles and 2,900 college programs. Your recruiting edge starts here.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/sign-up" className="px-8 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-lg hover:bg-sparq-lime-dark transition-colors">
