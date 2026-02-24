@@ -239,11 +239,30 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
       {/* ===== QUICK ACTIONS ===== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <button
-          onClick={onStartChat}
-          className="group bg-gradient-to-br from-sparq-lime/10 to-transparent border border-sparq-lime/20 rounded-2xl p-5 text-left hover:border-sparq-lime/40 transition-all active:scale-[0.98]"
+        {/* Quick Scan */}
+        <a
+          href="/quick-scan"
+          className="group bg-gradient-to-br from-sparq-lime/10 to-transparent border border-sparq-lime/30 rounded-2xl p-5 text-left hover:border-sparq-lime/60 transition-all active:scale-[0.98] block"
         >
           <div className="w-10 h-10 rounded-xl bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center mb-3 group-hover:bg-sparq-lime/20 transition-colors">
+            <svg className="w-5 h-5 text-sparq-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+            </svg>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="font-bold text-white text-base font-display">View Quick Scan</div>
+            <span className="text-[9px] font-bold text-sparq-lime bg-sparq-lime/10 border border-sparq-lime/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider">Free</span>
+          </div>
+          <div className="text-gray-500 text-sm">
+            Your real metrics + percentile rankings vs. other athletes
+          </div>
+        </a>
+
+        <button
+          onClick={onStartChat}
+          className="group bg-white/[0.04] border border-white/10 rounded-2xl p-5 text-left hover:border-white/20 transition-all active:scale-[0.98]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 group-hover:bg-white/10 transition-colors">
             <svg className="w-5 h-5 text-sparq-lime" fill="currentColor" viewBox="0 0 20 20">
               <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 01.12-.381z"/>
             </svg>
