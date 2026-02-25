@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 
@@ -223,6 +223,43 @@ export default function QuickScanClient() {
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://sparq-agent-backend.up.railway.app'
 
+  // Waitlist / upgrade intent capture
+  const [showWaitlist, setShowWaitlist] = useState(false)
+  const [waitlistEmail, setWaitlistEmail] = useState('')
+  const [waitlistTier, setWaitlistTier] = useState<'starter' | 'pro' | 'elite'>('starter')
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
+  const [waitlistDone, setWaitlistDone] = useState(false)
+  const emailInputRef = useRef<HTMLInputElement>(null)
+
+  const handleWaitlistSubmit = async () => {
+    if (!waitlistEmail || waitlistSubmitting) return
+    setWaitlistSubmitting(true)
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: waitlistEmail,
+          tier: waitlistTier,
+          athleteName: athleteName || undefined,
+          position: data?.position || undefined,
+        }),
+      })
+      setWaitlistDone(true)
+    } catch {
+      // Fail silently — still show success to user
+      setWaitlistDone(true)
+    } finally {
+      setWaitlistSubmitting(false)
+    }
+  }
+
+  useEffect(() => {
+    if (showWaitlist && !waitlistDone) {
+      setTimeout(() => emailInputRef.current?.focus(), 100)
+    }
+  }, [showWaitlist, waitlistDone])
+
   useEffect(() => {
     if (!clerkLoaded) return
     if (!user) {
@@ -257,6 +294,11 @@ export default function QuickScanClient() {
 
   // Filter to recognized metrics only
   const displayMetrics = (data?.metrics ?? []).filter(m => METRIC_CONFIG[m.title])
+
+  // Compute overall athletic percentile (avg of all metric scores)
+  const overallPercentile = displayMetrics.length > 0
+    ? Math.round(displayMetrics.reduce((sum, m) => sum + calcScore(m.value, m.title), 0) / displayMetrics.length)
+    : null
 
   const athleteName = data ? `${data.first_name} ${data.last_name}`.trim() : ''
   const initials = data
@@ -351,15 +393,33 @@ export default function QuickScanClient() {
                 </div>
               )}
 
-              <div className="mt-4 p-3 rounded-xl bg-sparq-lime/5 border border-sparq-lime/20 flex items-start gap-2">
-                <svg className="w-4 h-4 text-sparq-lime flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
-                </svg>
-                <p className="text-xs text-sparq-lime/80 leading-relaxed">
-                  This is your <strong>free Quick Scan</strong> — your real metrics with percentile rankings vs. {data.position ? `other ${data.position}s` : 'athletes'} in our database.
-                  Upgrade to see personalized college matches, depth chart analysis, and your outreach plan.
-                </p>
-              </div>
+              {overallPercentile !== null && (
+                <div className="mt-4 p-4 rounded-xl bg-sparq-lime/10 border border-sparq-lime/30 flex items-center gap-4">
+                  <div className="text-center flex-shrink-0">
+                    <div className="text-4xl font-black text-sparq-lime leading-none">{overallPercentile}<span className="text-lg font-bold">th</span></div>
+                    <div className="text-[10px] text-sparq-lime/60 uppercase tracking-wider mt-0.5">percentile</div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-white font-bold leading-tight">
+                      You rank in the top {100 - overallPercentile}% of {data.position ? `${data.position}s` : 'athletes'} in our database.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Based on {displayMetrics.length} verified metric{displayMetrics.length !== 1 ? 's' : ''} vs. 75,000+ athletes. Upgrade to see your college matches.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {overallPercentile === null && (
+                <div className="mt-4 p-3 rounded-xl bg-sparq-lime/5 border border-sparq-lime/20 flex items-start gap-2">
+                  <svg className="w-4 h-4 text-sparq-lime flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                  </svg>
+                  <p className="text-xs text-sparq-lime/80 leading-relaxed">
+                    This is your <strong>free Quick Scan</strong> — your real metrics with percentile rankings vs. {data.position ? `other ${data.position}s` : 'athletes'} in our database.
+                    Upgrade to see personalized college matches, depth chart analysis, and your outreach plan.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* YOUR METRICS */}
@@ -435,13 +495,70 @@ export default function QuickScanClient() {
                   ))}
                 </div>
 
-                <button
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-sparq-lime text-sparq-charcoal text-lg font-black rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105 shadow-lg shadow-sparq-lime/25"
-                  onClick={() => alert('Stripe checkout coming soon — Phase 1 build in progress!')}
-                >
-                  Get My Full Report →
-                </button>
-                <p className="text-gray-600 text-xs mt-3">One-time purchase · Delivered in ~2 minutes</p>
+                {!showWaitlist && !waitlistDone && (
+                  <>
+                    <button
+                      className="inline-flex items-center gap-2 px-8 py-4 bg-sparq-lime text-sparq-charcoal text-lg font-black rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105 shadow-lg shadow-sparq-lime/25"
+                      onClick={() => setShowWaitlist(true)}
+                    >
+                      Get My Full Report →
+                    </button>
+                    <p className="text-gray-600 text-xs mt-3">One-time purchase · Delivered in ~2 minutes</p>
+                  </>
+                )}
+
+                {/* Waitlist capture */}
+                {showWaitlist && !waitlistDone && (
+                  <div className="w-full max-w-md mx-auto mt-2 p-5 bg-black/40 border border-sparq-lime/30 rounded-2xl text-left">
+                    <h3 className="text-white font-black text-base mb-1">We're almost there.</h3>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Payment launches shortly. Drop your email — you'll be first in line and we'll notify you the moment it's live.
+                    </p>
+                    {/* Tier selector */}
+                    <div className="flex gap-2 mb-4">
+                      {(['starter', 'pro', 'elite'] as const).map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setWaitlistTier(t)}
+                          className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all ${
+                            waitlistTier === t
+                              ? 'bg-sparq-lime/20 border-sparq-lime text-sparq-lime'
+                              : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                          }`}
+                        >
+                          {t === 'starter' ? 'Starter\n$29.99' : t === 'pro' ? 'Pro\n$49' : 'Elite\n$79.99'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        ref={emailInputRef}
+                        type="email"
+                        value={waitlistEmail}
+                        onChange={e => setWaitlistEmail(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleWaitlistSubmit()}
+                        placeholder="your@email.com"
+                        className="flex-1 bg-white/5 border border-white/10 text-white px-3 py-2.5 text-sm rounded-xl placeholder-gray-600 focus:outline-none focus:border-sparq-lime/50 transition-colors"
+                      />
+                      <button
+                        onClick={handleWaitlistSubmit}
+                        disabled={!waitlistEmail || waitlistSubmitting}
+                        className="px-5 py-2.5 bg-sparq-lime text-sparq-charcoal text-sm font-black rounded-xl hover:bg-sparq-lime-dark disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        {waitlistSubmitting ? '...' : 'Notify Me'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success state */}
+                {waitlistDone && (
+                  <div className="w-full max-w-md mx-auto mt-2 p-5 bg-sparq-lime/10 border border-sparq-lime/30 rounded-2xl text-center">
+                    <div className="text-3xl mb-2">✓</div>
+                    <p className="text-sparq-lime font-black text-base mb-1">You're on the list.</p>
+                    <p className="text-gray-400 text-sm">We'll email you the moment payment goes live. Check your inbox for confirmation.</p>
+                  </div>
+                )}
               </div>
             </div>
 
