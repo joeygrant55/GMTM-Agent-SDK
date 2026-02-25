@@ -39,6 +39,60 @@ def _get_gmtm_db():
     )
 
 
+def _ensure_tables():
+    db = None
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS sparq_profiles (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    clerk_id VARCHAR(255) NOT NULL UNIQUE,
+                    maxpreps_athlete_id VARCHAR(255),
+                    maxpreps_data JSON,
+                    name VARCHAR(255),
+                    position VARCHAR(100),
+                    school VARCHAR(255),
+                    class_year INT,
+                    city VARCHAR(100),
+                    state VARCHAR(50),
+                    gpa DECIMAL(3,2),
+                    major_area VARCHAR(100),
+                    hudl_url VARCHAR(500),
+                    combine_metrics JSON,
+                    recruiting_goals JSON,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS college_targets (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sparq_profile_id INT NOT NULL,
+                    college_name VARCHAR(255) NOT NULL,
+                    college_city VARCHAR(100),
+                    college_state VARCHAR(50),
+                    division VARCHAR(20) DEFAULT 'D1',
+                    fit_score INT DEFAULT 75,
+                    fit_reasons JSON,
+                    status ENUM('Researching','Interested','Contacted','Visited','Offered','Committed','Declined') DEFAULT 'Researching',
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_profile (sparq_profile_id)
+                )
+            """)
+        db.commit()
+    except Exception as e:
+        print(f"Table creation warning: {e}")
+    finally:
+        if db:
+            db.close()
+
+
+_ensure_tables()
+
+
 # ── Models ──────────────────────────────
 
 class LinkCreate(BaseModel):
@@ -57,6 +111,20 @@ class LinkUpdate(BaseModel):
 class ProfileConnect(BaseModel):
     user_id: int
     clerk_id: str
+
+
+class OnboardingPayload(BaseModel):
+    clerk_id: Optional[str] = None
+    maxprepsData: Optional[dict] = None
+    combineMetrics: Optional[dict] = None
+    gpa: Optional[float] = None
+    majorArea: Optional[str] = None
+    recruitingGoals: Optional[dict] = None
+    hudlUrl: Optional[str] = None
+
+
+class StatusUpdate(BaseModel):
+    status: str
 
 
 # ── Dashboard endpoint ──────────────────
@@ -280,5 +348,185 @@ async def get_profile_by_clerk(clerk_id: str):
             if not row:
                 return {"found": False, "user_id": None}
             return {"found": True, "user_id": row['user_id']}
+    finally:
+        db.close()
+
+
+@router.post("/profile/create-from-onboarding")
+async def create_from_onboarding(payload: OnboardingPayload):
+    if not payload.clerk_id:
+        raise HTTPException(status_code=400, detail="clerk_id is required")
+
+    db = _get_agent_db()
+    try:
+        mp = payload.maxprepsData or {}
+        position = mp.get("position", "")
+        state = mp.get("state", "")
+        name = mp.get("name", "")
+        school = mp.get("school", "")
+        class_year = mp.get("classYear")
+        city = mp.get("city", "")
+        maxpreps_athlete_id = mp.get("maxprepsAthleteId")
+
+        with db.cursor() as c:
+            c.execute("""
+                INSERT INTO sparq_profiles
+                    (clerk_id, maxpreps_athlete_id, maxpreps_data, name, position, school,
+                     class_year, city, state, gpa, major_area, hudl_url,
+                     combine_metrics, recruiting_goals)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON DUPLICATE KEY UPDATE
+                    maxpreps_data=VALUES(maxpreps_data),
+                    name=VALUES(name), position=VALUES(position),
+                    school=VALUES(school), class_year=VALUES(class_year),
+                    city=VALUES(city), state=VALUES(state),
+                    gpa=VALUES(gpa), major_area=VALUES(major_area),
+                    hudl_url=VALUES(hudl_url),
+                    combine_metrics=VALUES(combine_metrics),
+                    recruiting_goals=VALUES(recruiting_goals),
+                    updated_at=CURRENT_TIMESTAMP
+            """, (
+                payload.clerk_id,
+                maxpreps_athlete_id,
+                json.dumps(mp) if mp else None,
+                name,
+                position,
+                school,
+                class_year,
+                city,
+                state,
+                payload.gpa,
+                payload.majorArea,
+                payload.hudlUrl,
+                json.dumps(payload.combineMetrics) if payload.combineMetrics else None,
+                json.dumps(payload.recruitingGoals) if payload.recruitingGoals else None,
+            ))
+            db.commit()
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (payload.clerk_id,))
+            profile_id = c.fetchone()["id"]
+
+        colleges_matched = 0
+        try:
+            from tools.recruiting_tools import RecruitingTools
+
+            rt = RecruitingTools()
+            prefs = {}
+            if payload.recruitingGoals:
+                geo = payload.recruitingGoals.get("geography", "")
+                if geo == "In-state" and state:
+                    prefs["region"] = state
+
+            athlete_dict = {
+                "sport": "Football (American)",
+                "position": position,
+                "state": state,
+            }
+            result = rt.match_programs(athlete_dict, preferences=prefs)
+
+            seen = set()
+            programs = []
+            for program in (result.get("top_programs", []) + result.get("regional_programs", [])):
+                key = program["name"].strip().lower()
+                if key not in seen:
+                    seen.add(key)
+                    programs.append(program)
+            programs = programs[:12]
+
+            if programs:
+                with db.cursor() as c:
+                    c.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (profile_id,))
+
+                    for i, program in enumerate(programs):
+                        offer_count = program.get("offers_given", 0)
+                        fit_score = 70
+                        fit_score += max(0, 10 - i)
+                        if offer_count >= 50:
+                            fit_score += 5
+                        elif offer_count >= 20:
+                            fit_score += 3
+                        else:
+                            fit_score += 1
+                        if prefs.get("region") and program.get("state") == state:
+                            fit_score += 5
+                        fit_score = min(fit_score, 95)
+
+                        fit_reasons = []
+                        if offer_count > 10:
+                            fit_reasons.append(f"Actively recruits your position ({offer_count} offers given)")
+                        if program.get("state") == state:
+                            fit_reasons.append("In-state program")
+
+                        division = "D1" if offer_count >= 15 else ("D2" if offer_count >= 5 else "D3")
+
+                        c.execute("""
+                            INSERT INTO college_targets
+                                (sparq_profile_id, college_name, college_city, college_state,
+                                 division, fit_score, fit_reasons)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s)
+                        """, (
+                            profile_id,
+                            program["name"],
+                            program.get("city", ""),
+                            program.get("state", ""),
+                            division,
+                            fit_score,
+                            json.dumps(fit_reasons),
+                        ))
+                        colleges_matched += 1
+                    db.commit()
+        except Exception as e:
+            print(f"College matching error (non-fatal): {e}")
+
+        return {
+            "success": True,
+            "profile_id": profile_id,
+            "colleges_matched": colleges_matched,
+        }
+    finally:
+        db.close()
+
+
+@router.get("/workspace/colleges/{clerk_id}")
+async def get_college_targets(clerk_id: str):
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                return {"colleges": [], "total": 0}
+            c.execute("""
+                SELECT id, college_name, college_city, college_state,
+                       division, fit_score, fit_reasons, status
+                FROM college_targets
+                WHERE sparq_profile_id = %s
+                ORDER BY fit_score DESC
+            """, (profile["id"],))
+            colleges = c.fetchall()
+            for col in colleges:
+                if isinstance(col.get("fit_reasons"), str):
+                    try:
+                        col["fit_reasons"] = json.loads(col["fit_reasons"])
+                    except Exception:
+                        col["fit_reasons"] = []
+            return {"colleges": colleges, "total": len(colleges)}
+    finally:
+        db.close()
+
+
+@router.put("/workspace/colleges/{college_target_id}/status")
+async def update_college_status(college_target_id: int, body: StatusUpdate):
+    valid = {"Researching", "Interested", "Contacted", "Visited", "Offered", "Committed", "Declined"}
+    if body.status not in valid:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                "UPDATE college_targets SET status = %s WHERE id = %s",
+                (body.status, college_target_id)
+            )
+        db.commit()
+        return {"updated": True, "id": college_target_id, "status": body.status}
     finally:
         db.close()
