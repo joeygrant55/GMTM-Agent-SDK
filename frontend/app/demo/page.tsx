@@ -515,8 +515,9 @@ export default function DemoPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-sparq-charcoal/95 backdrop-blur-lg">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center">
-              <img src="/sparq-logo-white.png" alt="SPARQ" className="h-7 w-auto" />
+            <Link href="/" className="flex items-center gap-2">
+              <img src="/sparq-logo.jpg" alt="SPARQ" className="w-8 h-8 rounded-lg" />
+              <span className="font-bold text-lg hidden sm:inline">SPARQ</span>
             </Link>
             <span className="px-2 py-0.5 bg-sparq-lime/10 text-sparq-lime text-[10px] font-bold rounded-full border border-sparq-lime/20 uppercase tracking-wider">
               Recruiting Report

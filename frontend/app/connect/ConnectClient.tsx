@@ -122,7 +122,7 @@ export default function ConnectClient() {
       <div className="max-w-lg w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/sparq-logo-white.png" alt="SPARQ" className="h-10 w-auto mx-auto mb-6" />
+          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-white">Connect Your Profile</h1>
           <p className="text-gray-400 mt-2">
             Link your SPARQ/GMTM athlete profile to get personalized recruiting advice.
