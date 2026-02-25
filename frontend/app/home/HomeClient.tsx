@@ -28,7 +28,7 @@ export default function HomeClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-sparq-charcoal text-white flex items-center justify-center">
+      <div className="h-full min-h-screen bg-sparq-charcoal text-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-400">Loading your workspace...</p>
@@ -38,27 +38,72 @@ export default function HomeClient() {
   }
 
   return (
-    <div className="min-h-screen bg-sparq-charcoal text-white flex items-center justify-center px-4">
-      <div className="max-w-xl w-full bg-white/[0.04] border border-white/10 rounded-2xl p-8 text-center">
-        <div className="w-16 h-16 bg-sparq-lime/10 border border-sparq-lime/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <span className="text-3xl">🏈</span>
-        </div>
-        <h1 className="text-3xl font-black text-white mb-3">Your Workspace is Ready</h1>
-        <p className="text-gray-400 mb-8 leading-relaxed">
-          Connect your athlete profile to open your personalized recruiting dashboard — college matches, outreach tracker, and AI recruiting advisor.
-        </p>
-        <Link
-          href="/connect"
-          className="inline-flex items-center gap-2 px-8 py-4 bg-sparq-lime text-sparq-charcoal font-black rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105 shadow-lg shadow-sparq-lime/25"
-        >
-          Connect Profile →
-        </Link>
-        <p className="text-gray-600 text-xs mt-4">
-          Already connected?{' '}
-          <Link href="/quick-scan" className="text-sparq-lime hover:underline">
-            View your Quick Scan →
+    <div className="text-white pb-8">
+      <div className="p-8 pb-0">
+        <h1 className="text-3xl font-black text-white">Welcome back 👋</h1>
+        <p className="text-gray-400 mt-1">Your recruiting workspace</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-8">
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
+          <div className="text-2xl mb-3">🎯</div>
+          <h2 className="font-bold text-white">New College Matches</h2>
+          <p className="text-gray-400 text-sm mt-2">12 programs matched to your profile.</p>
+          <Link href="/home/colleges" className="inline-block mt-4 text-sparq-lime font-semibold">
+            View Matches →
           </Link>
-        </p>
+        </div>
+
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
+          <div className="text-2xl mb-3">✉️</div>
+          <h2 className="font-bold text-white">Draft Coach Emails</h2>
+          <p className="text-gray-400 text-sm mt-2">Start reaching out to your top programs.</p>
+          <p className="mt-4 text-gray-500 font-semibold">Coming Soon</p>
+        </div>
+
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
+          <div className="text-2xl mb-3">📊</div>
+          <h2 className="font-bold text-white">Complete Your Profile</h2>
+          <p className="text-gray-400 text-sm mt-2">Add combine metrics to improve your matches.</p>
+          <p className="mt-4 text-gray-500 font-semibold">Update Profile</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 px-8">
+        <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
+          <div className="text-3xl font-black text-sparq-lime">0</div>
+          <div className="text-gray-400 text-sm mt-1">Colleges Tracked</div>
+        </div>
+        <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
+          <div className="text-3xl font-black text-sparq-lime">0</div>
+          <div className="text-gray-400 text-sm mt-1">Outreach Sent</div>
+        </div>
+        <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
+          <div className="text-3xl font-black text-sparq-lime">0</div>
+          <div className="text-gray-400 text-sm mt-1">Responses</div>
+        </div>
+      </div>
+
+      <div className="px-8 pb-8 mt-8">
+        <h2 className="text-lg font-bold text-white mb-4">Recruiting Calendar</h2>
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-3 text-gray-300">
+            <span className="text-sparq-lime">●</span>
+            <span>Junior Days — Spring 2026</span>
+          </div>
+          <div className="flex items-center gap-3 text-gray-300">
+            <span className="text-sparq-lime">●</span>
+            <span>Summer Camp Circuit — June–July 2026</span>
+          </div>
+          <div className="flex items-center gap-3 text-gray-300">
+            <span className="text-sparq-lime">●</span>
+            <span>Early Signing Period — Dec 3–5, 2026</span>
+          </div>
+          <div className="flex items-center gap-3 text-gray-300">
+            <span className="text-sparq-lime">●</span>
+            <span>National Signing Day — Feb 4, 2027</span>
+          </div>
+        </div>
       </div>
     </div>
   )
