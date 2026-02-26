@@ -18,9 +18,16 @@ export default function HomeClient() {
       .then((res) => res.json())
       .then((data) => {
         if (data?.found && data?.user_id) {
+          // Legacy GMTM user → send to old athlete page
           window.location.href = `/athlete/${data.user_id}`
           return
         }
+        if (!data?.has_sparq_profile) {
+          // No profile at all → send to onboarding
+          window.location.href = '/onboarding/search'
+          return
+        }
+        // Has a sparq_profile → show workspace dashboard
         setLoading(false)
       })
       .catch(() => setLoading(false))

@@ -348,15 +348,23 @@ async def search_athletes(name: str):
 
 @router.get("/profile/by-clerk/{clerk_id}")
 async def get_profile_by_clerk(clerk_id: str):
-    """Look up athlete ID from Clerk user ID"""
+    """Look up athlete ID from Clerk user ID. Also checks sparq_profiles."""
     db = _get_agent_db()
     try:
         with db.cursor() as c:
+            # Check legacy GMTM athlete link
             c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (clerk_id,))
             row = c.fetchone()
-            if not row:
-                return {"found": False, "user_id": None}
-            return {"found": True, "user_id": row['user_id']}
+            if row:
+                return {"found": True, "user_id": row['user_id'], "has_sparq_profile": False}
+
+            # Check new sparq_profiles (MaxPreps onboarding)
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            sparq_row = c.fetchone()
+            if sparq_row:
+                return {"found": False, "user_id": None, "has_sparq_profile": True}
+
+            return {"found": False, "user_id": None, "has_sparq_profile": False}
     finally:
         db.close()
 
