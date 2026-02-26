@@ -8,11 +8,11 @@ const NAV_ITEMS = [
   { label: '🏠 Home', href: '/home' },
   { label: '🎓 Colleges', href: '/home/colleges' },
   { label: '✉️ Outreach', href: '/home/outreach' },
+  { label: '👤 Profile', href: '/onboarding/profile' },
 ]
 
 const COMING_SOON_ITEMS = [
   { label: '📅 Timeline', status: 'Coming Soon' },
-  { label: '👤 Profile', status: 'Coming Soon' },
 ]
 
 export default function WorkspaceSidebar() {

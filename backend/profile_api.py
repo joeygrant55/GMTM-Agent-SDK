@@ -91,6 +91,21 @@ def _ensure_tables():
                     INDEX idx_clerk (clerk_id)
                 )
             """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS outreach_log (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sparq_profile_id INT NOT NULL,
+                    school VARCHAR(200) NOT NULL,
+                    coach VARCHAR(200) DEFAULT NULL,
+                    method ENUM("Email","Phone","Visit","Camp") NOT NULL DEFAULT "Email",
+                    contact_date DATE NOT NULL,
+                    status ENUM("Awaiting Response","Responded","Meeting Scheduled","Archived") NOT NULL DEFAULT "Awaiting Response",
+                    notes TEXT DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_profile (sparq_profile_id)
+                )
+            """)
             # Ensure agent_conversations has clerk_id column (may be missing on old tables)
             try:
                 c.execute("ALTER TABLE agent_conversations ADD COLUMN clerk_id VARCHAR(255) DEFAULT NULL")
@@ -153,6 +168,19 @@ class OnboardingPayload(BaseModel):
 
 
 class StatusUpdate(BaseModel):
+    status: str
+
+
+class OutreachCreate(BaseModel):
+    school: str
+    coach: Optional[str] = None
+    method: str = "Email"
+    contact_date: str
+    status: str = "Awaiting Response"
+    notes: Optional[str] = None
+
+
+class OutreachStatusUpdate(BaseModel):
     status: str
 
 
@@ -582,5 +610,155 @@ async def update_college_status(college_target_id: int, body: StatusUpdate):
             )
         db.commit()
         return {"updated": True, "id": college_target_id, "status": body.status}
+    finally:
+        db.close()
+
+
+@router.get("/workspace/outreach/{clerk_id}")
+async def get_outreach_entries(clerk_id: str):
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                return {"entries": [], "total": 0}
+
+            c.execute("""
+                SELECT id, school, coach, method, contact_date, status, notes, created_at, updated_at
+                FROM outreach_log
+                WHERE sparq_profile_id = %s
+                ORDER BY contact_date DESC, id DESC
+            """, (profile["id"],))
+            entries = c.fetchall()
+            return {"entries": entries, "total": len(entries)}
+    finally:
+        db.close()
+
+
+@router.post("/workspace/outreach/{clerk_id}")
+async def create_outreach_entry(clerk_id: str, body: OutreachCreate):
+    valid_methods = {"Email", "Phone", "Visit", "Camp"}
+    valid_statuses = {"Awaiting Response", "Responded", "Meeting Scheduled", "Archived"}
+    if body.method not in valid_methods:
+        raise HTTPException(status_code=400, detail="Invalid method")
+    if body.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                raise HTTPException(status_code=404, detail="SPARQ profile not found")
+
+            c.execute("""
+                INSERT INTO outreach_log
+                    (sparq_profile_id, school, coach, method, contact_date, status, notes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                profile["id"],
+                body.school.strip(),
+                body.coach.strip() if body.coach else None,
+                body.method,
+                body.contact_date,
+                body.status,
+                body.notes.strip() if body.notes else None,
+            ))
+            entry_id = c.lastrowid
+
+            c.execute("""
+                SELECT id, school, coach, method, contact_date, status, notes, created_at, updated_at
+                FROM outreach_log
+                WHERE id = %s
+            """, (entry_id,))
+            entry = c.fetchone()
+        db.commit()
+        return {"entry": entry, "id": entry_id}
+    finally:
+        db.close()
+
+
+@router.put("/workspace/outreach/{entry_id}/status")
+async def update_outreach_status(entry_id: int, body: OutreachStatusUpdate):
+    valid_statuses = {"Awaiting Response", "Responded", "Meeting Scheduled", "Archived"}
+    if body.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("UPDATE outreach_log SET status = %s WHERE id = %s", (body.status, entry_id))
+        db.commit()
+        return {"updated": True}
+    finally:
+        db.close()
+
+
+@router.delete("/workspace/outreach/{entry_id}")
+async def delete_outreach_entry(entry_id: int):
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("DELETE FROM outreach_log WHERE id = %s", (entry_id,))
+        db.commit()
+        return {"deleted": True}
+    finally:
+        db.close()
+
+
+@router.get("/workspace/stats/{clerk_id}")
+async def get_workspace_stats(clerk_id: str):
+    db = _get_agent_db()
+    base_breakdown = {
+        "Researching": 0,
+        "Interested": 0,
+        "Contacted": 0,
+        "Offered": 0,
+    }
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                return {
+                    "colleges_tracked": 0,
+                    "outreach_sent": 0,
+                    "responses": 0,
+                    "college_breakdown": base_breakdown,
+                }
+
+            profile_id = profile["id"]
+            c.execute("SELECT COUNT(*) AS total FROM college_targets WHERE sparq_profile_id = %s", (profile_id,))
+            colleges_tracked = c.fetchone()["total"]
+
+            c.execute("""
+                SELECT status, COUNT(*) AS count
+                FROM college_targets
+                WHERE sparq_profile_id = %s
+                  AND status IN ('Researching', 'Interested', 'Contacted', 'Offered')
+                GROUP BY status
+            """, (profile_id,))
+            breakdown_rows = c.fetchall()
+            college_breakdown = dict(base_breakdown)
+            for row in breakdown_rows:
+                college_breakdown[row["status"]] = row["count"]
+
+            c.execute("""
+                SELECT
+                    COUNT(*) AS outreach_sent,
+                    SUM(CASE WHEN status IN ('Responded', 'Meeting Scheduled') THEN 1 ELSE 0 END) AS responses
+                FROM outreach_log
+                WHERE sparq_profile_id = %s
+            """, (profile_id,))
+            outreach_row = c.fetchone() or {}
+
+            return {
+                "colleges_tracked": colleges_tracked or 0,
+                "outreach_sent": outreach_row.get("outreach_sent") or 0,
+                "responses": outreach_row.get("responses") or 0,
+                "college_breakdown": college_breakdown,
+            }
     finally:
         db.close()

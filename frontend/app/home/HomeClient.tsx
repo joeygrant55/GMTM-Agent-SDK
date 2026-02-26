@@ -6,9 +6,20 @@ import { useUser } from '@clerk/nextjs'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
+interface WorkspaceStats {
+  colleges_tracked: number
+  outreach_sent: number
+  responses: number
+}
+
 export default function HomeClient() {
   const { user, isLoaded } = useUser()
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<WorkspaceStats>({
+    colleges_tracked: 0,
+    outreach_sent: 0,
+    responses: 0,
+  })
 
   useEffect(() => {
     if (!isLoaded || !user?.id) return
@@ -16,7 +27,7 @@ export default function HomeClient() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
     fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
       .then((res) => res.json())
-      .then((data) => {
+      .then(async (data) => {
         if (data?.found && data?.user_id) {
           // Legacy GMTM user → send to old athlete page
           window.location.href = `/athlete/${data.user_id}`
@@ -27,8 +38,21 @@ export default function HomeClient() {
           window.location.href = '/onboarding/search'
           return
         }
-        // Has a sparq_profile → show workspace dashboard
-        setLoading(false)
+
+        try {
+          const statsRes = await fetch(`${backendUrl}/api/workspace/stats/${user.id}`)
+          if (!statsRes.ok) return
+          const statsData = await statsRes.json()
+          setStats({
+            colleges_tracked: Number(statsData?.colleges_tracked) || 0,
+            outreach_sent: Number(statsData?.outreach_sent) || 0,
+            responses: Number(statsData?.responses) || 0,
+          })
+        } catch {
+          setStats({ colleges_tracked: 0, outreach_sent: 0, responses: 0 })
+        } finally {
+          setLoading(false)
+        }
       })
       .catch(() => setLoading(false))
   }, [isLoaded, user?.id])
@@ -55,7 +79,7 @@ export default function HomeClient() {
         <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
           <div className="text-2xl mb-3">🎯</div>
           <h2 className="font-bold text-white">New College Matches</h2>
-          <p className="text-gray-400 text-sm mt-2">12 programs matched to your profile.</p>
+          <p className="text-gray-400 text-sm mt-2">{stats.colleges_tracked} programs matched to your profile.</p>
           <Link href="/home/colleges" className="inline-block mt-4 text-sparq-lime font-semibold">
             View Matches →
           </Link>
@@ -72,21 +96,23 @@ export default function HomeClient() {
           <div className="text-2xl mb-3">📊</div>
           <h2 className="font-bold text-white">Complete Your Profile</h2>
           <p className="text-gray-400 text-sm mt-2">Add combine metrics to improve your matches.</p>
-          <p className="mt-4 text-gray-500 font-semibold">Update Profile</p>
+          <Link href="/onboarding/profile" className="inline-block mt-4 text-sparq-lime font-semibold">
+            Update Profile
+          </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 px-8">
         <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-3xl font-black text-sparq-lime">0</div>
+          <div className="text-3xl font-black text-sparq-lime">{stats.colleges_tracked}</div>
           <div className="text-gray-400 text-sm mt-1">Colleges Tracked</div>
         </div>
         <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-3xl font-black text-sparq-lime">0</div>
+          <div className="text-3xl font-black text-sparq-lime">{stats.outreach_sent}</div>
           <div className="text-gray-400 text-sm mt-1">Outreach Sent</div>
         </div>
         <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
-          <div className="text-3xl font-black text-sparq-lime">0</div>
+          <div className="text-3xl font-black text-sparq-lime">{stats.responses}</div>
           <div className="text-gray-400 text-sm mt-1">Responses</div>
         </div>
       </div>
