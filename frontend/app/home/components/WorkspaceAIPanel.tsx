@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -148,10 +149,31 @@ export default function WorkspaceAIPanel() {
                   : 'bg-white/[0.04] border border-white/10 rounded-xl p-3 text-sm text-gray-200'
               }
             >
-              {msg.content ||
-                (loading && i === messages.length - 1 ? (
+              {msg.content ? (
+                msg.role === 'assistant' ? (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+                      em: ({ children }) => <em className="italic text-gray-300">{children}</em>,
+                      h3: ({ children }) => <h3 className="font-bold text-white mt-3 mb-1">{children}</h3>,
+                      ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
+                      li: ({ children }) => <li className="text-gray-200">{children}</li>,
+                      hr: () => <hr className="border-white/10 my-2" />,
+                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-sparq-lime underline">{children}</a>,
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
+                  msg.content
+                )
+              ) : (
+                loading && i === messages.length - 1 ? (
                   <span className="text-gray-500 italic">{toolActivity || 'Thinking...'}</span>
-                ) : null)}
+                ) : null
+              )}
             </div>
           </div>
         ))}

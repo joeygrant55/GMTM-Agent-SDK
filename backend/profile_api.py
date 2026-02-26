@@ -91,6 +91,26 @@ def _ensure_tables():
                     INDEX idx_clerk (clerk_id)
                 )
             """)
+            # Ensure agent_conversations has clerk_id column (may be missing on old tables)
+            try:
+                c.execute("ALTER TABLE agent_conversations ADD COLUMN clerk_id VARCHAR(255) DEFAULT NULL")
+            except Exception:
+                pass  # Column already exists
+            try:
+                c.execute("ALTER TABLE agent_conversations ADD UNIQUE INDEX idx_clerk_conv (clerk_id)")
+            except Exception:
+                pass  # Index already exists
+            # Ensure agent_messages exists with correct structure
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS agent_messages (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    conversation_id INT NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    content TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_conv (conversation_id)
+                )
+            """)
         db.commit()
     except Exception as e:
         print(f"Table creation warning: {e}")
