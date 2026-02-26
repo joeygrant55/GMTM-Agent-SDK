@@ -1,395 +1,347 @@
 """
-Agent API Endpoints
-Routes for all SPARQ agents
+Agent API - Claude Agent SDK version
+Replaces the hand-rolled orchestrator with the official SDK.
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-import sys
+import json
 import os
-
-# Add agents to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Import agents
-from agents.camp_finder_standalone import CampFinderAgent  # Simple version
-from agents.autonomous_camp_finder import autonomous_camp_finder  # Full Agent SDK version
-from agents.orchestrator_agent import orchestrator  # Unified chat agent
-
-router = APIRouter(prefix="/api", tags=["Agents"])
-
-class CampSearchRequest(BaseModel):
-    athlete_id: int
-    max_results: int = 10
-
 from typing import Optional
+
+import pymysql
+from claude_agent_sdk import ClaudeAgentOptions, HookMatcher, query
+from dotenv import load_dotenv
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-class ChatRequest(BaseModel):
-    athlete_id: int
-    message: str
-    conversation_history: list = []
-    conversation_id: Optional[int] = None  # Optional - for persistent conversations
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env"))
+load_dotenv()
 
-class ConversationCreate(BaseModel):
-    user_id: int
-    title: str = "New Chat"
+router = APIRouter()
 
-@router.post("/agent/find-camps")
-async def find_camps(request: CampSearchRequest):
-    """
-    Find camps and combines for an athlete
-    
-    POST /api/agent/find-camps
-    Body: {"athlete_id": 383, "max_results": 10}
-    """
-    try:
-        agent = CampFinderAgent()
-        result = agent.find_camps_for_athlete(
-            athlete_id=request.athlete_id,
-            max_results=request.max_results
-        )
-        
-        if 'error' in result:
-            raise HTTPException(status_code=404, detail=result['error'])
-        
-        return result
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+SYSTEM_PROMPT = """You are SPARQ's recruiting AI assistant. You help high school athletes navigate the college recruiting process with data-driven, personalized advice.
 
-@router.get("/agent/find-camps/{athlete_id}")
-async def find_camps_get(athlete_id: int, max_results: int = 10, autonomous: bool = True):
-    """
-    Find camps (GET version for easy testing)
-    
-    GET /api/agent/find-camps/383?max_results=10&autonomous=true
-    
-    Parameters:
-    - autonomous=true: Use full Agent SDK with web research (default)
-    - autonomous=false: Use simple version (faster, no web access)
-    """
-    try:
-        if autonomous:
-            # Use full Agent SDK with Claude + web tools
-            result = autonomous_camp_finder.find_camps(
-                athlete_id=athlete_id,
-                max_results=max_results
-            )
-        else:
-            # Use simple version (no web access)
-            agent = CampFinderAgent()
-            result = agent.find_camps_for_athlete(
-                athlete_id=athlete_id,
-                max_results=max_results
-            )
-        
-        if 'error' in result:
-            raise HTTPException(status_code=404, detail=result['error'])
-        
-        return result
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+You have access to:
+- WebSearch: search the web for current recruiting news, coaching staff, program info, camp schedules
+- WebFetch: fetch and read specific web pages for detailed information
+- mcp__gmtm-db__query: read-only access to the GMTM database (75K athletes, scholarship offers, college programs)
+
+GMTM DATABASE (READ-ONLY - SELECT queries only):
+Key tables:
+- users: id, first_name, last_name, sport, position, graduation_year, city, state, height, weight
+- user_metrics: user_id, metric_type, metric_value (40_yard, vertical, bench_press, shuttle)
+- scholarship_offers: id, user_id, organization_id, created_at
+- organizations: id, name, city, state, division, conference
+- organization_metrics: org_id, metric_type, metric_value
+
+CRITICAL: GMTM database is READ-ONLY. Only SELECT statements are allowed. Never attempt INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, or TRUNCATE.
+
+When answering questions:
+1. Use WebSearch/WebFetch for current info (coaches, news, camps, depth charts)
+2. Use the DB for historical patterns (offer rates, position comparisons, school recruiting history)
+3. Be specific, data-driven, and actionable - you are a recruiting expert
+4. The athlete's profile is injected as context automatically before each message
+"""
+
+
+WRITE_KEYWORDS = [
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "ALTER",
+    "CREATE",
+    "TRUNCATE",
+    "REPLACE",
+    "GRANT",
+    "REVOKE",
+]
+
 
 def _get_agent_db():
-    """Connect to Railway MySQL for agent conversations (separate from gmtm DB)"""
-    import pymysql
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
-    load_dotenv()
     return pymysql.connect(
-        host=os.getenv('AGENT_DB_HOST', 'mysql.railway.internal'),
-        port=int(os.getenv('AGENT_DB_PORT', '3306')),
-        user=os.getenv('AGENT_DB_USER', 'root'),
-        password=os.getenv('AGENT_DB_PASSWORD', ''),
-        database=os.getenv('AGENT_DB_NAME', 'railway'),
-        cursorclass=pymysql.cursors.DictCursor
+        host=os.environ.get("AGENT_DB_HOST", "localhost"),
+        user=os.environ.get("AGENT_DB_USER", "root"),
+        password=os.environ.get("AGENT_DB_PASSWORD", ""),
+        database=os.environ.get("AGENT_DB_NAME", "railway"),
+        port=int(os.environ.get("AGENT_DB_PORT", 3306)),
+        cursorclass=pymysql.cursors.DictCursor,
     )
 
-import json as _json
 
-# ── Conversation endpoints ──────────────────────────────
+def _get_gmtm_db():
+    return pymysql.connect(
+        host=os.environ["DB_HOST"],
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        database="gmtm",
+        port=3306,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
 
-@router.get("/conversations/{user_id}")
-async def list_conversations(user_id: int):
-    """List all conversations for an athlete"""
-    db = _get_agent_db()
+
+def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
+    """Load profile from sparq_profiles or gmtm users table."""
     try:
+        db = _get_agent_db()
         with db.cursor() as c:
-            c.execute("""
-                SELECT ac.id, ac.title, ac.created_at, ac.updated_at,
-                       (SELECT COUNT(*) FROM agent_messages WHERE conversation_id = ac.id) as message_count
-                FROM agent_conversations ac
-                WHERE ac.user_id = %s
-                ORDER BY ac.updated_at DESC
-            """, (user_id,))
-            convos = c.fetchall()
-            for co in convos:
-                co['created_at'] = str(co['created_at'])
-                co['updated_at'] = str(co['updated_at'])
-            return {"conversations": convos}
-    finally:
+            c.execute("SELECT * FROM sparq_profiles WHERE clerk_id = %s", (athlete_id,))
+            profile = c.fetchone()
         db.close()
+        if profile:
+            return {
+                "source": "sparq_profile",
+                "name": profile.get("name"),
+                "position": profile.get("position"),
+                "school": profile.get("school"),
+                "class_year": profile.get("class_year"),
+                "state": profile.get("state"),
+                "gpa": str(profile.get("gpa")) if profile.get("gpa") else None,
+                "recruiting_goals": profile.get("recruiting_goals"),
+                "combine_metrics": profile.get("combine_metrics"),
+            }
+    except Exception:
+        pass
 
-@router.post("/conversations")
-async def create_conversation(request: ConversationCreate):
-    """Create a new conversation"""
-    db = _get_agent_db()
-    try:
-        with db.cursor() as c:
-            c.execute(
-                "INSERT INTO agent_conversations (user_id, title) VALUES (%s, %s)",
-                (request.user_id, request.title)
-            )
-            db.commit()
-            conv_id = c.lastrowid
-            return {"id": conv_id, "title": request.title}
-    finally:
-        db.close()
-
-@router.get("/conversations/{user_id}/{conversation_id}")
-async def get_conversation(user_id: int, conversation_id: int):
-    """Get all messages in a conversation"""
-    db = _get_agent_db()
-    try:
-        with db.cursor() as c:
-            c.execute(
-                "SELECT id, title, created_at FROM agent_conversations WHERE id = %s AND user_id = %s",
-                (conversation_id, user_id)
-            )
-            conv = c.fetchone()
-            if not conv:
-                raise HTTPException(status_code=404, detail="Conversation not found")
-            conv['created_at'] = str(conv['created_at'])
-            
-            c.execute(
-                "SELECT id, role, content, tools_used, agent_steps, created_at FROM agent_messages WHERE conversation_id = %s ORDER BY created_at",
-                (conversation_id,)
-            )
-            messages = c.fetchall()
-            for m in messages:
-                m['created_at'] = str(m['created_at'])
-            return {"conversation": conv, "messages": messages}
-    finally:
-        db.close()
-
-@router.delete("/conversations/{conversation_id}")
-async def delete_conversation(conversation_id: int):
-    """Delete a conversation"""
-    db = _get_agent_db()
-    try:
-        with db.cursor() as c:
-            c.execute("DELETE FROM agent_conversations WHERE id = %s", (conversation_id,))
-            db.commit()
-            return {"deleted": True}
-    finally:
-        db.close()
-
-# ── Chat endpoint (with persistence) ────────────────────
-
-@router.post("/agent/chat")
-async def agent_chat(request: ChatRequest):
-    """
-    Unified chat interface with orchestrator agent.
-    If conversation_id is provided, saves messages and loads history.
-    """
-    try:
-        db = None
-        conversation_id = request.conversation_id
-        conversation_history = request.conversation_history
-        
-        # If conversation_id, load history from DB
-        if conversation_id:
-            db = _get_agent_db()
-            with db.cursor() as c:
-                c.execute(
-                    "SELECT role, content FROM agent_messages WHERE conversation_id = %s ORDER BY created_at",
-                    (conversation_id,)
-                )
-                db_messages = c.fetchall()
-                if db_messages:
-                    conversation_history = [{"role": m["role"], "content": m["content"]} for m in db_messages]
-        
-        # If no conversation_id, auto-create one
-        if not conversation_id:
-            db = db or _get_agent_db()
-            with db.cursor() as c:
-                # Auto-title from first message
-                title = request.message[:60] + ("..." if len(request.message) > 60 else "")
-                c.execute(
-                    "INSERT INTO agent_conversations (user_id, title) VALUES (%s, %s)",
-                    (request.athlete_id, title)
-                )
-                db.commit()
-                conversation_id = c.lastrowid
-        
-        # Run the agent
-        result = orchestrator.chat(
-            athlete_id=request.athlete_id,
-            message=request.message,
-            conversation_history=conversation_history
-        )
-        
-        # Save both messages to DB
-        if db:
-            with db.cursor() as c:
-                # Save user message
-                c.execute(
-                    "INSERT INTO agent_messages (conversation_id, role, content) VALUES (%s, 'user', %s)",
-                    (conversation_id, request.message)
-                )
-                # Save assistant response
-                c.execute(
-                    "INSERT INTO agent_messages (conversation_id, role, content, tools_used, agent_steps) VALUES (%s, 'assistant', %s, %s, %s)",
-                    (conversation_id, result.get('response', ''),
-                     _json.dumps(result.get('tools_used', [])),
-                     _json.dumps(result.get('agent_steps', [])))
-                )
-                db.commit()
-            db.close()
-        
-        # Include conversation_id in response
-        result['conversation_id'] = conversation_id
-        return result
-    
-    except Exception as e:
-        if db:
-            db.close()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/agent/chat/stream")
-async def agent_chat_stream(request: ChatRequest):
-    """SSE streaming chat - shows tool use and text in real-time"""
-    
-    def event_generator():
-        conversation_id = request.conversation_id
-        conversation_history = request.conversation_history
-        
-        # Load history from DB if conversation exists
-        if conversation_id:
-            try:
-                db = _get_agent_db()
-                with db.cursor() as c:
-                    c.execute(
-                        "SELECT role, content FROM agent_messages WHERE conversation_id = %s ORDER BY created_at",
-                        (conversation_id,)
-                    )
-                    db_messages = c.fetchall()
-                    if db_messages:
-                        conversation_history = [{"role": m["role"], "content": m["content"]} for m in db_messages]
-                db.close()
-            except:
-                pass
-        
-        # Auto-create conversation
-        if not conversation_id:
-            try:
-                db = _get_agent_db()
-                with db.cursor() as c:
-                    title = request.message[:60] + ("..." if len(request.message) > 60 else "")
-                    c.execute(
-                        "INSERT INTO agent_conversations (user_id, title) VALUES (%s, %s)",
-                        (request.athlete_id, title)
-                    )
-                    db.commit()
-                    conversation_id = c.lastrowid
-                db.close()
-            except:
-                pass
-        
-        # Send conversation_id first
-        yield f"event: conversation_id\ndata: {conversation_id}\n\n"
-        
-        full_response = ""
-        tools_used = []
-        agent_steps = []
-        
+    if athlete_id.isdigit():
         try:
-            for event in orchestrator.chat_stream(
-                athlete_id=request.athlete_id,
-                message=request.message,
-                conversation_history=conversation_history
-            ):
-                evt = event.get("event", "status")
-                data = event.get("data", "")
-                
-                if evt == "text":
-                    full_response += data.replace("\\n", "\n")
-                elif evt == "done":
-                    try:
-                        done_data = _json.loads(data)
-                        tools_used = done_data.get("tools_used", [])
-                        agent_steps = done_data.get("agent_steps", [])
-                    except:
-                        pass
-                
-                # SSE data can't contain raw newlines - escape them
-                safe_data = data.replace("\n", "\\n") if evt == "text" else data
-                yield f"event: {evt}\ndata: {safe_data}\n\n"
-        except Exception as e:
-            print(f"Stream error: {e}")
-            import traceback
-            traceback.print_exc()
-            yield f"event: error\ndata: {_json.dumps({'error': str(e)})}\n\n"
-        
-        # Save messages to DB
-        if conversation_id:
-            try:
-                db = _get_agent_db()
-                with db.cursor() as c:
-                    c.execute(
-                        "INSERT INTO agent_messages (conversation_id, role, content) VALUES (%s, 'user', %s)",
-                        (conversation_id, request.message)
-                    )
-                    c.execute(
-                        "INSERT INTO agent_messages (conversation_id, role, content, tools_used, agent_steps) VALUES (%s, 'assistant', %s, %s, %s)",
-                        (conversation_id, full_response,
-                         _json.dumps(tools_used), _json.dumps(agent_steps))
-                    )
-                    
-                    # Auto-save as report if it was deep research (3+ tools used)
-                    if len(tools_used) >= 3 and len(full_response) > 500:
-                        # Detect report type
-                        msg_lower = request.message.lower()
-                        if any(w in msg_lower for w in ['college', 'program', 'school', 'university', 'fit']):
-                            report_type = 'college_fit'
-                        elif any(w in msg_lower for w in ['profile', 'metric', 'stats', 'compare', 'analysis']):
-                            report_type = 'profile_analysis'
-                        elif any(w in msg_lower for w in ['camp', 'combine', 'showcase']):
-                            report_type = 'camp_research'
-                        else:
-                            report_type = 'research'
-                        
-                        title = request.message[:80] + ("..." if len(request.message) > 80 else "")
-                        summary = full_response[:200] + "..."
-                        
-                        c.execute("""
-                            INSERT INTO agent_reports (user_id, conversation_id, report_type, title, content, summary, metadata)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                            request.athlete_id, conversation_id, report_type, title,
-                            full_response, summary,
-                            _json.dumps({"tools_used": tools_used, "agent_steps": agent_steps})
-                        ))
-                        
-                        report_id = c.lastrowid
-                        # Send report saved event
-                        yield f"event: report_saved\ndata: {_json.dumps({'report_id': report_id, 'report_type': report_type, 'title': title})}\n\n"
-                    
-                    db.commit()
-                db.close()
-            except Exception as e:
-                print(f"DB save error: {e}")
-                pass
-    
+            db = _get_gmtm_db()
+            with db.cursor() as c:
+                c.execute(
+                    "SELECT first_name, last_name, position, graduation_year, city, state FROM users WHERE id = %s",
+                    (int(athlete_id),),
+                )
+                user = c.fetchone()
+            db.close()
+            if user:
+                return {"source": "gmtm", **user}
+        except Exception:
+            pass
+
+    return None
+
+
+def _save_session_id(athlete_id: str, session_id: str):
+    """Persist session_id so workspace chat can resume."""
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            c.execute(
+                """
+                INSERT INTO agent_sessions (clerk_id, session_id, updated_at)
+                VALUES (%s, %s, NOW())
+                ON DUPLICATE KEY UPDATE session_id = VALUES(session_id), updated_at = NOW()
+                """,
+                (athlete_id, session_id),
+            )
+        db.commit()
+        db.close()
+    except Exception as e:
+        print(f"Warning: could not save session_id: {e}")
+
+
+def _load_session_id(athlete_id: str) -> Optional[str]:
+    """Load existing session_id for this athlete."""
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            c.execute(
+                "SELECT session_id FROM agent_sessions WHERE clerk_id = %s ORDER BY updated_at DESC LIMIT 1",
+                (athlete_id,),
+            )
+            row = c.fetchone()
+        db.close()
+        return row["session_id"] if row else None
+    except Exception:
+        return None
+
+
+@router.get("/api/agent/stream")
+async def stream_agent(athlete_id: str, message: str, session_id: Optional[str] = None):
+    """
+    Streaming workspace AI chat endpoint.
+    Uses Claude Agent SDK with WebSearch, WebFetch, and read-only GMTM DB via MCP.
+    Maintains persistent sessions so the AI remembers previous conversations.
+    """
+
+    async def generate():
+        captured_session_id = None
+
+        async def inject_athlete_context(input_data, tool_use_id, context):
+            _ = (tool_use_id, context)
+            profile = _load_athlete_profile(athlete_id)
+            if profile:
+                return {
+                    "hookSpecificOutput": {
+                        "hookEventName": input_data["hook_event_name"],
+                        "additionalContext": f"Current athlete profile: {json.dumps(profile, default=str)}",
+                    }
+                }
+            return {}
+
+        async def enforce_gmtm_read_only(input_data, tool_use_id, context):
+            _ = (tool_use_id, context)
+            if not input_data.get("tool_name", "").startswith("mcp__gmtm-db__"):
+                return {}
+            sql = str(input_data.get("tool_input", {}).get("query", "")).strip().upper()
+            for keyword in WRITE_KEYWORDS:
+                if sql.startswith(keyword) or f" {keyword} " in sql or f"\n{keyword} " in sql:
+                    print(f"BLOCKED write attempt on GMTM DB: {keyword}")
+                    return {
+                        "hookSpecificOutput": {
+                            "hookEventName": input_data["hook_event_name"],
+                            "permissionDecision": "deny",
+                            "permissionDecisionReason": (
+                                "GMTM database is strictly read-only. "
+                                f"{keyword} operations are not permitted. Use SELECT only."
+                            ),
+                        }
+                    }
+            return {}
+
+        async def save_session_on_stop(input_data, tool_use_id, context):
+            _ = (input_data, tool_use_id, context)
+            nonlocal captured_session_id
+            if captured_session_id:
+                _save_session_id(athlete_id, captured_session_id)
+            return {}
+
+        resume_session = session_id or _load_session_id(athlete_id)
+
+        options = ClaudeAgentOptions(
+            system_prompt=SYSTEM_PROMPT,
+            allowed_tools=["WebSearch", "WebFetch", "mcp__gmtm-db__query"],
+            permission_mode="bypassPermissions",
+            resume=resume_session,
+            mcp_servers={
+                "gmtm-db": {
+                    "command": "npx",
+                    "args": [
+                        "-y",
+                        "@modelcontextprotocol/server-mysql",
+                        f"mysql://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:3306/gmtm",
+                    ],
+                    "env": {
+                        "MYSQL_READ_ONLY": "true",
+                    },
+                }
+            },
+            hooks={
+                "UserPromptSubmit": [HookMatcher(hooks=[inject_athlete_context])],
+                "PreToolUse": [HookMatcher(matcher="^mcp__gmtm-db__", hooks=[enforce_gmtm_read_only])],
+                "Stop": [HookMatcher(hooks=[save_session_on_stop])],
+            },
+        )
+
+        async for sdk_message in query(prompt=message, options=options):
+            if hasattr(sdk_message, "subtype") and sdk_message.subtype == "init":
+                session_data = {}
+                if hasattr(sdk_message, "session_id"):
+                    session_data = {"session_id": sdk_message.session_id}
+                elif hasattr(sdk_message, "data"):
+                    session_data = sdk_message.data or {}
+                sid = session_data.get("session_id")
+                if sid:
+                    captured_session_id = sid
+                    yield f"data: {json.dumps({'type': 'session', 'session_id': sid})}\n\n"
+
+            if hasattr(sdk_message, "content") and sdk_message.content:
+                for block in sdk_message.content:
+                    if hasattr(block, "text") and block.text:
+                        yield f"data: {json.dumps({'type': 'text', 'text': block.text})}\n\n"
+                    elif hasattr(block, "name"):
+                        tool_name = str(getattr(block, "name", ""))
+                        tool_label = (
+                            "Querying athlete database..."
+                            if tool_name.startswith("mcp__gmtm-db__")
+                            else "Searching the web..."
+                            if tool_name == "WebSearch"
+                            else "Reading page..."
+                            if tool_name == "WebFetch"
+                            else f"{tool_name or 'Working'}..."
+                        )
+                        yield f"data: {json.dumps({'type': 'tool', 'label': tool_label})}\n\n"
+
+            if hasattr(sdk_message, "result"):
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
     return StreamingResponse(
-        event_generator(),
+        generate(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/api/agent/chat")
+async def chat_agent(request: dict):
+    """Legacy non-streaming endpoint. Wraps the SDK synchronously."""
+    athlete_id = str(request.get("athlete_id", ""))
+    message = request.get("message", "")
+    session_id = request.get("session_id")
+
+    full_response = []
+    captured_session = None
+
+    resume_session = session_id or _load_session_id(athlete_id)
+
+    async def inject_context(input_data, tool_use_id, context):
+        _ = (tool_use_id, context)
+        profile = _load_athlete_profile(athlete_id)
+        if profile:
+            return {
+                "hookSpecificOutput": {
+                    "hookEventName": input_data["hook_event_name"],
+                    "additionalContext": f"Athlete profile: {json.dumps(profile, default=str)}",
+                }
+            }
+        return {}
+
+    async def block_writes(input_data, tool_use_id, context):
+        _ = (tool_use_id, context)
+        if not input_data.get("tool_name", "").startswith("mcp__gmtm-db__"):
+            return {}
+        sql = str(input_data.get("tool_input", {}).get("query", "")).strip().upper()
+        for keyword in WRITE_KEYWORDS:
+            if keyword in sql:
+                return {
+                    "hookSpecificOutput": {
+                        "hookEventName": input_data["hook_event_name"],
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": f"READ-ONLY: {keyword} not allowed.",
+                    }
+                }
+        return {}
+
+    options = ClaudeAgentOptions(
+        system_prompt=SYSTEM_PROMPT,
+        allowed_tools=["WebSearch", "WebFetch", "mcp__gmtm-db__query"],
+        permission_mode="bypassPermissions",
+        resume=resume_session,
+        mcp_servers={
+            "gmtm-db": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-mysql",
+                    f"mysql://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}@{os.environ['DB_HOST']}:3306/gmtm",
+                ],
+                "env": {"MYSQL_READ_ONLY": "true"},
+            }
+        },
+        hooks={
+            "UserPromptSubmit": [HookMatcher(hooks=[inject_context])],
+            "PreToolUse": [HookMatcher(matcher="^mcp__gmtm-db__", hooks=[block_writes])],
+        },
+    )
+
+    async for msg in query(prompt=message, options=options):
+        if hasattr(msg, "subtype") and msg.subtype == "init":
+            sid = getattr(msg, "session_id", None) or (msg.data.get("session_id") if hasattr(msg, "data") and msg.data else None)
+            if sid:
+                captured_session = sid
+                _save_session_id(athlete_id, sid)
+        if hasattr(msg, "content") and msg.content:
+            for block in msg.content:
+                if hasattr(block, "text") and block.text:
+                    full_response.append(block.text)
+
+    return {"response": "".join(full_response), "session_id": captured_session}

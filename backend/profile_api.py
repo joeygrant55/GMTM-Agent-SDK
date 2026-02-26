@@ -82,6 +82,15 @@ def _ensure_tables():
                     INDEX idx_profile (sparq_profile_id)
                 )
             """)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS agent_sessions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    clerk_id VARCHAR(255) NOT NULL UNIQUE,
+                    session_id VARCHAR(255) NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_clerk (clerk_id)
+                )
+            """)
         db.commit()
     except Exception as e:
         print(f"Table creation warning: {e}")
@@ -476,6 +485,23 @@ async def create_from_onboarding(payload: OnboardingPayload):
                     db.commit()
         except Exception as e:
             print(f"College matching error (non-fatal): {e}")
+
+        # Fire-and-forget enrichment (runs in background, doesn't block response)
+        try:
+            import asyncio
+            from enrichment_worker import enrich_college_targets
+
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(
+                    enrich_college_targets(
+                        sparq_profile_id=profile_id,
+                        athlete_position=position or "Athlete",
+                        athlete_state=state or "US",
+                    )
+                )
+        except Exception as e:
+            print(f"Warning: enrichment task not started: {e}")
 
         return {
             "success": True,
