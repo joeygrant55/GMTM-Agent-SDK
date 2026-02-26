@@ -27,27 +27,36 @@ load_dotenv()
 
 router = APIRouter()
 
-SYSTEM_PROMPT = """You are SPARQ's recruiting AI assistant. You help high school athletes navigate the college recruiting process with data-driven, personalized advice.
+SYSTEM_PROMPT = """You are SPARQ's recruiting AI assistant. You help high school athletes navigate the college recruiting process with real, current intelligence.
 
-You have access to:
-- web_search: search the web for current recruiting news, coaching staff, program info, camp schedules (Anthropic handles this natively)
-- query_database: read-only SQL access to the GMTM database (75K athletes, scholarship offers, college programs)
+You have two tools:
 
-GMTM DATABASE (READ-ONLY — SELECT queries only):
-Key tables:
+1. **web_search** — Use this for EVERYTHING related to colleges and recruiting:
+   - Coaching staff (who is the DB coach, who just got hired/fired)
+   - Program news, depth charts, recent commits, transfer portal activity
+   - Camp and combine schedules
+   - Scholarship offer trends, roster needs
+   - Anything about a specific school, conference, or program
+   web_search gives you live, current data. Always prefer it over any internal database for college-related questions.
+
+2. **query_database** — Use this ONLY to look up the current athlete's own stats/history in GMTM:
+   - Their past combine metrics, height, weight, GPA on record
+   - How they compare to other athletes at the same position (SELECT from users/user_metrics)
+   - Historical offer data for similar athlete profiles
+   NEVER use query_database for college program info — that data may be outdated. Use web_search instead.
+
+ATHLETE TABLES (READ-ONLY — SELECT only):
 - users: id, first_name, last_name, sport, position, graduation_year, city, state, height, weight
 - user_metrics: user_id, metric_type, metric_value (40_yard, vertical, bench_press, shuttle)
 - scholarship_offers: id, user_id, organization_id, created_at
-- organizations: id, name, city, state, division, conference
-- organization_metrics: org_id, metric_type, metric_value
 
-CRITICAL: GMTM database is READ-ONLY. Only SELECT statements are allowed. Never attempt INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, or TRUNCATE.
+CRITICAL: READ-ONLY. Only SELECT allowed. Never INSERT, UPDATE, DELETE, DROP, ALTER, or TRUNCATE.
 
-When answering questions:
-1. Use web_search for current info — coaching staff, recent news, camp schedules, depth charts, recent offers
-2. Use query_database for historical data — offer rates, position comparisons, school recruiting history
-3. Be specific, data-driven, and actionable — you are a recruiting expert, not a general chatbot
-4. The athlete's profile is injected as context before each message automatically
+When helping an athlete:
+- Be specific, confident, and actionable — you are a recruiting expert, not a general chatbot
+- Name coaches, give Twitter handles, cite specific programs and needs
+- Always tell the athlete the exact next step they should take
+- The athlete's profile is automatically injected before each message as context
 """
 
 # Native web_search tool — Anthropic executes it server-side, no client handling needed
@@ -61,15 +70,17 @@ TOOLS = [
         "name": "query_database",
         "description": (
             "Execute a READ-ONLY SQL SELECT query against the GMTM athlete database. "
-            "Returns up to 50 rows as JSON. Only SELECT statements are permitted — "
-            "any write operation will be blocked."
+            "Use this ONLY to look up athlete stats, metrics, and historical offer data. "
+            "Permitted tables: users, user_metrics, scholarship_offers, athlete_profiles, athlete_metrics. "
+            "DO NOT use this for college or program information — use web_search for that instead, "
+            "as it provides live, current data. Only SELECT statements are permitted."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "sql": {
                     "type": "string",
-                    "description": "A SELECT SQL query. Must start with SELECT.",
+                    "description": "A SELECT SQL query on athlete tables only. Must start with SELECT.",
                 }
             },
             "required": ["sql"],
@@ -78,6 +89,10 @@ TOOLS = [
 ]
 
 FORBIDDEN_SQL = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "REPLACE", "GRANT", "REVOKE"]
+
+# Only allow queries on athlete-related tables. College/program data is served
+# via web_search (live) — not from the GMTM DB (potentially stale).
+ALLOWED_GMTM_TABLES = {"users", "user_metrics", "scholarship_offers", "athlete_profiles", "athlete_metrics"}
 
 
 def _get_agent_db():
@@ -103,13 +118,27 @@ def _get_gmtm_db():
 
 
 def _run_read_only_query(sql: str) -> dict:
-    """Execute a read-only SELECT query against the GMTM DB."""
+    """Execute a read-only SELECT query against the GMTM DB (athlete tables only)."""
     sql_upper = sql.strip().upper()
     for keyword in FORBIDDEN_SQL:
         if sql_upper.startswith(keyword) or f" {keyword} " in sql_upper:
             return {"error": f"GMTM database is READ-ONLY. {keyword} operations are not permitted."}
     if not sql_upper.startswith("SELECT"):
         return {"error": "Only SELECT queries are allowed."}
+    # Table allowlist — only athlete-related tables permitted
+    # College/program data should come from web_search (live), not GMTM (may be stale)
+    import re
+    referenced_tables = set(re.findall(r'\bFROM\s+(\w+)|\bJOIN\s+(\w+)', sql_upper))
+    flat_tables = {t for pair in referenced_tables for t in pair if t}
+    disallowed = flat_tables - {t.upper() for t in ALLOWED_GMTM_TABLES}
+    if disallowed:
+        return {
+            "error": (
+                f"Table(s) not permitted: {', '.join(disallowed).lower()}. "
+                "query_database is for athlete stats only. "
+                "Use web_search for college/program information."
+            )
+        }
     try:
         db = _get_gmtm_db()
         with db.cursor() as c:
