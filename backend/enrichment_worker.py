@@ -1,19 +1,22 @@
 """
 Enrichment Worker - runs after onboarding to research each college in parallel.
-Uses Claude Agent SDK subagents so all colleges are researched simultaneously.
+Uses raw anthropic SDK + asyncio.gather for true parallelism (no claude CLI required).
 """
 
+import asyncio
 import json
 import os
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+import anthropic
 import pymysql
-from claude_agent_sdk import AgentDefinition, ClaudeAgentOptions, query
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env"))
 load_dotenv()
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 
 def _get_agent_db():
@@ -62,14 +65,15 @@ def _store_research(college_target_id: int, research: Dict):
                 (json.dumps(reasons), college_target_id),
             )
         db.commit()
+        print(f"[Enrichment] Stored research for college_target {college_target_id}")
     except Exception as e:
-        print(f"Warning: could not store research for college {college_target_id}: {e}")
+        print(f"[Enrichment] Warning: could not store research for college {college_target_id}: {e}")
     finally:
         db.close()
 
 
 RESEARCHER_SYSTEM_PROMPT = """You are a college football recruiting researcher.
-Research the given college program and return ONLY a valid JSON object - no other text.
+Research the given college program and return ONLY a valid JSON object — no other text, no markdown.
 
 Required JSON format:
 {
@@ -82,107 +86,131 @@ Required JSON format:
   "fit_summary": "2-3 sentence explanation of why this program is a good fit for the athlete"
 }
 
-Return ONLY the JSON object. No markdown, no explanation, just the JSON.
+Return ONLY the JSON object. No markdown, no code fences, no explanation.
 """
+
+WEB_SEARCH_TOOL = {
+    "type": "web_search_20250305",
+    "name": "web_search",
+}
+
+
+def _extract_json(text: str) -> Optional[Dict]:
+    """Extract first valid JSON object from text."""
+    # Try direct parse first
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+    # Try to find a JSON object in the text
+    match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+async def _research_one_college(
+    client: anthropic.AsyncAnthropic,
+    college: Dict,
+    athlete_position: str,
+    athlete_state: str,
+) -> Optional[Dict]:
+    """Research a single college program using Anthropic web_search tool."""
+    college_name = college["college_name"]
+    division = college.get("division", "")
+    city = college.get("college_city", "")
+    state = college.get("college_state", "")
+
+    user_prompt = (
+        f"Research {college_name} ({division}, {city}, {state}) football program. "
+        f"I'm looking for information relevant to a {athlete_position} recruit from {athlete_state}, Class of 2026. "
+        "Find: head coach, position coach for this position, coaching philosophy, 2026 recruiting needs, "
+        "recent offer activity, any upcoming camps, and why this program fits the athlete. "
+        "Return your findings as JSON only."
+    )
+
+    messages = [{"role": "user", "content": user_prompt}]
+    
+    try:
+        # Agentic loop: let Claude use web_search as needed, then return JSON
+        for _ in range(6):  # max 6 turns per college
+            response = await client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=1024,
+                system=RESEARCHER_SYSTEM_PROMPT,
+                tools=[WEB_SEARCH_TOOL],
+                messages=messages,
+            )
+
+            # Check if we got a final text response
+            if response.stop_reason == "end_turn":
+                for block in response.content:
+                    if hasattr(block, "text"):
+                        result = _extract_json(block.text)
+                        if result:
+                            return result
+                # No valid JSON found — give up
+                print(f"[Enrichment] No valid JSON from researcher for {college_name}")
+                return None
+
+            # Handle tool use
+            if response.stop_reason == "tool_use":
+                tool_results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        # web_search results come back as tool_result
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": "",  # Anthropic fills this in from web_search
+                        })
+
+                # Append assistant turn + tool results
+                messages.append({"role": "assistant", "content": response.content})
+                if tool_results:
+                    messages.append({"role": "user", "content": tool_results})
+                continue
+
+            # Unexpected stop reason
+            break
+
+    except Exception as e:
+        print(f"[Enrichment] Error researching {college_name}: {e}")
+
+    return None
 
 
 async def enrich_college_targets(sparq_profile_id: int, athlete_position: str, athlete_state: str):
     """
-    Background job: research each college using parallel subagents.
+    Background job: research each college using parallel async calls.
     Called fire-and-forget from profile_api after onboarding.
     """
     colleges = _get_college_targets(sparq_profile_id)
     if not colleges:
-        print(f"No college targets found for profile {sparq_profile_id}")
+        print(f"[Enrichment] No college targets found for profile {sparq_profile_id}")
         return
 
-    print(f"Enriching {len(colleges)} colleges for profile {sparq_profile_id}...")
+    print(f"[Enrichment] Researching {len(colleges)} colleges for profile {sparq_profile_id} ({athlete_position} from {athlete_state})...")
 
-    agents = {}
-    for col in colleges:
-        agent_key = f"researcher-{col['id']}"
-        agents[agent_key] = AgentDefinition(
-            description=(
-                f"Research {col['college_name']} ({col['division']}, {col['college_city']}, {col['college_state']}) "
-                f"recruiting program for a {athlete_position} athlete from {athlete_state}. "
-                "Use this agent to get coaching staff, position needs, and fit analysis."
-            ),
-            prompt=RESEARCHER_SYSTEM_PROMPT,
-            tools=["WebSearch", "WebFetch"],
-            model="sonnet",
-        )
+    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
-    college_lines = "\n".join(
-        [
-            f"- ID {col['id']}: {col['college_name']} ({col['division']}, {col['college_city']}, {col['college_state']})"
-            for col in colleges
-        ]
-    )
+    # Run all college researchers in parallel
+    tasks = [
+        _research_one_college(client, college, athlete_position, athlete_state)
+        for college in colleges
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    orchestration_prompt = f"""
-Research each of these college football programs for a {athlete_position} recruit from {athlete_state}, Class of 2026.
+    stored = 0
+    for college, result in zip(colleges, results):
+        if isinstance(result, Exception):
+            print(f"[Enrichment] Exception for {college['college_name']}: {result}")
+            continue
+        if result:
+            _store_research(college["id"], result)
+            stored += 1
 
-For EACH school, invoke its dedicated researcher subagent and get the JSON result.
-Run multiple subagents in parallel where possible to save time.
-
-After all subagents complete, output ALL results as a JSON array in this format:
-[
-  {{"college_id": <ID>, "research": {{...JSON from subagent...}}}},
-  ...
-]
-
-Colleges to research:
-{college_lines}
-"""
-
-    options = ClaudeAgentOptions(
-        allowed_tools=["WebSearch", "WebFetch", "Task"],
-        permission_mode="bypassPermissions",
-        agents=agents,
-    )
-
-    result_text = ""
-    async for sdk_message in query(prompt=orchestration_prompt, options=options):
-        if hasattr(sdk_message, "result") and sdk_message.result:
-            result_text = sdk_message.result
-
-    if result_text:
-        _parse_and_store_results(result_text, colleges)
-        print(f"Enrichment complete for profile {sparq_profile_id}")
-    else:
-        print(f"No enrichment results for profile {sparq_profile_id}")
-
-
-def _parse_and_store_results(result_text: str, colleges: List[Dict]):
-    """Parse the orchestrator's JSON array output and store per-college."""
-    college_map = {col["id"]: col for col in colleges}
-
-    try:
-        json_match = re.search(r"\[.*\]", result_text, re.DOTALL)
-        if json_match:
-            results = json.loads(json_match.group())
-            for item in results:
-                college_id = item.get("college_id")
-                research = item.get("research", {})
-                if college_id and research and college_id in college_map:
-                    _store_research(college_id, research)
-            return
-    except (json.JSONDecodeError, TypeError):
-        pass
-
-    for college in colleges:
-        cid = college["id"]
-        name = college["college_name"]
-        patterns = [
-            rf"ID {cid}[^{{]*(\{{[^}}]+\}})",
-            rf"{re.escape(name)}[^{{]*(\{{[^}}]+\}})",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, result_text, re.DOTALL | re.IGNORECASE)
-            if match:
-                try:
-                    research = json.loads(match.group(1))
-                    _store_research(cid, research)
-                    break
-                except json.JSONDecodeError:
-                    continue
+    print(f"[Enrichment] Complete — enriched {stored}/{len(colleges)} colleges for profile {sparq_profile_id}")
