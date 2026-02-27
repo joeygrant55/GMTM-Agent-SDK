@@ -2,7 +2,7 @@
 Profile & Links API - Athlete dashboard data
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -451,7 +451,7 @@ async def get_profile_by_clerk(clerk_id: str):
 
 
 @router.post("/profile/create-from-onboarding")
-async def create_from_onboarding(payload: OnboardingPayload):
+async def create_from_onboarding(payload: OnboardingPayload, background_tasks: BackgroundTasks):
     if not payload.clerk_id:
         raise HTTPException(status_code=400, detail="clerk_id is required")
 
@@ -522,59 +522,58 @@ async def create_from_onboarding(payload: OnboardingPayload):
 
         colleges_matched = 0  # Background job will populate
 
-        # Fire-and-forget: AI match + enrich runs async, doesn't block response
-        try:
-            import asyncio
-            from enrichment_worker import ai_match_programs, enrich_college_targets, _get_agent_db as _edb
+        # Fire-and-forget via FastAPI BackgroundTasks (reliable in uvicorn)
+        from enrichment_worker import ai_match_programs, enrich_college_targets, _get_agent_db as _edb
 
-            async def _match_and_enrich():
+        async def _match_and_enrich(pid: int, profile: dict, pos: str, st: str, sport: str):
+            try:
+                print(f"[Matching] Starting AI match for profile {pid} ({sport} {pos} from {st})")
+                programs = await ai_match_programs(profile)
+                if not programs:
+                    print(f"[Matching] No programs returned for profile {pid}")
+                    return
+                db2 = _edb()
                 try:
-                    programs = await ai_match_programs(athlete_profile_for_matching)
-                    if not programs:
-                        print("[Matching] No programs returned from AI match")
-                        return
-                    db2 = _edb()
-                    try:
-                        with db2.cursor() as c2:
-                            c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (profile_id,))
-                            for prog in programs:
-                                fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
-                                fit_summary = prog.get("fit_summary") or ""
-                                c2.execute("""
-                                    INSERT INTO college_targets
-                                        (sparq_profile_id, college_name, college_city, college_state,
-                                         division, fit_score, fit_reasons)
-                                    VALUES (%s,%s,%s,%s,%s,%s,%s)
-                                """, (
-                                    profile_id,
-                                    prog.get("name", "Unknown"),
-                                    prog.get("city", ""),
-                                    prog.get("state", ""),
-                                    prog.get("division") or "D1",
-                                    fit_score,
-                                    json.dumps([fit_summary] if fit_summary else []),
-                                ))
-                        db2.commit()
-                        print(f"[Matching] Stored {len(programs)} colleges for profile {profile_id}")
-                    finally:
-                        db2.close()
+                    with db2.cursor() as c2:
+                        c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (pid,))
+                        for prog in programs:
+                            fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
+                            fit_summary = prog.get("fit_summary") or ""
+                            c2.execute("""
+                                INSERT INTO college_targets
+                                    (sparq_profile_id, college_name, college_city, college_state,
+                                     division, fit_score, fit_reasons)
+                                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                            """, (
+                                pid,
+                                prog.get("name", "Unknown"),
+                                prog.get("city", ""),
+                                prog.get("state", ""),
+                                prog.get("division") or "D1",
+                                fit_score,
+                                json.dumps([fit_summary] if fit_summary else []),
+                            ))
+                    db2.commit()
+                    print(f"[Matching] Stored {len(programs)} colleges for profile {pid}")
+                finally:
+                    db2.close()
+                await enrich_college_targets(
+                    sparq_profile_id=pid,
+                    athlete_position=pos or "Athlete",
+                    athlete_state=st or "US",
+                    athlete_sport=sport,
+                )
+            except Exception as e:
+                print(f"[Matching] Background job error: {e}")
 
-                    await enrich_college_targets(
-                        sparq_profile_id=profile_id,
-                        athlete_position=position or "Athlete",
-                        athlete_state=state or "US",
-                        athlete_sport=sport_label,
-                    )
-                except Exception as e:
-                    print(f"[Matching] Background job error: {e}")
-
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(_match_and_enrich())
-            else:
-                loop.run_until_complete(_match_and_enrich())
-        except Exception as e:
-            print(f"Warning: background matching not started: {e}")
+        background_tasks.add_task(
+            _match_and_enrich,
+            profile_id,
+            athlete_profile_for_matching,
+            position or "Athlete",
+            state or "US",
+            sport_label,
+        )
 
         return {
             "success": True,
