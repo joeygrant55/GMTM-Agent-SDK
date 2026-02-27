@@ -7,36 +7,63 @@ import { MaxPrepsAthlete, ONBOARDING_MAXPREPS_KEY } from '@/app/onboarding/_lib/
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
-// Estimate a percentile from real stat values using sport-specific benchmarks
+// High school benchmarks: avg ≈ 50th percentile, elite ≈ 99th percentile nationally
 const SPORT_BENCHMARKS: Record<string, { stat: string; elite: number; avg: number }[]> = {
   Basketball: [
-    { stat: 'Points Per Game', elite: 25, avg: 8 },
-    { stat: 'Rebounds Per Game', elite: 12, avg: 5 },
-    { stat: 'Assists Per Game', elite: 8, avg: 2.5 },
+    { stat: 'Points Per Game', elite: 18, avg: 6 },
+    { stat: 'Rebounds Per Game', elite: 10, avg: 4 },
+    { stat: 'Assists Per Game', elite: 6, avg: 2 },
+    { stat: 'Steals Per Game', elite: 4, avg: 1.2 },
+    { stat: 'Blocks Per Game', elite: 3, avg: 0.6 },
   ],
   Football: [
-    { stat: 'Passing Yards', elite: 3000, avg: 1200 },
-    { stat: 'Rushing Yards', elite: 1500, avg: 600 },
-    { stat: 'Tackles', elite: 80, avg: 35 },
-    { stat: 'Touchdowns', elite: 20, avg: 8 },
+    { stat: 'Passing Yards', elite: 2500, avg: 900 },
+    { stat: 'Rushing Yards', elite: 1400, avg: 500 },
+    { stat: 'Tackles', elite: 90, avg: 40 },
+    { stat: 'Touchdowns', elite: 18, avg: 6 },
+    { stat: 'Interceptions', elite: 8, avg: 2 },
+    { stat: 'Receptions', elite: 60, avg: 25 },
+    { stat: 'Sacks', elite: 12, avg: 4 },
   ],
   Soccer: [
-    { stat: 'Goals', elite: 25, avg: 8 },
-    { stat: 'Assists', elite: 15, avg: 5 },
+    { stat: 'Goals', elite: 22, avg: 6 },
+    { stat: 'Assists', elite: 12, avg: 4 },
+    { stat: 'Saves', elite: 120, avg: 50 },
   ],
   Volleyball: [
-    { stat: 'Kills', elite: 400, avg: 150 },
-    { stat: 'Assists', elite: 1000, avg: 350 },
-    { stat: 'Digs', elite: 500, avg: 200 },
+    { stat: 'Kills', elite: 350, avg: 120 },
+    { stat: 'Assists', elite: 900, avg: 300 },
+    { stat: 'Digs', elite: 400, avg: 150 },
+    { stat: 'Aces', elite: 60, avg: 20 },
   ],
   Baseball: [
-    { stat: 'Batting Average', elite: 0.45, avg: 0.28 },
-    { stat: 'Home Runs', elite: 10, avg: 3 },
+    { stat: 'Batting Average', elite: 0.42, avg: 0.26 },
+    { stat: 'Home Runs', elite: 8, avg: 2 },
+    { stat: 'RBI', elite: 40, avg: 15 },
+    { stat: 'ERA', elite: 1.2, avg: 3.5 },
+    { stat: 'Strikeouts', elite: 80, avg: 35 },
   ],
   Softball: [
-    { stat: 'Batting Average', elite: 0.45, avg: 0.28 },
+    { stat: 'Batting Average', elite: 0.44, avg: 0.28 },
     { stat: 'Home Runs', elite: 8, avg: 2 },
+    { stat: 'RBI', elite: 40, avg: 15 },
+    { stat: 'ERA', elite: 0.8, avg: 2.5 },
   ],
+  Lacrosse: [
+    { stat: 'Goals', elite: 50, avg: 15 },
+    { stat: 'Assists', elite: 30, avg: 10 },
+  ],
+  Wrestling: [
+    { stat: 'Wins', elite: 40, avg: 18 },
+    { stat: 'Pins', elite: 25, avg: 8 },
+  ],
+}
+
+function statPercentile(value: number, avg: number, elite: number, lowerIsBetter = false): number {
+  const ratio = lowerIsBetter
+    ? (avg - value) / (avg - elite)
+    : (value - avg) / (elite - avg)
+  return Math.min(99, Math.max(1, Math.round(50 + ratio * 49)))
 }
 
 function estimatePercentile(sport: string | null, statsPreview: [string, string][]): number | null {
@@ -44,18 +71,20 @@ function estimatePercentile(sport: string | null, statsPreview: [string, string]
   const benchmarks = SPORT_BENCHMARKS[sport]
   if (!benchmarks) return null
 
+  const lowerIsBetter = new Set(['ERA', 'Goals Allowed'])
+
   const scores: number[] = []
   for (const [label, rawValue] of statsPreview) {
     const value = parseFloat(rawValue)
     if (isNaN(value)) continue
-    const bench = benchmarks.find(b => label.includes(b.stat.split(' ')[0]))
+    const bench = benchmarks.find(b => label === b.stat || label.startsWith(b.stat.split(' ')[0]))
     if (!bench) continue
-    const ratio = (value - bench.avg) / (bench.elite - bench.avg)
-    const pct = Math.min(99, Math.max(1, Math.round(50 + ratio * 45)))
-    scores.push(pct)
+    scores.push(statPercentile(value, bench.avg, bench.elite, lowerIsBetter.has(bench.stat)))
   }
   if (!scores.length) return null
-  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+
+  // Headline = primary stat only (21.2 PPG → top 1%, not dragged down by avg rebounds)
+  return scores[0]
 }
 
 export default function OnboardingWelcomePage() {
