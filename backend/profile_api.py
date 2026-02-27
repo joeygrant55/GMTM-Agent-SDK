@@ -1094,3 +1094,86 @@ async def maxpreps_athlete_stats(url: str):
         "seasons": seasons,
         "careerHistory": career_history,
     }
+
+
+@router.post("/workspace/trigger-matching/{clerk_id}")
+async def trigger_matching(clerk_id: str, background_tasks: BackgroundTasks):
+    """Manually re-trigger AI college matching for an existing profile."""
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT * FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+    finally:
+        db.close()
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    profile_id = profile["id"]
+    position = profile.get("position") or "Athlete"
+    state = profile.get("state") or "US"
+
+    mp_raw = profile.get("maxpreps_data")
+    maxpreps = {}
+    if mp_raw:
+        try:
+            maxpreps = json.loads(mp_raw) if isinstance(mp_raw, str) else mp_raw
+        except Exception:
+            pass
+
+    stats_preview = maxpreps.get("statsPreview") or []
+    maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
+    sport_label = maxpreps.get("sport") or position or "Basketball"
+
+    goals = profile.get("recruiting_goals")
+    if isinstance(goals, str):
+        try:
+            goals = json.loads(goals)
+        except Exception:
+            goals = {}
+
+    athlete_profile = {
+        "sport": sport_label,
+        "position": position,
+        "state": state,
+        "class_year": maxpreps.get("classYear"),
+        "maxpreps_stats": maxpreps_stats,
+        "recruiting_goals": goals or {},
+    }
+
+    from enrichment_worker import ai_match_programs, enrich_college_targets, _get_agent_db as _edb
+
+    async def _run(pid, prof, pos, st, sport):
+        try:
+            print(f"[Matching] Manual trigger for profile {pid} ({sport} {pos} from {st})")
+            programs = await ai_match_programs(prof)
+            if not programs:
+                print(f"[Matching] No programs returned for profile {pid}")
+                return
+            db2 = _edb()
+            try:
+                with db2.cursor() as c2:
+                    c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (pid,))
+                    for prog in programs:
+                        fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
+                        fit_summary = prog.get("fit_summary") or ""
+                        c2.execute("""
+                            INSERT INTO college_targets
+                                (sparq_profile_id, college_name, college_city, college_state,
+                                 division, fit_score, fit_reasons)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s)
+                        """, (pid, prog.get("name","Unknown"), prog.get("city",""),
+                              prog.get("state",""), prog.get("division") or "D1",
+                              fit_score, json.dumps([fit_summary] if fit_summary else [])))
+                db2.commit()
+                print(f"[Matching] Stored {len(programs)} colleges for profile {pid}")
+            finally:
+                db2.close()
+            await enrich_college_targets(sparq_profile_id=pid, athlete_position=pos,
+                                         athlete_state=st, athlete_sport=sport)
+        except Exception as e:
+            print(f"[Matching] Error: {e}")
+
+    background_tasks.add_task(_run, profile_id, athlete_profile, position, state, sport_label)
+    return {"status": "matching started", "profile_id": profile_id, "sport": sport_label, "position": position}
