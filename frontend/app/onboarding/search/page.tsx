@@ -7,6 +7,7 @@ import { MaxPrepsAthlete, ONBOARDING_MAXPREPS_KEY } from '@/app/onboarding/_lib/
 
 function normalizeResult(raw: Record<string, unknown>): MaxPrepsAthlete {
   return {
+    // Known MaxPrepsAthlete fields
     maxprepsAthleteId: String(raw.maxprepsAthleteId ?? raw.maxpreps_athlete_id ?? raw.id ?? ''),
     name: String((raw.name ?? `${raw.first_name ?? ''} ${raw.last_name ?? ''}`.trim()) || 'Unknown Athlete'),
     position: raw.position ? String(raw.position) : undefined,
@@ -23,7 +24,11 @@ function normalizeResult(raw: Record<string, unknown>): MaxPrepsAthlete {
     photoUrl: raw.photoUrl ? String(raw.photoUrl) : undefined,
     teamRecord: raw.teamRecord ? String(raw.teamRecord) : undefined,
     seasonStats: Array.isArray(raw.seasonStats) ? (raw.seasonStats as MaxPrepsAthlete['seasonStats']) : undefined,
-  }
+    // Pass-through extras (statsPreview, lastSeason, schoolColor)
+    ...(raw.statsPreview !== undefined ? { statsPreview: raw.statsPreview } : {}),
+    ...(raw.lastSeason !== undefined ? { lastSeason: raw.lastSeason } : {}),
+    ...(raw.schoolColor !== undefined ? { schoolColor: raw.schoolColor } : {}),
+  } as MaxPrepsAthlete & Record<string, unknown>
 }
 
 export default function MaxPrepsSearchPage() {
