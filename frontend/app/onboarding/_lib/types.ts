@@ -15,11 +15,15 @@ export interface MaxPrepsAthlete {
   maxprepsAthleteId?: string
   name: string
   position?: string
+  sport?: string
+  sports?: string[]
   school?: string
   classYear?: number
   city?: string
   state?: string
   maxprepsUrl?: string
+  profileUrl?: string
+  photoUrl?: string
   teamRecord?: string
   seasonStats?: MaxPrepsSeasonStats[]
 }

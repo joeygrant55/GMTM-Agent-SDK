@@ -10,11 +10,17 @@ function normalizeResult(raw: Record<string, unknown>): MaxPrepsAthlete {
     maxprepsAthleteId: String(raw.maxprepsAthleteId ?? raw.maxpreps_athlete_id ?? raw.id ?? ''),
     name: String((raw.name ?? `${raw.first_name ?? ''} ${raw.last_name ?? ''}`.trim()) || 'Unknown Athlete'),
     position: raw.position ? String(raw.position) : undefined,
+    sport: Array.isArray(raw.sports) && (raw.sports as string[]).length > 0
+      ? (raw.sports as string[])[0].replace(/^Boys |^Girls /, '')
+      : undefined,
+    sports: Array.isArray(raw.sports) ? (raw.sports as string[]) : undefined,
     school: raw.school ? String(raw.school) : raw.high_school ? String(raw.high_school) : undefined,
     classYear: raw.classYear ? Number(raw.classYear) : raw.grad_year ? Number(raw.grad_year) : undefined,
     city: raw.city ? String(raw.city) : undefined,
     state: raw.state ? String(raw.state) : undefined,
     maxprepsUrl: raw.maxprepsUrl ? String(raw.maxprepsUrl) : undefined,
+    profileUrl: raw.profileUrl ? String(raw.profileUrl) : undefined,
+    photoUrl: raw.photoUrl ? String(raw.photoUrl) : undefined,
     teamRecord: raw.teamRecord ? String(raw.teamRecord) : undefined,
     seasonStats: Array.isArray(raw.seasonStats) ? (raw.seasonStats as MaxPrepsAthlete['seasonStats']) : undefined,
   }

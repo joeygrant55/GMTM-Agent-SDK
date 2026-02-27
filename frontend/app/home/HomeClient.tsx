@@ -28,8 +28,8 @@ export default function HomeClient() {
     fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
       .then((res) => res.json())
       .then(async (data) => {
-        if (data?.found && data?.user_id) {
-          // Legacy GMTM user → send to old athlete page
+        if (!data?.has_sparq_profile && data?.found && data?.user_id) {
+          // Legacy GMTM user with NO sparq profile → send to old athlete page
           window.location.href = `/athlete/${data.user_id}`
           return
         }
@@ -38,6 +38,7 @@ export default function HomeClient() {
           window.location.href = '/onboarding/search'
           return
         }
+        // Has sparq_profile → fall through to workspace (even if legacy GMTM user)
 
         try {
           const statsRes = await fetch(`${backendUrl}/api/workspace/stats/${user.id}`)

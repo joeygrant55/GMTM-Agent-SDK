@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CompleteOnboardingPayload,
@@ -64,6 +64,13 @@ export default function ProfileOnboardingPage() {
   const [hudlUrl, setHudlUrl] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [confirmedAthlete, setConfirmedAthlete] = useState<MaxPrepsAthlete | null>(null)
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem(ONBOARDING_MAXPREPS_KEY)
+    if (!raw) return
+    try { setConfirmedAthlete(JSON.parse(raw) as MaxPrepsAthlete) } catch {}
+  }, [])
 
   const progressPct = useMemo(() => 75, [])
 
@@ -138,6 +145,22 @@ export default function ProfileOnboardingPage() {
         <div className="mt-5 h-2 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full rounded-full bg-sparq-lime" style={{ width: `${progressPct}%` }} />
         </div>
+
+        {confirmedAthlete && (
+          <div className="mt-6 flex items-center gap-4 bg-sparq-lime/10 border border-sparq-lime/30 rounded-2xl p-4">
+            {confirmedAthlete.photoUrl && (
+              <img src={confirmedAthlete.photoUrl} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+            )}
+            <div>
+              <p className="text-sparq-lime text-xs font-semibold uppercase tracking-wide mb-0.5">✓ MaxPreps Profile Confirmed</p>
+              <p className="text-white font-bold">{confirmedAthlete.name}</p>
+              <p className="text-gray-400 text-sm">
+                {[confirmedAthlete.position, confirmedAthlete.sport, confirmedAthlete.school].filter(Boolean).join(' · ')}
+                {confirmedAthlete.classYear ? ` · Class of ${confirmedAthlete.classYear}` : ''}
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
