@@ -14,16 +14,7 @@ interface College {
   status: string
 }
 
-const MOCK_FALLBACK: College[] = [
-  { id: 1, college_name: 'University of Georgia', college_city: 'Athens', college_state: 'GA', division: 'D1', fit_score: 94, status: 'Interested' },
-  { id: 2, college_name: 'Appalachian State', college_city: 'Boone', college_state: 'NC', division: 'D1', fit_score: 88, status: 'Researching' },
-  { id: 3, college_name: 'James Madison University', college_city: 'Harrisonburg', college_state: 'VA', division: 'D1', fit_score: 85, status: 'Researching' },
-  { id: 4, college_name: 'Western Kentucky', college_city: 'Bowling Green', college_state: 'KY', division: 'D1', fit_score: 81, status: 'Researching' },
-  { id: 5, college_name: 'Furman University', college_city: 'Greenville', college_state: 'SC', division: 'D1', fit_score: 78, status: 'Researching' },
-  { id: 6, college_name: 'Mercer University', college_city: 'Macon', college_state: 'GA', division: 'D1', fit_score: 74, status: 'Researching' },
-  { id: 7, college_name: 'Lenoir-Rhyne', college_city: 'Hickory', college_state: 'NC', division: 'D2', fit_score: 71, status: 'Researching' },
-  { id: 8, college_name: 'Carson-Newman', college_city: 'Jefferson City', college_state: 'TN', division: 'D2', fit_score: 68, status: 'Researching' },
-]
+const MOCK_FALLBACK: College[] = []
 
 const DIVISION_FILTERS = ['All', 'D1', 'D2', 'D3', 'NAIA'] as const
 
@@ -59,7 +50,7 @@ export default function CollegesPage() {
 
   const loadColleges = async (clerkId?: string) => {
     if (!clerkId) {
-      applyColleges(MOCK_FALLBACK)
+      applyColleges([]) // No match yet — user needs to complete onboarding
       setLoading(false)
       return
     }
@@ -69,7 +60,7 @@ export default function CollegesPage() {
       const list = data.colleges && data.colleges.length > 0 ? data.colleges : MOCK_FALLBACK
       applyColleges(list)
     } catch {
-      applyColleges(MOCK_FALLBACK)
+      applyColleges([]) // No match yet — user needs to complete onboarding
     } finally {
       setLoading(false)
     }
@@ -165,13 +156,10 @@ export default function CollegesPage() {
       <div className="px-8 space-y-3">
         {filteredColleges.map((college) => {
           const status = statuses[college.id]
-          const fitReasons = Array.isArray(college.fit_reasons)
-            ? college.fit_reasons.filter((reason): reason is string => Boolean(reason)).slice(0, 3)
-            : [
-                `${college.division} program fit`,
-                `Located in ${college.college_city}, ${college.college_state}`,
-                'Recruiting your class profile',
-              ]
+          const hasEnrichedReasons = Array.isArray(college.fit_reasons) && college.fit_reasons.some(r => r && r.length > 30)
+          const fitReasons = hasEnrichedReasons
+            ? (college.fit_reasons as string[]).filter(Boolean).slice(0, 3)
+            : null
           return (
             <div key={college.id} className="bg-white/[0.04] border border-white/10 rounded-xl p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center text-sparq-lime font-black text-lg">
@@ -198,14 +186,21 @@ export default function CollegesPage() {
                     />
                   </div>
                   <div className="text-xs text-gray-400 mt-1">{college.fit_score}% match</div>
-                  <ul className="mt-2 text-xs text-gray-300 space-y-1">
-                    {fitReasons.map((reason, index) => (
-                      <li key={`${college.id}-reason-${index}`} className="flex items-start gap-1.5">
-                        <span className="text-sparq-lime leading-4">•</span>
-                        <span>{reason}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {fitReasons ? (
+                    <ul className="mt-2 text-xs text-gray-300 space-y-1">
+                      {fitReasons.map((reason, index) => (
+                        <li key={`${college.id}-reason-${index}`} className="flex items-start gap-1.5">
+                          <span className="text-sparq-lime leading-4">•</span>
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500 italic flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse inline-block" />
+                      Researching this program for you...
+                    </p>
+                  )}
                 </div>
               </div>
 

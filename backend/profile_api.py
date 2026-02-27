@@ -507,56 +507,48 @@ async def create_from_onboarding(payload: OnboardingPayload):
 
         colleges_matched = 0
         try:
-            from tools.recruiting_tools import RecruitingTools
+            from enrichment_worker import ai_match_programs
+            import asyncio as _asyncio
 
-            rt = RecruitingTools()
-            prefs = {}
-            if payload.recruitingGoals:
-                geo = payload.recruitingGoals.get("geography", "")
-                if geo == "In-state" and state:
-                    prefs["region"] = state
+            # Build athlete profile for AI matching
+            mp_raw = payload.maxprepsData or {}
+            stats_preview = mp_raw.get("statsPreview") or []
+            maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
+            sport_label = mp_raw.get("sport") or position or "Basketball"
 
-            athlete_dict = {
-                "sport": "Football (American)",
+            athlete_profile = {
+                "sport": sport_label,
                 "position": position,
                 "state": state,
+                "class_year": mp_raw.get("classYear") or name,
+                "maxpreps_stats": maxpreps_stats,
+                "recruiting_goals": payload.recruitingGoals or {},
             }
-            result = rt.match_programs(athlete_dict, preferences=prefs)
 
-            seen = set()
-            programs = []
-            for program in (result.get("top_programs", []) + result.get("regional_programs", [])):
-                key = program["name"].strip().lower()
-                if key not in seen:
-                    seen.add(key)
-                    programs.append(program)
-            programs = programs[:12]
+            # Run AI matching (async — create new loop if needed)
+            try:
+                loop = _asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        future = pool.submit(_asyncio.run, ai_match_programs(athlete_profile))
+                        programs = future.result(timeout=45)
+                else:
+                    programs = loop.run_until_complete(ai_match_programs(athlete_profile))
+            except Exception as e:
+                print(f"[Matching] AI matching error: {e}")
+                programs = []
 
             if programs:
                 with db.cursor() as c:
                     c.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (profile_id,))
 
-                    for i, program in enumerate(programs):
-                        offer_count = program.get("offers_given", 0)
-                        fit_score = 70
-                        fit_score += max(0, 10 - i)
-                        if offer_count >= 50:
-                            fit_score += 5
-                        elif offer_count >= 20:
-                            fit_score += 3
-                        else:
-                            fit_score += 1
-                        if prefs.get("region") and program.get("state") == state:
-                            fit_score += 5
-                        fit_score = min(fit_score, 95)
-
-                        fit_reasons = []
-                        if offer_count > 10:
-                            fit_reasons.append(f"Actively recruits your position ({offer_count} offers given)")
-                        if program.get("state") == state:
-                            fit_reasons.append("In-state program")
-
-                        division = "D1" if offer_count >= 15 else ("D2" if offer_count >= 5 else "D3")
+                    for program in programs:
+                        fit_score = int(program.get("fit_score") or 75)
+                        fit_score = max(65, min(95, fit_score))
+                        fit_summary = program.get("fit_summary") or ""
+                        fit_reasons = [fit_summary] if fit_summary else []
+                        division = program.get("division") or "D1"
 
                         c.execute("""
                             INSERT INTO college_targets
@@ -565,7 +557,7 @@ async def create_from_onboarding(payload: OnboardingPayload):
                             VALUES (%s,%s,%s,%s,%s,%s,%s)
                         """, (
                             profile_id,
-                            program["name"],
+                            program.get("name", "Unknown Program"),
                             program.get("city", ""),
                             program.get("state", ""),
                             division,
@@ -589,6 +581,7 @@ async def create_from_onboarding(payload: OnboardingPayload):
                         sparq_profile_id=profile_id,
                         athlete_position=position or "Athlete",
                         athlete_state=state or "US",
+                        athlete_sport=sport_label or "Basketball",
                     )
                 )
         except Exception as e:
