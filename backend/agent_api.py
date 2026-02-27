@@ -56,7 +56,8 @@ When helping an athlete:
 - Be specific, confident, and actionable — you are a recruiting expert, not a general chatbot
 - Name coaches, give Twitter handles, cite specific programs and needs
 - Always tell the athlete the exact next step they should take
-- The athlete's profile is automatically injected before each message as context
+- The athlete's full profile, MaxPreps stats, and recruiting goals are injected into CURRENT ATHLETE PROFILE above — NEVER ask for info you already have
+- Address the athlete by name, cite their actual stats in your recommendations
 """
 
 # Native web_search tool — Anthropic executes it server-side, no client handling needed
@@ -159,16 +160,34 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
             profile = c.fetchone()
         db.close()
         if profile:
+            # Parse maxpreps_data JSON for real stats
+            maxpreps_raw = profile.get("maxpreps_data")
+            maxpreps = {}
+            if maxpreps_raw:
+                try:
+                    maxpreps = json.loads(maxpreps_raw) if isinstance(maxpreps_raw, str) else maxpreps_raw
+                except Exception:
+                    pass
+
+            stats_preview = maxpreps.get("statsPreview") or []  # [[label, value], ...]
+            last_season = maxpreps.get("lastSeason")
+            sport = maxpreps.get("sport") or profile.get("position")
+            profile_url = maxpreps.get("profileUrl")
+
             return {
                 "source": "sparq_profile",
                 "name": profile.get("name"),
                 "position": profile.get("position"),
+                "sport": sport,
                 "school": profile.get("school"),
                 "class_year": profile.get("class_year"),
                 "state": profile.get("state"),
                 "gpa": str(profile.get("gpa")) if profile.get("gpa") else None,
                 "recruiting_goals": profile.get("recruiting_goals"),
                 "combine_metrics": profile.get("combine_metrics"),
+                "maxpreps_stats": {s[0]: s[1] for s in stats_preview} if stats_preview else None,
+                "maxpreps_season": last_season,
+                "maxpreps_url": profile_url,
             }
     except Exception:
         pass
@@ -253,15 +272,51 @@ async def stream_agent(athlete_id: str, message: str, session_id: Optional[str] 
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
         profile = _load_athlete_profile(athlete_id)
-        profile_context = (
-            f"\n\nAthlete profile for this conversation:\n{json.dumps(profile, default=str)}\n"
-            if profile else ""
-        )
+
+        # Build athlete-aware system prompt — always injected, every message
+        if profile:
+            stats = profile.get("maxpreps_stats") or {}
+            stats_str = ""
+            if stats:
+                season = profile.get("maxpreps_season", "")
+                stats_str = f"\n  MaxPreps stats ({season} season): " + ", ".join(f"{k}: {v}" for k, v in stats.items())
+            combine = profile.get("combine_metrics")
+            combine_str = ""
+            if combine and isinstance(combine, dict):
+                try:
+                    cm = json.loads(combine) if isinstance(combine, str) else combine
+                    parts = [f"{k.replace('_', ' ')}: {v}" for k, v in cm.items() if v]
+                    if parts:
+                        combine_str = "\n  Combine metrics: " + ", ".join(parts)
+                except Exception:
+                    pass
+            goals = profile.get("recruiting_goals")
+            goals_str = ""
+            if goals:
+                try:
+                    g = json.loads(goals) if isinstance(goals, str) else goals
+                    goals_str = f"\n  Recruiting goals: {json.dumps(g)}"
+                except Exception:
+                    pass
+
+            athlete_context = f"""
+
+CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
+  Name: {profile.get("name") or "Unknown"}
+  Sport/Position: {profile.get("sport") or profile.get("position") or "Unknown"}
+  School: {profile.get("school") or "Unknown"}
+  Class year: {profile.get("class_year") or "Unknown"}
+  State: {profile.get("state") or "Unknown"}
+  GPA: {profile.get("gpa") or "not provided"}{stats_str}{combine_str}{goals_str}
+"""
+        else:
+            athlete_context = ""
+
+        system_with_profile = SYSTEM_PROMPT + athlete_context
 
         history = _load_conversation(athlete_id)
-        user_content = f"{profile_context}\n\nUser question: {message}" if (profile_context and not history) else message
-        messages = history + [{"role": "user", "content": user_content}]
-        _save_message(athlete_id, "user", user_content)
+        messages = history + [{"role": "user", "content": message}]
+        _save_message(athlete_id, "user", message)
 
         # Agentic loop — continues until end_turn
         # web_search is native: Anthropic executes it server-side within the stream,
@@ -277,7 +332,7 @@ async def stream_agent(athlete_id: str, message: str, session_id: Optional[str] 
             with client.messages.stream(
                 model="claude-sonnet-4-6",
                 max_tokens=2048,
-                system=SYSTEM_PROMPT,
+                system=system_with_profile,
                 tools=TOOLS,
                 messages=messages,
             ) as stream:
