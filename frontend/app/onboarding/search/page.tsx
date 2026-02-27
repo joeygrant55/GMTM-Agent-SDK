@@ -102,8 +102,36 @@ export default function MaxPrepsSearchPage() {
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </form>
 
+        {loading && (
+          <div className="mt-6 space-y-3">
+            <p className="text-center text-gray-400 text-sm mb-4 animate-pulse">
+              Pulling stats from MaxPreps — this takes a few seconds...
+            </p>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="w-full bg-white/[0.04] border border-white/10 rounded-2xl p-5 animate-pulse">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 bg-white/10 rounded w-40" />
+                    <div className="h-3 bg-white/10 rounded w-56" />
+                    <div className="h-3 bg-white/10 rounded w-24" />
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-white/10 flex-shrink-0" />
+                </div>
+                <div className="mt-3 flex gap-3">
+                  {[0, 1, 2].map((j) => (
+                    <div key={j} className="bg-black/30 rounded-lg px-3 py-2 w-16">
+                      <div className="h-4 bg-white/10 rounded mb-1" />
+                      <div className="h-2 bg-white/10 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="mt-6 space-y-3">
-          {results.map((athlete) => {
+          {!loading && results.map((athlete) => {
             const raw = athlete as any
             const statsPreview: [string, string][] = raw.statsPreview || []
             const lastSeason: string | null = raw.lastSeason || null
