@@ -19,11 +19,31 @@ function latestSeasonStat(stats: MaxPrepsSeasonStats[] | undefined): MaxPrepsSea
 function derivePercentile(athlete: MaxPrepsAthlete | null): number | null {
   const season = latestSeasonStat(athlete?.seasonStats)
   if (!season) return null
+
   const tackles = Number(season.tackles || 0)
   const interceptions = Number(season.interceptions || 0)
   const passBreakups = Number(season.passBreakups || 0)
-  const score = Math.min(98, Math.max(50, Math.round(55 + tackles * 0.45 + interceptions * 3.5 + passBreakups * 1.2)))
-  return score
+  const touchdowns = Number(season.touchdowns || 0)
+  const rushYards = Number(season.rushingYards || season.rush_yards || 0)
+  const recYards = Number(season.receivingYards || season.rec_yards || 0)
+
+  // Build a raw score from available stats.
+  let score = 0
+  if (tackles > 0) score += Math.min(tackles * 0.8, 40)
+  if (interceptions > 0) score += Math.min(interceptions * 8, 30)
+  if (passBreakups > 0) score += Math.min(passBreakups * 2, 15)
+  if (touchdowns > 0) score += Math.min(touchdowns * 5, 30)
+  if (rushYards > 0) score += Math.min(rushYards * 0.02, 25)
+  if (recYards > 0) score += Math.min(recYards * 0.02, 25)
+
+  // Convert to "top X%" where lower is better.
+  const topPercent = Math.max(5, Math.round(50 - score * 0.7))
+  return topPercent
+}
+
+function normalizeToTopPercent(value: number): number {
+  const normalized = Math.round(100 - value)
+  return Math.max(1, Math.min(99, normalized))
 }
 
 export default function OnboardingWelcomePage() {
@@ -83,11 +103,11 @@ export default function OnboardingWelcomePage() {
         }
 
         if (typeof data.percentile === 'number') {
-          setPercentile(Math.round(data.percentile))
+          setPercentile(normalizeToTopPercent(data.percentile))
           return
         }
         if (typeof data.overall_percentile === 'number') {
-          setPercentile(Math.round(data.overall_percentile))
+          setPercentile(normalizeToTopPercent(data.overall_percentile))
           return
         }
         if (Array.isArray(data.metrics) && data.metrics.length > 0) {
@@ -96,7 +116,7 @@ export default function OnboardingWelcomePage() {
             .filter((n): n is number => typeof n === 'number')
           if (nums.length) {
             const avg = nums.reduce((sum, n) => sum + n, 0) / nums.length
-            setPercentile(Math.round(avg))
+            setPercentile(normalizeToTopPercent(avg))
             return
           }
         }

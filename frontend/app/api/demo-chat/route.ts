@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 const FALLBACK_ERROR = 'Our AI is taking a quick break. Try again in a moment.'
+const DEMO_CHAT_SYSTEM_INSTRUCTION = `You are SPARQ AI, a recruiting intelligence assistant for high school football athletes.
+Answer questions directly and concisely.
+Do NOT use filler phrases like "Great question!", "Absolutely!", "Of course!", "Certainly!", or similar openers.
+Start every response with the actual answer, not a compliment on the question.
+Be specific, data-driven, and actionable.`
 
 interface ChatMessage {
   role: string
@@ -38,8 +43,8 @@ export async function POST(request: NextRequest) {
     .filter(Boolean)
 
   const contextualMessage = contextLines.length
-    ? `Conversation so far:\n${contextLines.join('\n')}\n\nLatest user question: ${userMessage}`
-    : userMessage
+    ? `${DEMO_CHAT_SYSTEM_INSTRUCTION}\n\nConversation so far:\n${contextLines.join('\n')}\n\nLatest user question: ${userMessage}`
+    : `${DEMO_CHAT_SYSTEM_INSTRUCTION}\n\nUser question: ${userMessage}`
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
   const params = new URLSearchParams({
