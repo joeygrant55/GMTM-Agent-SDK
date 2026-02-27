@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 import json
+import threading
 import pymysql
 from dotenv import load_dotenv
 
@@ -218,6 +219,44 @@ class OutreachStatusUpdate(BaseModel):
 
 
 # ── Dashboard endpoint ──────────────────
+
+
+def _run_matching_thread(pid, profile, pos, st, sport):
+    """Standalone thread target for AI college matching + enrichment."""
+    import asyncio as _aio, traceback as _tb
+    from enrichment_worker import ai_match_programs_sync, enrich_college_targets, _get_agent_db as _edb
+    try:
+        print(f"[Matching] Thread started: profile {pid} | {sport} {pos} from {st}")
+        programs = ai_match_programs_sync(profile)
+        if not programs:
+            print(f"[Matching] No programs returned for profile {pid}")
+            return
+        db2 = _edb()
+        try:
+            with db2.cursor() as c2:
+                c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (pid,))
+                for prog in programs:
+                    fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
+                    fit_summary = prog.get("fit_summary") or ""
+                    c2.execute("""
+                        INSERT INTO college_targets
+                            (sparq_profile_id, college_name, college_city, college_state,
+                             division, fit_score, fit_reasons)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """, (pid, prog.get("name","Unknown"), prog.get("city",""),
+                          prog.get("state",""), prog.get("division") or "D1",
+                          fit_score, json.dumps([fit_summary] if fit_summary else [])))
+            db2.commit()
+            print(f"[Matching] Stored {len(programs)} colleges for profile {pid}")
+        finally:
+            db2.close()
+        _aio.run(enrich_college_targets(
+            sparq_profile_id=pid, athlete_position=pos,
+            athlete_state=st, athlete_sport=sport,
+        ))
+    except Exception as e:
+        print(f"[Matching] Thread error: {e}")
+        _tb.print_exc()
 
 @router.get("/dashboard/{user_id}")
 async def get_dashboard(user_id: int):
@@ -451,7 +490,7 @@ async def get_profile_by_clerk(clerk_id: str):
 
 
 @router.post("/profile/create-from-onboarding")
-async def create_from_onboarding(payload: OnboardingPayload, background_tasks: BackgroundTasks):
+async def create_from_onboarding(payload: OnboardingPayload):
     if not payload.clerk_id:
         raise HTTPException(status_code=400, detail="clerk_id is required")
 
@@ -522,58 +561,13 @@ async def create_from_onboarding(payload: OnboardingPayload, background_tasks: B
 
         colleges_matched = 0  # Background job will populate
 
-        # Fire-and-forget via FastAPI BackgroundTasks (reliable in uvicorn)
-        from enrichment_worker import ai_match_programs, enrich_college_targets, _get_agent_db as _edb
-
-        async def _match_and_enrich(pid: int, profile: dict, pos: str, st: str, sport: str):
-            try:
-                print(f"[Matching] Starting AI match for profile {pid} ({sport} {pos} from {st})")
-                programs = await ai_match_programs(profile)
-                if not programs:
-                    print(f"[Matching] No programs returned for profile {pid}")
-                    return
-                db2 = _edb()
-                try:
-                    with db2.cursor() as c2:
-                        c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (pid,))
-                        for prog in programs:
-                            fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
-                            fit_summary = prog.get("fit_summary") or ""
-                            c2.execute("""
-                                INSERT INTO college_targets
-                                    (sparq_profile_id, college_name, college_city, college_state,
-                                     division, fit_score, fit_reasons)
-                                VALUES (%s,%s,%s,%s,%s,%s,%s)
-                            """, (
-                                pid,
-                                prog.get("name", "Unknown"),
-                                prog.get("city", ""),
-                                prog.get("state", ""),
-                                prog.get("division") or "D1",
-                                fit_score,
-                                json.dumps([fit_summary] if fit_summary else []),
-                            ))
-                    db2.commit()
-                    print(f"[Matching] Stored {len(programs)} colleges for profile {pid}")
-                finally:
-                    db2.close()
-                await enrich_college_targets(
-                    sparq_profile_id=pid,
-                    athlete_position=pos or "Athlete",
-                    athlete_state=st or "US",
-                    athlete_sport=sport,
-                )
-            except Exception as e:
-                print(f"[Matching] Background job error: {e}")
-
-        background_tasks.add_task(
-            _match_and_enrich,
-            profile_id,
-            athlete_profile_for_matching,
-            position or "Athlete",
-            state or "US",
-            sport_label,
+        t = threading.Thread(
+            target=_run_matching_thread,
+            args=(profile_id, athlete_profile_for_matching, position or "Athlete", state or "US", sport_label),
+            daemon=True, name=f"matching-{profile_id}"
         )
+        t.start()
+        print(f"[Matching] Launched thread {t.name}")
 
         return {
             "success": True,
@@ -1097,7 +1091,7 @@ async def maxpreps_athlete_stats(url: str):
 
 
 @router.post("/workspace/trigger-matching/{clerk_id}")
-async def trigger_matching(clerk_id: str, background_tasks: BackgroundTasks):
+async def trigger_matching(clerk_id: str):
     """Manually re-trigger AI college matching for an existing profile."""
     db = _get_agent_db()
     try:
@@ -1142,38 +1136,11 @@ async def trigger_matching(clerk_id: str, background_tasks: BackgroundTasks):
         "recruiting_goals": goals or {},
     }
 
-    from enrichment_worker import ai_match_programs, enrich_college_targets, _get_agent_db as _edb
-
-    async def _run(pid, prof, pos, st, sport):
-        try:
-            print(f"[Matching] Manual trigger for profile {pid} ({sport} {pos} from {st})")
-            programs = await ai_match_programs(prof)
-            if not programs:
-                print(f"[Matching] No programs returned for profile {pid}")
-                return
-            db2 = _edb()
-            try:
-                with db2.cursor() as c2:
-                    c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (pid,))
-                    for prog in programs:
-                        fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
-                        fit_summary = prog.get("fit_summary") or ""
-                        c2.execute("""
-                            INSERT INTO college_targets
-                                (sparq_profile_id, college_name, college_city, college_state,
-                                 division, fit_score, fit_reasons)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s)
-                        """, (pid, prog.get("name","Unknown"), prog.get("city",""),
-                              prog.get("state",""), prog.get("division") or "D1",
-                              fit_score, json.dumps([fit_summary] if fit_summary else [])))
-                db2.commit()
-                print(f"[Matching] Stored {len(programs)} colleges for profile {pid}")
-            finally:
-                db2.close()
-            await enrich_college_targets(sparq_profile_id=pid, athlete_position=pos,
-                                         athlete_state=st, athlete_sport=sport)
-        except Exception as e:
-            print(f"[Matching] Error: {e}")
-
-    background_tasks.add_task(_run, profile_id, athlete_profile, position, state, sport_label)
+    t = threading.Thread(
+        target=_run_matching_thread,
+        args=(profile_id, athlete_profile, position, state, sport_label),
+        daemon=True, name=f"matching-trigger-{profile_id}"
+    )
+    t.start()
+    print(f"[Matching] Trigger thread launched: {t.name}")
     return {"status": "matching started", "profile_id": profile_id, "sport": sport_label, "position": position}
