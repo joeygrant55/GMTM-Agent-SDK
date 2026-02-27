@@ -90,7 +90,7 @@ Return ONLY the JSON object. No markdown, no code fences, no explanation.
 """
 
 WEB_SEARCH_TOOL = {
-    "type": "web_search_20250305",
+    "type": "web_search_20260209",
     "name": "web_search",
 }
 
@@ -132,50 +132,23 @@ async def _research_one_college(
         "Return your findings as JSON only."
     )
 
-    messages = [{"role": "user", "content": user_prompt}]
-    
     try:
-        # Agentic loop: let Claude use web_search as needed, then return JSON
-        for _ in range(6):  # max 6 turns per college
-            response = await client.messages.create(
-                model="claude-sonnet-4-5",
-                max_tokens=1024,
-                system=RESEARCHER_SYSTEM_PROMPT,
-                tools=[WEB_SEARCH_TOOL],
-                messages=messages,
-            )
+        # web_search_20260209 is fully server-side — single API call handles search + response
+        response = await client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=RESEARCHER_SYSTEM_PROMPT,
+            tools=[WEB_SEARCH_TOOL],
+            messages=[{"role": "user", "content": user_prompt}],
+        )
 
-            # Check if we got a final text response
-            if response.stop_reason == "end_turn":
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        result = _extract_json(block.text)
-                        if result:
-                            return result
-                # No valid JSON found — give up
-                print(f"[Enrichment] No valid JSON from researcher for {college_name}")
-                return None
+        for block in response.content:
+            if hasattr(block, "text"):
+                result = _extract_json(block.text)
+                if result:
+                    return result
 
-            # Handle tool use
-            if response.stop_reason == "tool_use":
-                tool_results = []
-                for block in response.content:
-                    if block.type == "tool_use":
-                        # web_search results come back as tool_result
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": "",  # Anthropic fills this in from web_search
-                        })
-
-                # Append assistant turn + tool results
-                messages.append({"role": "assistant", "content": response.content})
-                if tool_results:
-                    messages.append({"role": "user", "content": tool_results})
-                continue
-
-            # Unexpected stop reason
-            break
+        print(f"[Enrichment] No valid JSON from researcher for {college_name}")
 
     except Exception as e:
         print(f"[Enrichment] Error researching {college_name}: {e}")
