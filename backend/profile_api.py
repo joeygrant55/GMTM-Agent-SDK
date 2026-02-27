@@ -139,6 +139,14 @@ def _ensure_tables():
             try:
                 c.execute("ALTER TABLE sparq_profiles ADD COLUMN enrichment_complete TINYINT(1) DEFAULT 0")
             except Exception:
+                pass
+            try:
+                c.execute("ALTER TABLE college_targets ADD COLUMN research_data JSON")
+            except Exception:
+                pass
+            try:
+                c.execute("ALTER TABLE college_targets ADD COLUMN deep_research_status VARCHAR(20) DEFAULT 'pending'")
+            except Exception:
                 pass  # Column already exists
             # Ensure agent_conversations has clerk_id column (may be missing on old tables)
             try:
@@ -1218,3 +1226,207 @@ async def update_profile(clerk_id: str, payload: ProfileUpdatePayload):
         db.close()
 
     return {"success": True}
+
+
+@router.get("/workspace/colleges/{clerk_id}/{college_id}")
+async def get_college_detail(clerk_id: str, college_id: int):
+    """Return full college target detail including research_data."""
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                raise HTTPException(status_code=404, detail="Profile not found")
+
+            c.execute("""
+                SELECT ct.*, sp.maxpreps_data, sp.position, sp.state, sp.gpa, sp.major_area,
+                       sp.recruiting_goals, sp.combine_metrics
+                FROM college_targets ct
+                JOIN sparq_profiles sp ON sp.id = ct.sparq_profile_id
+                WHERE ct.id = %s AND ct.sparq_profile_id = %s
+            """, (college_id, profile["id"]))
+            row = c.fetchone()
+    finally:
+        db.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="College not found")
+
+    for col in ("fit_reasons", "research_data"):
+        val = row.get(col)
+        if isinstance(val, str):
+            try:
+                row[col] = json.loads(val)
+            except Exception:
+                row[col] = None
+
+    for col in ("maxpreps_data", "recruiting_goals", "combine_metrics"):
+        val = row.get(col)
+        if isinstance(val, str):
+            try:
+                row[col] = json.loads(val)
+            except Exception:
+                row[col] = {}
+
+    return row
+
+
+DEEP_RESEARCH_SYSTEM = """You are an expert college athletic recruiting researcher.
+Given an athlete profile and a college program, produce a deep research report.
+Return ONLY a valid JSON object in this exact format:
+
+{
+  "coaching_staff": {
+    "head_coach": {"name": "string or null", "years_at_school": "string", "bio": "1-2 sentences", "recruiting_style": "1-2 sentences on their recruiting philosophy and what they look for"},
+    "position_coach": {"name": "string or null", "role": "string", "background": "1 sentence"},
+    "contact_email": "email or null",
+    "staff_note": "1 sentence on staff stability or recent changes"
+  },
+  "roster_fit": {
+    "players_at_position": "estimated count or range",
+    "graduating_seniors": "estimated count",
+    "depth_chart_opportunity": "immediate starter / compete for playing time / developmental",
+    "typical_commit_profile": "describe the type of athlete they typically recruit at this position",
+    "roster_note": "1-2 sentences on roster dynamics relevant to this athlete"
+  },
+  "academic_fit": {
+    "major_available": true or false,
+    "major_name": "closest matching major name",
+    "academic_profile": "GPA range of admitted athletes or general academic reputation",
+    "campus_size": "small / medium / large",
+    "academic_support": "1 sentence on athletic academic support programs",
+    "academic_note": "1 sentence on how academic fit looks for this athlete"
+  },
+  "recruiting_path": {
+    "next_step": "most important immediate action for this athlete",
+    "camp_opportunity": "any known camps or showcases hosted or attended by this program",
+    "contact_window": "when/how to reach out per NCAA rules",
+    "timeline": "realistic timeline if this athlete were to pursue this school",
+    "outreach_tip": "1 specific sentence on what to highlight when contacting this program"
+  },
+  "overall_assessment": "3-4 sentences synthesizing why this program is or isn't a strong fit for this specific athlete, referencing their stats and goals"
+}
+
+Return ONLY the JSON. No markdown, no code blocks, no explanation."""
+
+
+@router.post("/workspace/colleges/{clerk_id}/{college_id}/research")
+async def run_deep_research(clerk_id: str, college_id: int, background_tasks: BackgroundTasks):
+    """Trigger deep per-college research for an athlete."""
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT * FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                raise HTTPException(status_code=404, detail="Profile not found")
+
+            c.execute("SELECT * FROM college_targets WHERE id = %s AND sparq_profile_id = %s",
+                      (college_id, profile["id"]))
+            college = c.fetchone()
+            if not college:
+                raise HTTPException(status_code=404, detail="College not found")
+
+            # Mark as researching
+            c.execute("UPDATE college_targets SET deep_research_status = 'researching' WHERE id = %s",
+                      (college_id,))
+            db.commit()
+    finally:
+        db.close()
+
+    # Parse profile data
+    mp_raw = profile.get("maxpreps_data") or {}
+    if isinstance(mp_raw, str):
+        try: mp_raw = json.loads(mp_raw)
+        except: mp_raw = {}
+
+    sports_list = mp_raw.get("sports") or []
+    sport = sports_list[0] if sports_list else (mp_raw.get("sport") or profile.get("position") or "Basketball")
+
+    goals_raw = profile.get("recruiting_goals") or {}
+    if isinstance(goals_raw, str):
+        try: goals_raw = json.loads(goals_raw)
+        except: goals_raw = {}
+
+    stats_preview = mp_raw.get("statsPreview") or []
+    stats_str = ", ".join(f"{s[0]}: {s[1]}" for s in stats_preview) if stats_preview else "not provided"
+
+    athlete_summary = (
+        f"Name: {mp_raw.get('name') or 'Athlete'}\n"
+        f"Sport: {sport}\n"
+        f"Position: {profile.get('position') or mp_raw.get('position') or 'Unknown'}\n"
+        f"From: {profile.get('city', '')}, {profile.get('state', '')}\n"
+        f"Stats: {stats_str}\n"
+        f"GPA: {profile.get('gpa') or 'not provided'}\n"
+        f"Major interest: {profile.get('major_area') or 'Undecided'}\n"
+        f"Target division: {goals_raw.get('targetLevel', 'Open')}\n"
+        f"Geography preference: {goals_raw.get('geography', 'Anywhere')}\n"
+    )
+
+    college_name = college["college_name"]
+    division = college.get("division", "D1")
+    city = college.get("college_city", "")
+    state = college.get("college_state", "")
+
+    def _do_research(cid, name, div, ct, st, athlete_info, spt):
+        import anthropic as _anth, re as _re
+        client = _anth.Anthropic(api_key=ANTHROPIC_API_KEY)
+        db2 = _get_agent_db()
+        try:
+            prompt = (
+                f"Research {name} ({div}, {ct}, {st}) for this athlete:\n\n{athlete_info}\n"
+                f"Focus on the {spt} program specifically. "
+                f"If sport includes 'Girls' or 'Women', research ONLY the women's program. "
+                f"Provide deep, specific information useful for a recruiting decision."
+            )
+            print(f"[DeepResearch] Starting for college_target {cid}: {name}")
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4000,
+                system=DEEP_RESEARCH_SYSTEM,
+                tools=[{"type": "web_search_20260209", "name": "web_search"}],
+                messages=[{"role": "user", "content": prompt}],
+            )
+            full_text = "".join(b.text for b in response.content if hasattr(b, "text"))
+            print(f"[DeepResearch] Got {len(full_text)} chars for {name}")
+
+            research_data = None
+            for pattern in [r'\{[\s\S]*\}']:
+                m = _re.search(pattern, full_text)
+                if m:
+                    try:
+                        research_data = json.loads(m.group())
+                        break
+                    except Exception:
+                        pass
+
+            status = "complete" if research_data else "error"
+            with db2.cursor() as c2:
+                c2.execute("""
+                    UPDATE college_targets
+                    SET research_data = %s, deep_research_status = %s
+                    WHERE id = %s
+                """, (json.dumps(research_data) if research_data else None, status, cid))
+            db2.commit()
+            print(f"[DeepResearch] Stored for {name} — status: {status}")
+        except Exception as e:
+            import traceback
+            print(f"[DeepResearch] Error for {name}: {e}")
+            traceback.print_exc()
+            with db2.cursor() as c2:
+                c2.execute("UPDATE college_targets SET deep_research_status = 'error' WHERE id = %s", (cid,))
+            db2.commit()
+        finally:
+            db2.close()
+
+    t = threading.Thread(
+        target=_do_research,
+        args=(college_id, college_name, division, city, state, athlete_summary, sport),
+        daemon=True,
+        name=f"deep-research-{college_id}"
+    )
+    t.start()
+    print(f"[DeepResearch] Thread launched for college {college_id} ({college_name})")
+
+    return {"status": "researching", "college_id": college_id, "college_name": college_name}

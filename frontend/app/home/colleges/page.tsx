@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useEffect, useMemo, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 
@@ -161,7 +163,7 @@ export default function CollegesPage() {
             ? (college.fit_reasons as string[]).filter(Boolean).slice(0, 3)
             : null
           return (
-            <div key={college.id} className="bg-white/[0.04] border border-white/10 rounded-xl p-4 flex items-center gap-4">
+            <Link key={college.id} href={`/home/colleges/${college.id}`} className="bg-white/[0.04] border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-sparq-lime/30 transition-colors cursor-pointer block">
               <div className="w-12 h-12 rounded-xl bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center text-sparq-lime font-black text-lg">
                 {college.college_name[0]}
               </div>
@@ -215,7 +217,7 @@ export default function CollegesPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </Link>
           )
         })}
       </div>
