@@ -906,60 +906,146 @@ async def get_workspace_timeline(clerk_id: str):
 
 
 @router.get("/maxpreps/search")
-async def maxpreps_search(q: str, limit: int = 10):
-    """Search MaxPreps athletes by scraping their SSR search results page."""
-    import requests as _requests, json, re
+async def maxpreps_search(q: str, limit: int = 8):
+    """Search MaxPreps athletes: dedup, parallel stat fetch, sort by richness."""
+    import requests as _requests, json, re, asyncio
     from concurrent.futures import ThreadPoolExecutor
 
-    url = f"https://www.maxpreps.com/search/?q={q.replace(' ', '+')}"
-    headers = {
+    HEADERS = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml",
     }
 
-    def _fetch():
-        resp = _requests.get(url, headers=headers, timeout=10, allow_redirects=True)
-        return resp.text
+    def _fetch_url(url):
+        return _requests.get(url, headers=HEADERS, timeout=10, allow_redirects=True).text
 
+    def _extract_next_data(html):
+        m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+        return json.loads(m.group(1)) if m else None
+
+    # --- Fetch search results page ---
+    search_url = f"https://www.maxpreps.com/search/?q={q.replace(' ', '+')}"
+    loop = asyncio.get_event_loop()
     try:
-        loop = __import__('asyncio').get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            html = await loop.run_in_executor(pool, _fetch)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            html = await loop.run_in_executor(pool, _fetch_url, search_url)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"MaxPreps fetch failed: {e}")
 
-    # Extract __NEXT_DATA__ JSON embedded in the page
-    match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
-    if not match:
-        raise HTTPException(status_code=502, detail="Could not parse MaxPreps response")
+    data = _extract_next_data(html)
+    if not data:
+        raise HTTPException(status_code=502, detail="Could not parse MaxPreps search response")
 
     try:
-        data = json.loads(match.group(1))
         careers = data["props"]["pageProps"].get("initialCareerResults") or []
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"JSON parse error: {e}")
 
-    results = []
-    for c in careers[:limit]:
-        sports = c.get("sports", [])
-        # Derive a position-like label from sport (e.g. "Boys Football" -> "Football")
-        sport_label = None
-        if sports:
-            sport_label = sports[0].replace("Boys ", "").replace("Girls ", "")
-        results.append({
+    # --- Deduplicate: keep best career per (schoolId + primary_sport) ---
+    seen = {}
+    for c in careers:
+        school_id = c.get("mostRecentSchoolId") or c.get("schoolName", "")
+        sports_raw = c.get("sports") or []
+        primary_sport = sports_raw[0].replace("Boys ", "").replace("Girls ", "") if sports_raw else "unknown"
+        key = f"{school_id}|{primary_sport}"
+        if key not in seen:
+            seen[key] = c
+        # prefer entry with photo
+        elif c.get("careerPhotoUrl") and not seen[key].get("careerPhotoUrl"):
+            seen[key] = c
+
+    unique_careers = list(seen.values())[:limit]
+
+    # --- Build profile URLs ---
+    def career_to_base(c):
+        sports_raw = c.get("sports") or []
+        sport_label = sports_raw[0].replace("Boys ", "").replace("Girls ", "") if sports_raw else None
+        profile_url = f"https://www.maxpreps.com{c.get('careerCanonicalUrl', '')}" if c.get("careerCanonicalUrl") else None
+        return {
             "id": c.get("careerId"),
             "maxprepsAthleteId": c.get("careerId"),
             "name": c.get("fullName"),
             "school": c.get("schoolFormattedName"),
             "state": c.get("state"),
-            "sports": sports,
+            "sports": sports_raw,
+            "sport": sport_label,
             "position": sport_label,
-            "classYear": c.get("careerGraduatingClass"),
+            "classYear": c.get("careerGraduatingClass") or None,
             "photoUrl": c.get("careerPhotoUrl"),
-            "profileUrl": f"https://www.maxpreps.com{c.get('careerCanonicalUrl', '')}",
-        })
+            "schoolColor": c.get("schoolColor1"),
+            "profileUrl": profile_url,
+            # filled in after parallel fetch:
+            "statsPreview": None,
+            "lastSeason": None,
+        }
 
-    return results
+    base_results = [career_to_base(c) for c in unique_careers]
+
+    # --- Parallel stats fetch for all results ---
+    SPORT_PRIORITY = {
+        "Basketball": ["Points Per Game", "Rebounds Per Game", "Assists Per Game"],
+        "Football": ["Passing Yards", "Touchdowns", "Tackles", "Rushing Yards"],
+        "Soccer": ["Goals", "Assists", "Saves"],
+        "Volleyball": ["Kills", "Assists", "Digs"],
+        "Baseball": ["Batting Average", "Home Runs", "RBI"],
+        "Softball": ["Batting Average", "Home Runs", "RBI"],
+        "Lacrosse": ["Goals", "Assists"],
+    }
+
+    def _fetch_stats(profile_url):
+        if not profile_url:
+            return None
+        try:
+            html = _fetch_url(profile_url)
+            d = _extract_next_data(html)
+            if not d:
+                return None
+            pp = d["props"]["pageProps"]
+            cards = pp.get("careerHomeCards") or {}
+            qs_list = cards.get("quickStats") or []
+            if not qs_list:
+                return None
+            qs = qs_list[0]
+            sport = qs.get("sport", "")
+            season = qs.get("seasonYear", "")
+            position = qs.get("position", "")
+            categories = qs.get("categories") or []
+            stats = {cat["name"]: cat["seasonValue"] for cat in categories}
+            priority = SPORT_PRIORITY.get(sport, list(stats.keys()))
+            top = [(k, stats[k]) for k in priority if k in stats][:3]
+            if not top:
+                top = list(stats.items())[:3]
+            return {
+                "sport": sport,
+                "season": season,
+                "position": position,
+                "preview": top,  # list of (label, value)
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futs = [loop.run_in_executor(pool, _fetch_stats, r["profileUrl"]) for r in base_results]
+        stats_list = await asyncio.gather(*futs, return_exceptions=True)
+
+    for result, stats in zip(base_results, stats_list):
+        if isinstance(stats, dict):
+            result["statsPreview"] = stats.get("preview")   # [(label, value), ...]
+            result["lastSeason"] = stats.get("season")
+            result["classYear"] = result["classYear"] or None
+            if stats.get("position"):
+                result["position"] = stats["position"]
+            if stats.get("sport"):
+                result["sport"] = stats["sport"]
+
+    # --- Sort: has stats first, then by most recent season ---
+    def sort_key(r):
+        has_stats = 1 if r.get("statsPreview") else 0
+        season = r.get("lastSeason") or ""
+        return (has_stats, season)
+
+    base_results.sort(key=sort_key, reverse=True)
+    return base_results
 
 
 @router.get("/maxpreps/athlete-stats")

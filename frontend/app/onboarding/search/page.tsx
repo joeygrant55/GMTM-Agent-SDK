@@ -103,20 +103,53 @@ export default function MaxPrepsSearchPage() {
         </form>
 
         <div className="mt-6 space-y-3">
-          {results.map((athlete) => (
-            <button
-              key={`${athlete.maxprepsAthleteId || athlete.name}-${athlete.school || ''}`}
-              onClick={() => onSelect(athlete)}
-              className="w-full text-left bg-white/[0.04] border border-white/10 rounded-2xl p-5 hover:border-sparq-lime/50 transition-colors"
-            >
-              <div className="text-lg font-bold text-white">{athlete.name}</div>
-              <div className="mt-1 text-gray-300">{athlete.position || 'Athlete'} · {athlete.school || 'School unavailable'}</div>
-              <div className="mt-1 text-gray-400 text-sm">
-                Class of {athlete.classYear || 'Unknown'}
-                {athlete.city || athlete.state ? ` · ${[athlete.city, athlete.state].filter(Boolean).join(', ')}` : ''}
-              </div>
-            </button>
-          ))}
+          {results.map((athlete) => {
+            const raw = athlete as any
+            const statsPreview: [string, string][] = raw.statsPreview || []
+            const lastSeason: string | null = raw.lastSeason || null
+            const schoolColor: string | null = raw.schoolColor || null
+            const hasStats = statsPreview.length > 0
+            return (
+              <button
+                key={`${athlete.maxprepsAthleteId || athlete.name}-${athlete.school || ''}`}
+                onClick={() => onSelect(athlete)}
+                className={`w-full text-left bg-white/[0.04] border rounded-2xl p-5 hover:border-sparq-lime/50 transition-colors ${hasStats ? 'border-white/20' : 'border-white/10 opacity-75'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {schoolColor && (
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: `#${schoolColor}` }} />
+                      )}
+                      <span className="text-lg font-bold text-white truncate">{athlete.name}</span>
+                    </div>
+                    <div className="mt-1 text-gray-300 text-sm">
+                      {[athlete.position, athlete.school].filter(Boolean).join(' · ')}
+                    </div>
+                    <div className="mt-0.5 text-gray-500 text-xs">
+                      {athlete.classYear ? `Class of ${athlete.classYear}` : null}
+                      {lastSeason ? (athlete.classYear ? ` · ${lastSeason}` : lastSeason) : null}
+                      {!athlete.classYear && !lastSeason ? 'No season data' : null}
+                    </div>
+                  </div>
+                  {athlete.photoUrl && (
+                    <img src={athlete.photoUrl} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                  )}
+                </div>
+
+                {hasStats && (
+                  <div className="mt-3 flex gap-3 flex-wrap">
+                    {statsPreview.map(([label, value]: [string, string]) => (
+                      <div key={label} className="bg-black/30 rounded-lg px-2.5 py-1.5 text-center">
+                        <div className="text-sparq-lime font-black text-sm">{value}</div>
+                        <div className="text-gray-500 text-xs">{label.replace(' Per Game', '/G').replace(' Per ', '/').replace('Percentage', '%')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </button>
+            )
+          })}
 
           {searched && !loading && results.length === 0 && !error && (
             <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 text-gray-400">
