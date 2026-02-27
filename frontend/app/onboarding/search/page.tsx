@@ -28,6 +28,7 @@ function normalizeResult(raw: Record<string, unknown>): MaxPrepsAthlete {
     ...(raw.statsPreview !== undefined ? { statsPreview: raw.statsPreview } : {}),
     ...(raw.lastSeason !== undefined ? { lastSeason: raw.lastSeason } : {}),
     ...(raw.schoolColor !== undefined ? { schoolColor: raw.schoolColor } : {}),
+    ...(raw.schoolMascotUrl !== undefined ? { schoolMascotUrl: raw.schoolMascotUrl } : {}),
   } as MaxPrepsAthlete & Record<string, unknown>
 }
 
@@ -141,6 +142,7 @@ export default function MaxPrepsSearchPage() {
             const statsPreview: [string, string][] = raw.statsPreview || []
             const lastSeason: string | null = raw.lastSeason || null
             const schoolColor: string | null = raw.schoolColor || null
+            const schoolMascotUrl: string | null = raw.schoolMascotUrl || null
             const hasStats = statsPreview.length > 0
             return (
               <button
@@ -151,9 +153,11 @@ export default function MaxPrepsSearchPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      {schoolColor && (
+                      {schoolMascotUrl ? (
+                        <img src={schoolMascotUrl} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
+                      ) : schoolColor ? (
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: `#${schoolColor}` }} />
-                      )}
+                      ) : null}
                       <span className="text-lg font-bold text-white truncate">{athlete.name}</span>
                     </div>
                     <div className="mt-1 text-gray-300 text-sm">

@@ -973,6 +973,7 @@ async def maxpreps_search(q: str, limit: int = 8):
             "classYear": c.get("careerGraduatingClass") or None,
             "photoUrl": c.get("careerPhotoUrl"),
             "schoolColor": c.get("schoolColor1"),
+            "schoolMascotUrl": c.get("schoolMascotUrl"),
             "profileUrl": profile_url,
             # filled in after parallel fetch:
             "statsPreview": None,
