@@ -849,3 +849,57 @@ async def get_workspace_stats(clerk_id: str):
             }
     finally:
         db.close()
+
+
+@router.get("/workspace/timeline/{clerk_id}")
+async def get_workspace_timeline(clerk_id: str):
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id, created_at FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                return []
+
+            profile_id = profile["id"]
+            events = []
+
+            # Onboarding event
+            events.append({
+                "type": "onboarding",
+                "date": str(profile["created_at"]),
+                "title": "Started your SPARQ journey",
+                "detail": None,
+            })
+
+            # Colleges added
+            c.execute(
+                "SELECT college_name, division, created_at FROM college_targets WHERE sparq_profile_id = %s ORDER BY created_at DESC",
+                (profile_id,),
+            )
+            for row in c.fetchall():
+                events.append({
+                    "type": "college_added",
+                    "date": str(row["created_at"]),
+                    "title": f"Added {row['college_name']}",
+                    "detail": row.get("division") or None,
+                })
+
+            # Outreach entries
+            c.execute(
+                "SELECT school, method, status, created_at FROM outreach_log WHERE clerk_id = %s ORDER BY created_at DESC",
+                (clerk_id,),
+            )
+            for row in c.fetchall():
+                events.append({
+                    "type": "outreach_sent",
+                    "date": str(row["created_at"]),
+                    "title": f"Reached out to {row['school']}",
+                    "detail": f"{row['method']} — {row['status']}",
+                })
+
+        # Sort all events newest first
+        events.sort(key=lambda e: e["date"], reverse=True)
+        return events
+    finally:
+        db.close()

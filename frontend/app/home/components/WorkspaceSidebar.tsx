@@ -9,11 +9,10 @@ const NAV_ITEMS = [
   { label: '🎓 Colleges', href: '/home/colleges' },
   { label: '✉️ Outreach', href: '/home/outreach' },
   { label: '👤 Profile', href: '/onboarding/profile' },
+  { label: '📅 Timeline', href: '/home/timeline' },
 ]
 
-const COMING_SOON_ITEMS = [
-  { label: '📅 Timeline', status: 'Coming Soon' },
-]
+const COMING_SOON_ITEMS: { label: string; status: string }[] = []
 
 export default function WorkspaceSidebar() {
   const pathname = usePathname()
