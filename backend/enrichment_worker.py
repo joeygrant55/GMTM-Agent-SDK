@@ -173,17 +173,34 @@ async def ai_match_programs(athlete_profile: Dict) -> List[Dict]:
             tools=[WEB_SEARCH_TOOL],
             messages=[{"role": "user", "content": user_prompt}],
         )
+        full_text = ""
         for block in response.content:
             if hasattr(block, "text"):
-                m = re.search(r"\[.*\]", block.text, re.DOTALL)
-                if m:
-                    try:
-                        programs = json.loads(m.group())
-                        if isinstance(programs, list) and len(programs) > 0:
-                            print(f"[Matching] AI found {len(programs)} programs for {sport} {position}")
-                            return programs
-                    except Exception:
-                        pass
+                full_text += block.text
+
+        print(f"[Matching] Raw response ({len(full_text)} chars): {full_text[:300]}")
+
+        if full_text:
+            # Try direct parse first
+            try:
+                parsed = json.loads(full_text.strip())
+                if isinstance(parsed, list) and parsed:
+                    print(f"[Matching] Found {len(parsed)} programs (direct parse)")
+                    return parsed
+            except Exception:
+                pass
+            # Try extracting JSON array
+            m = re.search(r"\[\s*\{.*?\}\s*\]", full_text, re.DOTALL)
+            if m:
+                try:
+                    programs = json.loads(m.group())
+                    if isinstance(programs, list) and programs:
+                        print(f"[Matching] Found {len(programs)} programs (regex extract)")
+                        return programs
+                except Exception as pe:
+                    print(f"[Matching] JSON parse failed: {pe} | text: {m.group()[:200]}")
+
+        print(f"[Matching] No valid JSON array found in response")
     except Exception as e:
         print(f"[Matching] AI match failed: {e}")
     return []
