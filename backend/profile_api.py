@@ -505,87 +505,76 @@ async def create_from_onboarding(payload: OnboardingPayload):
             c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (payload.clerk_id,))
             profile_id = c.fetchone()["id"]
 
-        colleges_matched = 0
-        try:
-            from enrichment_worker import ai_match_programs
-            import asyncio as _asyncio
+        # Build athlete profile for background AI matching + enrichment
+        mp_raw = payload.maxprepsData or {}
+        stats_preview = mp_raw.get("statsPreview") or []
+        maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
+        sport_label = mp_raw.get("sport") or position or "Basketball"
 
-            # Build athlete profile for AI matching
-            mp_raw = payload.maxprepsData or {}
-            stats_preview = mp_raw.get("statsPreview") or []
-            maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
-            sport_label = mp_raw.get("sport") or position or "Basketball"
+        athlete_profile_for_matching = {
+            "sport": sport_label,
+            "position": position,
+            "state": state,
+            "class_year": mp_raw.get("classYear"),
+            "maxpreps_stats": maxpreps_stats,
+            "recruiting_goals": payload.recruitingGoals or {},
+        }
 
-            athlete_profile = {
-                "sport": sport_label,
-                "position": position,
-                "state": state,
-                "class_year": mp_raw.get("classYear") or name,
-                "maxpreps_stats": maxpreps_stats,
-                "recruiting_goals": payload.recruitingGoals or {},
-            }
+        colleges_matched = 0  # Background job will populate
 
-            # Run AI matching (async — create new loop if needed)
-            try:
-                loop = _asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        future = pool.submit(_asyncio.run, ai_match_programs(athlete_profile))
-                        programs = future.result(timeout=45)
-                else:
-                    programs = loop.run_until_complete(ai_match_programs(athlete_profile))
-            except Exception as e:
-                print(f"[Matching] AI matching error: {e}")
-                programs = []
-
-            if programs:
-                with db.cursor() as c:
-                    c.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (profile_id,))
-
-                    for program in programs:
-                        fit_score = int(program.get("fit_score") or 75)
-                        fit_score = max(65, min(95, fit_score))
-                        fit_summary = program.get("fit_summary") or ""
-                        fit_reasons = [fit_summary] if fit_summary else []
-                        division = program.get("division") or "D1"
-
-                        c.execute("""
-                            INSERT INTO college_targets
-                                (sparq_profile_id, college_name, college_city, college_state,
-                                 division, fit_score, fit_reasons)
-                            VALUES (%s,%s,%s,%s,%s,%s,%s)
-                        """, (
-                            profile_id,
-                            program.get("name", "Unknown Program"),
-                            program.get("city", ""),
-                            program.get("state", ""),
-                            division,
-                            fit_score,
-                            json.dumps(fit_reasons),
-                        ))
-                        colleges_matched += 1
-                    db.commit()
-        except Exception as e:
-            print(f"College matching error (non-fatal): {e}")
-
-        # Fire-and-forget enrichment (runs in background, doesn't block response)
+        # Fire-and-forget: AI match + enrich runs async, doesn't block response
         try:
             import asyncio
-            from enrichment_worker import enrich_college_targets
+            from enrichment_worker import ai_match_programs, enrich_college_targets, _get_agent_db as _edb
 
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(
-                    enrich_college_targets(
+            async def _match_and_enrich():
+                try:
+                    programs = await ai_match_programs(athlete_profile_for_matching)
+                    if not programs:
+                        print("[Matching] No programs returned from AI match")
+                        return
+                    db2 = _edb()
+                    try:
+                        with db2.cursor() as c2:
+                            c2.execute("DELETE FROM college_targets WHERE sparq_profile_id = %s", (profile_id,))
+                            for prog in programs:
+                                fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
+                                fit_summary = prog.get("fit_summary") or ""
+                                c2.execute("""
+                                    INSERT INTO college_targets
+                                        (sparq_profile_id, college_name, college_city, college_state,
+                                         division, fit_score, fit_reasons)
+                                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                                """, (
+                                    profile_id,
+                                    prog.get("name", "Unknown"),
+                                    prog.get("city", ""),
+                                    prog.get("state", ""),
+                                    prog.get("division") or "D1",
+                                    fit_score,
+                                    json.dumps([fit_summary] if fit_summary else []),
+                                ))
+                        db2.commit()
+                        print(f"[Matching] Stored {len(programs)} colleges for profile {profile_id}")
+                    finally:
+                        db2.close()
+
+                    await enrich_college_targets(
                         sparq_profile_id=profile_id,
                         athlete_position=position or "Athlete",
                         athlete_state=state or "US",
-                        athlete_sport=sport_label or "Basketball",
+                        athlete_sport=sport_label,
                     )
-                )
+                except Exception as e:
+                    print(f"[Matching] Background job error: {e}")
+
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(_match_and_enrich())
+            else:
+                loop.run_until_complete(_match_and_enrich())
         except Exception as e:
-            print(f"Warning: enrichment task not started: {e}")
+            print(f"Warning: background matching not started: {e}")
 
         return {
             "success": True,
