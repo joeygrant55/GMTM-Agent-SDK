@@ -1144,3 +1144,73 @@ async def trigger_matching(clerk_id: str):
     t.start()
     print(f"[Matching] Trigger thread launched: {t.name}")
     return {"status": "matching started", "profile_id": profile_id, "sport": sport_label, "position": position}
+
+
+@router.get("/workspace/profile/{clerk_id}")
+async def get_profile(clerk_id: str):
+    """Return full sparq_profiles row for the workspace profile editor."""
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT * FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            row = c.fetchone()
+    finally:
+        db.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Parse JSON columns
+    for col in ("maxpreps_data", "combine_metrics", "recruiting_goals"):
+        val = row.get(col)
+        if isinstance(val, str):
+            try:
+                row[col] = json.loads(val)
+            except Exception:
+                row[col] = {}
+        elif val is None:
+            row[col] = {}
+
+    return row
+
+
+class ProfileUpdatePayload(BaseModel):
+    gpa: float | None = None
+    majorArea: str | None = None
+    hudlUrl: str | None = None
+    combineMetrics: dict | None = None
+    recruitingGoals: dict | None = None
+
+
+@router.patch("/workspace/profile/{clerk_id}")
+async def update_profile(clerk_id: str, payload: ProfileUpdatePayload):
+    """Update editable fields on an existing sparq_profile."""
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            row = c.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Profile not found")
+
+            updates = []
+            values = []
+
+            if payload.gpa is not None:
+                updates.append("gpa = %s"); values.append(payload.gpa)
+            if payload.majorArea is not None:
+                updates.append("major_area = %s"); values.append(payload.majorArea)
+            if payload.hudlUrl is not None:
+                updates.append("hudl_url = %s"); values.append(payload.hudlUrl or None)
+            if payload.combineMetrics is not None:
+                updates.append("combine_metrics = %s"); values.append(json.dumps(payload.combineMetrics))
+            if payload.recruitingGoals is not None:
+                updates.append("recruiting_goals = %s"); values.append(json.dumps(payload.recruitingGoals))
+
+            if updates:
+                values.append(clerk_id)
+                c.execute(f"UPDATE sparq_profiles SET {', '.join(updates)} WHERE clerk_id = %s", values)
+                db.commit()
+    finally:
+        db.close()
+
+    return {"success": True}

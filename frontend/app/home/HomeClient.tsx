@@ -99,7 +99,7 @@ export default function HomeClient() {
           <div className="text-2xl mb-3">📊</div>
           <h2 className="font-bold text-white">Complete Your Profile</h2>
           <p className="text-gray-400 text-sm mt-2">Add combine metrics to improve your matches.</p>
-          <Link href="/onboarding/profile" className="inline-block mt-4 text-sparq-lime font-semibold">
+          <Link href="/home/profile" className="inline-block mt-4 text-sparq-lime font-semibold">
             Update Profile
           </Link>
         </div>

@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: '🏠 Home', href: '/home' },
   { label: '🎓 Colleges', href: '/home/colleges' },
   { label: '✉️ Outreach', href: '/home/outreach' },
-  { label: '👤 Profile', href: '/onboarding/profile' },
+  { label: '👤 Profile', href: '/home/profile' },
   { label: '📅 Timeline', href: '/home/timeline' },
 ]
 
