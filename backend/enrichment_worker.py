@@ -131,12 +131,13 @@ def _extract_json(text: str) -> Optional[Dict]:
     return None
 
 
-async def ai_match_programs(athlete_profile: Dict) -> List[Dict]:
-    """Use Claude + web_search to find programs actually recruiting this athlete's sport/position."""
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+def ai_match_programs_sync(athlete_profile: Dict) -> List[Dict]:
+    """Use Claude (sync, no web_search) to generate a college target list from athlete profile."""
+    import anthropic as _anthropic
+    client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     sport = athlete_profile.get("sport") or athlete_profile.get("position") or "Basketball"
-    position = athlete_profile.get("position") or ""
+    position = athlete_profile.get("position") or sport
     state = athlete_profile.get("state") or ""
     class_year = athlete_profile.get("class_year") or "2026"
     goals = athlete_profile.get("recruiting_goals") or {}
@@ -147,63 +148,61 @@ async def ai_match_programs(athlete_profile: Dict) -> List[Dict]:
             goals = {}
     target_level = goals.get("targetLevel", "Open")
     geography = goals.get("geography", "Anywhere")
-
     stats = athlete_profile.get("maxpreps_stats") or {}
-    stats_str = ", ".join(f"{k}: {v}" for k, v in stats.items()) if stats else "stats available in profile"
+    stats_str = ", ".join(f"{k}: {v}" for k, v in stats.items()) if stats else "no stats provided"
 
     user_prompt = (
-        f"Find college {sport} programs that would realistically recruit this athlete:\n"
-        f"- Sport: {sport}\n"
-        f"- Position: {position}\n"
-        f"- Class of: {class_year}\n"
-        f"- From: {state}\n"
-        f"- Key stats: {stats_str}\n"
-        f"- Target division: {target_level}\n"
-        f"- Geography preference: {geography}\n\n"
-        f"Search for {sport} programs actively recruiting {position}s in the {class_year} class. "
-        "Include programs where this athlete's stats would be competitive. "
-        "Be specific about why each program fits. Return as JSON array only."
+        f"Generate a college target list for this athlete:\n"
+        f"- Sport: {sport}, Position: {position}\n"
+        f"- Class of {class_year}, from {state}\n"
+        f"- Stats: {stats_str}\n"
+        f"- Target division: {target_level}, Geography: {geography}\n\n"
+        f"Return 8-12 realistic college {sport} programs that would recruit this athlete. "
+        "Mix 2-3 reach schools with 5-7 realistic fits. "
+        "For each, explain specifically why they fit this athlete's stats and goals. "
+        "Return ONLY a JSON array."
     )
 
     try:
-        response = await client.messages.create(
+        print(f"[Matching] Calling Claude for {sport} {position} from {state}...")
+        response = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=3000,
             system=AI_MATCHING_SYSTEM,
-            tools=[WEB_SEARCH_TOOL],
             messages=[{"role": "user", "content": user_prompt}],
         )
-        full_text = ""
-        for block in response.content:
-            if hasattr(block, "text"):
-                full_text += block.text
+        full_text = "".join(b.text for b in response.content if hasattr(b, "text"))
+        print(f"[Matching] Response ({len(full_text)} chars): {full_text[:200]}")
 
-        print(f"[Matching] Raw response ({len(full_text)} chars): {full_text[:300]}")
-
-        if full_text:
-            # Try direct parse first
-            try:
-                parsed = json.loads(full_text.strip())
-                if isinstance(parsed, list) and parsed:
-                    print(f"[Matching] Found {len(parsed)} programs (direct parse)")
-                    return parsed
-            except Exception:
-                pass
-            # Try extracting JSON array
-            m = re.search(r"\[\s*\{.*?\}\s*\]", full_text, re.DOTALL)
+        for pattern in [r"\[\s*\{.*?\}\s*\]", r"\[.*?\]"]:
+            m = re.search(pattern, full_text, re.DOTALL)
             if m:
                 try:
                     programs = json.loads(m.group())
                     if isinstance(programs, list) and programs:
-                        print(f"[Matching] Found {len(programs)} programs (regex extract)")
+                        print(f"[Matching] Found {len(programs)} programs")
                         return programs
-                except Exception as pe:
-                    print(f"[Matching] JSON parse failed: {pe} | text: {m.group()[:200]}")
-
-        print(f"[Matching] No valid JSON array found in response")
+                except Exception:
+                    pass
+        # direct parse
+        try:
+            parsed = json.loads(full_text.strip())
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
+        print(f"[Matching] Could not parse JSON from response")
     except Exception as e:
-        print(f"[Matching] AI match failed: {e}")
+        print(f"[Matching] Claude call failed: {e}")
     return []
+
+
+async def ai_match_programs(athlete_profile: Dict) -> List[Dict]:
+    """Async wrapper — runs sync Claude call in thread pool."""
+    loop = asyncio.get_event_loop()
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return await loop.run_in_executor(pool, ai_match_programs_sync, athlete_profile)
 
 
 async def _research_one_college(
