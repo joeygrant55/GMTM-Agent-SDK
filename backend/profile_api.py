@@ -960,3 +960,69 @@ async def maxpreps_search(q: str, limit: int = 10):
         })
 
     return results
+
+
+@router.get("/maxpreps/athlete-stats")
+async def maxpreps_athlete_stats(url: str):
+    """Fetch real stats from a MaxPreps athlete profile page."""
+    import requests as _requests, json, re
+    from concurrent.futures import ThreadPoolExecutor
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+    }
+
+    def _fetch():
+        resp = _requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+        return resp.text
+
+    try:
+        loop = __import__('asyncio').get_event_loop()
+        with ThreadPoolExecutor() as pool:
+            html = await loop.run_in_executor(pool, _fetch)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"MaxPreps fetch failed: {e}")
+
+    match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=502, detail="Could not parse MaxPreps response")
+
+    try:
+        data = json.loads(match.group(1))
+        pp = data["props"]["pageProps"]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"JSON parse error: {e}")
+
+    # Pull athlete name and career info
+    athlete_name = pp.get("athleteName", "")
+    career_context = pp.get("careerContext") or {}
+
+    # Extract quickStats from careerHomeCards
+    cards = pp.get("careerHomeCards") or {}
+    quick_stats_list = cards.get("quickStats") or []
+
+    seasons = []
+    for qs in quick_stats_list:
+        sport = qs.get("sport", "")
+        season_year = qs.get("seasonYear", "")
+        position = qs.get("position", "")
+        categories = qs.get("categories") or []
+        stats = {c["name"]: c.get("seasonValue") for c in categories}
+        seasons.append({
+            "sport": sport,
+            "season": season_year,
+            "position": position,
+            "stats": stats,
+        })
+
+    # Extract career history for multi-season progression
+    career_history = pp.get("careerHistoryData") or {}
+
+    return {
+        "athleteName": athlete_name,
+        "sport": quick_stats_list[0].get("sport") if quick_stats_list else None,
+        "position": quick_stats_list[0].get("position") if quick_stats_list else None,
+        "seasons": seasons,
+        "careerHistory": career_history,
+    }
