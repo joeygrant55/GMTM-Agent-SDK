@@ -102,7 +102,9 @@ Each program object must have:
 }
 
 Requirements:
-- Programs must actually have the athlete's sport
+- Programs must actually have the athlete's EXACT sport (e.g. if sport is "Girls Basketball", only return women's basketball programs — NOT men's)
+- If sport contains "Girls" or "Women's", every program must have an active women's program for that sport
+- If sport contains "Boys" or "Men's", every program must have an active men's program for that sport
 - Mix of realistic reaches (2-3) and likely fits (5-7)
 - Be specific — mention real program strengths, geographic fit, recruiting history
 - Return 8-12 programs total as a JSON array only
@@ -220,6 +222,7 @@ async def _research_one_college(
 
     user_prompt = (
         f"Research {college_name} ({division}, {city}, {state}) {athlete_sport} program. "
+        f"IMPORTANT: The athlete plays {athlete_sport}. If this is 'Girls Basketball' or 'Women's Basketball', research the WOMEN'S program only. "
         f"I'm looking for information relevant to a {athlete_position} {athlete_sport} recruit from {athlete_state}, Class of 2026. "
         f"Find: head coach, {athlete_sport} position coach, coaching philosophy, 2026 recruiting needs for this position, "
         "recent scholarship offer activity, any upcoming camps or showcases, and why this program fits the athlete. "

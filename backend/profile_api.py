@@ -548,7 +548,9 @@ async def create_from_onboarding(payload: OnboardingPayload):
         mp_raw = payload.maxprepsData or {}
         stats_preview = mp_raw.get("statsPreview") or []
         maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
-        sport_label = mp_raw.get("sport") or position or "Basketball"
+        # Use full gendered sport name (e.g. "Girls Basketball") from sports array
+        _sports_list = mp_raw.get("sports") or []
+        sport_label = _sports_list[0] if _sports_list else (mp_raw.get("sport") or position or "Basketball")
 
         athlete_profile_for_matching = {
             "sport": sport_label,
@@ -934,7 +936,7 @@ async def maxpreps_search(q: str, limit: int = 8):
     # --- Build profile URLs ---
     def career_to_base(c):
         sports_raw = c.get("sports") or []
-        sport_label = sports_raw[0].replace("Boys ", "").replace("Girls ", "") if sports_raw else None
+        sport_label = sports_raw[0] if sports_raw else None  # Keep full name e.g. "Girls Basketball" 
         profile_url = f"https://www.maxpreps.com{c.get('careerCanonicalUrl', '')}" if c.get("careerCanonicalUrl") else None
         return {
             "id": c.get("careerId"),
@@ -1118,7 +1120,9 @@ async def trigger_matching(clerk_id: str):
 
     stats_preview = maxpreps.get("statsPreview") or []
     maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
-    sport_label = maxpreps.get("sport") or position or "Basketball"
+    # Use full gendered sport name (e.g. "Girls Basketball") from sports array
+    _sports_list = maxpreps.get("sports") or []
+    sport_label = _sports_list[0] if _sports_list else (maxpreps.get("sport") or position or "Basketball")
 
     goals = profile.get("recruiting_goals")
     if isinstance(goals, str):
