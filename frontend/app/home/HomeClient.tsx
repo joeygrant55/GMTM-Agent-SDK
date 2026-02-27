@@ -89,7 +89,9 @@ export default function HomeClient() {
           <div className="text-2xl mb-3">✉️</div>
           <h2 className="font-bold text-white">Draft Coach Emails</h2>
           <p className="text-gray-400 text-sm mt-2">Start reaching out to your top programs.</p>
-          <p className="mt-4 text-gray-500 font-semibold">Coming Soon</p>
+          <Link href="/home/outreach/draft" className="inline-block mt-4 text-sparq-lime font-semibold">
+            Start Drafting →
+          </Link>
         </div>
 
         <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">

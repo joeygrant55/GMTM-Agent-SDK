@@ -71,7 +71,7 @@ export default function Home() {
             Get $5,000-level recruiting guidance for a fraction of the cost. SPARQ Agent analyzes your profile, matches you to programs, researches coaching staffs, and helps you get recruited — 24/7.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
-            <Link href="/sign-up" className="px-8 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-lg hover:bg-sparq-lime-dark transition-colors">
+            <Link href="/onboarding/search" className="px-8 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-lg hover:bg-sparq-lime-dark transition-colors">
               Get Started Free
             </Link>
             <Link href="/demo" className="px-8 py-4 border border-white/20 text-white font-medium text-lg rounded-lg hover:bg-white/5 transition-colors">
@@ -230,7 +230,7 @@ export default function Home() {
               <li className="flex gap-2"><span className="text-sparq-lime">✓</span> Camp finder</li>
               <li className="flex gap-2"><span className="text-sparq-lime">✓</span> 1 saved report</li>
             </ul>
-            <Link href="/sign-up" className="block text-center px-6 py-3 border border-white/20 rounded-lg font-medium hover:bg-white/5 transition-colors">
+            <Link href="/onboarding/search" className="block text-center px-6 py-3 border border-white/20 rounded-lg font-medium hover:bg-white/5 transition-colors">
               Get Started
             </Link>
           </div>
@@ -251,7 +251,7 @@ export default function Home() {
               <li className="flex gap-2"><span className="text-sparq-lime">✓</span> Unlimited saved reports</li>
               <li className="flex gap-2"><span className="text-sparq-lime">✓</span> Priority research</li>
             </ul>
-            <Link href="/sign-up" className="block text-center px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg hover:bg-sparq-lime-dark transition-colors">
+            <Link href="/onboarding/search" className="block text-center px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg hover:bg-sparq-lime-dark transition-colors">
               Start Free Trial
             </Link>
           </div>
@@ -266,7 +266,7 @@ export default function Home() {
             Built on 75,000 athlete profiles and 2,900 college programs. Your recruiting edge starts here.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/sign-up" className="px-8 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-lg hover:bg-sparq-lime-dark transition-colors">
+            <Link href="/onboarding/search" className="px-8 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-lg hover:bg-sparq-lime-dark transition-colors">
               Get Started Free
             </Link>
             <div className="flex items-center gap-2">

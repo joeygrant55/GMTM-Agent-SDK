@@ -9,6 +9,7 @@ interface College {
   college_state: string
   division: string
   fit_score: number
+  fit_reasons?: string[] | null
   status: string
 }
 
@@ -148,6 +149,9 @@ export default function CollegesPage() {
       <div className="px-8 space-y-3">
         {filteredColleges.map((college) => {
           const status = statuses[college.id]
+          const fitReasons = Array.isArray(college.fit_reasons)
+            ? college.fit_reasons.filter((reason): reason is string => Boolean(reason)).slice(0, 3)
+            : []
           return (
             <div key={college.id} className="bg-white/[0.04] border border-white/10 rounded-xl p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center text-sparq-lime font-black text-lg">
@@ -174,6 +178,18 @@ export default function CollegesPage() {
                     />
                   </div>
                   <div className="text-xs text-gray-400 mt-1">{college.fit_score}% match</div>
+                  {fitReasons.length > 0 ? (
+                    <ul className="mt-2 text-xs text-gray-300 space-y-1">
+                      {fitReasons.map((reason, index) => (
+                        <li key={`${college.id}-reason-${index}`} className="flex items-start gap-1.5">
+                          <span className="text-sparq-lime leading-4">•</span>
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-2">🔍 Researching this program...</p>
+                  )}
                 </div>
               </div>
 

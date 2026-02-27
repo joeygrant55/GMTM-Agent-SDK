@@ -342,13 +342,13 @@ export default function QuickScanClient() {
             </div>
             <h2 className="text-2xl font-black text-white mb-2">Connect Your Athlete Profile</h2>
             <p className="text-gray-400 mb-6 max-w-md mx-auto">
-              Link your GMTM athlete profile to see your personalized Quick Scan with real metrics and percentile rankings.
+              Link your MaxPreps athlete profile to see your personalized Quick Scan with real metrics and percentile rankings.
             </p>
             <Link
-              href="/connect"
+              href="/onboarding/search"
               className="inline-flex items-center gap-2 px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105"
             >
-              Connect Profile →
+              Find My Profile →
             </Link>
           </div>
         )}
@@ -436,7 +436,7 @@ export default function QuickScanClient() {
             ) : (
               <div className="text-center py-10 border border-white/10 rounded-2xl">
                 <p className="text-gray-500 mb-3">No metrics on file yet.</p>
-                <p className="text-xs text-gray-600">Complete your GMTM profile to see your numbers here.</p>
+                <p className="text-xs text-gray-600">Complete your MaxPreps profile to see your numbers here.</p>
               </div>
             )}
 
