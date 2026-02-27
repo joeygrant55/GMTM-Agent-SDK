@@ -77,7 +77,7 @@ export default function GeneratingPage() {
     const timer = setTimeout(() => {
       if (redirected.current) return
       redirected.current = true
-      router.push('/home')
+      router.push('/onboarding/welcome')
     }, total)
 
     return () => clearTimeout(timer)

@@ -39,6 +39,34 @@ def _get_gmtm_db():
     )
 
 
+def _generate_fit_preview(college: dict, profile: dict) -> list[str]:
+    """Generate instant fit reasons from existing DB data (no AI needed)."""
+    reasons: list[str] = []
+    position = str(profile.get("position") or "athlete").strip()
+
+    div = str(college.get("division") or "").strip()
+    if div:
+        reasons.append(f"{div} program actively recruiting {position}s")
+
+    college_city = str(college.get("college_city") or "").strip()
+    college_state = str(college.get("college_state") or "").strip()
+    target_geo = str(profile.get("target_geography") or "Anywhere").strip()
+    athlete_state = str(profile.get("state") or "").strip()
+
+    if target_geo == "Anywhere":
+        reasons.append("Matches your open geography preference")
+    elif target_geo == "In-state" and college_state and athlete_state and college_state == athlete_state:
+        reasons.append(f"In-state program — {college_state}")
+    elif college_city or college_state:
+        reasons.append(f"Located in {', '.join([v for v in [college_city, college_state] if v])}")
+
+    grad_year = profile.get("grad_year") or profile.get("class_year")
+    if grad_year:
+        reasons.append(f"Recruiting the Class of {grad_year}")
+
+    return reasons[:3]
+
+
 def _ensure_tables():
     db = None
     try:
@@ -61,6 +89,7 @@ def _ensure_tables():
                     hudl_url VARCHAR(500),
                     combine_metrics JSON,
                     recruiting_goals JSON,
+                    enrichment_complete TINYINT(1) DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )
@@ -106,6 +135,10 @@ def _ensure_tables():
                     INDEX idx_profile (sparq_profile_id)
                 )
             """)
+            try:
+                c.execute("ALTER TABLE sparq_profiles ADD COLUMN enrichment_complete TINYINT(1) DEFAULT 0")
+            except Exception:
+                pass  # Column already exists
             # Ensure agent_conversations has clerk_id column (may be missing on old tables)
             try:
                 c.execute("ALTER TABLE agent_conversations ADD COLUMN clerk_id VARCHAR(255) DEFAULT NULL")
@@ -437,9 +470,9 @@ async def create_from_onboarding(payload: OnboardingPayload):
             c.execute("""
                 INSERT INTO sparq_profiles
                     (clerk_id, maxpreps_athlete_id, maxpreps_data, name, position, school,
-                     class_year, city, state, gpa, major_area, hudl_url,
+                     class_year, city, state, gpa, major_area, hudl_url, enrichment_complete,
                      combine_metrics, recruiting_goals)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON DUPLICATE KEY UPDATE
                     maxpreps_data=VALUES(maxpreps_data),
                     name=VALUES(name), position=VALUES(position),
@@ -447,6 +480,7 @@ async def create_from_onboarding(payload: OnboardingPayload):
                     city=VALUES(city), state=VALUES(state),
                     gpa=VALUES(gpa), major_area=VALUES(major_area),
                     hudl_url=VALUES(hudl_url),
+                    enrichment_complete=0,
                     combine_metrics=VALUES(combine_metrics),
                     recruiting_goals=VALUES(recruiting_goals),
                     updated_at=CURRENT_TIMESTAMP
@@ -463,6 +497,7 @@ async def create_from_onboarding(payload: OnboardingPayload):
                 payload.gpa,
                 payload.majorArea,
                 payload.hudlUrl,
+                0,
                 json.dumps(payload.combineMetrics) if payload.combineMetrics else None,
                 json.dumps(payload.recruitingGoals) if payload.recruitingGoals else None,
             ))
@@ -573,10 +608,28 @@ async def get_college_targets(clerk_id: str):
     db = _get_agent_db()
     try:
         with db.cursor() as c:
-            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            c.execute(
+                "SELECT id, position, class_year, state, recruiting_goals FROM sparq_profiles WHERE clerk_id = %s",
+                (clerk_id,),
+            )
             profile = c.fetchone()
             if not profile:
                 return {"colleges": [], "total": 0}
+            recruiting_goals = profile.get("recruiting_goals")
+            if isinstance(recruiting_goals, str):
+                try:
+                    recruiting_goals = json.loads(recruiting_goals)
+                except Exception:
+                    recruiting_goals = {}
+            if not isinstance(recruiting_goals, dict):
+                recruiting_goals = {}
+            profile_data = {
+                "position": profile.get("position"),
+                "class_year": profile.get("class_year"),
+                "grad_year": profile.get("class_year"),
+                "state": profile.get("state"),
+                "target_geography": recruiting_goals.get("geography", "Anywhere"),
+            }
             c.execute("""
                 SELECT id, college_name, college_city, college_state,
                        division, fit_score, fit_reasons, status
@@ -591,7 +644,41 @@ async def get_college_targets(clerk_id: str):
                         col["fit_reasons"] = json.loads(col["fit_reasons"])
                     except Exception:
                         col["fit_reasons"] = []
+                if not isinstance(col.get("fit_reasons"), list) or len(col.get("fit_reasons") or []) == 0:
+                    col["fit_reasons"] = _generate_fit_preview(col, profile_data)
             return {"colleges": colleges, "total": len(colleges)}
+    finally:
+        db.close()
+
+
+@router.get("/workspace/enrichment-status/{clerk_id}")
+async def get_enrichment_status(clerk_id: str):
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT id, enrichment_complete FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            profile = c.fetchone()
+            if not profile:
+                return {"complete": False, "colleges_researched": 0, "total": 0}
+
+            c.execute(
+                """
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE
+                        WHEN fit_reasons IS NOT NULL
+                         AND JSON_LENGTH(fit_reasons) > 0
+                        THEN 1 ELSE 0 END) AS colleges_researched
+                FROM college_targets
+                WHERE sparq_profile_id = %s
+                """,
+                (profile["id"],),
+            )
+            counts = c.fetchone() or {}
+            total = int(counts.get("total") or 0)
+            researched = int(counts.get("colleges_researched") or 0)
+            complete = bool(profile.get("enrichment_complete")) or (total > 0 and researched >= total)
+            return {"complete": complete, "colleges_researched": researched, "total": total}
     finally:
         db.close()
 

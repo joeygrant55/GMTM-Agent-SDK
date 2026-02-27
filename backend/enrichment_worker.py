@@ -214,3 +214,13 @@ async def enrich_college_targets(sparq_profile_id: int, athlete_position: str, a
             stored += 1
 
     print(f"[Enrichment] Complete — enriched {stored}/{len(colleges)} colleges for profile {sparq_profile_id}")
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                "UPDATE sparq_profiles SET enrichment_complete = 1 WHERE id = %s",
+                (sparq_profile_id,),
+            )
+        db.commit()
+    finally:
+        db.close()

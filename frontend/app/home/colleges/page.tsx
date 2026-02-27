@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useUser } from '@clerk/nextjs'
 
 interface College {
   id: number
@@ -41,60 +42,75 @@ const STATUS_OPTIONS = ['Researching', 'Interested', 'Contacted', 'Visited', 'Of
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
 export default function CollegesPage() {
+  const { user, isLoaded } = useUser()
   const [division, setDivision] = useState<(typeof DIVISION_FILTERS)[number]>('All')
   const [colleges, setColleges] = useState<College[]>([])
   const [loading, setLoading] = useState(true)
   const [statuses, setStatuses] = useState<Record<number, string>>({})
+  const [enrichmentComplete, setEnrichmentComplete] = useState(false)
+  const [toast, setToast] = useState('')
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
+
+  const applyColleges = (list: College[]) => {
+    setColleges(list)
+    setStatuses((prev) => ({ ...Object.fromEntries(list.map((c) => [c.id, c.status])), ...prev }))
+  }
+
+  const loadColleges = async (clerkId?: string) => {
+    if (!clerkId) {
+      applyColleges(MOCK_FALLBACK)
+      setLoading(false)
+      return
+    }
+    try {
+      const res = await fetch(`${backendUrl}/api/workspace/colleges/${clerkId}`)
+      const data = await res.json()
+      const list = data.colleges && data.colleges.length > 0 ? data.colleges : MOCK_FALLBACK
+      applyColleges(list)
+    } catch {
+      applyColleges(MOCK_FALLBACK)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false
+    if (!isLoaded) return
+    void loadColleges(user?.id)
+  }, [isLoaded, user?.id])
 
-    const loadColleges = async () => {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
-      const clerkId = (window as unknown as { Clerk?: { user?: { id?: string } } }).Clerk?.user?.id
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(''), 4500)
+    return () => clearTimeout(timer)
+  }, [toast])
 
-      if (!clerkId) {
-        if (!cancelled) {
-          setColleges(MOCK_FALLBACK)
-          setStatuses(Object.fromEntries(MOCK_FALLBACK.map((c) => [c.id, c.status])))
-          setLoading(false)
-        }
-        return
-      }
+  useEffect(() => {
+    if (!isLoaded || !user?.id || enrichmentComplete) return
 
+    const pollStatus = async () => {
       try {
-        const res = await fetch(`${backendUrl}/api/workspace/colleges/${clerkId}`)
-        const data = await res.json()
-        const list = data.colleges && data.colleges.length > 0 ? data.colleges : MOCK_FALLBACK
-        if (!cancelled) {
-          setColleges(list)
-          setStatuses(Object.fromEntries(list.map((c: College) => [c.id, c.status])))
+        const res = await fetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
+        if (!res.ok) return
+        const data = await res.json() as { complete?: boolean }
+        if (data.complete) {
+          setEnrichmentComplete(true)
+          setToast('✅ Coach research complete — your fit breakdown is ready!')
+          await loadColleges(user.id)
         }
       } catch {
-        if (!cancelled) {
-          setColleges(MOCK_FALLBACK)
-          setStatuses(Object.fromEntries(MOCK_FALLBACK.map((c) => [c.id, c.status])))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
+        // no-op
       }
     }
 
-    const waitForClerk = async () => {
-      for (let i = 0; i < 20; i += 1) {
-        const clerkReady = (window as unknown as { Clerk?: { user?: { id?: string } } }).Clerk?.user?.id
-        if (clerkReady) break
-        await new Promise((resolve) => setTimeout(resolve, 150))
-      }
-      await loadColleges()
-    }
+    void pollStatus()
+    const interval = setInterval(() => {
+      void pollStatus()
+    }, 30000)
 
-    waitForClerk()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => clearInterval(interval)
+  }, [backendUrl, enrichmentComplete, isLoaded, user?.id])
 
   const updateStatus = (collegeId: number, newStatus: string) => {
     setStatuses((prev) => ({ ...prev, [collegeId]: newStatus }))
@@ -151,7 +167,11 @@ export default function CollegesPage() {
           const status = statuses[college.id]
           const fitReasons = Array.isArray(college.fit_reasons)
             ? college.fit_reasons.filter((reason): reason is string => Boolean(reason)).slice(0, 3)
-            : []
+            : [
+                `${college.division} program fit`,
+                `Located in ${college.college_city}, ${college.college_state}`,
+                'Recruiting your class profile',
+              ]
           return (
             <div key={college.id} className="bg-white/[0.04] border border-white/10 rounded-xl p-4 flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-sparq-lime/10 border border-sparq-lime/20 flex items-center justify-center text-sparq-lime font-black text-lg">
@@ -178,18 +198,14 @@ export default function CollegesPage() {
                     />
                   </div>
                   <div className="text-xs text-gray-400 mt-1">{college.fit_score}% match</div>
-                  {fitReasons.length > 0 ? (
-                    <ul className="mt-2 text-xs text-gray-300 space-y-1">
-                      {fitReasons.map((reason, index) => (
-                        <li key={`${college.id}-reason-${index}`} className="flex items-start gap-1.5">
-                          <span className="text-sparq-lime leading-4">•</span>
-                          <span>{reason}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-2">🔍 Researching this program...</p>
-                  )}
+                  <ul className="mt-2 text-xs text-gray-300 space-y-1">
+                    {fitReasons.map((reason, index) => (
+                      <li key={`${college.id}-reason-${index}`} className="flex items-start gap-1.5">
+                        <span className="text-sparq-lime leading-4">•</span>
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
 
@@ -208,6 +224,11 @@ export default function CollegesPage() {
           )
         })}
       </div>
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-black/80 border border-sparq-lime/40 text-sparq-lime text-sm px-4 py-3 rounded-xl backdrop-blur">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
