@@ -903,3 +903,60 @@ async def get_workspace_timeline(clerk_id: str):
         return events
     finally:
         db.close()
+
+
+@router.get("/maxpreps/search")
+async def maxpreps_search(q: str, limit: int = 10):
+    """Search MaxPreps athletes by scraping their SSR search results page."""
+    import requests as _requests, json, re
+    from concurrent.futures import ThreadPoolExecutor
+
+    url = f"https://www.maxpreps.com/search/?q={q.replace(' ', '+')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+    }
+
+    def _fetch():
+        resp = _requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+        return resp.text
+
+    try:
+        loop = __import__('asyncio').get_event_loop()
+        with ThreadPoolExecutor() as pool:
+            html = await loop.run_in_executor(pool, _fetch)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"MaxPreps fetch failed: {e}")
+
+    # Extract __NEXT_DATA__ JSON embedded in the page
+    match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=502, detail="Could not parse MaxPreps response")
+
+    try:
+        data = json.loads(match.group(1))
+        careers = data["props"]["pageProps"].get("initialCareerResults") or []
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"JSON parse error: {e}")
+
+    results = []
+    for c in careers[:limit]:
+        sports = c.get("sports", [])
+        # Derive a position-like label from sport (e.g. "Boys Football" -> "Football")
+        sport_label = None
+        if sports:
+            sport_label = sports[0].replace("Boys ", "").replace("Girls ", "")
+        results.append({
+            "id": c.get("careerId"),
+            "maxprepsAthleteId": c.get("careerId"),
+            "name": c.get("fullName"),
+            "school": c.get("schoolFormattedName"),
+            "state": c.get("state"),
+            "sports": sports,
+            "position": sport_label,
+            "classYear": c.get("careerGraduatingClass"),
+            "photoUrl": c.get("careerPhotoUrl"),
+            "profileUrl": f"https://www.maxpreps.com{c.get('careerCanonicalUrl', '')}",
+        })
+
+    return results

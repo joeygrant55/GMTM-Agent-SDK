@@ -80,7 +80,8 @@ export async function GET(request: NextRequest) {
           : []
 
     return NextResponse.json({ results })
-  } catch {
-    return NextResponse.json({ results: buildMockResults(q), fallback: true })
+  } catch (err) {
+    console.error('[maxpreps/search] error:', err)
+    return NextResponse.json({ results: [], error: 'Search unavailable' }, { status: 502 })
   }
 }
