@@ -10,13 +10,20 @@ interface Message {
   toolActivity?: string
 }
 
+const STARTER_PROMPTS = [
+  { emoji: '🎯', label: 'Which college should I contact first?', prompt: 'Looking at my college matches, which program should I reach out to first and why?' },
+  { emoji: '✉️', label: 'Write a coach outreach email', prompt: 'Help me write a cold outreach email to send to coaches at my top match schools.' },
+  { emoji: '📊', label: 'How does my profile compare?', prompt: 'How does my profile compare to typical recruits at my target division level? Where am I strong and where do I need to improve?' },
+  { emoji: '🏋️', label: 'What do coaches look for?', prompt: 'What do college coaches specifically look for in an athlete at my position? What should I be highlighting in my recruiting process?' },
+]
+
 export default function WorkspaceAIPanel() {
   const { user, isLoaded } = useUser()
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
       content:
-        'Hey! I am your recruiting AI. I can help you find college matches, research programs, draft coach emails, and analyze your profile. What are you working on?',
+        "Your recruiting AI is ready. I know your stats, your target schools, and how your profile stacks up — ask me anything, or start with one of these:",
     },
   ])
   const [input, setInput] = useState('')
@@ -24,6 +31,8 @@ export default function WorkspaceAIPanel() {
   const [toolActivity, setToolActivity] = useState<string | null>(null)
   const sessionIdRef = useRef<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const hasUserMessages = messages.some(m => m.role === 'user')
 
   useEffect(() => {
     if (isLoaded && user?.id) {
@@ -38,12 +47,10 @@ export default function WorkspaceAIPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading || !user?.id) {
-      return
-    }
+  const sendMessage = async (overrideText?: string) => {
+    const userMessage = (overrideText ?? input).trim()
+    if (!userMessage || loading || !user?.id) return
 
-    const userMessage = input.trim()
     setInput('')
     setLoading(true)
     setToolActivity(null)
@@ -61,9 +68,7 @@ export default function WorkspaceAIPanel() {
 
     try {
       const response = await fetch(`${backendUrl}/api/agent/stream?${params}`)
-      if (!response.body) {
-        throw new Error('No response body')
-      }
+      if (!response.body) throw new Error('No response body')
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
@@ -72,21 +77,15 @@ export default function WorkspaceAIPanel() {
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) {
-          break
-        }
+        if (done) break
 
         buffer += decoder.decode(value, { stream: true })
         const events = buffer.split('\n\n')
         buffer = events.pop() || ''
 
         for (const eventChunk of events) {
-          const line = eventChunk
-            .split('\n')
-            .find((l) => l.startsWith('data: '))
-          if (!line) {
-            continue
-          }
+          const line = eventChunk.split('\n').find((l) => l.startsWith('data: '))
+          if (!line) continue
 
           try {
             const data = JSON.parse(line.slice(6))
@@ -96,9 +95,7 @@ export default function WorkspaceAIPanel() {
               localStorage.setItem(`sparq_session_${user.id}`, data.session_id)
             }
 
-            if (data.type === 'tool') {
-              setToolActivity(data.label)
-            }
+            if (data.type === 'tool') setToolActivity(data.label)
 
             if (data.type === 'text') {
               assistantText += data.text
@@ -110,9 +107,7 @@ export default function WorkspaceAIPanel() {
               })
             }
 
-            if (data.type === 'done') {
-              setToolActivity(null)
-            }
+            if (data.type === 'done') setToolActivity(null)
           } catch {
             // Skip malformed chunks
           }
@@ -161,7 +156,11 @@ export default function WorkspaceAIPanel() {
                       ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
                       li: ({ children }) => <li className="text-gray-200">{children}</li>,
                       hr: () => <hr className="border-white/10 my-2" />,
-                      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-sparq-lime underline">{children}</a>,
+                      a: ({ href, children }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-sparq-lime underline">
+                          {children}
+                        </a>
+                      ),
                     }}
                   >
                     {msg.content}
@@ -169,14 +168,31 @@ export default function WorkspaceAIPanel() {
                 ) : (
                   msg.content
                 )
-              ) : (
-                loading && i === messages.length - 1 ? (
-                  <span className="text-gray-500 italic">{toolActivity || 'Thinking...'}</span>
-                ) : null
-              )}
+              ) : loading && i === messages.length - 1 ? (
+                <span className="text-gray-500 italic">{toolActivity || 'Thinking...'}</span>
+              ) : null}
             </div>
+
+            {/* Starter prompts — show only after the first assistant message when no user messages yet */}
+            {i === 0 && !hasUserMessages && (
+              <div className="mt-3 space-y-2">
+                {STARTER_PROMPTS.map((sp) => (
+                  <button
+                    key={sp.prompt}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void sendMessage(sp.prompt)}
+                    className="w-full text-left px-3 py-2 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-sparq-lime/30 transition-colors text-xs text-gray-300 flex items-center gap-2 disabled:opacity-40"
+                  >
+                    <span className="text-base leading-none shrink-0">{sp.emoji}</span>
+                    <span>{sp.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
+
         {toolActivity && loading && (
           <div className="mr-4">
             <div className="bg-white/[0.04] border border-white/10 rounded-xl p-3 text-sm text-gray-400 italic">
