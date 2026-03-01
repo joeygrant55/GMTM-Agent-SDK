@@ -132,6 +132,18 @@ export default function CollegeDetailPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Fire proactive AI analysis when college detail loads (fresh conversation only)
+  useEffect(() => {
+    if (!data || loading) return
+    const prompt = data.research_data
+      ? `I'm reviewing ${data.college_name} (${data.division}, ${data.college_city}, ${data.college_state}) — a ${data.fit_score}% fit for me. Based on the deep research, what's the single most important thing I should do right now to move this forward?`
+      : `I'm looking at ${data.college_name} — a ${data.fit_score}% match (${data.division}). Give me a quick 2-sentence read on whether I should prioritize this school and what my best first move is.`
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('sparq:proactive-prompt', { detail: { prompt } }))
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [data?.id, loading])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const startResearch = async () => {
     if (!user?.id || !collegeId) return
     setResearching(true)
