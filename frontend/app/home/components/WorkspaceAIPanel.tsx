@@ -33,6 +33,8 @@ export default function WorkspaceAIPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const hasUserMessages = messages.some(m => m.role === 'user')
+  const hasUserMessagesRef = useRef(false)
+  hasUserMessagesRef.current = hasUserMessages
 
   useEffect(() => {
     if (isLoaded && user?.id) {
@@ -41,6 +43,20 @@ export default function WorkspaceAIPanel() {
         sessionIdRef.current = stored
       }
     }
+  }, [isLoaded, user?.id])
+
+  // Listen for proactive prompts from child pages (e.g. Colleges page auto-analysis)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { prompt } = (e as CustomEvent<{ prompt: string }>).detail
+      // Only fire if conversation is fresh (no user messages yet)
+      if (!hasUserMessagesRef.current && prompt && isLoaded && user?.id) {
+        void sendMessage(prompt)
+      }
+    }
+    window.addEventListener('sparq:proactive-prompt', handler)
+    return () => window.removeEventListener('sparq:proactive-prompt', handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, user?.id])
 
   useEffect(() => {

@@ -94,6 +94,15 @@ export default function CollegesPage() {
       const data = await res.json()
       const list = data.colleges && data.colleges.length > 0 ? data.colleges : MOCK_FALLBACK
       applyColleges(list)
+      // Trigger proactive AI analysis if we have matches
+      if (list.length > 0) {
+        const likelyCount = list.filter((c: College) => c.fit_score >= 85).length
+        const topSchool = list.sort((a: College, b: College) => b.fit_score - a.fit_score)[0]
+        const proactivePrompt = `I just opened my college matches page. I have ${list.length} schools matched to my profile — ${likelyCount} Likely fits. My top match is ${topSchool.college_name} (${topSchool.fit_score}% fit). Give me a personalized 2-3 sentence analysis of where I should focus my recruiting efforts first and one concrete action I can take today.`
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('sparq:proactive-prompt', { detail: { prompt: proactivePrompt } }))
+        }, 1200)
+      }
     } catch {
       applyColleges([])
     } finally {
