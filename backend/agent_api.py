@@ -236,23 +236,27 @@ def _load_conversation(athlete_id: str) -> list:
         return []
 
 
-def _save_message(athlete_id: str, role: str, content):
-    """Persist message for conversation history."""
+def _save_message(athlete_id: str, role: str, content, conversation_id: Optional[int] = None):
+    """Persist message for conversation history. Uses conversation_id if provided (for forks)."""
     try:
         db = _get_agent_db()
         with db.cursor() as c:
-            c.execute(
-                "INSERT IGNORE INTO agent_conversations (clerk_id, created_at, updated_at) VALUES (%s, NOW(), NOW())",
-                (athlete_id,),
-            )
-            db.commit()
-            c.execute("SELECT id FROM agent_conversations WHERE clerk_id = %s", (athlete_id,))
-            conv = c.fetchone()
-            if conv:
+            if conversation_id:
+                conv_id = conversation_id
+            else:
+                c.execute(
+                    "INSERT IGNORE INTO agent_conversations (clerk_id, created_at, updated_at) VALUES (%s, NOW(), NOW())",
+                    (athlete_id,),
+                )
+                db.commit()
+                c.execute("SELECT id FROM agent_conversations WHERE clerk_id = %s ORDER BY id ASC LIMIT 1", (athlete_id,))
+                conv = c.fetchone()
+                conv_id = conv["id"] if conv else None
+            if conv_id:
                 content_str = json.dumps(content) if not isinstance(content, str) else content
                 c.execute(
                     "INSERT INTO agent_messages (conversation_id, role, content, created_at) VALUES (%s, %s, %s, NOW())",
-                    (conv["id"], role, content_str),
+                    (conv_id, role, content_str),
                 )
         db.commit()
         db.close()
@@ -261,7 +265,7 @@ def _save_message(athlete_id: str, role: str, content):
 
 
 @router.get("/api/agent/stream")
-async def stream_agent(athlete_id: str, message: str, session_id: Optional[str] = None):
+async def stream_agent(athlete_id: str, message: str, session_id: Optional[str] = None, fork_scenario: Optional[str] = None, conversation_id: Optional[int] = None):
     """
     Streaming workspace AI chat.
     - web_search: Anthropic native tool (web_search_20250305) — server-side, no client handling
@@ -313,10 +317,12 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
             athlete_context = ""
 
         system_with_profile = SYSTEM_PROMPT + athlete_context
+        if fork_scenario:
+            system_with_profile += f"\n\nHYPOTHETICAL SCENARIO (the athlete is exploring this what-if — adjust all advice accordingly): {fork_scenario}"
 
-        history = _load_conversation(athlete_id)
+        history = _load_conversation(athlete_id, conversation_id=conversation_id)
         messages = history + [{"role": "user", "content": message}]
-        _save_message(athlete_id, "user", message)
+        _save_message(athlete_id, "user", message, conversation_id=conversation_id)
 
         # Agentic loop — continues until end_turn
         # web_search is native: Anthropic executes it server-side within the stream,
@@ -367,7 +373,7 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
 
                 if final_message.stop_reason == "end_turn":
                     # Done — web_search (if used) was handled server-side within the stream
-                    _save_message(athlete_id, "assistant", current_text)
+                    _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
 
@@ -388,7 +394,7 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
 
                     if not pending_tool_results:
                         # No custom tools to handle — done
-                        _save_message(athlete_id, "assistant", current_text)
+                        _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
                         yield f"data: {json.dumps({'type': 'done'})}\n\n"
                         return
                     # Loop continues to send query_database results
@@ -456,3 +462,74 @@ async def chat_agent(request: dict):
     _save_message(athlete_id, "user", user_content)
     _save_message(athlete_id, "assistant", full_text)
     return {"response": full_text}
+
+
+# ── Session Forking ────────────────────────────────────────────────────────────
+
+def _ensure_fork_columns():
+    """Add fork columns to agent_conversations if missing (idempotent)."""
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            for ddl in [
+                "ALTER TABLE agent_conversations ADD COLUMN fork_scenario VARCHAR(500) DEFAULT NULL",
+                "ALTER TABLE agent_conversations ADD COLUMN parent_id INT DEFAULT NULL",
+            ]:
+                try:
+                    c.execute(ddl)
+                    db.commit()
+                except Exception:
+                    db.rollback()
+        db.close()
+    except Exception:
+        pass
+
+
+@router.post("/api/agent/fork")
+async def fork_session(request: dict):
+    """
+    Create a What-If fork of the athlete's current conversation.
+    Copies parent messages into a new conversation with fork_scenario set.
+    Returns: {session_id: str, fork_scenario: str}
+    """
+    _ensure_fork_columns()
+    athlete_id = str(request.get("athlete_id", ""))
+    scenario = str(request.get("scenario", "")).strip()[:500]
+    parent_conv_id = request.get("parent_conversation_id")  # optional int
+
+    if not athlete_id or not scenario:
+        return {"error": "athlete_id and scenario are required"}, 400
+
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            # Find parent conversation
+            if parent_conv_id:
+                c.execute("SELECT id FROM agent_conversations WHERE id = %s AND clerk_id = %s", (parent_conv_id, athlete_id))
+            else:
+                c.execute("SELECT id FROM agent_conversations WHERE clerk_id = %s ORDER BY id DESC LIMIT 1", (athlete_id,))
+            parent = c.fetchone()
+            parent_id = parent["id"] if parent else None
+
+            # Create fork conversation
+            c.execute(
+                "INSERT INTO agent_conversations (clerk_id, fork_scenario, parent_id, created_at, updated_at) VALUES (%s, %s, %s, NOW(), NOW())",
+                (athlete_id, scenario, parent_id),
+            )
+            db.commit()
+            fork_conv_id = c.lastrowid
+
+            # Copy parent messages into fork
+            if parent_id:
+                c.execute(
+                    """INSERT INTO agent_messages (conversation_id, role, content, created_at)
+                       SELECT %s, role, content, created_at FROM agent_messages
+                       WHERE conversation_id = %s ORDER BY id ASC""",
+                    (fork_conv_id, parent_id),
+                )
+                db.commit()
+
+        db.close()
+        return {"session_id": str(fork_conv_id), "fork_scenario": scenario}
+    except Exception as e:
+        return {"error": str(e)}

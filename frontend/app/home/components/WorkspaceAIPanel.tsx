@@ -29,27 +29,38 @@ export default function WorkspaceAIPanel() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [toolActivity, setToolActivity] = useState<string | null>(null)
-  const sessionIdRef = useRef<string | null>(null)
+
+  // Main session
+  const mainConversationIdRef = useRef<number | null>(null)
+
+  // Fork state
+  const [forkScenario, setForkScenario] = useState<string | null>(null)
+  const [forkConversationId, setForkConversationId] = useState<number | null>(null)
+  const [showForkInput, setShowForkInput] = useState(false)
+  const [forkInputText, setForkInputText] = useState('')
+  const [forkLoading, setForkLoading] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const hasUserMessages = messages.some(m => m.role === 'user')
   const hasUserMessagesRef = useRef(false)
   hasUserMessagesRef.current = hasUserMessages
 
+  // Active conversation id: fork if active, else main
+  const activeConversationId = forkConversationId ?? mainConversationIdRef.current
+
   useEffect(() => {
     if (isLoaded && user?.id) {
-      const stored = localStorage.getItem(`sparq_session_${user.id}`)
+      const stored = localStorage.getItem(`sparq_conv_${user.id}`)
       if (stored) {
-        sessionIdRef.current = stored
+        mainConversationIdRef.current = parseInt(stored, 10)
       }
     }
   }, [isLoaded, user?.id])
 
-  // Listen for proactive prompts from child pages (e.g. Colleges page auto-analysis)
   useEffect(() => {
     const handler = (e: Event) => {
       const { prompt } = (e as CustomEvent<{ prompt: string }>).detail
-      // Only fire if conversation is fresh (no user messages yet)
       if (!hasUserMessagesRef.current && prompt && isLoaded && user?.id) {
         void sendMessage(prompt)
       }
@@ -63,6 +74,9 @@ export default function WorkspaceAIPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const backendUrl =
+    process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
+
   const sendMessage = async (overrideText?: string) => {
     const userMessage = (overrideText ?? input).trim()
     if (!userMessage || loading || !user?.id) return
@@ -74,12 +88,11 @@ export default function WorkspaceAIPanel() {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
     setMessages((prev) => [...prev, { role: 'assistant', content: '', toolActivity: undefined }])
 
-    const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
     const params = new URLSearchParams({
       athlete_id: user.id,
       message: userMessage,
-      ...(sessionIdRef.current ? { session_id: sessionIdRef.current } : {}),
+      ...(activeConversationId ? { conversation_id: String(activeConversationId) } : {}),
+      ...(forkScenario ? { fork_scenario: forkScenario } : {}),
     })
 
     try {
@@ -107,8 +120,13 @@ export default function WorkspaceAIPanel() {
             const data = JSON.parse(line.slice(6))
 
             if (data.type === 'session' && data.session_id) {
-              sessionIdRef.current = data.session_id
-              localStorage.setItem(`sparq_session_${user.id}`, data.session_id)
+              if (!forkConversationId) {
+                const cid = parseInt(data.session_id, 10)
+                if (!isNaN(cid)) {
+                  mainConversationIdRef.current = cid
+                  localStorage.setItem(`sparq_conv_${user.id}`, String(cid))
+                }
+              }
             }
 
             if (data.type === 'tool') setToolActivity(data.label)
@@ -144,11 +162,102 @@ export default function WorkspaceAIPanel() {
     }
   }
 
+  const startFork = async () => {
+    const scenario = forkInputText.trim()
+    if (!scenario || !user?.id) return
+    setForkLoading(true)
+    try {
+      const res = await fetch(`${backendUrl}/api/agent/fork`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          athlete_id: user.id,
+          scenario,
+          parent_conversation_id: mainConversationIdRef.current,
+        }),
+      })
+      const data = await res.json()
+      if (data.session_id) {
+        setForkConversationId(parseInt(data.session_id, 10))
+        setForkScenario(data.fork_scenario)
+        setForkInputText('')
+        setShowForkInput(false)
+        setMessages([{
+          role: 'assistant',
+          content: `I'm now looking at your recruiting through a different lens: **${data.fork_scenario}**\n\nAsk me anything — I'll factor in this scenario for every answer.`,
+        }])
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setForkLoading(false)
+    }
+  }
+
+  const exitFork = () => {
+    setForkScenario(null)
+    setForkConversationId(null)
+    setShowForkInput(false)
+    setForkInputText('')
+    setMessages([{
+      role: 'assistant',
+      content: "Your recruiting AI is ready. I know your stats, your target schools, and how your profile stacks up — ask me anything, or start with one of these:",
+    }])
+  }
+
   return (
     <div className="border-l border-white/10 bg-sparq-charcoal flex flex-col w-[300px] shrink-0">
       <div className="p-4 border-b border-white/10">
-        <h2 className="font-bold text-white text-sm">Recruiting AI ✨</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-white text-sm">Recruiting AI ✨</h2>
+          {!forkScenario && (
+            <button
+              onClick={() => setShowForkInput(!showForkInput)}
+              className="text-xs text-gray-400 hover:text-sparq-lime transition-colors"
+              title="Explore a What If scenario"
+            >
+              🔀 What if...
+            </button>
+          )}
+          {forkScenario && (
+            <button
+              onClick={exitFork}
+              className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+              title="Exit what-if mode"
+            >
+              ✕ Exit
+            </button>
+          )}
+        </div>
+
+        {showForkInput && !forkScenario && (
+          <div className="mt-3 flex flex-col gap-2">
+            <input
+              type="text"
+              className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sparq-lime/50"
+              placeholder="e.g. I switched to tight end..."
+              value={forkInputText}
+              onChange={(e) => setForkInputText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void startFork() }}
+              disabled={forkLoading}
+              autoFocus
+            />
+            <button
+              onClick={() => void startFork()}
+              disabled={forkLoading || !forkInputText.trim()}
+              className="w-full bg-sparq-lime/20 border border-sparq-lime/30 hover:bg-sparq-lime/30 text-sparq-lime text-xs font-semibold py-1.5 rounded-lg transition-colors disabled:opacity-40"
+            >
+              {forkLoading ? 'Starting...' : 'Explore scenario →'}
+            </button>
+          </div>
+        )}
       </div>
+
+      {forkScenario && (
+        <div className="px-4 py-2 bg-sparq-lime/10 border-b border-sparq-lime/20 text-xs text-sparq-lime font-medium">
+          🔀 What if: {forkScenario}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg, i) => (
@@ -189,8 +298,7 @@ export default function WorkspaceAIPanel() {
               ) : null}
             </div>
 
-            {/* Starter prompts — show only after the first assistant message when no user messages yet */}
-            {i === 0 && !hasUserMessages && (
+            {i === 0 && !hasUserMessages && !forkScenario && (
               <div className="mt-3 space-y-2">
                 {STARTER_PROMPTS.map((sp) => (
                   <button
@@ -222,7 +330,7 @@ export default function WorkspaceAIPanel() {
       <div className="p-4 border-t border-white/10 flex gap-2">
         <textarea
           className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-sparq-lime/50"
-          placeholder="Ask your recruiting AI..."
+          placeholder={forkScenario ? 'Ask about this scenario...' : 'Ask your recruiting AI...'}
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
