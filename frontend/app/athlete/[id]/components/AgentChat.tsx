@@ -289,7 +289,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     setMessages((prev) => [...prev, streamingMessage])
 
     try {
-      const response = await fetch(`${backendUrl}/api/agent/chat/stream`, {
+      const response = await fetch(`${backendUrl}/api/agent/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -302,123 +302,27 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
       if (!response.ok) throw new Error('Failed to connect to agent')
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response stream')
+      const data = await response.json()
+      const responseText = data.response || 'Done! What else can I help with?'
 
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let streamedText = ''
-      let steps: string[] = []
-      let toolsUsed: string[] = []
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        let eventType = ''
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim()
-          } else if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-
-            if (eventType === 'conversation_id') {
-              const cid = parseInt(data)
-              if (cid && !conversationId) {
-                setConversationId(cid)
-                fetch(`${backendUrl}/api/conversations/${athleteId}`)
-                  .then((r) => r.json())
-                  .then((d) => setConversations(d.conversations || []))
-                  .catch(() => {})
-              }
-            } else if (eventType === 'status') {
-              setMessages((prev) => {
-                const updated = [...prev]
-                const last = updated[updated.length - 1]
-                if (last?.thinking) {
-                  updated[updated.length - 1] = { ...last, content: data, agentSteps: [...steps] }
-                }
-                return updated
-              })
-            } else if (eventType === 'tool_start') {
-              try {
-                const toolData = JSON.parse(data)
-                steps.push(`tool_start:${toolData.tool}`)
-                toolsUsed.push(toolData.tool)
-                setMessages((prev) => {
-                  const updated = [...prev]
-                  const last = updated[updated.length - 1]
-                  if (last?.thinking) {
-                    updated[updated.length - 1] = {
-                      ...last,
-                      content: 'Researching...',
-                      agentSteps: [...steps],
-                      toolsUsed: [...toolsUsed],
-                    }
-                  }
-                  return updated
-                })
-              } catch {}
-            } else if (eventType === 'tool_done') {
-              try {
-                const toolData = JSON.parse(data)
-                steps.push(`tool_done:${toolData.tool}`)
-                setMessages((prev) => {
-                  const updated = [...prev]
-                  const last = updated[updated.length - 1]
-                  if (last?.thinking) {
-                    updated[updated.length - 1] = { ...last, agentSteps: [...steps], toolsUsed: [...toolsUsed] }
-                  }
-                  return updated
-                })
-              } catch {}
-            } else if (eventType === 'text') {
-              streamedText += data.replace(/\\n/g, '\n')
-              setMessages((prev) => {
-                const updated = [...prev]
-                const last = updated[updated.length - 1]
-                updated[updated.length - 1] = {
-                  ...last,
-                  content: streamedText,
-                  thinking: false,
-                  streaming: true,
-                  agentSteps: [...steps],
-                  toolsUsed: [...toolsUsed],
-                }
-                return updated
-              })
-            } else if (eventType === 'error') {
-              setMessages((prev) => {
-                const updated = [...prev]
-                updated[updated.length - 1] = {
-                  role: 'assistant',
-                  content: `Something went wrong: ${data}. Try again?`,
-                  timestamp: new Date(),
-                  thinking: false,
-                }
-                return updated
-              })
-            }
-            eventType = ''
-          }
-        }
+      if (data.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id)
+        fetch(`${backendUrl}/api/conversations/${athleteId}`)
+          .then((r) => r.json())
+          .then((d) => setConversations(d.conversations || []))
+          .catch(() => {})
       }
 
       setMessages((prev) => {
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: streamedText || 'Done! What else can I help with?',
+          content: responseText,
           timestamp: new Date(),
           thinking: false,
           streaming: false,
-          toolsUsed,
-          agentSteps: steps,
+          toolsUsed: data.tools_used || [],
+          agentSteps: data.steps || [],
         }
         return updated
       })

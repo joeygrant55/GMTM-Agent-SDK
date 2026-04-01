@@ -24,10 +24,7 @@ load_dotenv()
 # Import sandbox runner
 from sandbox_runner import run_agent_in_sandbox, AgentResult
 
-# Import simplified Search API (bypasses Agent SDK)
-from search_api import router as search_router
-
-# Import Agent API
+# Import Agent API (core — must work)
 from agent_api import router as agent_router
 
 # Import Profile API
@@ -35,6 +32,13 @@ from profile_api import router as profile_router
 
 # Import Reports API
 from reports_api import router as reports_router
+
+# Import optional routers (may fail if dependencies missing)
+search_router = None
+try:
+    from search_api import router as search_router
+except Exception as e:
+    print(f"⚠️ search_api unavailable: {e}")
 
 app = FastAPI(
     title="SPARQ Agent Backend",
@@ -53,9 +57,12 @@ app.add_middleware(
 
 # Mount API routers
 app.include_router(profile_router)
-app.include_router(search_router)
 app.include_router(agent_router)
 app.include_router(reports_router)
+
+# Mount optional routers
+if search_router:
+    app.include_router(search_router)
 
 # ============================================
 # DATA MODELS
