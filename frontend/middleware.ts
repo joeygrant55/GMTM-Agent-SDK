@@ -1,7 +1,16 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-const isPublicRoute = createRouteMatcher(['/', '/sign-in(.*)', '/sign-up(.*)', '/connect', '/demo', '/test'])
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/connect',
+  '/demo',
+  '/quick-scan',
+  '/athlete/(.*)',
+  '/report/(.*)',
+])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
