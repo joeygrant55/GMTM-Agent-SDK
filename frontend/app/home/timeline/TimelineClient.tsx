@@ -38,7 +38,7 @@ export default function TimelineClient() {
   useEffect(() => {
     if (!isLoaded || !user) return
     const clerkId = user.id
-    fetch(`${getApiBase()}/workspace/timeline/${clerkId}`)
+    fetch(`${getApiBase()}/api/workspace/timeline/${clerkId}`)
       .then((r) => r.json())
       .then((data) => {
         setEvents(Array.isArray(data) ? data : [])

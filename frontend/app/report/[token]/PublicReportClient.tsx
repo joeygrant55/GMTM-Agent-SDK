@@ -107,7 +107,7 @@ export default function PublicReportClient({ token }: { token: string }) {
   const [notFound, setNotFound] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://sparq-agent-backend.up.railway.app'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   useEffect(() => {
     fetch(`${backendUrl}/api/reports/public/${token}`)

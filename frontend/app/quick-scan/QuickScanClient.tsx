@@ -221,7 +221,7 @@ export default function QuickScanClient() {
   const [state, setState] = useState<'loading' | 'no-athlete' | 'ready' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState('')
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://sparq-agent-backend.up.railway.app'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   // Waitlist / upgrade intent capture
   const [showWaitlist, setShowWaitlist] = useState(false)
