@@ -1,5 +1,7 @@
 'use client'
 
+import dynamic from 'next/dynamic'
+
 import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 
@@ -31,7 +33,7 @@ function ChipGroup<T extends string>({ options, value, onChange }: { options: re
 
 const inp = "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-sparq-lime/50"
 
-export default function WorkspaceProfilePage() {
+function WorkspaceProfilePage() {
   const { user } = useUser()
   const clerkId = user?.id
 
@@ -228,3 +230,6 @@ export default function WorkspaceProfilePage() {
     </div>
   )
 }
+
+
+export default dynamic(() => Promise.resolve(WorkspaceProfilePage), { ssr: false })

@@ -1,5 +1,7 @@
 'use client'
 
+import dynamic from 'next/dynamic'
+
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
 import { useEffect, useMemo, useState } from 'react'
@@ -101,7 +103,7 @@ ${profile.name}
 `
 }
 
-export default function DraftCoachEmailPage() {
+function DraftCoachEmailPage() {
   const { user, isLoaded } = useUser()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -301,3 +303,6 @@ export default function DraftCoachEmailPage() {
     </div>
   )
 }
+
+
+export default dynamic(() => Promise.resolve(DraftCoachEmailPage), { ssr: false })

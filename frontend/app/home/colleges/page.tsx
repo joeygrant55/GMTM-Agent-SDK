@@ -1,5 +1,7 @@
 'use client'
 
+import dynamic from 'next/dynamic'
+
 import Link from 'next/link'
 
 import { useEffect, useMemo, useState } from 'react'
@@ -66,7 +68,7 @@ const TIER_CONFIG: Record<Tier, { label: string; emoji: string; description: str
   },
 }
 
-export default function CollegesPage() {
+function CollegesPage() {
   const { user, isLoaded } = useUser()
   const [division, setDivision] = useState<(typeof DIVISION_FILTERS)[number]>('All')
   const [colleges, setColleges] = useState<College[]>([])
@@ -362,3 +364,6 @@ export default function CollegesPage() {
     </div>
   )
 }
+
+
+export default dynamic(() => Promise.resolve(CollegesPage), { ssr: false })

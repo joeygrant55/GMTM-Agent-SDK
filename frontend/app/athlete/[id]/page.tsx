@@ -32,7 +32,7 @@ export default function AthleteDashboard() {
 
   useEffect(() => {
     setLoading(true)
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
     fetch(`${backendUrl}/api/athlete/${athleteId}`)
       .then(async res => {
         if (!res.ok) throw new Error(`Athlete ${athleteId} not found`)

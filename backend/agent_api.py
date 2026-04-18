@@ -461,7 +461,12 @@ async def chat_agent(request: dict):
 
     _save_message(athlete_id, "user", user_content)
     _save_message(athlete_id, "assistant", full_text)
-    return {"response": full_text}
+    return {
+        "response": full_text,
+        "conversation_id": conversation_id,
+        "tools_used": [],
+        "steps": [],
+    }
 
 
 # ── Session Forking ────────────────────────────────────────────────────────────

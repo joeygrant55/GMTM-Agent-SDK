@@ -1,5 +1,7 @@
 'use client'
 
+import dynamic from 'next/dynamic'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
@@ -87,7 +89,7 @@ function estimatePercentile(sport: string | null, statsPreview: [string, string]
   return scores[0]
 }
 
-export default function OnboardingWelcomePage() {
+function OnboardingWelcomePage() {
   const { user, isLoaded } = useUser()
   const [athlete, setAthlete] = useState<MaxPrepsAthlete | null>(null)
   const [statsPreview, setStatsPreview] = useState<[string, string][]>([])
@@ -207,3 +209,6 @@ export default function OnboardingWelcomePage() {
     </div>
   )
 }
+
+
+export default dynamic(() => Promise.resolve(OnboardingWelcomePage), { ssr: false })

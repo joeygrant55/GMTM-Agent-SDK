@@ -23,7 +23,7 @@ export default function ConnectClient() {
   const [error, setError] = useState('')
   const [connected, setConnected] = useState(false)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   // Check if already connected — redirect immediately if so
   useEffect(() => {

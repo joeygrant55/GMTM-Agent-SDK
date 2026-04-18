@@ -53,7 +53,7 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
   const [sharingReportId, setSharingReportId] = useState<number | null>(null)
   const [copiedReportId, setCopiedReportId] = useState<number | null>(null)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   const shareReport = async (e: React.MouseEvent, reportId: number) => {
     e.stopPropagation()

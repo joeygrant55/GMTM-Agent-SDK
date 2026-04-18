@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   let dynamicOg = ogUrl
 
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
     const res = await fetch(`${backendUrl}/api/athlete/${id}`, { next: { revalidate: 300 } })
     if (res.ok) {
       const data = await res.json()

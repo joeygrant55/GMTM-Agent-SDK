@@ -36,7 +36,7 @@ export default function CampFinder({ athleteId }: CampFinderProps) {
       const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
       
       // Call backend directly to avoid Next.js proxy timeout
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
       const response = await fetch(`${backendUrl}/api/agent/find-camps/${athleteId}?max_results=10`, {
         signal: controller.signal
       })

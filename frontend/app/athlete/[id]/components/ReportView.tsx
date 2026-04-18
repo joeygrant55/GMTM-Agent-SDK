@@ -93,7 +93,7 @@ export default function ReportView({ athleteId, reportId, onBack }: ReportViewPr
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   useEffect(() => {
     fetch(`${backendUrl}/api/reports/${athleteId}/${reportId}`)
