@@ -3,8 +3,9 @@ import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'SPARQ Agent - Your AI Recruiting Coordinator',
-  description: '24/7 AI agent helping athletes get recruited',
+  title: 'SPARQ Agent — The AI Recruiting Advisor',
+  description:
+    'Built on 75,000 athlete profiles and 2,900 college programs. The recruiting consultant your family couldn\u2019t afford — for $29/month.',
 }
 
 export default function RootLayout({
@@ -14,19 +15,22 @@ export default function RootLayout({
 }) {
   const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
-  if (clerkKey) {
-    return (
-      <ClerkProvider publishableKey={clerkKey}>
-        <html lang="en">
-          <body className="bg-gray-50">{children}</body>
-        </html>
-      </ClerkProvider>
-    )
-  }
-
-  return (
-    <html lang="en">
-      <body className="bg-gray-50">{children}</body>
+  const body = (
+    <html lang="en" className="bg-sparq-charcoal">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="bg-sparq-charcoal text-white antialiased">{children}</body>
     </html>
   )
+
+  if (clerkKey) {
+    return <ClerkProvider publishableKey={clerkKey}>{body}</ClerkProvider>
+  }
+  return body
 }
