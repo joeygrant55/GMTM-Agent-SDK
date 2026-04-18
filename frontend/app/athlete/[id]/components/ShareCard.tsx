@@ -30,7 +30,8 @@ export default function ShareCard({
     return () => clearTimeout(t)
   }, [])
 
-  const shareUrl = `https://sparq-agent.vercel.app/athlete/${athleteId}?share=true`
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://sparq-agent.vercel.app'
+  const shareUrl = `${baseUrl}/athlete/${athleteId}?share=true`
   const ogParams = new URLSearchParams({
     name,
     sport,
@@ -42,7 +43,7 @@ export default function ShareCard({
     ...(stats[3] ? { stat4: stats[3] } : {}),
     ...(topMatch ? { match: topMatch } : {}),
   })
-  const ogUrl = `https://sparq-agent.vercel.app/api/og/athlete?${ogParams.toString()}`
+  const ogUrl = `${baseUrl}/api/og/athlete?${ogParams.toString()}`
 
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 

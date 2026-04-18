@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 
 interface AthleteResult {
@@ -14,6 +15,7 @@ interface AthleteResult {
 
 export default function ConnectClient() {
   const { user } = useUser()
+  const router = useRouter()
   const [mode, setMode] = useState<'choice' | 'id' | 'search'>('choice')
   const [athleteId, setAthleteId] = useState('')
   const [searchName, setSearchName] = useState('')
@@ -33,14 +35,14 @@ export default function ConnectClient() {
         .then(r => r.json())
         .then(data => {
           if (data.found && data.user_id) {
-            window.location.href = `/athlete/${data.user_id}`
+            router.replace(`/athlete/${data.user_id}`)
           } else {
             setLoading(false)
           }
         })
         .catch(() => setLoading(false))
     }
-  }, [user?.id, backendUrl])
+  }, [user?.id, backendUrl, router])
 
   const lookupById = async () => {
     if (!athleteId.trim()) return
@@ -85,7 +87,7 @@ export default function ConnectClient() {
       })
       setConnected(true)
       setTimeout(() => {
-        window.location.href = `/athlete/${userId}`
+        router.push(`/athlete/${userId}`)
       }, 1500)
     } catch {
       setError('Failed to connect profile. Try again.')

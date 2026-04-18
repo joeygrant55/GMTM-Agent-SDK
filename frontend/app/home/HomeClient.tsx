@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
@@ -14,6 +15,7 @@ interface WorkspaceStats {
 
 export default function HomeClient() {
   const { user, isLoaded } = useUser()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<WorkspaceStats>({
     colleges_tracked: 0,
@@ -30,12 +32,12 @@ export default function HomeClient() {
       .then(async (data) => {
         if (!data?.has_sparq_profile && data?.found && data?.user_id) {
           // Legacy GMTM user with NO sparq profile → send to old athlete page
-          window.location.href = `/athlete/${data.user_id}`
+          router.replace(`/athlete/${data.user_id}`)
           return
         }
         if (!data?.has_sparq_profile) {
           // No profile at all → send to onboarding
-          window.location.href = '/onboarding/search'
+          router.replace('/onboarding/search')
           return
         }
         // Has sparq_profile → fall through to workspace (even if legacy GMTM user)
@@ -56,7 +58,7 @@ export default function HomeClient() {
         }
       })
       .catch(() => setLoading(false))
-  }, [isLoaded, user?.id])
+  }, [isLoaded, user?.id, router])
 
   if (loading) {
     return (
