@@ -60,13 +60,12 @@ The first AI-powered recruiting advisor with real athlete data. Give every athle
 5. Partnerships — AAU programs, travel ball, club teams
 
 ## Technical Architecture (Current)
-- **Frontend:** Next.js on Vercel (sparq-agent.vercel.app)
-- **Backend:** FastAPI on Railway
-- **AI:** Claude Opus 4.5 (Anthropic)
+- **Frontend:** Next.js 14 on Vercel (sparq-agent.vercel.app)
+- **Backend:** FastAPI on Railway (focused-essence-production-9809.up.railway.app)
+- **AI:** Claude Sonnet 4.6 (Anthropic SDK) — `web_search_20250305` native tool + custom `query_database`
 - **Auth:** Clerk
-- **Agent DB:** Railway MySQL (conversations, reports, links)
-- **Athlete DB:** GMTM RDS (READ ONLY — metrics, orgs, offers)
-- **Search:** Brave Search API (real-time web research)
+- **Agent DB:** Railway MySQL (sparq_profiles, college_targets, conversations, messages, outreach)
+- **Athlete DB:** GMTM MySQL (READ ONLY — users, user_metrics, scholarship_offers)
 
 ## Implementation Priority
 1. ✅ Core agent with 6 capabilities
@@ -85,4 +84,4 @@ The first AI-powered recruiting advisor with real athlete data. Give every athle
 - **No free trial** — free tier IS the trial
 - **Reports are the value** — chat is the interface, reports are what people save/share
 - **GMTM DB read-only** — all agent data on Railway MySQL
-- **Claude Opus 4.5** — best model, worth the cost at this price point
+- **Claude Sonnet 4.6** — best speed/cost/quality tradeoff at this price point

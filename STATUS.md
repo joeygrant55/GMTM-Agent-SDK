@@ -1,71 +1,46 @@
-# SPARQ Agent Status - Feb 2, 2026 (8:00pm)
+# SPARQ Agent — Status (Snapshot 2026-04-17)
 
-## ✅ What's Working
+## What's running in prod
 
-**Agent System:**
-- ✅ GPT-5.2 integrated (no more Claude limits!)
-- ✅ Unified chat interface (Claude Code pattern)
-- ✅ Multi-turn tool use (2 iterations)
-- ✅ Real-time activity tracking
-- ✅ Autonomous camp finder with real URLs
+- **Frontend:** https://sparq-agent.vercel.app (editorial landing + /demo + /onboarding + /home workspace)
+- **Backend:** https://focused-essence-production-9809.up.railway.app
+- **Model:** Claude Sonnet 4.6 (`claude-sonnet-4-6`) via Anthropic SDK. Tools: native `web_search_20250305` + custom read-only `query_database`.
+- **Auth:** Clerk
 
-**Features:**
-- ✅ Find camps near athlete (Brave search)
-- ✅ Interactive camp cards with registration links
-- ✅ Formatted responses (markdown → HTML)
-- ✅ Agent step visibility (shows what it's doing)
-- ✅ 60s timeout (handles long searches)
+## What's working
 
-**Tech Stack:**
-- Backend: FastAPI + GPT-5.2 + Brave Search
-- Frontend: Next.js 14 + Tailwind
-- Database: MySQL (75K athletes, 7K metrics)
-- Agent: OpenAI GPT-5.2 (`gpt-5.2`)
+- Landing page with scripted hero demo, bento features, animated proof bar
+- `/demo` — streaming Claude agent with tool-call feed, 3-question free gate
+- `/onboarding/search` — real MaxPreps SSR scraping (dedup, parallel stat fetch, school colors)
+- `/onboarding/confirm` — real MaxPreps stats, sport-aware
+- `/onboarding/welcome` — percentile + season stats + college count reveal
+- `/home/*` — dashboard, colleges with Reach/Target/Likely tiering + fit reasons, outreach log, draft coach email, profile editor, timeline
+- Workspace AI panel with session forking ("What If" scenarios)
+- `/athlete/[id]` — public athlete dashboard with expandable college cards, terminal thinking feed, share cards
+- `/report/[token]` — shareable public reports with OG meta
+- `/quick-scan` — public athlete Quick Scan with waitlist capture
+- Enrichment worker — background Claude call generates `fit_score` + `fit_reasons` on profile creation
 
-**URLs:**
-- Backend: http://localhost:8000
-- Frontend: http://localhost:3001
-- Test athlete: http://localhost:3001/athlete/383 (JoJo Earle)
+## What's known-broken / unbuilt
 
-## 🚀 Ready to Build Next
+- **College matching is AI-hallucinated** — Claude picks 20 colleges per athlete from a vibe, not validated against real rosters or recruiting needs. See `backend/profile_api.py:232-269`. Biggest remaining product-integrity risk.
+- **Stripe / paywall** — not wired. Premium tier is aspirational.
+- **Email sending** — draft page produces text; user manually copies. No send flow.
+- **16 of 17 agents from `AGENT_CAPABILITIES.md`** — not built (vision doc).
+- **Video pipeline** — `video/` has Remotion installed but is not called by anything.
 
-**Phase 1 Agent Capabilities (5-day roadmap):**
-1. ✅ Camp & Combine Finder (DONE)
-2. ⏳ Coach Research & Contact Finder
-3. ⏳ Email Outreach Agent
-4. ⏳ Opportunity Matcher
-5. ⏳ Social Media Content Agent
+## Recently removed (2026-04-17 cleanup)
 
-**Next Steps (Monday Feb 3):**
-1. Test GPT-5.2 camp finder with Joey
-2. Get feedback on chat UX
-3. Build next capability (coach research or email drafter)
-4. Deploy to production (Vercel + Railway)
+- 5 Python agents importing `claude_agent_sdk` (removed from `requirements.txt`, crashed on Railway)
+- 4 unused helper modules
+- `backend/sandbox_runner.py`, `backend/scout_router.py`, `tools/recruiting_tools.py`
+- All `POST /agents/*`, `/webhooks/*`, `/cron/*` handlers in `backend/main.py` — they called the deleted sandbox runner
+- Public `/test` page (info disclosure)
+- Stale `localhost:8000` and `sparq-agent-backend.up.railway.app` URL fallbacks
 
-## 📊 Commits Today
+## Historical status docs
 
-- `eced14b` - Full Agent SDK implementation with autonomous camp finder
-- `92e105c` - Switch to GPT-5.2: OpenAI integration + real-time agent steps
-
-## 🔑 Environment
-
-**Required Keys (in backend/.env):**
-- ✅ OPENAI_API_KEY (GPT-5.2)
-- ✅ BRAVE_API_KEY (web search)
-- ✅ DB credentials (MySQL)
-
-## 🐛 Known Issues
-
-- None currently! 🎉
-
-## 💡 What We Learned
-
-1. **GPT-5.2 requires `max_completion_tokens` not `max_tokens`**
-2. **OpenAI tool format different from Anthropic** (need `type: "function"` wrapper)
-3. **Real URLs > Guessed URLs** (extract from search, don't hardcode)
-4. **Multi-turn is essential** (agent needs multiple rounds to do good research)
-5. **Transparency matters** (users want to see agent working)
-
----
-
-**All systems operational. Ready for Monday!** 🚀
+Pre-April snapshots are intentionally stale (model choices changed, features shipped). Do not trust them for current state:
+- `PRODUCT_STRATEGY.md` — correct on vision/pricing, off by a model generation
+- `AGENT_CAPABILITIES.md` — vision doc, not a status doc
+- `PHASE1_IMPLEMENTATION.md` — February roadmap, not tracked

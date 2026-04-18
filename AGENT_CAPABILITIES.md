@@ -1,4 +1,6 @@
-# SPARQ Agent - Full Capability Vision
+# SPARQ Agent — Full Capability Vision
+
+> ⚠️ **This is a VISION document, not a status document.** As of 2026-04-17, 1 of the 17 agents below is partially shipped (Camp Finder via the live streaming agent in `backend/agent_api.py`). Everything else is aspirational — future-Claude and future-contributors should not assume any capability here exists in code.
 
 **Core Concept:** 24/7 AI recruiting coordinator that performs real actions for athletes (ages 8-25+)
 
