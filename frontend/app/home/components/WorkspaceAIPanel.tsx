@@ -1,13 +1,23 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import ReactMarkdown from 'react-markdown'
+import IterationBanner from './IterationBanner'
+import { ARTIFACT_TYPE_LABEL, ArtifactType } from './artifactStatus'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   toolActivity?: string
+}
+
+interface ScopedArtifact {
+  artifactId: number
+  type: ArtifactType
+  title: string | null
+  agent_id: string | null
 }
 
 const STARTER_PROMPTS = [
@@ -17,8 +27,30 @@ const STARTER_PROMPTS = [
   { emoji: '🏋️', label: 'What do coaches look for?', prompt: 'What do college coaches specifically look for in an athlete at my position? What should I be highlighting in my recruiting process?' },
 ]
 
+const ARTIFACT_QUICK_ITERATIONS: Partial<Record<ArtifactType, { emoji: string; label: string; prompt: string }[]>> = {
+  outreach_draft: [
+    { emoji: '✂️', label: 'Make it shorter', prompt: 'Cut this draft by ~20% — keep the personal opener and the ask, trim the bio.' },
+    { emoji: '🎯', label: 'More personal opener', prompt: 'Rewrite the opener so it lands more personal — reference something specific about the program.' },
+    { emoji: '🎓', label: 'Mention my GPA', prompt: 'Work my GPA into the body naturally without sounding like a brag.' },
+    { emoji: '🏈', label: 'Cite their recent game', prompt: 'Add a sentence referencing a specific play or moment from their most recent game.' },
+  ],
+  research_brief: [
+    { emoji: '🔍', label: 'What should I do first?', prompt: 'Based on this brief, what is the single most important next action for me?' },
+    { emoji: '📊', label: 'How do I stack up?', prompt: 'How does my profile compare to athletes this program has recruited recently?' },
+    { emoji: '📨', label: 'Draft outreach', prompt: 'Use this brief to draft an outreach email to the position coach.' },
+    { emoji: '⚠️', label: 'What are the risks?', prompt: 'What concerns or red flags should I be aware of with this program?' },
+  ],
+  honest_assessment: [
+    { emoji: '💬', label: 'Why this verdict?', prompt: 'Walk me through why you reached this verdict — what specific data drove it?' },
+    { emoji: '🧭', label: 'Show me Plan B', prompt: 'Open up the Plan B pathways in detail — which schools, which divisions, why?' },
+    { emoji: '📈', label: 'How do I improve?', prompt: 'Of these metrics, which one would move my odds most if I improved it by 10%?' },
+    { emoji: '❓', label: 'I disagree', prompt: 'I think this assessment is too pessimistic — push back on me, but with data.' },
+  ],
+}
+
 export default function WorkspaceAIPanel() {
   const { user, isLoaded } = useUser()
+  const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -39,6 +71,9 @@ export default function WorkspaceAIPanel() {
   const [showForkInput, setShowForkInput] = useState(false)
   const [forkInputText, setForkInputText] = useState('')
   const [forkLoading, setForkLoading] = useState(false)
+
+  // Mode B — artifact-scoped iteration. When set, chat sends iteration intent against this artifact.
+  const [scopedArtifact, setScopedArtifact] = useState<ScopedArtifact | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -70,6 +105,39 @@ export default function WorkspaceAIPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, user?.id])
 
+  // Mode B wiring — ArtifactViewer fires these when an artifact opens / closes.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<ScopedArtifact>).detail
+      if (!detail?.artifactId) return
+      setScopedArtifact(detail)
+      // Reset chat history so iterations stay scoped to the open artifact.
+      const typeLabel = ARTIFACT_TYPE_LABEL[detail.type] ?? 'this artifact'
+      setMessages([
+        {
+          role: 'assistant',
+          content: `I'm scoped to your **${typeLabel}**${detail.title ? ` — *${detail.title}*` : ''}. Tell me how to iterate it, or pick a quick action below.`,
+        },
+      ])
+    }
+    const onClose = () => {
+      setScopedArtifact(null)
+      setMessages([
+        {
+          role: 'assistant',
+          content:
+            "Your recruiting AI is ready. I know your stats, your target schools, and how your profile stacks up — ask me anything, or start with one of these:",
+        },
+      ])
+    }
+    window.addEventListener('sparq:artifact-opened', onOpen)
+    window.addEventListener('sparq:artifact-closed', onClose)
+    return () => {
+      window.removeEventListener('sparq:artifact-opened', onOpen)
+      window.removeEventListener('sparq:artifact-closed', onClose)
+    }
+  }, [])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -93,6 +161,7 @@ export default function WorkspaceAIPanel() {
       message: userMessage,
       ...(activeConversationId ? { conversation_id: String(activeConversationId) } : {}),
       ...(forkScenario ? { fork_scenario: forkScenario } : {}),
+      ...(scopedArtifact ? { artifact_id: String(scopedArtifact.artifactId) } : {}),
     })
 
     try {
@@ -210,7 +279,7 @@ export default function WorkspaceAIPanel() {
       <div className="p-4 border-b border-white/10">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-white text-sm">Recruiting AI ✨</h2>
-          {!forkScenario && (
+          {!forkScenario && !scopedArtifact && (
             <button
               onClick={() => setShowForkInput(!showForkInput)}
               className="text-xs text-gray-400 hover:text-sparq-lime transition-colors"
@@ -230,7 +299,7 @@ export default function WorkspaceAIPanel() {
           )}
         </div>
 
-        {showForkInput && !forkScenario && (
+        {showForkInput && !forkScenario && !scopedArtifact && (
           <div className="mt-3 flex flex-col gap-2">
             <input
               type="text"
@@ -257,6 +326,18 @@ export default function WorkspaceAIPanel() {
         <div className="px-4 py-2 bg-sparq-lime/10 border-b border-sparq-lime/20 text-xs text-sparq-lime font-medium">
           🔀 What if: {forkScenario}
         </div>
+      )}
+
+      {scopedArtifact && (
+        <IterationBanner
+          artifact={{
+            id: scopedArtifact.artifactId,
+            type: scopedArtifact.type,
+            title: scopedArtifact.title,
+            agent_id: scopedArtifact.agent_id as never,
+          }}
+          onExit={() => router.push('/home/inbox')}
+        />
       )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -300,7 +381,10 @@ export default function WorkspaceAIPanel() {
 
             {i === 0 && !hasUserMessages && !forkScenario && (
               <div className="mt-3 space-y-2">
-                {STARTER_PROMPTS.map((sp) => (
+                {(scopedArtifact
+                  ? ARTIFACT_QUICK_ITERATIONS[scopedArtifact.type] ?? STARTER_PROMPTS
+                  : STARTER_PROMPTS
+                ).map((sp) => (
                   <button
                     key={sp.prompt}
                     type="button"
@@ -330,7 +414,13 @@ export default function WorkspaceAIPanel() {
       <div className="p-4 border-t border-white/10 flex gap-2">
         <textarea
           className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-sparq-lime/50"
-          placeholder={forkScenario ? 'Ask about this scenario...' : 'Ask your recruiting AI...'}
+          placeholder={
+            scopedArtifact
+              ? 'Tell me how to iterate this draft…'
+              : forkScenario
+              ? 'Ask about this scenario...'
+              : 'Ask your recruiting AI...'
+          }
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}

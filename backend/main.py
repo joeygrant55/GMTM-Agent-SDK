@@ -24,6 +24,7 @@ load_dotenv()
 from agent_api import router as agent_router
 from profile_api import router as profile_router
 from reports_api import router as reports_router
+from artifacts_api import router as artifacts_router
 
 # Optional router (best-effort)
 search_router = None
@@ -49,6 +50,7 @@ app.add_middleware(
 app.include_router(profile_router)
 app.include_router(agent_router)
 app.include_router(reports_router)
+app.include_router(artifacts_router)
 if search_router:
     app.include_router(search_router)
 
