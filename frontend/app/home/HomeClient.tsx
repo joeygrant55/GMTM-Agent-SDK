@@ -30,17 +30,10 @@ export default function HomeClient() {
     fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
       .then((res) => res.json())
       .then(async (data) => {
-        if (!data?.has_sparq_profile && data?.found && data?.user_id) {
-          // Legacy GMTM user with NO sparq profile → send to old athlete page
-          router.replace(`/athlete/${data.user_id}`)
-          return
-        }
         if (!data?.has_sparq_profile) {
-          // No profile at all → send to onboarding
           router.replace('/onboarding/search')
           return
         }
-        // Has sparq_profile → fall through to workspace (even if legacy GMTM user)
 
         try {
           const statsRes = await fetch(`${backendUrl}/api/workspace/stats/${user.id}`)
