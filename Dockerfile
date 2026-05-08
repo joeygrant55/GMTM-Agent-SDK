@@ -8,7 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all source code
 COPY agents/ ./agents/
-COPY tools/ ./tools/
 COPY backend/ ./backend/
 
 WORKDIR /app/backend
