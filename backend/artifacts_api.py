@@ -19,7 +19,9 @@ from pydantic import BaseModel
 from typing import Optional, Any
 import os
 import json
+import re
 import pymysql
+import anthropic
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -328,6 +330,325 @@ def iterate_artifact(artifact_id: int, body: IteratePayload):
         return {"ok": True, "child_id": new_id}
     finally:
         db.close()
+
+
+# ---------- agent-driven endpoints (the "real" wiring) ----------
+
+ANTHROPIC_MODEL = "claude-sonnet-4-6"
+
+ITERATE_SYSTEM = """You revise an athlete's recruiting artifact in place.
+
+You will be given:
+- The current artifact payload as JSON
+- A natural-language instruction from the athlete
+
+Respond with ONLY valid JSON in this exact shape — no preamble, no code fences, no commentary:
+{
+  "updated_payload": { ...the full artifact payload with the athlete's instruction applied... },
+  "explanation": "one short sentence describing what you changed and why"
+}
+
+Rules:
+- Preserve the existing top-level keys of the payload. Only modify what the instruction asks for.
+- Keep the athlete's voice — concise, confident, factual. Don't add hype or filler.
+- If the instruction is ambiguous, pick the most reasonable interpretation and note it in explanation.
+- Never invent facts about coaches, programs, or schedules. Only use what's in the payload or trim/rephrase what's there.
+"""
+
+DRAFT_OUTREACH_SYSTEM = """You draft a high-quality cold outreach email from a high-school athlete to a college coach.
+
+You will be given the athlete's full profile and the target college's research data. Use both — every email should reference at least one specific detail about the program (recent recruiting, depth chart, position need) and at least one specific stat the athlete has.
+
+Respond with ONLY valid JSON in this exact shape — no preamble, no code fences, no commentary:
+{
+  "to_name": "Coach <Last Name>",
+  "to_email": "<email or empty string if unknown>",
+  "school": "<full school name>",
+  "subject": "<short, specific subject line — class year + position + the hook>",
+  "body": "<150-220 word email body — opens with a specific personal observation about the program, states 1-2 measurable stats, asks one clear next step (camp, film review, questionnaire). Sign with the athlete's first name only.>",
+  "personalization_notes": ["<3-5 short bullets describing the specific things you used from the program and the athlete to personalize this draft>"]
+}
+
+Rules:
+- Never invent coach names, emails, or facts. If the position coach name isn't provided, address the head coach. If no email is available, return "" for to_email.
+- Body must be one block of plain text with \\n\\n between paragraphs.
+- Avoid clichés (\"I am writing to express my interest…\"). Open with a real observation.
+- Stay under 220 words in the body.
+"""
+
+
+def _strip_code_fences(text: str) -> str:
+    if not text:
+        return text
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```\s*$", "", text)
+    return text
+
+
+def _parse_json_response(text: str) -> Optional[dict]:
+    text = _strip_code_fences(text)
+    try:
+        return json.loads(text)
+    except Exception:
+        # Last-resort recovery — find the outermost JSON object.
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except Exception:
+                return None
+    return None
+
+
+def _claude_json(system: str, user: str, max_tokens: int = 2048) -> Optional[dict]:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    text_chunks = [b.text for b in response.content if hasattr(b, "text")]
+    return _parse_json_response("".join(text_chunks))
+
+
+class IterateViaAgentBody(BaseModel):
+    instruction: str
+    performed_by: Optional[str] = None
+
+
+@router.post("/artifacts/{artifact_id}/iterate-via-agent")
+def iterate_artifact_via_agent(artifact_id: int, body: IterateViaAgentBody):
+    """Mode B chat → Claude rewrites the artifact payload per the instruction. Creates a revision."""
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                """
+                SELECT id, clerk_id, type, agent_id, title, summary, payload, sources
+                FROM artifacts WHERE id = %s
+                """,
+                (artifact_id,),
+            )
+            parent = c.fetchone()
+            if not parent:
+                raise HTTPException(status_code=404, detail="artifact not found")
+    finally:
+        db.close()
+
+    current_payload = _safe_json(parent.get("payload")) or {}
+    user_message = (
+        f"Artifact type: {parent['type']}\n\n"
+        f"Current payload:\n{json.dumps(current_payload, indent=2)}\n\n"
+        f"Athlete instruction: {body.instruction}"
+    )
+
+    parsed = _claude_json(ITERATE_SYSTEM, user_message, max_tokens=2048)
+    if not parsed or not isinstance(parsed.get("updated_payload"), dict):
+        raise HTTPException(status_code=502, detail="agent returned an unparseable response")
+
+    new_payload = parsed["updated_payload"]
+    explanation = parsed.get("explanation") or "Updated."
+
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                """
+                INSERT INTO artifacts
+                  (clerk_id, type, state, agent_id, parent_artifact_id, title, summary, payload, sources)
+                VALUES (%s, %s, 'ready_for_review', %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    parent["clerk_id"],
+                    parent["type"],
+                    parent.get("agent_id"),
+                    artifact_id,
+                    parent.get("title"),
+                    parent.get("summary"),
+                    json.dumps(new_payload),
+                    parent.get("sources") or json.dumps([]),
+                ),
+            )
+            child_id = c.lastrowid
+            _record_action(
+                c,
+                artifact_id,
+                "iterate_via_agent",
+                body.performed_by,
+                {"instruction": body.instruction, "child_id": child_id, "explanation": explanation},
+            )
+            # Mark the parent artifact as 'archived' so the inbox shows only the latest revision.
+            c.execute("UPDATE artifacts SET state = 'archived' WHERE id = %s", (artifact_id,))
+        db.commit()
+    finally:
+        db.close()
+
+    return {
+        "ok": True,
+        "child_id": child_id,
+        "explanation": explanation,
+    }
+
+
+# ---------- on-demand outreach draft generation ----------
+
+class DraftOutreachBody(BaseModel):
+    athlete_id: str
+    college_target_id: Optional[int] = None
+    college_name: Optional[str] = None
+    coach_name: Optional[str] = None
+    coach_email: Optional[str] = None
+    division: Optional[str] = None
+    state: Optional[str] = None
+
+
+def _load_athlete_profile_for_artifacts(athlete_id: str) -> Optional[dict]:
+    """Lightweight athlete profile load — mirrors agent_api._load_athlete_profile but local to avoid cross-router import."""
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            c.execute("SELECT * FROM sparq_profiles WHERE clerk_id = %s", (athlete_id,))
+            profile = c.fetchone()
+        db.close()
+        if not profile:
+            return None
+        maxpreps_raw = profile.get("maxpreps_data")
+        maxpreps = {}
+        if maxpreps_raw:
+            try:
+                maxpreps = json.loads(maxpreps_raw) if isinstance(maxpreps_raw, str) else maxpreps_raw
+            except Exception:
+                pass
+        stats_preview = maxpreps.get("statsPreview") or []
+        last_season = maxpreps.get("lastSeason")
+        sport = maxpreps.get("sport") or profile.get("position")
+        return {
+            "name": profile.get("name"),
+            "position": profile.get("position"),
+            "sport": sport,
+            "school": profile.get("school"),
+            "class_year": profile.get("class_year"),
+            "state": profile.get("state"),
+            "gpa": str(profile.get("gpa")) if profile.get("gpa") else None,
+            "recruiting_goals": _safe_json(profile.get("recruiting_goals")),
+            "combine_metrics": _safe_json(profile.get("combine_metrics")),
+            "stats": {s[0]: s[1] for s in stats_preview} if stats_preview else None,
+            "season": last_season,
+        }
+    except Exception:
+        return None
+
+
+def _load_college_target(college_target_id: int) -> Optional[dict]:
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                """
+                SELECT id, college_name, college_city, college_state, division, fit_score,
+                       fit_reasons, research_data
+                FROM college_targets WHERE id = %s
+                """,
+                (college_target_id,),
+            )
+            row = c.fetchone()
+            if not row:
+                return None
+            return {
+                "id": row["id"],
+                "college_name": row["college_name"],
+                "city": row.get("college_city"),
+                "state": row.get("college_state"),
+                "division": row.get("division"),
+                "fit_score": row.get("fit_score"),
+                "fit_reasons": _safe_json(row.get("fit_reasons")),
+                "research": _safe_json(row.get("research_data")),
+            }
+    finally:
+        db.close()
+
+
+@router.post("/artifacts/draft-outreach")
+def draft_outreach(body: DraftOutreachBody):
+    """Generate a real outreach_draft artifact for the athlete + college via Claude."""
+    profile = _load_athlete_profile_for_artifacts(body.athlete_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="athlete profile not found")
+
+    college: dict = {}
+    if body.college_target_id:
+        loaded = _load_college_target(body.college_target_id)
+        if loaded:
+            college = loaded
+    # Fallback to inline fields if no target row.
+    if not college.get("college_name"):
+        college["college_name"] = body.college_name or "Target College"
+    if body.division and not college.get("division"):
+        college["division"] = body.division
+    if body.state and not college.get("state"):
+        college["state"] = body.state
+
+    research = college.get("research") or {}
+    coach_email = body.coach_email or research.get("coaching_staff", {}).get("contact_email") or ""
+    head_coach = research.get("coaching_staff", {}).get("head_coach", {}).get("name")
+    position_coach = research.get("coaching_staff", {}).get("position_coach", {}).get("name")
+    coach_name = body.coach_name or position_coach or head_coach or ""
+
+    user_message = (
+        "ATHLETE PROFILE\n"
+        f"{json.dumps(profile, default=str, indent=2)}\n\n"
+        "TARGET PROGRAM\n"
+        f"{json.dumps(college, default=str, indent=2)}\n\n"
+        "ADDRESSEE\n"
+        f"Coach name (if provided, use it; otherwise pick the most appropriate coach from the research): {coach_name or '(none)'}\n"
+        f"Coach email (if known): {coach_email or '(none)'}\n"
+    )
+
+    parsed = _claude_json(DRAFT_OUTREACH_SYSTEM, user_message, max_tokens=2048)
+    if not parsed or not parsed.get("body"):
+        raise HTTPException(status_code=502, detail="agent did not return a usable draft")
+
+    title = f"Outreach draft: {parsed.get('to_name') or 'Coach'} @ {college.get('college_name')}"
+    summary = (
+        parsed.get("subject")
+        or f"Personalized to {college.get('college_name')}"
+    )
+    sources = []
+    if research:
+        sources.append({"label": f"{college.get('college_name')} research data"})
+    if profile.get("season"):
+        sources.append({"label": f"Your {profile['season']} stats"})
+
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                """
+                INSERT INTO artifacts
+                  (clerk_id, type, state, agent_id, title, summary, payload, sources)
+                VALUES (%s, 'outreach_draft', 'ready_for_review', 'drafter', %s, %s, %s, %s)
+                """,
+                (
+                    body.athlete_id,
+                    title,
+                    summary,
+                    json.dumps(parsed),
+                    json.dumps(sources),
+                ),
+            )
+            new_id = c.lastrowid
+            _record_action(c, new_id, "generate", body.athlete_id, {"college_target_id": body.college_target_id})
+        db.commit()
+    finally:
+        db.close()
+
+    return {"ok": True, "artifact_id": new_id, "title": title}
 
 
 # ---------- demo seeding (Phase 1 visible value before Coordinator is wired) ----------

@@ -108,6 +108,7 @@ export default function CollegeDetailPage() {
   const [data, setData] = useState<CollegeDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [researching, setResearching] = useState(false)
+  const [drafting, setDrafting] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -155,6 +156,34 @@ export default function CollegeDetailPage() {
     }
   }
 
+  const draftOutreach = async () => {
+    if (!user?.id || !data) return
+    setDrafting(true)
+    try {
+      const res = await fetch(`${backendUrl}/api/artifacts/draft-outreach`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          athlete_id: user.id,
+          college_target_id: data.id,
+          college_name: data.college_name,
+          division: data.division,
+          state: data.college_state,
+        }),
+      })
+      const out = await res.json()
+      if (out?.artifact_id) {
+        router.push(`/home/artifact/${out.artifact_id}`)
+        return
+      }
+      throw new Error(out?.detail || 'Could not draft outreach')
+    } catch (e) {
+      setError((e as Error).message || 'Drafting failed')
+    } finally {
+      setDrafting(false)
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-6 h-6 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin" />
@@ -191,6 +220,21 @@ export default function CollegeDetailPage() {
               {data.fit_score >= 85 && <span className="text-xs text-sparq-lime font-semibold">Strong Fit</span>}
             </div>
           </div>
+          <button
+            onClick={draftOutreach}
+            disabled={drafting}
+            className="bg-sparq-lime text-sparq-charcoal font-bold px-4 py-2 rounded-lg text-sm hover:bg-sparq-lime-light disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            title="Drafter writes a personalized outreach email; lands in your Inbox to review"
+          >
+            {drafting ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-sparq-charcoal border-t-transparent rounded-full animate-spin" />
+                Drafting…
+              </span>
+            ) : (
+              '✉️ Draft outreach'
+            )}
+          </button>
         </div>
 
         {/* Initial fit summary */}

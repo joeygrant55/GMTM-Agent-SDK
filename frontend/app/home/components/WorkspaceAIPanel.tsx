@@ -156,12 +156,57 @@ export default function WorkspaceAIPanel() {
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
     setMessages((prev) => [...prev, { role: 'assistant', content: '', toolActivity: undefined }])
 
+    // Mode B — artifact-scoped iteration. Hits the iterate-via-agent endpoint instead of the chat stream.
+    if (scopedArtifact) {
+      setToolActivity('Rewriting your draft…')
+      try {
+        const res = await fetch(
+          `${backendUrl}/api/artifacts/${scopedArtifact.artifactId}/iterate-via-agent`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instruction: userMessage, performed_by: user.id }),
+          }
+        )
+        const data = await res.json()
+        if (!res.ok || !data?.child_id) {
+          throw new Error(data?.detail || 'Iteration failed')
+        }
+        setMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            content: data.explanation || 'Updated.',
+          }
+          return updated
+        })
+        // Tell the open ArtifactViewer to navigate to the new revision.
+        window.dispatchEvent(
+          new CustomEvent('sparq:artifact-updated', {
+            detail: { artifactId: scopedArtifact.artifactId, childId: data.child_id },
+          })
+        )
+      } catch (err) {
+        setMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            content: "I couldn't rewrite that — try again, or rephrase.",
+          }
+          return updated
+        })
+      } finally {
+        setLoading(false)
+        setToolActivity(null)
+      }
+      return
+    }
+
     const params = new URLSearchParams({
       athlete_id: user.id,
       message: userMessage,
       ...(activeConversationId ? { conversation_id: String(activeConversationId) } : {}),
       ...(forkScenario ? { fork_scenario: forkScenario } : {}),
-      ...(scopedArtifact ? { artifact_id: String(scopedArtifact.artifactId) } : {}),
     })
 
     try {
