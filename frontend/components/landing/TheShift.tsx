@@ -47,7 +47,7 @@ export function TheShift() {
               title="SPARQ Agent"
               rows={[
                 '$29 per month',
-                'Searches 2,900 programs in seconds',
+                'Every active college flag football program',
                 'Available the minute you need it',
                 'Outreach drafted to your real metrics',
                 'Reports yours forever',

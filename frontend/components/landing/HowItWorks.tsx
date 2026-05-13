@@ -43,7 +43,7 @@ export function HowItWorks() {
               Then the agent does the work.
             </>
           }
-          sub="You bring your profile. The agent brings 2,900 programs, every recent coaching move, and every tool you'd need. Then you send emails and show up prepared."
+          sub="You bring your profile. The agent brings every active college flag football program, every recent coaching move, and every tool you'd need. Then you send emails and show up prepared."
         />
 
         <div ref={ref} className="mt-20 relative">
@@ -89,7 +89,7 @@ function ProfileMock() {
         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sparq-lime/70 to-sparq-lime/30 ring-1 ring-sparq-lime/40" />
         <div>
           <div className="text-sm font-semibold">Jordan M.</div>
-          <div className="text-xs text-white/40">QB · Class of 2027 · Dallas, TX</div>
+          <div className="text-xs text-white/40">QB · Flag Football · Class of 2027 · Dallas, TX</div>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -113,14 +113,14 @@ function ChatMock() {
     <div className="space-y-2 rounded-2xl border border-white/8 bg-sparq-charcoal/60 p-5 backdrop-blur-sm">
       <div className="flex justify-end">
         <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-sparq-lime/15 px-3 py-2 text-xs text-white ring-1 ring-sparq-lime/30">
-          Which D2 programs recruit 5&apos;10&quot; point guards?
+          Which D2 programs recruit 5&apos;6&quot; flag football WRs?
         </div>
       </div>
       <div className="flex items-center gap-2 pl-1 text-xs text-white/50">
         <span className="relative block h-[3px] w-20 overflow-hidden rounded-full bg-white/10">
           <span className="absolute inset-y-0 block bg-sparq-lime animate-thinking-progress" />
         </span>
-        Searching 2,900 programs…
+        Searching every active flag football program…
       </div>
       <div className="flex">
         <div className="max-w-[90%] rounded-2xl rounded-bl-sm bg-white/[0.05] px-3 py-2 text-xs text-white/80 ring-1 ring-white/10">

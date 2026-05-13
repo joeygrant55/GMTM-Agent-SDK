@@ -46,7 +46,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/45">
-              The AI recruiting advisor for student-athletes. Built on 75,000 athlete profiles and 2,900 college programs.
+              The AI recruiting advisor for women&rsquo;s flag football athletes. Every active college program — NCAA, NAIA, NJCAA.
             </p>
             <div className="mt-6 flex items-center gap-2">
               <Link href="#" aria-label="X" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/60 hover:border-white/30 hover:text-white">

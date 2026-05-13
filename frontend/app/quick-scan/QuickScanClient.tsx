@@ -402,7 +402,7 @@ export default function QuickScanClient() {
                       You rank in the top {100 - overallPercentile}% of {data.position ? `${data.position}s` : 'athletes'} in our database.
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Based on {displayMetrics.length} verified metric{displayMetrics.length !== 1 ? 's' : ''} vs. 75,000+ athletes. Upgrade to see your college matches.
+                      Based on {displayMetrics.length} verified metric{displayMetrics.length !== 1 ? 's' : ''} vs. varsity-level benchmarks. Upgrade to see your college matches.
                     </p>
                   </div>
                 </div>

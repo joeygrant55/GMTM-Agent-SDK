@@ -49,11 +49,10 @@ export function Hero() {
             transition={{ duration: 0.8, ease: EASE }}
             className="font-display text-display-xl font-semibold tracking-tight text-white"
           >
-            An AI recruiting advisor
-            <br className="hidden sm:block" /> that knows every program,
-            <br className="hidden sm:block" /> every metric, every{' '}
+            The recruiting platform
+            <br className="hidden sm:block" /> built for{' '}
             <span className="relative whitespace-nowrap text-sparq-lime">
-              athlete like you
+              women&rsquo;s flag football
               <svg
                 aria-hidden
                 viewBox="0 0 300 16"
@@ -77,8 +76,8 @@ export function Hero() {
 
           <Reveal delay={0.2}>
             <p className="mt-8 max-w-xl text-lg text-white/60 leading-relaxed">
-              Built on <span className="text-white">75,000 athlete profiles</span> and{' '}
-              <span className="text-white">2,900 college programs</span>. The recruiting
+              Every active college program. <span className="text-white">Reach, Target, Likely</span>{' '}
+              matches based on your stats, class year, and where you want to play. The recruiting
               consultant your family couldn&rsquo;t afford &mdash; for{' '}
               <span className="text-white">$29/month</span>.
             </p>
@@ -109,11 +108,11 @@ export function Hero() {
 
           <Reveal delay={0.45}>
             <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 text-eyebrow uppercase text-white/35">
-              <span>Built on SPARQ data</span>
+              <span>71 active college programs</span>
               <Dot />
-              <span>2,900 programs</span>
+              <span>NCAA · NAIA · NJCAA</span>
               <Dot />
-              <span>7,832 scholarship offers tracked</span>
+              <span>LA28 Olympic sport</span>
             </div>
           </Reveal>
         </div>

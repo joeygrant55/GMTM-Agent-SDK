@@ -114,7 +114,7 @@ export function SocialProof() {
             </div>
           </div>
           <div className="mt-4 text-center text-[11px] text-white/30">
-            Illustrative. Full database includes 2,900+ NCAA + NAIA programs.
+            Illustrative. Full coverage includes every active NCAA, NAIA, and NJCAA women’s flag football program.
           </div>
         </div>
       </div>

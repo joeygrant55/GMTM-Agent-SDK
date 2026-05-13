@@ -11,11 +11,11 @@ const FAQS = [
   },
   {
     q: 'Why is this so much cheaper than NCSA or IMG?',
-    a: 'We don\u2019t sell you a consultant. We sell you an AI that draws on the same data the consultants use — 75,000 athletes, 2,900 programs, 7,832 scholarship offers — and works on your schedule, not theirs.',
+    a: 'We don\u2019t sell you a consultant. We sell you an AI that knows every active college women’s flag football program in the country — and works on your schedule, not theirs.',
   },
   {
-    q: 'Does it work for D2, D3, and NAIA?',
-    a: 'Yes. Our database covers NCAA D1/D2/D3 and NAIA programs, plus JUCO for select sports. The agent matches you across every division that fits your metrics and academics.',
+    q: 'Does it work for D2, D3, NAIA, and JUCO?',
+    a: 'Yes. We cover every active NCAA D1/D2/D3 program, every NAIA program in the GSAC, KCAC, and Sun Conference (plus independents), and every NJCAA program currently competing. The agent matches you across every division that fits your stats and academics.',
   },
   {
     q: 'Do I need verified SPARQ metrics to get useful matches?',
@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: 'What sports do you support today?',
-    a: 'Football, basketball, baseball, softball, volleyball, soccer, and track & field at launch. Lacrosse, hockey, and swimming are next.',
+    a: 'Women’s flag football only. We built SPARQ specifically for this sport because it’s the fastest-growing women’s college sport in the country, it’s an LA28 Olympic sport, and incumbent recruiting services don’t cover it well. Other sports may come later — flag football comes first.',
   },
 ]
 

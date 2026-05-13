@@ -91,8 +91,8 @@ export function FinalCTA() {
 
         <Reveal delay={0.3}>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-white/40">
-            <Dot /> <span>75K athletes of real data</span>
-            <Dot /> <span>2,900 programs</span>
+            <Dot /> <span>71 active college programs</span>
+            <Dot /> <span>NCAA · NAIA · NJCAA</span>
             <Dot /> <span>$29/mo · cancel anytime</span>
           </div>
         </Reveal>

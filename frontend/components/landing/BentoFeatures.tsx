@@ -16,14 +16,14 @@ type Feature = {
 const FEATURES: Feature[] = [
   {
     title: 'Match to programs that actually want you.',
-    body: 'Pulls from 2,900 programs, filters by coach needs, roster openings, academic fit, and region — not just rankings.',
+    body: 'Every active college flag football program — NCAA D1/D2/D3, NAIA, NJCAA. Tiered Reach / Target / Likely based on your stats, your class year, and where you want to play.',
     image: '/images/college-matching.png',
     span: 'lg:col-span-2 lg:row-span-2',
     accent: true,
   },
   {
     title: 'Know exactly where you rank.',
-    body: 'Benchmarks your metrics against 75,000 real athletes at your position.',
+    body: 'Benchmarks your season stats against varsity-level numbers at your position.',
     image: '/images/profile-analysis.png',
     span: 'lg:col-span-2',
   },

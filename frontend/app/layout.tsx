@@ -3,9 +3,9 @@ import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'SPARQ Agent — The AI Recruiting Advisor',
+  title: 'SPARQ Agent — Women’s Flag Football Recruiting, $29/mo',
   description:
-    'Built on 75,000 athlete profiles and 2,900 college programs. The recruiting consultant your family couldn\u2019t afford — for $29/month.',
+    'The AI recruiting advisor for women’s flag football athletes. Every active NCAA, NAIA, and NJCAA program — tiered Reach / Target / Likely based on your stats. $29/month. Cheaper than the consultant your family couldn\u2019t afford — for $29/month.',
 }
 
 export default function RootLayout({

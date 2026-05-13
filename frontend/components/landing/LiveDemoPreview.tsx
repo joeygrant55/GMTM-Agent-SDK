@@ -231,7 +231,7 @@ export function LiveDemoPreview() {
                 <span className="relative block h-[3px] w-24 overflow-hidden rounded-full bg-white/10">
                   <span className="absolute inset-y-0 block bg-sparq-lime animate-thinking-progress" />
                 </span>
-                Thinking · searching 2,900 programs
+                Thinking · searching every active flag football program
               </motion.div>
             )}
 
