@@ -7,6 +7,8 @@ import { ARTIFACT_TYPE_LABEL, Artifact } from './artifactStatus'
 import SpecialistAvatar from './SpecialistAvatar'
 import ArtifactStatusPill from './ArtifactStatusPill'
 import OutreachDraftView from './OutreachDraftView'
+import ResearchBriefView from './ResearchBriefView'
+import HonestAssessmentView from './HonestAssessmentView'
 import GenericArtifactView from './GenericArtifactView'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
@@ -21,6 +23,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
   const [error, setError] = useState<string | null>(null)
   const [savingState, setSavingState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [pending, setPending] = useState<null | 'approve' | 'discard'>(null)
+  const [resultNotice, setResultNotice] = useState<{ kind: 'queued' | 'send_failed'; message: string } | null>(null)
 
   const editedPayloadRef = useRef<Record<string, unknown> | null>(null)
   const dirtyRef = useRef(false)
@@ -117,16 +120,37 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
   const approve = async () => {
     if (!artifact) return
     setPending('approve')
+    setResultNotice(null)
     await persistPayload()
     try {
+      const athleteEmail = user?.primaryEmailAddress?.emailAddress ?? null
+      const athleteName = user?.fullName ?? user?.firstName ?? null
       const res = await fetch(`${backendUrl}/api/artifacts/${artifact.id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ performed_by: user?.id ?? null }),
+        body: JSON.stringify({
+          performed_by: user?.id ?? null,
+          athlete_email: athleteEmail,
+          athlete_name: athleteName,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (data?.state) {
         setArtifact({ ...artifact, state: data.state })
+      }
+      if (data?.state === 'queued') {
+        setResultNotice({
+          kind: 'queued',
+          message: 'Approved and logged in your outreach log. Send infrastructure is not configured yet — copy & send manually for now.',
+        })
+        return // don't redirect — let the athlete see the notice
+      }
+      if (data?.state === 'send_failed') {
+        setResultNotice({
+          kind: 'send_failed',
+          message: `Send failed: ${data?.detail?.reason ?? 'unknown error'}. The draft is still here — retry, or copy & send manually.`,
+        })
+        return
       }
       router.push('/home/inbox')
     } finally {
@@ -215,6 +239,10 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
 
       {artifact.type === 'outreach_draft' ? (
         <OutreachDraftView artifact={artifact} onPayloadChange={onPayloadChange} />
+      ) : artifact.type === 'research_brief' ? (
+        <ResearchBriefView artifact={artifact} onPayloadChange={onPayloadChange} />
+      ) : artifact.type === 'honest_assessment' ? (
+        <HonestAssessmentView artifact={artifact} onPayloadChange={onPayloadChange} />
       ) : (
         <GenericArtifactView artifact={artifact} />
       )}
@@ -235,6 +263,18 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {resultNotice && (
+        <div
+          className={`mt-6 rounded-xl px-4 py-3 text-sm ${
+            resultNotice.kind === 'queued'
+              ? 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
+              : 'bg-red-500/10 border border-red-500/30 text-red-300'
+          }`}
+        >
+          {resultNotice.message}
         </div>
       )}
 

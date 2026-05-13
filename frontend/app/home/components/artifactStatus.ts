@@ -6,6 +6,8 @@ export type ArtifactState =
   | 'ready_for_review'
   | 'approved'
   | 'sent'
+  | 'queued'
+  | 'send_failed'
   | 'archived'
   | 'rejected'
   | 'iterating'
@@ -40,6 +42,8 @@ export const STATUS_STYLES: Record<ArtifactState | 'honest', StatusStyle> = {
   },
   approved: { label: 'Approved', className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' },
   sent: { label: 'Sent', className: 'bg-blue-500/20 text-blue-300 border border-blue-500/30' },
+  queued: { label: 'Queued', className: 'bg-amber-500/15 text-amber-200 border border-amber-500/30' },
+  send_failed: { label: 'Send Failed', className: 'bg-red-500/20 text-red-300 border border-red-500/30' },
   archived: { label: 'Archived', className: 'bg-white/5 text-gray-500 border border-white/10' },
   rejected: { label: 'Discarded', className: 'bg-red-500/10 text-red-300/70 border border-red-500/20' },
   iterating: {

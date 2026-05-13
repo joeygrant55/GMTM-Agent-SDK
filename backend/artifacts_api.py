@@ -22,8 +22,10 @@ import json
 import re
 import pymysql
 import anthropic
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from dotenv import load_dotenv
+
+from email_sender import send_outreach_email, is_valid_email
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 load_dotenv()
@@ -234,23 +236,116 @@ def get_artifact(artifact_id: int):
 
 @router.post("/artifacts/{artifact_id}/approve")
 def approve_artifact(artifact_id: int, body: Optional[dict] = None):
-    """Approve. Outreach drafts become 'sent', everything else becomes 'approved'."""
-    performed_by = (body or {}).get("performed_by")
+    """Approve.
+
+    - Non-outreach artifacts → state 'approved'.
+    - outreach_draft → attempt actual send via SendGrid:
+        * success → 'sent' (real email out)
+        * send infra not configured → 'queued' (logged in outreach_log for manual send)
+        * invalid to_email or no payload → 'queued' (athlete approved, but can't send)
+        * SendGrid/network error → 'send_failed' (transient — athlete can retry)
+    The frontend passes athlete_email/athlete_name so coach replies route directly to the athlete
+    via SendGrid's reply_to.
+    """
+    b = body or {}
+    performed_by = b.get("performed_by")
+    athlete_email = b.get("athlete_email")
+    athlete_name = b.get("athlete_name")
+
     db = _get_agent_db()
     try:
         with db.cursor() as c:
-            c.execute("SELECT type, state FROM artifacts WHERE id = %s", (artifact_id,))
+            c.execute(
+                "SELECT type, state, clerk_id, payload FROM artifacts WHERE id = %s",
+                (artifact_id,),
+            )
             row = c.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="artifact not found")
             if row["state"] in ("sent", "approved", "archived", "rejected"):
                 raise HTTPException(status_code=409, detail=f"artifact already {row['state']}")
 
-            new_state = "sent" if row["type"] == "outreach_draft" else "approved"
+            if row["type"] != "outreach_draft":
+                c.execute("UPDATE artifacts SET state = 'approved' WHERE id = %s", (artifact_id,))
+                _record_action(c, artifact_id, "approve", performed_by, {"new_state": "approved"})
+                db.commit()
+                return {"ok": True, "state": "approved"}
+
+            # outreach_draft path — try to actually send.
+            payload = _safe_json(row.get("payload")) or {}
+            to_email = (payload.get("to_email") or "").strip()
+            to_name = payload.get("to_name") or None
+            subject = payload.get("subject") or ""
+            email_body = payload.get("body") or ""
+            school = payload.get("school") or "Unknown School"
+            coach = to_name
+
+            if not is_valid_email(to_email) or not email_body.strip():
+                new_state = "queued"
+                action_meta = {
+                    "new_state": new_state,
+                    "reason": "missing_to_email" if not is_valid_email(to_email) else "empty_body",
+                }
+            else:
+                result = send_outreach_email(
+                    to_email=to_email,
+                    to_name=to_name,
+                    subject=subject,
+                    body=email_body,
+                    reply_to_email=athlete_email,
+                    reply_to_name=athlete_name,
+                )
+                if result.get("ok"):
+                    new_state = "sent"
+                    action_meta = {
+                        "new_state": new_state,
+                        "message_id": result.get("message_id"),
+                        "to_email": to_email,
+                    }
+                elif result.get("reason") == "send_infra_unconfigured":
+                    new_state = "queued"
+                    action_meta = {"new_state": new_state, "reason": "send_infra_unconfigured"}
+                else:
+                    new_state = "send_failed"
+                    action_meta = {
+                        "new_state": new_state,
+                        "reason": result.get("reason"),
+                        "status_code": result.get("status_code"),
+                        "error": result.get("body") or result.get("error"),
+                    }
+
             c.execute("UPDATE artifacts SET state = %s WHERE id = %s", (new_state, artifact_id))
-            _record_action(c, artifact_id, "approve", performed_by, {"new_state": new_state})
+            _record_action(c, artifact_id, "approve", performed_by, action_meta)
+
+            # Mirror sent/queued outreach into outreach_log so the existing /home/outreach view sees it.
+            if new_state in ("sent", "queued"):
+                c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (row["clerk_id"],))
+                profile_row = c.fetchone()
+                if profile_row:
+                    log_notes = subject or None
+                    if new_state == "queued":
+                        log_notes = (log_notes or "") + " (queued — manual send needed)"
+                    c.execute(
+                        """
+                        INSERT INTO outreach_log
+                          (sparq_profile_id, school, coach, method, contact_date, status, notes)
+                        VALUES (%s, %s, %s, 'Email', %s, 'Awaiting Response', %s)
+                        """,
+                        (
+                            profile_row["id"],
+                            school,
+                            coach,
+                            date.today().isoformat(),
+                            log_notes,
+                        ),
+                    )
+
         db.commit()
-        return {"ok": True, "state": new_state}
+        return {
+            "ok": True,
+            "state": new_state,
+            "detail": action_meta if new_state != "sent" else None,
+        }
     finally:
         db.close()
 

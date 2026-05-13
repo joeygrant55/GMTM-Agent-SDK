@@ -89,7 +89,9 @@ Required JSON format:
 Return ONLY the JSON object. No markdown, no code fences, no explanation.
 """
 
-AI_MATCHING_SYSTEM = """You are a college recruiting analyst. Return ONLY a valid JSON array — no markdown, no explanation.
+AI_MATCHING_SYSTEM = """You are a college recruiting analyst. Use web_search to find real college programs for this athlete. NEVER invent programs — every entry must be a real school you verified through web_search results.
+
+After gathering candidates, return ONLY a valid JSON array — no markdown, no explanation.
 
 Each program object must have:
 {
@@ -98,16 +100,20 @@ Each program object must have:
   "state": "ST",
   "division": "D1" or "D2" or "D3" or "NAIA",
   "fit_summary": "1-2 specific sentences about why this program fits this exact athlete",
-  "fit_score": integer 70-95
+  "fit_score": integer 70-95,
+  "source_url": "the URL of a web_search result that confirms this school currently fields a team in the athlete's exact sport"
 }
 
-Requirements:
-- Programs must actually have the athlete's EXACT sport (e.g. if sport is "Girls Basketball", only return women's basketball programs — NOT men's)
-- If sport contains "Girls" or "Women's", every program must have an active women's program for that sport
-- If sport contains "Boys" or "Men's", every program must have an active men's program for that sport
-- Mix of realistic reaches (2-3) and likely fits (5-7)
-- Be specific — mention real program strengths, geographic fit, recruiting history
-- Return 8-12 programs total as a JSON array only
+Hard requirements (drop any candidate that fails these — do not include it):
+- The program MUST have an active team in the athlete's EXACT sport AND gender (e.g. if sport is "Girls Basketball", only Women's Basketball programs; never Men's).
+- source_url MUST come from your web_search results and reference the school's athletics site, an NCAA/conference roster page, or another authoritative source confirming the team exists.
+- If you cannot find 8-12 programs that meet these requirements, return fewer — better to return 5 verified programs than 12 with guesses.
+
+Process:
+1. Run web_search queries combining the athlete's sport, gender, target division, and geography preferences (e.g. "D2 women's basketball programs in Northeast", "NAIA football schools recruiting class of 2027").
+2. From the results, pick real schools and verify each currently fields a team in the athlete's exact sport.
+3. Mix realistic reaches (2-3) with likely fits (5-7). Be specific about why each fits.
+4. Return ONLY the JSON array.
 """
 
 WEB_SEARCH_TOOL = {
@@ -133,8 +139,21 @@ def _extract_json(text: str) -> Optional[Dict]:
     return None
 
 
+def _is_plausible_url(s: object) -> bool:
+    """Reject hallucinated source_urls — must be an http(s) URL with a plausible TLD."""
+    if not isinstance(s, str):
+        return False
+    s = s.strip()
+    return bool(re.match(r"^https?://[^\s]+\.[a-z]{2,}", s, re.IGNORECASE))
+
+
 def ai_match_programs_sync(athlete_profile: Dict) -> List[Dict]:
-    """Use Claude (sync, no web_search) to generate a college target list from athlete profile."""
+    """Use Claude WITH web_search to find real college programs from web sources.
+
+    Replaces the prior pure-training-data approach which fabricated programs from Claude's
+    memory. Now each program must include a source_url that came from a web_search result —
+    candidates without a plausible URL are dropped before insertion.
+    """
     import anthropic as _anthropic
     client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -154,46 +173,64 @@ def ai_match_programs_sync(athlete_profile: Dict) -> List[Dict]:
     stats_str = ", ".join(f"{k}: {v}" for k, v in stats.items()) if stats else "no stats provided"
 
     user_prompt = (
-        f"Generate a college target list for this athlete:\n"
+        f"Find real college {sport} programs that recruit this athlete:\n"
         f"- Sport: {sport}, Position: {position}\n"
         f"- Class of {class_year}, from {state}\n"
         f"- Stats: {stats_str}\n"
         f"- Target division: {target_level}, Geography: {geography}\n\n"
-        f"Return 8-12 realistic college {sport} programs that would recruit this athlete. "
-        "Mix 2-3 reach schools with 5-7 realistic fits. "
-        "For each, explain specifically why they fit this athlete's stats and goals. "
-        "Return ONLY a JSON array."
+        f"Use web_search to find 8-12 verified {sport} programs. Each MUST include a source_url "
+        f"from your search results confirming the school currently fields a team in this sport. "
+        f"Drop any school you cannot verify. Mix 2-3 reaches with 5-7 realistic fits. "
+        f"Return ONLY a JSON array."
     )
 
     try:
-        print(f"[Matching] Calling Claude for {sport} {position} from {state}...")
+        print(f"[Matching] Calling Claude (web_search) for {sport} {position} from {state}...")
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=3000,
+            max_tokens=4000,
             system=AI_MATCHING_SYSTEM,
+            tools=[WEB_SEARCH_TOOL],
             messages=[{"role": "user", "content": user_prompt}],
         )
         full_text = "".join(b.text for b in response.content if hasattr(b, "text"))
         print(f"[Matching] Response ({len(full_text)} chars): {full_text[:200]}")
 
+        programs: List[Dict] = []
         for pattern in [r"\[\s*\{.*?\}\s*\]", r"\[.*?\]"]:
             m = re.search(pattern, full_text, re.DOTALL)
             if m:
                 try:
-                    programs = json.loads(m.group())
-                    if isinstance(programs, list) and programs:
-                        print(f"[Matching] Found {len(programs)} programs")
-                        return programs
+                    parsed = json.loads(m.group())
+                    if isinstance(parsed, list) and parsed:
+                        programs = parsed
+                        break
                 except Exception:
                     pass
-        # direct parse
-        try:
-            parsed = json.loads(full_text.strip())
-            if isinstance(parsed, list):
-                return parsed
-        except Exception:
-            pass
-        print(f"[Matching] Could not parse JSON from response")
+        if not programs:
+            try:
+                parsed = json.loads(full_text.strip())
+                if isinstance(parsed, list):
+                    programs = parsed
+            except Exception:
+                pass
+
+        # Drop hallucinated entries: must have a plausible source_url and a name.
+        verified: List[Dict] = []
+        dropped = 0
+        for p in programs:
+            if not isinstance(p, dict):
+                continue
+            if not p.get("name"):
+                dropped += 1
+                continue
+            if not _is_plausible_url(p.get("source_url")):
+                dropped += 1
+                continue
+            verified.append(p)
+
+        print(f"[Matching] Verified {len(verified)} programs (dropped {dropped} without source_url)")
+        return verified
     except Exception as e:
         print(f"[Matching] Claude call failed: {e}")
     return []

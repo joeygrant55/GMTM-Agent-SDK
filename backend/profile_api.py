@@ -246,16 +246,19 @@ def _run_matching_thread(pid, profile, pos, st, sport):
                 for prog in programs:
                     fit_score = max(65, min(95, int(prog.get("fit_score") or 75)))
                     fit_summary = prog.get("fit_summary") or ""
+                    source_url = prog.get("source_url") or ""
+                    research_seed = {"matching_source_url": source_url} if source_url else {}
                     c2.execute("""
                         INSERT INTO college_targets
                             (sparq_profile_id, college_name, college_city, college_state,
-                             division, fit_score, fit_reasons)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s)
+                             division, fit_score, fit_reasons, research_data)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                     """, (pid, prog.get("name","Unknown"), prog.get("city",""),
                           prog.get("state",""), prog.get("division") or "D1",
-                          fit_score, json.dumps([fit_summary] if fit_summary else [])))
+                          fit_score, json.dumps([fit_summary] if fit_summary else []),
+                          json.dumps(research_seed) if research_seed else None))
             db2.commit()
-            print(f"[Matching] Stored {len(programs)} colleges for profile {pid}")
+            print(f"[Matching] Stored {len(programs)} verified colleges for profile {pid}")
         finally:
             db2.close()
         _aio.run(enrich_college_targets(
