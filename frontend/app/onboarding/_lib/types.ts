@@ -28,6 +28,22 @@ export interface MaxPrepsAthlete {
   seasonStats?: MaxPrepsSeasonStats[]
 }
 
+export interface FlagFootballStats {
+  position?: 'QB' | 'WR' | 'RB' | 'Center' | 'Rusher' | 'Defensive Back' | 'Safety' | 'Other'
+  passingYards?: number
+  passingTouchdowns?: number
+  passingInterceptions?: number
+  completions?: number
+  receivingYards?: number
+  receivingTouchdowns?: number
+  receptions?: number
+  rushingYards?: number
+  rushingTouchdowns?: number
+  flagPulls?: number
+  defensiveInterceptions?: number
+  sacks?: number
+}
+
 export interface CompleteOnboardingPayload {
   maxprepsData: MaxPrepsAthlete | null
   combineMetrics: {
@@ -38,6 +54,7 @@ export interface CompleteOnboardingPayload {
     heightInches?: number
     weight?: number
   }
+  flagFootballStats?: FlagFootballStats
   gpa?: number
   majorArea: 'Undecided' | 'Business' | 'STEM' | 'Communications' | 'Other'
   recruitingGoals: {

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CompleteOnboardingPayload,
+  FlagFootballStats,
   MaxPrepsAthlete,
   ONBOARDING_MAXPREPS_KEY,
   ONBOARDING_PROFILE_ID_KEY,
@@ -13,11 +14,13 @@ const MAJOR_AREAS = ['Undecided', 'Business', 'STEM', 'Communications', 'Other']
 const TARGET_LEVELS = ['D1 Power', 'D1 Mid-Major', 'D2', 'D3', 'Open'] as const
 const GEOGRAPHY_OPTIONS = ['Anywhere', 'In-state', 'Southeast', 'Midwest', 'West', 'Northeast'] as const
 const SCHOOL_SIZE_OPTIONS = ['Large', 'Medium', 'Small', 'No preference'] as const
+const FLAG_POSITIONS = ['QB', 'WR', 'RB', 'Center', 'Rusher', 'Defensive Back', 'Safety', 'Other'] as const
 
 type MajorArea = (typeof MAJOR_AREAS)[number]
 type TargetLevel = (typeof TARGET_LEVELS)[number]
 type Geography = (typeof GEOGRAPHY_OPTIONS)[number]
 type SchoolSize = (typeof SCHOOL_SIZE_OPTIONS)[number]
+type FlagPosition = (typeof FLAG_POSITIONS)[number]
 
 function SelectionGroup<T extends string>({
   options,
@@ -66,6 +69,17 @@ export default function ProfileOnboardingPage() {
   const [error, setError] = useState('')
   const [confirmedAthlete, setConfirmedAthlete] = useState<MaxPrepsAthlete | null>(null)
 
+  // Flag football season stats (manual entry).
+  const [flagPosition, setFlagPosition] = useState<FlagPosition>('WR')
+  const [passingYards, setPassingYards] = useState('')
+  const [passingTouchdowns, setPassingTouchdowns] = useState('')
+  const [passingInterceptions, setPassingInterceptions] = useState('')
+  const [receivingYards, setReceivingYards] = useState('')
+  const [receivingTouchdowns, setReceivingTouchdowns] = useState('')
+  const [receptions, setReceptions] = useState('')
+  const [flagPulls, setFlagPulls] = useState('')
+  const [defensiveInterceptions, setDefensiveInterceptions] = useState('')
+
   useEffect(() => {
     const raw = sessionStorage.getItem(ONBOARDING_MAXPREPS_KEY)
     if (!raw) return
@@ -95,6 +109,18 @@ export default function ProfileOnboardingPage() {
       }
     }
 
+    const flagStats: FlagFootballStats = {
+      position: flagPosition,
+      passingYards: toNumber(passingYards),
+      passingTouchdowns: toNumber(passingTouchdowns),
+      passingInterceptions: toNumber(passingInterceptions),
+      receivingYards: toNumber(receivingYards),
+      receivingTouchdowns: toNumber(receivingTouchdowns),
+      receptions: toNumber(receptions),
+      flagPulls: toNumber(flagPulls),
+      defensiveInterceptions: toNumber(defensiveInterceptions),
+    }
+
     const payload: CompleteOnboardingPayload = {
       maxprepsData,
       combineMetrics: {
@@ -105,6 +131,7 @@ export default function ProfileOnboardingPage() {
         heightInches: toNumber(heightInches),
         weight: toNumber(weight),
       },
+      flagFootballStats: flagStats,
       gpa: toNumber(gpa),
       majorArea,
       recruitingGoals: {
@@ -139,7 +166,7 @@ export default function ProfileOnboardingPage() {
   return (
     <div className="min-h-screen bg-sparq-charcoal text-white">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-        <p className="text-sm font-semibold tracking-widest text-sparq-lime uppercase">Step 3 of 4</p>
+        <p className="text-sm font-semibold tracking-widest text-sparq-lime uppercase">Step 3 of 4 · Women&apos;s Flag Football</p>
         <h1 className="mt-3 text-4xl font-black">Build Your Recruiting Profile</h1>
 
         <div className="mt-5 h-2 rounded-full bg-white/10 overflow-hidden">
@@ -177,7 +204,26 @@ export default function ProfileOnboardingPage() {
           </section>
 
           <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
-            <h2 className="text-xl font-black">B. Academics</h2>
+            <h2 className="text-xl font-black">B. Flag Football Stats</h2>
+            <p className="mt-1 text-sm text-gray-400">Most recent varsity season totals. Leave blank what doesn&apos;t apply to your position.</p>
+            <div className="mt-4">
+              <p className="text-sm text-gray-300">Primary position</p>
+              <SelectionGroup options={FLAG_POSITIONS} value={flagPosition} onChange={setFlagPosition} />
+            </div>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input value={passingYards} onChange={(e) => setPassingYards(e.target.value)} type="number" placeholder="Passing yards" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={passingTouchdowns} onChange={(e) => setPassingTouchdowns(e.target.value)} type="number" placeholder="Passing TDs" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={passingInterceptions} onChange={(e) => setPassingInterceptions(e.target.value)} type="number" placeholder="Interceptions thrown" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={receivingYards} onChange={(e) => setReceivingYards(e.target.value)} type="number" placeholder="Receiving yards" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={receivingTouchdowns} onChange={(e) => setReceivingTouchdowns(e.target.value)} type="number" placeholder="Receiving TDs" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={receptions} onChange={(e) => setReceptions(e.target.value)} type="number" placeholder="Receptions" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={flagPulls} onChange={(e) => setFlagPulls(e.target.value)} type="number" placeholder="Flag pulls" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+              <input value={defensiveInterceptions} onChange={(e) => setDefensiveInterceptions(e.target.value)} type="number" placeholder="Defensive INTs" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
+            </div>
+          </section>
+
+          <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
+            <h2 className="text-xl font-black">C. Academics</h2>
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input value={gpa} onChange={(e) => setGpa(e.target.value)} type="number" step="0.01" placeholder="GPA" className="rounded-xl border border-white/10 bg-black/30 px-4 py-3" />
               <select
@@ -193,7 +239,7 @@ export default function ProfileOnboardingPage() {
           </section>
 
           <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
-            <h2 className="text-xl font-black">C. Recruiting Goals</h2>
+            <h2 className="text-xl font-black">D. Recruiting Goals</h2>
             <div className="mt-4">
               <p className="text-sm text-gray-300">Target level</p>
               <SelectionGroup options={TARGET_LEVELS} value={targetLevel} onChange={setTargetLevel} />
@@ -209,7 +255,7 @@ export default function ProfileOnboardingPage() {
           </section>
 
           <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
-            <h2 className="text-xl font-black">D. Film</h2>
+            <h2 className="text-xl font-black">E. Film</h2>
             <p className="mt-1 text-sm text-gray-400">Hudl highlight link (optional)</p>
             <input
               value={hudlUrl}

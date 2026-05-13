@@ -9,8 +9,20 @@ import { MaxPrepsAthlete, ONBOARDING_MAXPREPS_KEY } from '@/app/onboarding/_lib/
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
-// High school benchmarks: avg ≈ 50th percentile, elite ≈ 99th percentile nationally
+// High school benchmarks: avg ≈ 50th percentile, elite ≈ 99th percentile nationally.
+// Flag football benchmarks are season totals at the HS varsity level — the sport
+// is young and figures will tighten as more data is published.
 const SPORT_BENCHMARKS: Record<string, { stat: string; elite: number; avg: number }[]> = {
+  'Flag Football': [
+    { stat: 'Passing Yards', elite: 1800, avg: 600 },
+    { stat: 'Passing Touchdowns', elite: 24, avg: 8 },
+    { stat: 'Receiving Yards', elite: 900, avg: 300 },
+    { stat: 'Receiving Touchdowns', elite: 14, avg: 4 },
+    { stat: 'Receptions', elite: 65, avg: 25 },
+    { stat: 'Interceptions', elite: 8, avg: 2 },
+    { stat: 'Flag Pulls', elite: 80, avg: 30 },
+    { stat: 'Sacks', elite: 10, avg: 3 },
+  ],
   Basketball: [
     { stat: 'Points Per Game', elite: 18, avg: 6 },
     { stat: 'Rebounds Per Game', elite: 10, avg: 4 },

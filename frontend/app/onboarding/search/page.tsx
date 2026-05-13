@@ -82,9 +82,9 @@ export default function MaxPrepsSearchPage() {
     <div className="min-h-screen bg-sparq-charcoal text-white">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
         <div className="mb-8 text-center">
-          <p className="text-sm font-semibold tracking-widest text-sparq-lime uppercase">Step 1 of 4</p>
-          <h1 className="mt-3 text-4xl font-black">Find Your MaxPreps Profile</h1>
-          <p className="mt-3 text-gray-400">Search for your name to import your stats automatically.</p>
+          <p className="text-sm font-semibold tracking-widest text-sparq-lime uppercase">Step 1 of 4 · Women&apos;s Flag Football</p>
+          <h1 className="mt-3 text-4xl font-black">Find Your Profile</h1>
+          <p className="mt-3 text-gray-400">Search MaxPreps for your name to auto-import stats — or skip and enter them manually below if your league isn&apos;t on MaxPreps yet.</p>
         </div>
 
         <form onSubmit={onSearch} className="bg-white/[0.04] border border-white/10 rounded-2xl p-5">
@@ -197,7 +197,7 @@ export default function MaxPrepsSearchPage() {
 
         <div className="mt-6 text-center">
           <Link href="/onboarding/profile" className="text-sm text-gray-400 hover:text-sparq-lime">
-            Can&apos;t find yourself? Skip manual entry
+            Don&apos;t have a MaxPreps profile? Enter your flag football stats manually →
           </Link>
         </div>
       </div>

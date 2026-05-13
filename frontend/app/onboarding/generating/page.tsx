@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const STEPS = [
-  'Importing MaxPreps profile...',
+  'Importing your profile...',
   'Analyzing your season stats...',
-  'Running against 75,000 athletes...',
   'Computing percentile rankings...',
-  'Matching 2,932 college programs...',
+  'Matching against 71 active college flag football programs...',
+  'Tiering by division — Reach, Target, Likely...',
   'Building your college target list...',
   'Recruiting workspace ready...',
 ]
@@ -87,9 +87,9 @@ export default function GeneratingPage() {
     <div className="min-h-screen bg-sparq-charcoal text-white flex items-center justify-center px-4">
       <div className="w-full max-w-2xl">
         <div className="text-center mb-8">
-          <p className="text-sm font-semibold tracking-widest text-sparq-lime uppercase">Step 4 of 4</p>
+          <p className="text-sm font-semibold tracking-widest text-sparq-lime uppercase">Step 4 of 4 · Women&apos;s Flag Football</p>
           <h1 className="mt-3 text-4xl font-black">Building Your Workspace</h1>
-          <p className="mt-3 text-gray-400">We&apos;re creating your recruiting profile and target list.</p>
+          <p className="mt-3 text-gray-400">We&apos;re matching you against every active college women&apos;s flag football program in the country.</p>
         </div>
 
         <AgentToolCallFeed />

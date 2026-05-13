@@ -11,6 +11,10 @@ interface Season { sport: string; season: string; position: string; stats: Recor
 interface AthleteStats { athleteName: string; sport: string | null; position: string | null; seasons: Season[] }
 
 const SPORT_STAT_PRIORITY: Record<string, string[]> = {
+  // Primary sport for the product. Stats cover both sides of the ball.
+  'Flag Football': ['Passing Yards', 'Passing Touchdowns', 'Receiving Yards', 'Receiving Touchdowns', 'Receptions', 'Interceptions', 'Flag Pulls', 'Sacks'],
+  // Legacy multi-sport stat priorities — preserved for athletes who were
+  // onboarded before the flag-football pivot.
   Basketball: ['Points Per Game', 'Rebounds Per Game', 'Assists Per Game', 'Steals Per Game', 'Blocks Per Game'],
   Football: ['Passing Yards', 'Touchdowns', 'Tackles', 'Interceptions', 'Rushing Yards', 'Receptions', 'Sacks'],
   Soccer: ['Goals', 'Assists', 'Saves', 'Goals Allowed', 'Shots On Goal'],
