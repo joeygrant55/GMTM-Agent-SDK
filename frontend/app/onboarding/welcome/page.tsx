@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import dynamic from 'next/dynamic'
 
 import { useEffect, useState } from 'react'
@@ -115,7 +117,7 @@ function OnboardingWelcomePage() {
   useEffect(() => {
     if (!isLoaded || !user?.id) return
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
-    fetch(`${backendUrl}/api/workspace/colleges/${user.id}`)
+    apiFetch(`${backendUrl}/api/workspace/colleges/${user.id}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return

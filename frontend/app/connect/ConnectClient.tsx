@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
@@ -31,7 +33,7 @@ export default function ConnectClient() {
   useEffect(() => {
     if (user?.id) {
       setLoading(true)
-      fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
+      apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
         .then(r => r.json())
         .then(data => {
           if (data.found && data.user_id) {
@@ -49,7 +51,7 @@ export default function ConnectClient() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${backendUrl}/api/athlete/${athleteId}`)
+      const res = await apiFetch(`${backendUrl}/api/athlete/${athleteId}`)
       if (!res.ok) throw new Error('Athlete not found')
       const data = await res.json()
       setPreview(data)
@@ -65,7 +67,7 @@ export default function ConnectClient() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${backendUrl}/api/athlete/search?name=${encodeURIComponent(searchName)}`)
+      const res = await apiFetch(`${backendUrl}/api/athlete/search?name=${encodeURIComponent(searchName)}`)
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
       setResults(data.athletes || [])
@@ -80,7 +82,7 @@ export default function ConnectClient() {
     if (!user) return
     setLoading(true)
     try {
-      await fetch(`${backendUrl}/api/profile/connect`, {
+      await apiFetch(`${backendUrl}/api/profile/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId, clerk_id: user.id })

@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
@@ -269,7 +271,7 @@ export default function QuickScanClient() {
     }
 
     // Look up linked athlete via Clerk ID
-    fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
+    apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
       .then(r => r.json())
       .then(async linkData => {
         if (!linkData.found || !linkData.user_id) {
@@ -280,7 +282,7 @@ export default function QuickScanClient() {
         setAthleteId(uid)
 
         // Fetch dashboard data
-        const res = await fetch(`${backendUrl}/api/dashboard/${uid}`)
+        const res = await apiFetch(`${backendUrl}/api/dashboard/${uid}`)
         if (!res.ok) throw new Error('Failed to load athlete data')
         const dashboard = await res.json()
         setData(dashboard)

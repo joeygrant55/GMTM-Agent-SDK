@@ -5,7 +5,8 @@ import { CompleteOnboardingPayload } from '@/app/onboarding/_lib/types'
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
 export async function POST(request: NextRequest) {
-  const { userId } = await auth()
+  const { userId, getToken } = await auth()
+  const token = await getToken()
   let payload: CompleteOnboardingPayload
 
   try {
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(enrichedPayload),
       cache: 'no-store',

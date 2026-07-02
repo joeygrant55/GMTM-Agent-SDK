@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import dynamic from 'next/dynamic'
 
 import Link from 'next/link'
@@ -140,8 +142,8 @@ function DraftCoachEmailPage() {
 
       try {
         const [profileRes, collegesRes] = await Promise.all([
-          fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`),
-          fetch(`${backendUrl}/api/workspace/colleges/${user.id}`),
+          apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`),
+          apiFetch(`${backendUrl}/api/workspace/colleges/${user.id}`),
         ])
 
         const profileData = (await profileRes.json()) as ProfileByClerkResponse
@@ -206,7 +208,7 @@ function DraftCoachEmailPage() {
 
     try {
       await navigator.clipboard.writeText(emailDraft)
-      const outreachRes = await fetch(`${backendUrl}/api/workspace/outreach/${user.id}`, {
+      const outreachRes = await apiFetch(`${backendUrl}/api/workspace/outreach/${user.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

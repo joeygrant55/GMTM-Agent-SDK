@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
@@ -45,7 +47,7 @@ export default function WorkspaceSidebar() {
     if (!isLoaded || !user?.id) return
     let cancelled = false
     const load = () => {
-      fetch(`${backendUrl}/api/workspace/badges/${user.id}`)
+      apiFetch(`${backendUrl}/api/workspace/badges/${user.id}`)
         .then((res) => res.json())
         .then((data) => {
           if (cancelled) return

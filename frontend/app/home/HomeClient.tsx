@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
@@ -14,7 +16,7 @@ export default function HomeClient() {
     if (!isLoaded || !user?.id) return
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
 
-    fetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
+    apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (!data?.has_sparq_profile) {

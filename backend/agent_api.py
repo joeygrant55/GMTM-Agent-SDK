@@ -19,8 +19,13 @@ from typing import Optional
 import anthropic
 import pymysql
 from dotenv import load_dotenv
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
+
+from auth import optional_clerk_id, require_clerk_id, demo_secret_ok, rate_limit
+
+# Hard cap on agentic tool-loop iterations — bounds worst-case Claude spend per request.
+MAX_AGENT_ITERATIONS = 8
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env"))
 load_dotenv()
@@ -208,18 +213,31 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
     return None
 
 
-def _load_conversation(athlete_id: str) -> list:
-    """Load last 20 messages for session continuity."""
+def _load_conversation(athlete_id: str, conversation_id: Optional[int] = None) -> list:
+    """Load last 20 messages for session continuity.
+
+    If conversation_id is given (e.g. a What-If fork), load that thread; otherwise
+    load the athlete's default conversation by clerk_id.
+    """
     try:
         db = _get_agent_db()
         with db.cursor() as c:
-            c.execute(
-                """SELECT role, content FROM agent_messages am
-                   JOIN agent_conversations ac ON am.conversation_id = ac.id
-                   WHERE ac.clerk_id = %s
-                   ORDER BY am.id DESC LIMIT 20""",
-                (athlete_id,),
-            )
+            if conversation_id:
+                c.execute(
+                    """SELECT role, content FROM agent_messages am
+                       JOIN agent_conversations ac ON am.conversation_id = ac.id
+                       WHERE ac.id = %s AND ac.clerk_id = %s
+                       ORDER BY am.id DESC LIMIT 20""",
+                    (conversation_id, athlete_id),
+                )
+            else:
+                c.execute(
+                    """SELECT role, content FROM agent_messages am
+                       JOIN agent_conversations ac ON am.conversation_id = ac.id
+                       WHERE ac.clerk_id = %s
+                       ORDER BY am.id DESC LIMIT 20""",
+                    (athlete_id,),
+                )
             rows = c.fetchall()
         db.close()
         messages = []
@@ -265,12 +283,39 @@ def _save_message(athlete_id: str, role: str, content, conversation_id: Optional
 
 
 @router.get("/api/agent/stream")
-async def stream_agent(athlete_id: str, message: str, session_id: Optional[str] = None, fork_scenario: Optional[str] = None, conversation_id: Optional[int] = None):
+async def stream_agent(
+    request: Request,
+    athlete_id: str,
+    message: str,
+    session_id: Optional[str] = None,
+    fork_scenario: Optional[str] = None,
+    conversation_id: Optional[int] = None,
+    caller_clerk_id: Optional[str] = Depends(optional_clerk_id),
+    x_demo_secret: Optional[str] = Header(default=None),
+):
     """
     Streaming workspace AI chat.
     - web_search: Anthropic native tool (web_search_20250305) — server-side, no client handling
     - query_database: custom tool — client executes read-only SQL against GMTM DB
+
+    Auth: either a valid Clerk token whose subject matches athlete_id (the athlete
+    chatting about their own profile), or the demo path — a request carrying the
+    DEMO_PROXY_SECRET (injected by the Next.js /api/demo-chat proxy) which is
+    rate-limited by client IP and never loads a real athlete's private history.
     """
+    is_demo = False
+    if caller_clerk_id:
+        # Authenticated user — may only run the agent as themselves.
+        if athlete_id != caller_clerk_id:
+            raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
+    else:
+        # No token → public demo path. Require the shared proxy secret + rate limit.
+        if not demo_secret_ok(x_demo_secret):
+            raise HTTPException(status_code=401, detail="Authentication required.")
+        client_ip = (request.client.host if request.client else "unknown")
+        if not rate_limit(f"demo:{client_ip}", max_calls=20, window_seconds=3600):
+            raise HTTPException(status_code=429, detail="Demo limit reached. Sign up to keep going.")
+        is_demo = True
 
     async def generate():
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -320,9 +365,11 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
         if fork_scenario:
             system_with_profile += f"\n\nHYPOTHETICAL SCENARIO (the athlete is exploring this what-if — adjust all advice accordingly): {fork_scenario}"
 
-        history = _load_conversation(athlete_id, conversation_id=conversation_id)
+        # The public demo is stateless — never load or persist private history for it.
+        history = [] if is_demo else _load_conversation(athlete_id, conversation_id=conversation_id)
         messages = history + [{"role": "user", "content": message}]
-        _save_message(athlete_id, "user", message, conversation_id=conversation_id)
+        if not is_demo:
+            _save_message(athlete_id, "user", message, conversation_id=conversation_id)
 
         # Agentic loop — continues until end_turn
         # web_search is native: Anthropic executes it server-side within the stream,
@@ -330,7 +377,9 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
         # query_database is custom: we execute it and loop back with tool_results
         pending_tool_results = []
 
-        while True:
+        iterations = 0
+        while iterations < MAX_AGENT_ITERATIONS:
+            iterations += 1
             if pending_tool_results:
                 messages.append({"role": "user", "content": pending_tool_results})
                 pending_tool_results = []
@@ -373,7 +422,8 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
 
                 if final_message.stop_reason == "end_turn":
                     # Done — web_search (if used) was handled server-side within the stream
-                    _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
+                    if not is_demo:
+                        _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
 
@@ -394,13 +444,20 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
 
                     if not pending_tool_results:
                         # No custom tools to handle — done
-                        _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
+                        if not is_demo:
+                            _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
                         yield f"data: {json.dumps({'type': 'done'})}\n\n"
                         return
                     # Loop continues to send query_database results
                 else:
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
+
+        # Iteration cap reached — persist what we have and close out cleanly.
+        if not is_demo and current_text:
+            _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        return
 
     return StreamingResponse(
         generate(),
@@ -410,9 +467,11 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
 
 
 @router.post("/api/agent/chat")
-async def chat_agent(request: dict):
+async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk_id)):
     """Non-streaming legacy endpoint."""
     athlete_id = str(request.get("athlete_id", ""))
+    if athlete_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     message = request.get("message", "")
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -425,7 +484,9 @@ async def chat_agent(request: dict):
     full_text = ""
     pending_tool_results = []
 
-    while True:
+    iterations = 0
+    while iterations < MAX_AGENT_ITERATIONS:
+        iterations += 1
         if pending_tool_results:
             messages.append({"role": "user", "content": pending_tool_results})
             pending_tool_results = []
@@ -463,7 +524,6 @@ async def chat_agent(request: dict):
     _save_message(athlete_id, "assistant", full_text)
     return {
         "response": full_text,
-        "conversation_id": conversation_id,
         "tools_used": [],
         "steps": [],
     }
@@ -491,7 +551,7 @@ def _ensure_fork_columns():
 
 
 @router.post("/api/agent/fork")
-async def fork_session(request: dict):
+async def fork_session(request: dict, caller_clerk_id: str = Depends(require_clerk_id)):
     """
     Create a What-If fork of the athlete's current conversation.
     Copies parent messages into a new conversation with fork_scenario set.
@@ -499,6 +559,8 @@ async def fork_session(request: dict):
     """
     _ensure_fork_columns()
     athlete_id = str(request.get("athlete_id", ""))
+    if athlete_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     scenario = str(request.get("scenario", "")).strip()[:500]
     parent_conv_id = request.get("parent_conversation_id")  # optional int
 

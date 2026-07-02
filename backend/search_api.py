@@ -8,9 +8,11 @@ Direct database search without Agent SDK dependency.
 import os
 import sys
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from datetime import datetime
+
+from auth import require_clerk_id
 
 # Add agents to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'agents'))
@@ -44,7 +46,8 @@ async def search_athletes(
     position: Optional[str] = Query(None, description="Position name"),
     graduation_year: Optional[int] = Query(None, description="Graduation year"),
     sport: Optional[str] = Query(None, description="Sport name"),
-    limit: int = Query(10, le=50, description="Max results")
+    limit: int = Query(10, le=50, description="Max results"),
+    caller_clerk_id: str = Depends(require_clerk_id),
 ):
     """
     Search for athletes with verified SPARQ metrics.
@@ -130,14 +133,15 @@ async def search_athletes(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        print(f"❌ search failed: {e}")
+        raise HTTPException(status_code=500, detail="Search failed.")
 
 @router.get("/athlete/{user_id}", response_model=AthleteResult)
 async def get_athlete(user_id: int):
     """
-    Get specific athlete by user_id.
-    
-    Example: /api/athlete/383
+    Get specific athlete by user_id. Public — backs the shareable /athlete/[id] page
+    and its OG metadata. Returns only non-sensitive directory data (no email), the same
+    info already public on gmtm.com/profile/{id}. Bulk /api/search stays auth-gated.
     """
     query = """
         SELECT DISTINCT
@@ -191,7 +195,8 @@ async def get_athlete(user_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch athlete: {str(e)}")
+        print(f"❌ get_athlete failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch athlete.")
 
 @router.get("/health")
 async def health():

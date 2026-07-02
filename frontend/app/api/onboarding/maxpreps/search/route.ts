@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
@@ -58,11 +59,16 @@ export async function GET(request: NextRequest) {
   }
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
+  const { getToken } = await auth()
+  const token = await getToken()
 
   try {
     const res = await fetch(`${backendUrl}/api/maxpreps/search?q=${encodeURIComponent(q)}`, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       cache: 'no-store',
     })
 

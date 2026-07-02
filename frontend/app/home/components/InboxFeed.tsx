@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useCallback, useEffect, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import ArtifactCard from './ArtifactCard'
@@ -19,7 +21,7 @@ export default function InboxFeed() {
   const fetchInbox = useCallback(
     async (clerkId: string) => {
       try {
-        const res = await fetch(`${backendUrl}/api/workspace/inbox/${clerkId}`)
+        const res = await apiFetch(`${backendUrl}/api/workspace/inbox/${clerkId}`)
         const data = await res.json()
         const list = Array.isArray(data?.artifacts) ? (data.artifacts as Artifact[]) : []
         setArtifacts(list)
@@ -41,7 +43,7 @@ export default function InboxFeed() {
       if (!cancelled && list.length === 0 && !seedTried) {
         setSeedTried(true)
         try {
-          await fetch(`${backendUrl}/api/artifacts/seed-demo/${user.id}`, { method: 'POST' })
+          await apiFetch(`${backendUrl}/api/artifacts/seed-demo/${user.id}`, { method: 'POST' })
           if (!cancelled) await fetchInbox(user.id)
         } catch {
           // If seed fails (DB down), inbox just stays empty — UX shows the empty state.
@@ -57,7 +59,7 @@ export default function InboxFeed() {
   const approve = async (id: number) => {
     setPendingId(id)
     try {
-      await fetch(`${backendUrl}/api/artifacts/${id}/approve`, {
+      await apiFetch(`${backendUrl}/api/artifacts/${id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ performed_by: user?.id ?? null }),
@@ -71,7 +73,7 @@ export default function InboxFeed() {
   const discard = async (id: number) => {
     setPendingId(id)
     try {
-      await fetch(`${backendUrl}/api/artifacts/${id}/discard`, {
+      await apiFetch(`${backendUrl}/api/artifacts/${id}/discard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ performed_by: user?.id ?? null }),

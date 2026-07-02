@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useState, useEffect, useCallback } from 'react'
 
 interface ReportViewProps {
@@ -96,7 +98,7 @@ export default function ReportView({ athleteId, reportId, onBack }: ReportViewPr
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   useEffect(() => {
-    fetch(`${backendUrl}/api/reports/${athleteId}/${reportId}`)
+    apiFetch(`${backendUrl}/api/reports/${athleteId}/${reportId}`)
       .then(r => r.json())
       .then(d => { setReport(d); setLoading(false) })
       .catch(() => setLoading(false))
@@ -104,7 +106,7 @@ export default function ReportView({ athleteId, reportId, onBack }: ReportViewPr
 
   const handleShare = useCallback(async () => {
     try {
-      const res = await fetch(`${backendUrl}/api/reports/${athleteId}/${reportId}/share-token`)
+      const res = await apiFetch(`${backendUrl}/api/reports/${athleteId}/${reportId}/share-token`)
       if (!res.ok) throw new Error('failed')
       const { url } = await res.json()
       await navigator.clipboard.writeText(url)
