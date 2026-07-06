@@ -39,9 +39,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# CORS — restrict to known frontends. Set ALLOWED_ORIGINS (comma-separated) in the
+# environment; falls back to the production Vercel app + localhost for dev.
+_default_origins = "https://sparq-agent.vercel.app,http://localhost:3000,http://localhost:3001"
+_allowed_origins = [
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,12 +74,14 @@ async def root():
 
 @app.get("/health")
 async def health():
+    from auth import auth_status
     return {
         "status": "healthy",
         "checks": {
             "anthropic_configured": bool(os.environ.get("ANTHROPIC_API_KEY")),
             "agent_db_configured": bool(os.environ.get("AGENT_DB_HOST")),
             "gmtm_db_configured": bool(os.environ.get("DB_HOST")),
+            "auth": auth_status(),
         },
         "timestamp": datetime.utcnow().isoformat(),
     }
@@ -80,11 +89,16 @@ async def health():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
+    # Log the real error server-side; return a generic message so we don't leak
+    # stack details, DB errors, or internal paths to clients.
+    import traceback
+    print(f"❌ Unhandled error on {request.method} {request.url.path}: {exc}")
+    traceback.print_exc()
     return JSONResponse(
         status_code=500,
         content={
             "status": "error",
-            "error": str(exc),
+            "error": "Internal server error.",
             "timestamp": datetime.utcnow().isoformat(),
         },
     )

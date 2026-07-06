@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',
+        // Server-side shared secret authorizes the public demo to reach the agent
+        // without a Clerk token. Never exposed to the browser.
+        ...(process.env.DEMO_PROXY_SECRET ? { 'X-Demo-Secret': process.env.DEMO_PROXY_SECRET } : {}),
       },
       cache: 'no-store',
     })

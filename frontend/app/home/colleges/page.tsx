@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import dynamic from 'next/dynamic'
 
 import Link from 'next/link'
@@ -92,7 +94,7 @@ function CollegesPage() {
       return
     }
     try {
-      const res = await fetch(`${backendUrl}/api/workspace/colleges/${clerkId}`)
+      const res = await apiFetch(`${backendUrl}/api/workspace/colleges/${clerkId}`)
       const data = await res.json()
       const list = data.colleges && data.colleges.length > 0 ? data.colleges : MOCK_FALLBACK
       applyColleges(list)
@@ -128,7 +130,7 @@ function CollegesPage() {
 
     const pollStatus = async () => {
       try {
-        const res = await fetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
+        const res = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
         if (!res.ok) return
         const data = await res.json() as { complete?: boolean }
         if (data.complete) {
@@ -152,10 +154,10 @@ function CollegesPage() {
     setEnrichmentComplete(false)
     setToast('Finding new college matches for your profile...')
     try {
-      await fetch(`${backendUrl}/api/workspace/trigger-matching/${user.id}`, { method: 'POST' })
+      await apiFetch(`${backendUrl}/api/workspace/trigger-matching/${user.id}`, { method: 'POST' })
       const poll = async () => {
         try {
-          const res = await fetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
+          const res = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
           if (!res.ok) return false
           const data = await res.json() as { complete?: boolean }
           return !!data.complete
@@ -181,7 +183,7 @@ function CollegesPage() {
   const updateStatus = (collegeId: number, newStatus: string) => {
     setStatuses((prev) => ({ ...prev, [collegeId]: newStatus }))
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
-    fetch(`${backendUrl}/api/workspace/colleges/${collegeId}/status`, {
+    apiFetch(`${backendUrl}/api/workspace/colleges/${collegeId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),

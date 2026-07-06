@@ -2,7 +2,7 @@
 Profile & Links API - Athlete dashboard data
 """
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -11,10 +11,83 @@ import threading
 import pymysql
 from dotenv import load_dotenv
 
+from auth import require_clerk_id, assert_owner
+
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 load_dotenv()
 
 router = APIRouter(prefix="/api", tags=["Profile"])
+
+
+# ── Ownership resolvers ─────────────────────────────────────────────────────
+# Map an internal resource id back to the clerk_id that owns it, so endpoints
+# keyed by integer id can enforce that the caller owns the row before acting.
+
+def _clerk_for_gmtm_user(user_id: int) -> Optional[str]:
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT clerk_id FROM athlete_profiles WHERE user_id = %s", (user_id,))
+            row = c.fetchone()
+            return row["clerk_id"] if row else None
+    finally:
+        db.close()
+
+
+def _clerk_for_profile_id(profile_id: int) -> Optional[str]:
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT clerk_id FROM sparq_profiles WHERE id = %s", (profile_id,))
+            row = c.fetchone()
+            return row["clerk_id"] if row else None
+    finally:
+        db.close()
+
+
+def _clerk_for_college_target(target_id: int) -> Optional[str]:
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                """SELECT sp.clerk_id FROM college_targets ct
+                   JOIN sparq_profiles sp ON sp.id = ct.sparq_profile_id
+                   WHERE ct.id = %s""",
+                (target_id,),
+            )
+            row = c.fetchone()
+            return row["clerk_id"] if row else None
+    finally:
+        db.close()
+
+
+def _clerk_for_outreach_entry(entry_id: int) -> Optional[str]:
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute(
+                """SELECT sp.clerk_id FROM outreach_log ol
+                   JOIN sparq_profiles sp ON sp.id = ol.sparq_profile_id
+                   WHERE ol.id = %s""",
+                (entry_id,),
+            )
+            row = c.fetchone()
+            return row["clerk_id"] if row else None
+    finally:
+        db.close()
+
+
+def _clerk_for_link(link_id: int) -> Optional[str]:
+    db = _get_agent_db()
+    try:
+        with db.cursor() as c:
+            c.execute("SELECT user_id FROM athlete_links WHERE id = %s", (link_id,))
+            row = c.fetchone()
+    finally:
+        db.close()
+    if not row:
+        return None
+    return _clerk_for_gmtm_user(row["user_id"])
 
 
 def _get_agent_db():
@@ -168,6 +241,44 @@ def _ensure_tables():
                     INDEX idx_conv (conversation_id)
                 )
             """)
+            # Clerk ↔ legacy GMTM athlete mapping (used by /profile/connect + dashboard).
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS athlete_profiles (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL UNIQUE,
+                    clerk_id VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_clerk (clerk_id)
+                )
+            """)
+            # Athlete social/media links (dashboard).
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS athlete_links (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    platform VARCHAR(50) NOT NULL,
+                    url VARCHAR(500) NOT NULL,
+                    label VARCHAR(120) DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_user (user_id)
+                )
+            """)
+            # Saved research reports (reports_api).
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS agent_reports (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    conversation_id INT DEFAULT NULL,
+                    report_type VARCHAR(50) NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    content MEDIUMTEXT,
+                    summary TEXT DEFAULT NULL,
+                    metadata JSON,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_user (user_id)
+                )
+            """)
         db.commit()
     except Exception as e:
         print(f"Table creation warning: {e}")
@@ -270,8 +381,9 @@ def _run_matching_thread(pid, profile, pos, st, sport):
         _tb.print_exc()
 
 @router.get("/dashboard/{user_id}")
-async def get_dashboard(user_id: int):
+async def get_dashboard(user_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
     """Full dashboard data: profile + metrics + links + recent chats"""
+    assert_owner(_clerk_for_gmtm_user(user_id), caller_clerk_id)
     gmtm = _get_gmtm_db()
     agent_db = _get_agent_db()
     
@@ -334,18 +446,21 @@ async def get_dashboard(user_id: int):
             for link in links:
                 link['created_at'] = str(link['created_at'])
             
-            # Get recent conversations
+            # Get recent conversations. Conversations are keyed by clerk_id (not the
+            # GMTM user_id) and have no title column, so scope by the owner's clerk_id
+            # and synthesize a title.
             c.execute("""
-                SELECT ac.id, ac.title, ac.updated_at,
+                SELECT ac.id, ac.updated_at,
                        (SELECT COUNT(*) FROM agent_messages WHERE conversation_id = ac.id) as message_count
                 FROM agent_conversations ac
-                WHERE ac.user_id = %s
+                WHERE ac.clerk_id = %s
                 ORDER BY ac.updated_at DESC
                 LIMIT 5
-            """, (user_id,))
+            """, (caller_clerk_id,))
             recent_chats = c.fetchall()
             for chat in recent_chats:
                 chat['updated_at'] = str(chat['updated_at'])
+                chat['title'] = 'Recruiting conversation'
         
         # Calculate profile completeness
         total_fields = 8  # metrics we care about + links
@@ -375,7 +490,8 @@ async def get_dashboard(user_id: int):
 # ── Links CRUD ──────────────────────────
 
 @router.get("/links/{user_id}")
-async def get_links(user_id: int):
+async def get_links(user_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
+    assert_owner(_clerk_for_gmtm_user(user_id), caller_clerk_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -386,7 +502,8 @@ async def get_links(user_id: int):
 
 
 @router.post("/links")
-async def add_link(request: LinkCreate):
+async def add_link(request: LinkCreate, caller_clerk_id: str = Depends(require_clerk_id)):
+    assert_owner(_clerk_for_gmtm_user(request.user_id), caller_clerk_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -401,7 +518,8 @@ async def add_link(request: LinkCreate):
 
 
 @router.delete("/links/{link_id}")
-async def delete_link(link_id: int):
+async def delete_link(link_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
+    assert_owner(_clerk_for_link(link_id), caller_clerk_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -415,8 +533,10 @@ async def delete_link(link_id: int):
 # ── Connect Clerk to athlete ────────────
 
 @router.post("/profile/connect")
-async def connect_profile(request: ProfileConnect):
-    """Link a Clerk user ID to an athlete ID"""
+async def connect_profile(request: ProfileConnect, caller_clerk_id: str = Depends(require_clerk_id)):
+    """Link a Clerk user ID to an athlete ID. A caller may only connect their own clerk_id."""
+    if request.clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Cannot connect a different account.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -431,8 +551,9 @@ async def connect_profile(request: ProfileConnect):
 
 
 @router.get("/athlete/search")
-async def search_athletes(name: str):
-    """Search athletes by name (READ ONLY from GMTM)"""
+async def search_athletes(name: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    """Search athletes by name (READ ONLY from GMTM). Auth required — used only in the
+    account-linking flow — to prevent anonymous enumeration of athlete PII."""
     if len(name.strip()) < 2:
         return {"athletes": []}
     gmtm = _get_gmtm_db()
@@ -478,8 +599,13 @@ async def search_athletes(name: str):
 
 
 @router.get("/profile/by-clerk/{clerk_id}")
-async def get_profile_by_clerk(clerk_id: str):
-    """Look up athlete ID from Clerk user ID. Also checks sparq_profiles."""
+async def get_profile_by_clerk(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    """Look up athlete ID from Clerk user ID. Also checks sparq_profiles.
+
+    A caller may only look up their own clerk_id (prevents mapping other users'
+    clerk ids to GMTM athlete ids)."""
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -501,9 +627,11 @@ async def get_profile_by_clerk(clerk_id: str):
 
 
 @router.post("/profile/create-from-onboarding")
-async def create_from_onboarding(payload: OnboardingPayload):
+async def create_from_onboarding(payload: OnboardingPayload, caller_clerk_id: str = Depends(require_clerk_id)):
     if not payload.clerk_id:
         raise HTTPException(status_code=400, detail="clerk_id is required")
+    if payload.clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Cannot create a profile for a different account.")
 
     db = _get_agent_db()
     try:
@@ -592,7 +720,9 @@ async def create_from_onboarding(payload: OnboardingPayload):
 
 
 @router.get("/workspace/colleges/{clerk_id}")
-async def get_college_targets(clerk_id: str):
+async def get_college_targets(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -640,7 +770,9 @@ async def get_college_targets(clerk_id: str):
 
 
 @router.get("/workspace/enrichment-status/{clerk_id}")
-async def get_enrichment_status(clerk_id: str):
+async def get_enrichment_status(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -672,10 +804,11 @@ async def get_enrichment_status(clerk_id: str):
 
 
 @router.put("/workspace/colleges/{college_target_id}/status")
-async def update_college_status(college_target_id: int, body: StatusUpdate):
+async def update_college_status(college_target_id: int, body: StatusUpdate, caller_clerk_id: str = Depends(require_clerk_id)):
     valid = {"Researching", "Interested", "Contacted", "Visited", "Offered", "Committed", "Declined"}
     if body.status not in valid:
         raise HTTPException(status_code=400, detail="Invalid status")
+    assert_owner(_clerk_for_college_target(college_target_id), caller_clerk_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -690,7 +823,9 @@ async def update_college_status(college_target_id: int, body: StatusUpdate):
 
 
 @router.get("/workspace/outreach/{clerk_id}")
-async def get_outreach_entries(clerk_id: str):
+async def get_outreach_entries(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -712,7 +847,9 @@ async def get_outreach_entries(clerk_id: str):
 
 
 @router.post("/workspace/outreach/{clerk_id}")
-async def create_outreach_entry(clerk_id: str, body: OutreachCreate):
+async def create_outreach_entry(clerk_id: str, body: OutreachCreate, caller_clerk_id: str = Depends(require_clerk_id)):
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     valid_methods = {"Email", "Phone", "Visit", "Camp"}
     valid_statuses = {"Awaiting Response", "Responded", "Meeting Scheduled", "Archived"}
     if body.method not in valid_methods:
@@ -756,10 +893,11 @@ async def create_outreach_entry(clerk_id: str, body: OutreachCreate):
 
 
 @router.put("/workspace/outreach/{entry_id}/status")
-async def update_outreach_status(entry_id: int, body: OutreachStatusUpdate):
+async def update_outreach_status(entry_id: int, body: OutreachStatusUpdate, caller_clerk_id: str = Depends(require_clerk_id)):
     valid_statuses = {"Awaiting Response", "Responded", "Meeting Scheduled", "Archived"}
     if body.status not in valid_statuses:
         raise HTTPException(status_code=400, detail="Invalid status")
+    assert_owner(_clerk_for_outreach_entry(entry_id), caller_clerk_id)
 
     db = _get_agent_db()
     try:
@@ -772,7 +910,8 @@ async def update_outreach_status(entry_id: int, body: OutreachStatusUpdate):
 
 
 @router.delete("/workspace/outreach/{entry_id}")
-async def delete_outreach_entry(entry_id: int):
+async def delete_outreach_entry(entry_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
+    assert_owner(_clerk_for_outreach_entry(entry_id), caller_clerk_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -784,7 +923,9 @@ async def delete_outreach_entry(entry_id: int):
 
 
 @router.get("/workspace/stats/{clerk_id}")
-async def get_workspace_stats(clerk_id: str):
+async def get_workspace_stats(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     base_breakdown = {
         "Researching": 0,
@@ -840,7 +981,9 @@ async def get_workspace_stats(clerk_id: str):
 
 
 @router.get("/workspace/timeline/{clerk_id}")
-async def get_workspace_timeline(clerk_id: str):
+async def get_workspace_timeline(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -875,8 +1018,8 @@ async def get_workspace_timeline(clerk_id: str):
 
             # Outreach entries
             c.execute(
-                "SELECT school, method, status, created_at FROM outreach_log WHERE clerk_id = %s ORDER BY created_at DESC",
-                (clerk_id,),
+                "SELECT school, method, status, created_at FROM outreach_log WHERE sparq_profile_id = %s ORDER BY created_at DESC",
+                (profile_id,),
             )
             for row in c.fetchall():
                 events.append({
@@ -894,8 +1037,9 @@ async def get_workspace_timeline(clerk_id: str):
 
 
 @router.get("/maxpreps/search")
-async def maxpreps_search(q: str, limit: int = 8):
-    """Search MaxPreps athletes: dedup, parallel stat fetch, sort by richness."""
+async def maxpreps_search(q: str, limit: int = 8, caller_clerk_id: str = Depends(require_clerk_id)):
+    """Search MaxPreps athletes: dedup, parallel stat fetch, sort by richness.
+    Auth required (onboarding is behind sign-in) to prevent anonymous scrape abuse."""
     import requests as _requests, json, re, asyncio
     from concurrent.futures import ThreadPoolExecutor
 
@@ -1038,8 +1182,8 @@ async def maxpreps_search(q: str, limit: int = 8):
 
 
 @router.get("/maxpreps/athlete-stats")
-async def maxpreps_athlete_stats(url: str):
-    """Fetch real stats from a MaxPreps athlete profile page."""
+async def maxpreps_athlete_stats(url: str, caller_clerk_id: str = Depends(require_clerk_id)):
+    """Fetch real stats from a MaxPreps athlete profile page. Auth required."""
     import requests as _requests, json, re
     from concurrent.futures import ThreadPoolExecutor
 
@@ -1104,8 +1248,10 @@ async def maxpreps_athlete_stats(url: str):
 
 
 @router.post("/workspace/trigger-matching/{clerk_id}")
-async def trigger_matching(clerk_id: str):
+async def trigger_matching(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
     """Manually re-trigger AI college matching for an existing profile."""
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -1162,8 +1308,10 @@ async def trigger_matching(clerk_id: str):
 
 
 @router.get("/workspace/profile/{clerk_id}")
-async def get_profile(clerk_id: str):
+async def get_profile(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
     """Return full sparq_profiles row for the workspace profile editor."""
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -1197,8 +1345,10 @@ class ProfileUpdatePayload(BaseModel):
 
 
 @router.patch("/workspace/profile/{clerk_id}")
-async def update_profile(clerk_id: str, payload: ProfileUpdatePayload):
+async def update_profile(clerk_id: str, payload: ProfileUpdatePayload, caller_clerk_id: str = Depends(require_clerk_id)):
     """Update editable fields on an existing sparq_profile."""
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -1232,8 +1382,10 @@ async def update_profile(clerk_id: str, payload: ProfileUpdatePayload):
 
 
 @router.get("/workspace/colleges/{clerk_id}/{college_id}")
-async def get_college_detail(clerk_id: str, college_id: int):
+async def get_college_detail(clerk_id: str, college_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
     """Return full college target detail including research_data."""
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -1315,8 +1467,10 @@ Return ONLY the JSON. No markdown, no code blocks, no explanation."""
 
 
 @router.post("/workspace/colleges/{clerk_id}/{college_id}/research")
-async def run_deep_research(clerk_id: str, college_id: int, background_tasks: BackgroundTasks):
+async def run_deep_research(clerk_id: str, college_id: int, background_tasks: BackgroundTasks, caller_clerk_id: str = Depends(require_clerk_id)):
     """Trigger deep per-college research for an athlete."""
+    if clerk_id != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -1374,7 +1528,7 @@ async def run_deep_research(clerk_id: str, college_id: int, background_tasks: Ba
 
     def _do_research(cid, name, div, ct, st, athlete_info, spt):
         import anthropic as _anth, re as _re
-        client = _anth.Anthropic(api_key=ANTHROPIC_API_KEY)
+        client = _anth.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         db2 = _get_agent_db()
         try:
             prompt = (

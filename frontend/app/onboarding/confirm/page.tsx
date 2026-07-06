@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MaxPrepsAthlete, ONBOARDING_MAXPREPS_KEY } from '@/app/onboarding/_lib/types'
@@ -46,7 +48,7 @@ export default function ConfirmMaxPrepsPage() {
     const profileUrl = (athlete as any)?.profileUrl
     if (!profileUrl) return
     setLoadingStats(true)
-    fetch(`${BACKEND_URL}/api/maxpreps/athlete-stats?url=${encodeURIComponent(profileUrl)}`)
+    apiFetch(`${BACKEND_URL}/api/maxpreps/athlete-stats?url=${encodeURIComponent(profileUrl)}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then((data: AthleteStats) => { setStatsData(data); setLoadingStats(false) })
       .catch(() => { setStatsError(true); setLoadingStats(false) })

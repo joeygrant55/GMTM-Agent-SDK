@@ -16,7 +16,7 @@ const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.
 
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
-    const { userId } = await auth()
+    const { userId, getToken } = await auth()
     if (!userId) {
       const signInUrl = new URL('/sign-in', request.url)
       signInUrl.searchParams.set('redirect_url', request.url)
@@ -26,9 +26,13 @@ export default clerkMiddleware(async (auth, request) => {
     if (isOnboardingRoute(request)) {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
       try {
+        const token = await getToken()
         const res = await fetch(`${backendUrl}/api/profile/by-clerk/${userId}`, {
           method: 'GET',
-          headers: { Accept: 'application/json' },
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         })
 
         if (res.ok) {

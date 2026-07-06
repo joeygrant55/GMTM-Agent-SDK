@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useParams, useRouter } from 'next/navigation'
@@ -114,7 +116,7 @@ export default function CollegeDetailPage() {
   const load = useCallback(async () => {
     if (!user?.id || !collegeId) return
     try {
-      const res = await fetch(`${backendUrl}/api/workspace/colleges/${user.id}/${collegeId}`)
+      const res = await apiFetch(`${backendUrl}/api/workspace/colleges/${user.id}/${collegeId}`)
       if (!res.ok) throw new Error()
       const d = await res.json()
       setData(d)
@@ -149,7 +151,7 @@ export default function CollegeDetailPage() {
     if (!user?.id || !collegeId) return
     setResearching(true)
     try {
-      await fetch(`${backendUrl}/api/workspace/colleges/${user.id}/${collegeId}/research`, { method: 'POST' })
+      await apiFetch(`${backendUrl}/api/workspace/colleges/${user.id}/${collegeId}/research`, { method: 'POST' })
       setTimeout(load, 3000)
     } catch {
       setResearching(false)
@@ -160,7 +162,7 @@ export default function CollegeDetailPage() {
     if (!user?.id || !data) return
     setDrafting(true)
     try {
-      const res = await fetch(`${backendUrl}/api/artifacts/draft-outreach`, {
+      const res = await apiFetch(`${backendUrl}/api/artifacts/draft-outreach`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

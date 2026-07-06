@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import dynamic from 'next/dynamic'
 
 import { useEffect, useState } from 'react'
@@ -58,7 +60,7 @@ function WorkspaceProfilePage() {
 
   useEffect(() => {
     if (!clerkId) return
-    fetch(`${backendUrl}/api/workspace/profile/${clerkId}`)
+    apiFetch(`${backendUrl}/api/workspace/profile/${clerkId}`)
       .then(r => r.json())
       .then(d => {
         setMaxpreps((d.maxpreps_data as Record<string, unknown>) || {})
@@ -87,7 +89,7 @@ function WorkspaceProfilePage() {
     if (!clerkId) return
     setSaving(true); setError('')
     try {
-      const res = await fetch(`${backendUrl}/api/workspace/profile/${clerkId}`, {
+      const res = await apiFetch(`${backendUrl}/api/workspace/profile/${clerkId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

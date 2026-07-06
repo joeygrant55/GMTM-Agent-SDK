@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
@@ -210,7 +212,7 @@ export default function WorkspaceAIPanel() {
     })
 
     try {
-      const response = await fetch(`${backendUrl}/api/agent/stream?${params}`)
+      const response = await apiFetch(`${backendUrl}/api/agent/stream?${params}`)
       if (!response.body) throw new Error('No response body')
 
       const reader = response.body.getReader()
@@ -281,7 +283,7 @@ export default function WorkspaceAIPanel() {
     if (!scenario || !user?.id) return
     setForkLoading(true)
     try {
-      const res = await fetch(`${backendUrl}/api/agent/fork`, {
+      const res = await apiFetch(`${backendUrl}/api/agent/fork`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

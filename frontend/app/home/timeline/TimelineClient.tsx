@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
@@ -38,7 +40,7 @@ export default function TimelineClient() {
   useEffect(() => {
     if (!isLoaded || !user) return
     const clerkId = user.id
-    fetch(`${getApiBase()}/api/workspace/timeline/${clerkId}`)
+    apiFetch(`${getApiBase()}/api/workspace/timeline/${clerkId}`)
       .then((r) => r.json())
       .then((data) => {
         setEvents(Array.isArray(data) ? data : [])

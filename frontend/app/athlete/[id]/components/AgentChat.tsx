@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ResponseParser from './ResponseParser'
 
@@ -96,7 +98,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
   const autoStartFired = useRef(false)
 
   useEffect(() => {
-    fetch(`${backendUrl}/api/conversations/${athleteId}`)
+    apiFetch(`${backendUrl}/api/conversations/${athleteId}`)
       .then((r) => r.json())
       .then((data) => setConversations(data.conversations || []))
       .catch(() => {})
@@ -117,7 +119,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
   const loadConversation = async (convId: number) => {
     try {
-      const res = await fetch(`${backendUrl}/api/conversations/${athleteId}/${convId}`)
+      const res = await apiFetch(`${backendUrl}/api/conversations/${athleteId}/${convId}`)
       const data = await res.json()
       setConversationId(convId)
       const loaded: Message[] = data.messages.map((m: any) => ({
@@ -289,7 +291,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     setMessages((prev) => [...prev, streamingMessage])
 
     try {
-      const response = await fetch(`${backendUrl}/api/agent/chat`, {
+      const response = await apiFetch(`${backendUrl}/api/agent/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,7 +309,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
 
       if (data.conversation_id && !conversationId) {
         setConversationId(data.conversation_id)
-        fetch(`${backendUrl}/api/conversations/${athleteId}`)
+        apiFetch(`${backendUrl}/api/conversations/${athleteId}`)
           .then((r) => r.json())
           .then((d) => setConversations(d.conversations || []))
           .catch(() => {})

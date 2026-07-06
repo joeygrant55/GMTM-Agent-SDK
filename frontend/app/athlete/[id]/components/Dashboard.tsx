@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useState, useEffect } from 'react'
 
 interface DashboardProps {
@@ -59,7 +61,7 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
     e.stopPropagation()
     setSharingReportId(reportId)
     try {
-      const res = await fetch(`${backendUrl}/api/reports/${athleteId}/${reportId}/share-token`)
+      const res = await apiFetch(`${backendUrl}/api/reports/${athleteId}/${reportId}/share-token`)
       if (!res.ok) throw new Error('failed')
       const { url } = await res.json()
       await navigator.clipboard.writeText(url)
@@ -75,8 +77,8 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
   useEffect(() => {
     Promise.all([
-      fetch(`${backendUrl}/api/dashboard/${athleteId}`).then(r => r.json()),
-      fetch(`${backendUrl}/api/reports/${athleteId}`).then(r => r.json()).catch(() => ({ reports: [] }))
+      apiFetch(`${backendUrl}/api/dashboard/${athleteId}`).then(r => r.json()),
+      apiFetch(`${backendUrl}/api/reports/${athleteId}`).then(r => r.json()).catch(() => ({ reports: [] }))
     ]).then(([dashData, reportsData]) => {
       setData(dashData)
       setReports(reportsData.reports || [])
@@ -86,20 +88,20 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
   const addLink = async () => {
     if (!newLink.platform || !newLink.url) return
-    await fetch(`${backendUrl}/api/links`, {
+    await apiFetch(`${backendUrl}/api/links`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: athleteId, ...newLink })
     })
-    const res = await fetch(`${backendUrl}/api/dashboard/${athleteId}`)
+    const res = await apiFetch(`${backendUrl}/api/dashboard/${athleteId}`)
     setData(await res.json())
     setNewLink({ platform: '', url: '' })
     setAddingLink(false)
   }
 
   const deleteLink = async (linkId: number) => {
-    await fetch(`${backendUrl}/api/links/${linkId}`, { method: 'DELETE' })
-    const res = await fetch(`${backendUrl}/api/dashboard/${athleteId}`)
+    await apiFetch(`${backendUrl}/api/links/${linkId}`, { method: 'DELETE' })
+    const res = await apiFetch(`${backendUrl}/api/dashboard/${athleteId}`)
     setData(await res.json())
   }
 

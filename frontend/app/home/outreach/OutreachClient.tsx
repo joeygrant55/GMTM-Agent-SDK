@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 
@@ -75,7 +77,7 @@ export default function OutreachClient() {
   // Load entries from backend
   useEffect(() => {
     if (!isLoaded || !user?.id) return
-    fetch(`${backendUrl}/api/workspace/outreach/${user.id}`)
+    apiFetch(`${backendUrl}/api/workspace/outreach/${user.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data?.entries)) {
@@ -115,7 +117,7 @@ export default function OutreachClient() {
     resetForm()
 
     if (user?.id) {
-      fetch(`${backendUrl}/api/workspace/outreach/${user.id}`, {
+      apiFetch(`${backendUrl}/api/workspace/outreach/${user.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,7 +146,7 @@ export default function OutreachClient() {
       prev.map((e) => (e.id === entryId ? { ...e, status: newStatus } : e))
     )
     if (user?.id) {
-      fetch(`${backendUrl}/api/workspace/outreach/${entryId}/status`, {
+      apiFetch(`${backendUrl}/api/workspace/outreach/${entryId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

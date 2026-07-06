@@ -1,5 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/app/_lib/api'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
@@ -32,7 +34,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`${backendUrl}/api/artifacts/${artifactId}`)
+    apiFetch(`${backendUrl}/api/artifacts/${artifactId}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`Artifact ${artifactId} not found`)
         return res.json()
@@ -77,7 +79,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
         router.push(`/home/artifact/${detail.childId}`)
       } else if (detail.artifactId === artifactId) {
         // refresh in place
-        fetch(`${backendUrl}/api/artifacts/${artifactId}`)
+        apiFetch(`${backendUrl}/api/artifacts/${artifactId}`)
           .then((r) => r.json())
           .then((data: Artifact) => setArtifact(data))
           .catch(() => {})
@@ -91,7 +93,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
     if (!artifact || !editedPayloadRef.current || !dirtyRef.current) return
     setSavingState('saving')
     try {
-      await fetch(`${backendUrl}/api/artifacts/${artifact.id}/edit`, {
+      await apiFetch(`${backendUrl}/api/artifacts/${artifact.id}/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -125,7 +127,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
     try {
       const athleteEmail = user?.primaryEmailAddress?.emailAddress ?? null
       const athleteName = user?.fullName ?? user?.firstName ?? null
-      const res = await fetch(`${backendUrl}/api/artifacts/${artifact.id}/approve`, {
+      const res = await apiFetch(`${backendUrl}/api/artifacts/${artifact.id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -162,7 +164,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
     if (!artifact) return
     setPending('discard')
     try {
-      await fetch(`${backendUrl}/api/artifacts/${artifact.id}/discard`, {
+      await apiFetch(`${backendUrl}/api/artifacts/${artifact.id}/discard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ performed_by: user?.id ?? null }),
