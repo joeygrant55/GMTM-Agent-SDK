@@ -1,6 +1,6 @@
 # SPARQ Agent — Product Strategy
 
-*Decided Feb 2, 2026*
+*Decided Feb 2, 2026 — superseded in part by the "Revised July 2026: Club-First Pivot" section at the end of this doc (see MARKET_RESEARCH.md for the evidence).*
 
 ## Vision
 The first AI-powered recruiting advisor with real athlete data. Give every athlete access to $5,000-level recruiting guidance for $29/month.
@@ -85,3 +85,82 @@ The first AI-powered recruiting advisor with real athlete data. Give every athle
 - **Reports are the value** — chat is the interface, reports are what people save/share
 - **GMTM DB read-only** — all agent data on Railway MySQL
 - **Claude Sonnet 4.6** — best speed/cost/quality tradeoff at this price point
+
+---
+
+# Revised July 2026: Club-First Pivot
+
+*Decided July 2026, based on MARKET_RESEARCH.md. Supersedes the D2C-first monetization above.*
+
+## Why the pivot
+
+The Feb plan led with a $29/mo D2C consumer subscription. Market research (July 2026) shows
+that lane is structurally squeezed: free-and-verified below (Scorability — free for athletes,
+colleges pay $10–40K/yr, $40M raised), $9.99 AI beside (RecruitLook), $1K–3K human services
+above (NCSA), seasonal churn, and a customer that expires (~18 months to commit-or-quit).
+Meanwhile the channel that demonstrably works in this category is club/tournament B2B2C, and
+the emerging moat across the industry is **verified athlete data** — Scorability acquired
+Ryzer (27K camps/yr) precisely to own a verified-data pipe.
+
+SPARQ's unfair advantage: **we own the measurement layer.** Capture devices + SPARQ testing
+protocol + historical SPARQ/combine datasets + 75K GMTM profiles / 131K metrics / 7,832
+scholarship outcomes. Nobody else can generate device-verified data at the club level.
+
+## The flywheel
+
+1. **Club runs SPARQ testing days** with our capture devices (included in club subscription).
+2. **Verified metrics flow into athlete profiles** automatically, with provenance
+   (event, date, device) — displayed as "SPARQ Verified" everywhere, distinct from self-reported.
+3. **Every tested athlete gets a free SPARQ profile + honest assessment** benchmarked against
+   the historical database — real percentiles, not vibes.
+4. **Parents upsell to Pro** ($29/mo / $199/yr): the working agent (Scout/Drafter/Analyst),
+   coach outreach with reply tracking, Sunday parent brief.
+5. **The verified pool grows** → college programs pay for access to device-verified athletes
+   (the $10–40K/yr lane Scorability validated) — Phase 3.
+6. **Recruited athletes become club marketing** → more clubs sign → more testing → more data.
+
+Consumer subscription moves from "the business" to "the upsell." The club is the customer;
+the database is the asset; the agent is the reason athletes and parents engage weekly.
+
+## The club offer (v1)
+
+- **Price:** $1,500–$2,500/yr per club (anchor: clubs already pay Hudl $1,500–$4,000/program).
+  Pilot phase: free/discounted for 3–5 clubs in exchange for testing cadence + testimonials.
+- **Includes:** N testing days/season with capture devices; coach dashboard (roster,
+  verified percentiles, progression, recruiting pipeline status per athlete); free athlete
+  profiles + honest assessments for the full roster; parent briefs.
+- **The pitch to clubs:** "Your athletes get verified combine data and an AI recruiting
+  agent. You get proof your program develops athletes — and gets them recruited."
+
+## Build priorities (delta from current product)
+
+1. **Verified-metric ingestion**: capture device → API → `verified_metrics` with event
+   provenance (event_id, club_id, device_id, date). Verified vs self-reported must be
+   visually distinct across every surface.
+2. **Org accounts + roster**: club entity, coach role, athlete invite/gift flow,
+   team dashboard (read-only v1 is fine).
+3. **Parent brief** (Sunday email): the payer-facing artifact that drives the Pro upsell.
+4. **Keep**: agent inbox loop, honest assessment, outreach + reply tracking, Quick Scan
+   (now "get SPARQ tested near you" is its CTA).
+5. **Deprioritize**: D2C paywall as the primary motion (Stripe still needed — for club
+   billing and Pro upsell), one-time report SKUs, video pipeline, unbuilt agents.
+
+## Compliance note (non-negotiable before first testing day)
+
+Device-captured performance data on minors requires parental consent at event registration
+(COPPA for under-13s; state biometric-privacy laws — e.g., Illinois BIPA — may apply
+depending on what the devices capture, especially any video/motion data). ToS + privacy
+policy + consent flow ship before the first pilot event, not after.
+
+## 90-day sequence
+
+- **Weeks 1–2**: prod env vars for the new auth layer; pick 3 pilot clubs from the GMTM
+  network; write the testing-day playbook; consent/legal pages.
+- **Weeks 3–6**: verified-metric ingestion + org accounts + coach dashboard v1.
+- **Weeks 7–8**: first pilot testing day; iterate on the capture → profile → assessment flow.
+- **Weeks 9–12**: 3 pilots live; measure athlete activation + parent upsell rate; set club
+  pricing from real willingness-to-pay; open paid club sales.
+
+**Kill criteria** (decide with evidence, not vibes): if after 3 pilot clubs we can't get
+(a) a second testing day scheduled per club, (b) >40% of tested athletes activating profiles,
+or (c) any club willing to pay at renewal — revisit the whole thesis.
