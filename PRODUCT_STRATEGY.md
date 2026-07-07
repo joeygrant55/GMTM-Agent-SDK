@@ -122,21 +122,45 @@ scholarship outcomes. Nobody else can generate device-verified data at the club 
 Consumer subscription moves from "the business" to "the upsell." The club is the customer;
 the database is the asset; the agent is the reason athletes and parents engage weekly.
 
-## Beachhead: flag football (added after USA Flag Football impact report)
+## Focus market: flag football (decided July 2026)
 
-Proof point in hand (2026 U.S. National Team Trials impact report, source: USA Flag Football
+Flag football is the market, not just the beachhead. Multi-sport expansion is optionality
+for later; all product, GTM, and data work targets flag until the pilot metrics say otherwise.
+
+**Our proof point** (2026 U.S. National Team Trials impact report, source: USA Flag Football
 Head of Player Personnel): **68 GMTM athletes invited to 2026 trials; 64.6% of all Adult Men
 trial invites** came from GMTM digital combines/SPARQ testing (up from 18% in 2025); average
 25.8% share across all six categories, growing in every one.
+*Marketing caveat: invite-share reflects pipeline relationships as well as the rating's
+predictive power, and youth-category samples are small. Lead with the Adult Men number;
+don't claim causality.*
 
-- Flag football debuts at the **LA 2028 Olympics** and is the fastest-growing youth sport —
-  and we are already embedded in the national-team selection funnel.
-- Club-first GTM launches in flag football specifically ("SPARQ testing is how USA Flag
-  Football finds national team athletes — get your club tested"), then expands sport by
-  sport with the same playbook.
-- Marketing caveat: invite-share reflects pipeline relationships as well as the rating's
-  predictive power, and youth-category samples are small. Lead with the Adult Men number;
-  don't claim causality.
+**Market facts (July 2026):**
+- Girls' HS flag: ~69K players / 2,736 schools in 2024-25, +30% YoY (+105% the year prior);
+  17 states sanction (up from 3 in 2023), 6 more voting in 2026 (NFHS).
+- College pathway just materialized: NCAA Emerging Sport for Women (2026 Convention); 100+
+  colleges offering; NAIA championship sport 2026-27 with 51 varsity programs (12
+  scholarships/team); Nebraska = first Power Four varsity program.
+- 4.1M US youth flag players (+50% since 2020), ~20M globally; LA28 Olympic debut (both
+  genders); NFL launching men's + women's pro flag leagues (TMRW Sports, $32M) before 2028.
+
+**Why the recruiting-market structural problems invert in flag:**
+1. Roster supply is EXPANDING (new college programs launching faster than informed athletes
+   appear) vs shrinking in traditional sports (House caps, portal). Matching genuinely helps
+   both sides — coaches need players.
+2. No incumbent owns flag recruiting (NCSA/Scorability are tackle/legacy-sport shaped).
+3. We already sit inside the national-team selection funnel.
+4. SPARQ testing measures exactly what flag selects for (speed/agility/quickness, not size).
+
+**Product implications:**
+- **Own the definitive women's college flag dataset** (~100-116 programs — finite and
+  hand-curatable). Replaces LLM web-search matching with a bounded, correct universe; kills
+  the STATUS.md "Phase 2 matching hallucination" problem outright for this market.
+- Onboarding: MaxPreps girls' flag (sanctioned states) + NFL Flag league affiliation +
+  SPARQ testing as the primary verified stat source.
+- Agent specialization: flag positions, 5v5 game context, national-team pipeline awareness.
+- Segments: girls/women (HS → college scholarship path — primary consumer urgency) and
+  boys/men (national team + pro-league pathway — the aspirational tier).
 
 ## The data asset: outcome-labeled, not just verified
 
