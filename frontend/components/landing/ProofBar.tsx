@@ -10,10 +10,10 @@ export function ProofBar() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sparq-lime/40 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-sparq-lime/40 to-transparent" />
       <Stagger className="mx-auto grid max-w-7xl grid-cols-2 gap-y-10 px-6 py-16 md:grid-cols-5 md:gap-0 md:divide-x md:divide-white/5">
-        <Stat value={75000} suffix="+" label="Athlete profiles" />
-        <Stat value={2900} suffix="+" label="College programs" />
-        <Stat value={131000} suffix="" format={(n) => `${(n / 1000).toFixed(0)}K`} label="Performance metrics" />
-        <Stat value={7832} suffix="" label="Scholarship offers tracked" />
+        <Stat value={68} suffix="" label="Athletes sent to 2026 USA Flag national team trials" />
+        <Stat value={64.6} suffix="%" format={(n) => n.toFixed(1)} label="Of Adult Men trial invites came through our combines" />
+        <Stat value={100} suffix="+" label="College flag programs — most recruiting founding rosters" />
+        <Stat value={131000} suffix="" format={(n) => `${(n / 1000).toFixed(0)}K`} label="Verified performance metrics" />
         <ShiftStat />
       </Stagger>
     </section>
