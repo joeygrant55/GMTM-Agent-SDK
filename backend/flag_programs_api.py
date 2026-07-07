@@ -14,6 +14,7 @@ curated table instead of open-ended LLM web search — eliminating hallucinated 
   ongoing curation as new programs are announced (they are, monthly).
 """
 
+import hmac
 import json
 import os
 from typing import Optional
@@ -74,8 +75,9 @@ def _ensure_table_and_seed():
             """)
         db.commit()
 
-        # Seed from the JSON file — upsert by name so re-deploys refresh seed rows
-        # without clobbering hand-curated fields (coach info, roster, notes).
+        # Seed from the JSON file — INSERT IGNORE so the seed only creates missing rows.
+        # Once a row exists, /api/flag-programs/bulk owns all updates; a redeploy must
+        # never clobber hand-curated edits (status changes, conference fixes, coach info).
         if os.path.exists(SEED_PATH):
             with open(SEED_PATH) as f:
                 seed = json.load(f)
@@ -83,23 +85,16 @@ def _ensure_table_and_seed():
             with db.cursor() as c:
                 for p in programs:
                     c.execute("""
-                        INSERT INTO flag_programs
+                        INSERT IGNORE INTO flag_programs
                             (name, state, org, conference, status, first_varsity_season, source_url)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE
-                            state = VALUES(state),
-                            org = VALUES(org),
-                            conference = VALUES(conference),
-                            status = VALUES(status),
-                            first_varsity_season = VALUES(first_varsity_season),
-                            source_url = VALUES(source_url)
                     """, (
                         p.get("name"), p.get("state"), p.get("org", "NAIA"),
                         p.get("conference"), p.get("status", "varsity"),
                         p.get("first_varsity_season"), p.get("source_url"),
                     ))
             db.commit()
-            print(f"[FlagPrograms] Seeded/refreshed {len(programs)} programs")
+            print(f"[FlagPrograms] Seed ensured ({len(programs)} programs in seed file; existing rows untouched)")
     except Exception as e:
         print(f"⚠️ flag_programs table/seed warning: {e}")
     finally:
@@ -164,7 +159,7 @@ def _require_admin_key(x_admin_key: Optional[str]) -> None:
     expected = os.environ.get("ADMIN_API_KEY", "").strip()
     if not expected:
         raise HTTPException(status_code=503, detail="Admin API not configured (ADMIN_API_KEY unset).")
-    if not x_admin_key or x_admin_key.strip() != expected:
+    if not x_admin_key or not hmac.compare_digest(x_admin_key.strip(), expected):
         raise HTTPException(status_code=401, detail="Invalid admin key.")
 
 

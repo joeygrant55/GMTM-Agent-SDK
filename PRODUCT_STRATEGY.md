@@ -1,6 +1,6 @@
 # SPARQ Agent — Product Strategy
 
-*Decided Feb 2, 2026 — superseded in part by the "Revised July 2026: Club-First Pivot" section at the end of this doc (see MARKET_RESEARCH.md for the evidence).*
+*Decided Feb 2, 2026 — HISTORICAL CONTEXT ONLY. The D2C-first plan below is superseded by the "Revised July 2026: Club-First Pivot" section at the end of this doc; do not pull requirements from this section (see MARKET_RESEARCH.md for the evidence).*
 
 ## Vision
 The first AI-powered recruiting advisor with real athlete data. Give every athlete access to $5,000-level recruiting guidance for $29/month.
@@ -159,8 +159,11 @@ don't claim causality.*
 - Onboarding: MaxPreps girls' flag (sanctioned states) + NFL Flag league affiliation +
   SPARQ testing as the primary verified stat source.
 - Agent specialization: flag positions, 5v5 game context, national-team pipeline awareness.
-- Segments: girls/women (HS → college scholarship path — primary consumer urgency) and
-  boys/men (national team + pro-league pathway — the aspirational tier).
+- Segments:
+  - **V1 (the pilot GTM motion):** girls/women — HS → college scholarship path, primary
+    consumer urgency, bounded program universe.
+  - **Deferred:** boys/men — national team + pro-league pathway. Marketing proof point
+    today; not a product motion until the women's pilot converts.
 
 ## The data asset: outcome-labeled, not just verified
 

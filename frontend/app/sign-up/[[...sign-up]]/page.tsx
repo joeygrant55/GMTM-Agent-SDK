@@ -6,7 +6,7 @@ export default function SignUpPage() {
       <div className="text-center">
         <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
         <p className="text-gray-400 mb-8">Create your account to get started</p>
-        <SignUp afterSignUpUrl="/home" />
+        <SignUp fallbackRedirectUrl="/home" />
       </div>
     </div>
   )

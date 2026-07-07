@@ -24,8 +24,10 @@ athlete is known (pre-registered), otherwise athlete_name/external_ref for later
 reconciliation via the admin flow.
 """
 
+import hmac
 import json
 import os
+import traceback
 from typing import Optional
 
 import pymysql
@@ -122,6 +124,7 @@ def _ensure_tables():
         db.commit()
     except Exception as e:
         print(f"⚠️ verified-data table creation warning: {e}")
+        traceback.print_exc()
     finally:
         if db:
             db.close()
@@ -134,7 +137,7 @@ def _require_ingest_key(x_ingest_key: Optional[str]) -> None:
     expected = os.environ.get("INGEST_API_KEY", "").strip()
     if not expected:
         raise HTTPException(status_code=503, detail="Ingestion not configured (INGEST_API_KEY unset).")
-    if not x_ingest_key or x_ingest_key.strip() != expected:
+    if not x_ingest_key or not hmac.compare_digest(x_ingest_key.strip(), expected):
         raise HTTPException(status_code=401, detail="Invalid ingest key.")
 
 
@@ -297,7 +300,9 @@ def get_verified_data(clerk_id: str, caller_clerk_id: str = Depends(require_cler
             c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
             profile = c.fetchone()
             if not profile:
-                return {"metrics": [], "outcomes": [], "events": []}
+                # Same shape as the success path — event info rides on each metric row
+                # (event_name/event_date/club_name via join), not as a separate list.
+                return {"metrics": [], "outcomes": []}
             pid = profile["id"]
 
             c.execute("""

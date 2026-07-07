@@ -189,6 +189,7 @@ def _match_flag_programs_sync(athlete_profile: Dict, client) -> List[Dict]:
         max_tokens=2000,
         system=FLAG_RANKING_SYSTEM,
         messages=[{"role": "user", "content": user_prompt}],
+        timeout=60.0,
     )
     full_text = "".join(b.text for b in response.content if hasattr(b, "text"))
 
