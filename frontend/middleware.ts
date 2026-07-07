@@ -10,6 +10,8 @@ const isPublicRoute = createRouteMatcher([
   '/quick-scan',
   '/athlete/(.*)',
   '/report/(.*)',
+  '/privacy',
+  '/terms',
 ])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
@@ -37,7 +39,11 @@ export default clerkMiddleware(async (auth, request) => {
 
         if (res.ok) {
           const data = await res.json()
-          if (data?.found) {
+          // Only skip onboarding for users who completed SPARQ onboarding.
+          // Legacy GMTM-linked users (found=true, has_sparq_profile=false) must be
+          // allowed through — redirecting them to /home caused an infinite loop
+          // (HomeClient sends profile-less users right back to /onboarding/search).
+          if (data?.has_sparq_profile) {
             return NextResponse.redirect(new URL('/home', request.url))
           }
         }

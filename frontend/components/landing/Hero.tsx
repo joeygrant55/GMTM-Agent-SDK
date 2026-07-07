@@ -49,11 +49,10 @@ export function Hero() {
             transition={{ duration: 0.8, ease: EASE }}
             className="font-display text-display-xl font-semibold tracking-tight text-white"
           >
-            An AI recruiting advisor
-            <br className="hidden sm:block" /> that knows every program,
-            <br className="hidden sm:block" /> every metric, every{' '}
+            The AI recruiting agent
+            <br className="hidden sm:block" /> built for{' '}
             <span className="relative whitespace-nowrap text-sparq-lime">
-              athlete like you
+              flag football
               <svg
                 aria-hidden
                 viewBox="0 0 300 16"
@@ -77,10 +76,11 @@ export function Hero() {
 
           <Reveal delay={0.2}>
             <p className="mt-8 max-w-xl text-lg text-white/60 leading-relaxed">
-              Built on <span className="text-white">75,000 athlete profiles</span> and{' '}
-              <span className="text-white">2,900 college programs</span>. The recruiting
-              consultant your family couldn&rsquo;t afford &mdash; for{' '}
-              <span className="text-white">$29/month</span>.
+              Powered by the same <span className="text-white">SPARQ testing</span> USA Flag
+              Football selects national team athletes from. Verified metrics, honest odds, and
+              an agent that works your recruiting every week &mdash; as{' '}
+              <span className="text-white">100+ college flag programs</span> hunt for their
+              founding rosters.
             </p>
           </Reveal>
 
@@ -109,11 +109,11 @@ export function Hero() {
 
           <Reveal delay={0.45}>
             <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 text-eyebrow uppercase text-white/35">
-              <span>Built on SPARQ data</span>
+              <span>SPARQ verified testing</span>
               <Dot />
-              <span>2,900 programs</span>
+              <span>USA Flag national team pipeline</span>
               <Dot />
-              <span>7,832 scholarship offers tracked</span>
+              <span>LA28 Olympic sport</span>
             </div>
           </Reveal>
         </div>

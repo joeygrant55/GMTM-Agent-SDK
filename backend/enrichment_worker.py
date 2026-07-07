@@ -121,6 +121,109 @@ WEB_SEARCH_TOOL = {
     "name": "web_search",
 }
 
+FLAG_RANKING_SYSTEM = """You are a college recruiting analyst for women's flag football.
+
+You will be given (a) an athlete profile and (b) the COMPLETE list of real women's college
+flag football programs from SPARQ's curated database. Every program in the list is real and
+verified — you must NOT add, rename, or invent any program not in the list.
+
+Select the 8-12 best fits for this athlete and return ONLY a valid JSON array — no markdown,
+no explanation. Each entry must use the program's exact "name" from the list and have:
+{
+  "name": "<exact name from the provided list>",
+  "fit_summary": "1-2 specific sentences on why this program fits this athlete",
+  "fit_score": integer 70-95
+}
+
+Selection guidance:
+- Mix 2-3 reaches (higher-level or more established programs) with 5-7 realistic fits.
+- Weight geography preference, target level (NAIA programs are established with championship
+  history and 12 scholarships/team; NCAA programs are brand-new and actively hunting for
+  founding rosters — often the best opportunity), and 'announced' programs recruiting
+  founding classes for upcoming seasons.
+- Return ONLY the JSON array."""
+
+
+def _match_flag_programs_sync(athlete_profile: Dict, client) -> List[Dict]:
+    """Bounded matching for flag football: rank from the curated flag_programs table.
+
+    No web_search, no invented schools — the candidate universe is the real program list,
+    so hallucination is structurally impossible. source_url comes from the table.
+    """
+    from flag_programs_api import load_flag_programs
+
+    programs = load_flag_programs()
+    if not programs:
+        print("[Matching] flag_programs table empty — falling back to web-search matching")
+        return []
+
+    by_name = {p["name"]: p for p in programs}
+    catalog = "\n".join(
+        f"- {p['name']} | {p['org']} | {p.get('conference') or 'conference TBD'} | "
+        f"{p.get('state') or '??'} | {p['status']}"
+        + (f" (first season {p['first_varsity_season']})" if p.get("first_varsity_season") else "")
+        for p in programs
+    )
+
+    goals = athlete_profile.get("recruiting_goals") or {}
+    if isinstance(goals, str):
+        try:
+            goals = json.loads(goals)
+        except Exception:
+            goals = {}
+    stats = athlete_profile.get("maxpreps_stats") or {}
+    stats_str = ", ".join(f"{k}: {v}" for k, v in stats.items()) if stats else "no stats provided"
+
+    user_prompt = (
+        f"ATHLETE\n"
+        f"- Sport: {athlete_profile.get('sport')}, Position: {athlete_profile.get('position')}\n"
+        f"- Class of {athlete_profile.get('class_year') or 'unknown'}, from {athlete_profile.get('state') or 'unknown'}\n"
+        f"- Stats: {stats_str}\n"
+        f"- Target level: {goals.get('targetLevel', 'Open')}, Geography: {goals.get('geography', 'Anywhere')}\n\n"
+        f"PROGRAM LIST (the complete universe — select only from these)\n{catalog}\n\n"
+        f"Select the 8-12 best fits and return ONLY the JSON array."
+    )
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2000,
+        system=FLAG_RANKING_SYSTEM,
+        messages=[{"role": "user", "content": user_prompt}],
+        timeout=60.0,
+    )
+    full_text = "".join(b.text for b in response.content if hasattr(b, "text"))
+
+    picks: List[Dict] = []
+    m = re.search(r"\[.*\]", full_text, re.DOTALL)
+    if m:
+        try:
+            parsed = json.loads(m.group())
+            if isinstance(parsed, list):
+                picks = parsed
+        except Exception:
+            pass
+
+    matched: List[Dict] = []
+    dropped = 0
+    for pick in picks:
+        if not isinstance(pick, dict):
+            continue
+        program = by_name.get(pick.get("name"))
+        if not program:
+            dropped += 1  # model named something outside the universe — discard
+            continue
+        matched.append({
+            "name": program["name"],
+            "city": program.get("city") or "",
+            "state": program.get("state") or "",
+            "division": program["org"],
+            "fit_summary": pick.get("fit_summary") or "",
+            "fit_score": pick.get("fit_score") or 75,
+            "source_url": program.get("source_url") or "",
+        })
+    print(f"[Matching] Flag bounded match: {len(matched)} programs from curated table (dropped {dropped} out-of-universe picks)")
+    return matched
+
 
 def _extract_json(text: str) -> Optional[Dict]:
     """Extract first valid JSON object from text."""
@@ -158,6 +261,16 @@ def ai_match_programs_sync(athlete_profile: Dict) -> List[Dict]:
     client = _anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     sport = athlete_profile.get("sport") or athlete_profile.get("position") or "Basketball"
+
+    # Flag football (the focus market) matches against the curated flag_programs table —
+    # a bounded universe with zero hallucination risk. Other sports use web-search matching.
+    if "flag" in str(sport).lower():
+        try:
+            matched = _match_flag_programs_sync(athlete_profile, client)
+            if matched:
+                return matched
+        except Exception as e:
+            print(f"[Matching] Flag bounded match failed ({e}) — falling back to web search")
     position = athlete_profile.get("position") or sport
     state = athlete_profile.get("state") or ""
     class_year = athlete_profile.get("class_year") or "2026"

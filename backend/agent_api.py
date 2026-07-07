@@ -165,6 +165,16 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
             profile = c.fetchone()
         db.close()
         if profile:
+            # Attach device-verified metrics (SPARQ testing) so the agent cites real,
+            # provenance-backed numbers over self-reported ones.
+            verified = {}
+            try:
+                from verified_api import latest_verified_metrics_for_profile
+                if profile.get("id"):
+                    verified = latest_verified_metrics_for_profile(profile["id"])
+            except Exception:
+                pass
+
             # Parse maxpreps_data JSON for real stats
             maxpreps_raw = profile.get("maxpreps_data")
             maxpreps = {}
@@ -193,6 +203,7 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
                 "maxpreps_stats": {s[0]: s[1] for s in stats_preview} if stats_preview else None,
                 "maxpreps_season": last_season,
                 "maxpreps_url": profile_url,
+                "verified_metrics": verified or None,
             }
     except Exception:
         pass
@@ -329,6 +340,14 @@ async def stream_agent(
             if stats:
                 season = profile.get("maxpreps_season", "")
                 stats_str = f"\n  MaxPreps stats ({season} season): " + ", ".join(f"{k}: {v}" for k, v in stats.items())
+            verified_str = ""
+            vm = profile.get("verified_metrics")
+            if vm:
+                verified_str = (
+                    "\n  SPARQ VERIFIED metrics (device-captured at official testing — "
+                    "cite these as verified, they outrank self-reported numbers): "
+                    + ", ".join(f"{k.replace('_', ' ')}: {v}" for k, v in vm.items())
+                )
             combine = profile.get("combine_metrics")
             combine_str = ""
             if combine and isinstance(combine, dict):
@@ -356,7 +375,7 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
   School: {profile.get("school") or "Unknown"}
   Class year: {profile.get("class_year") or "Unknown"}
   State: {profile.get("state") or "Unknown"}
-  GPA: {profile.get("gpa") or "not provided"}{stats_str}{combine_str}{goals_str}
+  GPA: {profile.get("gpa") or "not provided"}{verified_str}{stats_str}{combine_str}{goals_str}
 """
         else:
             athlete_context = ""

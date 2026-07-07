@@ -609,19 +609,18 @@ async def get_profile_by_clerk(clerk_id: str, caller_clerk_id: str = Depends(req
     db = _get_agent_db()
     try:
         with db.cursor() as c:
-            # Check legacy GMTM athlete link
+            # Both checks run independently — a user can have a legacy GMTM link AND a
+            # SPARQ profile; reporting has_sparq_profile=False for linked users forced
+            # them through onboarding repeatedly.
             c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (clerk_id,))
             row = c.fetchone()
-            if row:
-                return {"found": True, "user_id": row['user_id'], "has_sparq_profile": False}
-
-            # Check new sparq_profiles (MaxPreps onboarding)
             c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
             sparq_row = c.fetchone()
-            if sparq_row:
-                return {"found": False, "user_id": None, "has_sparq_profile": True}
-
-            return {"found": False, "user_id": None, "has_sparq_profile": False}
+            return {
+                "found": bool(row),
+                "user_id": row['user_id'] if row else None,
+                "has_sparq_profile": bool(sparq_row),
+            }
     finally:
         db.close()
 
