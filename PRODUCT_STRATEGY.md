@@ -122,6 +122,34 @@ scholarship outcomes. Nobody else can generate device-verified data at the club 
 Consumer subscription moves from "the business" to "the upsell." The club is the customer;
 the database is the asset; the agent is the reason athletes and parents engage weekly.
 
+## Beachhead: flag football (added after USA Flag Football impact report)
+
+Proof point in hand (2026 U.S. National Team Trials impact report, source: USA Flag Football
+Head of Player Personnel): **68 GMTM athletes invited to 2026 trials; 64.6% of all Adult Men
+trial invites** came from GMTM digital combines/SPARQ testing (up from 18% in 2025); average
+25.8% share across all six categories, growing in every one.
+
+- Flag football debuts at the **LA 2028 Olympics** and is the fastest-growing youth sport —
+  and we are already embedded in the national-team selection funnel.
+- Club-first GTM launches in flag football specifically ("SPARQ testing is how USA Flag
+  Football finds national team athletes — get your club tested"), then expands sport by
+  sport with the same playbook.
+- Marketing caveat: invite-share reflects pipeline relationships as well as the rating's
+  predictive power, and youth-category samples are small. Lead with the Adult Men number;
+  don't claim causality.
+
+## The data asset: outcome-labeled, not just verified
+
+The durable AI advantage is the pairing of **standardized verified inputs** (device-captured
+SPARQ ratings) with **labeled outcomes** (national-team trial invites, selections, 7,832
+scholarship offers). That supports a calibrated selection model — "athletes with your SPARQ
+profile reached X outcome at Y%" — with the LLM narrating numbers a model computed, not
+guessing. General-purpose AI cannot replicate this without the outcome data.
+
+**Build implication:** `athlete_outcomes` table (trial invites, selections, offers, commits)
+linked to verified metrics and events is a first-class priority alongside verified-metric
+ingestion. Every testing day and selection cycle grows the labeled set.
+
 ## The club offer (v1)
 
 - **Price:** $1,500–$2,500/yr per club (anchor: clubs already pay Hudl $1,500–$4,000/program).
