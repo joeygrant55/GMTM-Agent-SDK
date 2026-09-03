@@ -4,6 +4,7 @@ import { apiFetch } from '@/app/_lib/api'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ResponseParser from './ResponseParser'
+import { CombineResult, combineGreeting } from './combineResults'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -22,6 +23,15 @@ interface AgentChatProps {
   athleteName: string
   initialConversationId?: number | null
   autoStartMessage?: string | null
+  combineResults?: CombineResult[]
+}
+
+const DEFAULT_GREETING = (firstName: string) =>
+  `What's up ${firstName}! 👋 I'm your SPARQ recruiting agent — here to help you find the right programs, connect with coaches, and level up your recruiting game.\n\nWhat do you want to work on?`
+
+const buildGreeting = (athleteName: string, combineResults?: CombineResult[]) => {
+  const firstName = athleteName.split(' ')[0]
+  return combineGreeting(firstName, combineResults || []) || DEFAULT_GREETING(firstName)
 }
 
 // Tool name → friendly description
@@ -76,11 +86,12 @@ const FOLLOWUP_ACTIONS = [
   { icon: '🏕️', label: 'Find camps', prompt: 'Find camps near me' },
 ]
 
-export default function AgentChat({ athleteId, athleteName, initialConversationId, autoStartMessage }: AgentChatProps) {
+export default function AgentChat({ athleteId, athleteName, initialConversationId, autoStartMessage, combineResults }: AgentChatProps) {
+  const greeting = buildGreeting(athleteName, combineResults)
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: `What's up ${athleteName.split(' ')[0]}! 👋 I'm your SPARQ recruiting agent — here to help you find the right programs, connect with coaches, and level up your recruiting game.\n\nWhat do you want to work on?`,
+      content: greeting,
       timestamp: new Date(),
     },
   ])
@@ -106,6 +117,15 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
       loadConversation(initialConversationId)
     }
   }, [athleteId, initialConversationId])
+
+  // Combine results can arrive after mount; refresh the greeting if nothing was sent yet.
+  useEffect(() => {
+    setMessages(prev =>
+      prev.length === 1 && prev[0].role === 'assistant' && !conversationId
+        ? [{ ...prev[0], content: greeting }]
+        : prev,
+    )
+  }, [greeting])
 
   // Auto-send first message for new users (first-run experience)
   useEffect(() => {
@@ -147,7 +167,7 @@ export default function AgentChat({ athleteId, athleteName, initialConversationI
     setMessages([
       {
         role: 'assistant',
-        content: `What's up ${athleteName.split(' ')[0]}! 👋 I'm your SPARQ recruiting agent — here to help you find the right programs, connect with coaches, and level up your recruiting game.\n\nWhat do you want to work on?`,
+        content: greeting,
         timestamp: new Date(),
       },
     ])

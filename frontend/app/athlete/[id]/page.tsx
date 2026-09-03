@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { UserButton } from '@clerk/nextjs'
+import { UserButton, useAuth } from '@clerk/nextjs'
+import { apiFetch } from '@/app/_lib/api'
+import { CombineResult, COMBINE_FIXTURE, readCombineResults } from './components/combineResults'
 import AgentChat from './components/AgentChat'
 import Dashboard from './components/Dashboard'
 import ReportView from './components/ReportView'
@@ -29,6 +31,8 @@ export default function AthleteDashboard() {
   const [loadConversationId, setLoadConversationId] = useState<number | null>(null)
   const [viewReportId, setViewReportId] = useState<number | null>(null)
   const [autoStartMessage, setAutoStartMessage] = useState<string | null>(null)
+  const [combineResults, setCombineResults] = useState<CombineResult[]>([])
+  const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth()
 
   useEffect(() => {
     setLoading(true)
@@ -41,6 +45,30 @@ export default function AthleteDashboard() {
       .then(data => { setProfile(data); setLoading(false) })
       .catch(err => { setError(err.message); setLoading(false) })
   }, [athleteId])
+
+  // Combine results feed the agent's opening line. Owner-only endpoint; public viewers
+  // and pre-WS1 backends simply leave the list empty.
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn) return
+    let cancelled = false
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
+    ;(async () => {
+      try {
+        const token = await getToken()
+        const res = await apiFetch(`${backendUrl}/api/dashboard/${athleteId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (!res.ok || cancelled) return
+        const fetched = readCombineResults(await res.json())
+        setCombineResults(
+          fetched.length === 0 && process.env.NEXT_PUBLIC_COMBINE_FIXTURE === '1' ? COMBINE_FIXTURE : fetched,
+        )
+      } catch {
+        // Greeting falls back to the default line.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [authLoaded, isSignedIn, athleteId, getToken])
 
   const handleStartChat = () => {
     setAutoStartMessage(null)
@@ -153,6 +181,7 @@ export default function AthleteDashboard() {
               athleteName={`${profile.first_name} ${profile.last_name}`}
               initialConversationId={loadConversationId}
               autoStartMessage={autoStartMessage}
+              combineResults={combineResults}
             />
           </div>
         )}

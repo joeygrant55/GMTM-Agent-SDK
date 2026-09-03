@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from auth import optional_clerk_id, require_clerk_id, demo_secret_ok, rate_limit
+from combine_results import get_combine_results, format_for_prompt
 
 # Hard cap on agentic tool-loop iterations — bounds worst-case Claude spend per request.
 MAX_AGENT_ITERATIONS = 8
@@ -44,16 +45,28 @@ You have two tools:
    - Anything about a specific school, conference, or program
    web_search gives you live, current data. Always prefer it over any internal database for college-related questions.
 
-2. **query_database** — Use this ONLY to look up the current athlete's own stats/history in GMTM:
-   - Their past combine metrics, height, weight, GPA on record
-   - How they compare to other athletes at the same position (SELECT from users/user_metrics)
-   - Historical offer data for similar athlete profiles
+2. **query_database** — Use this ONLY to look up the current athlete's own results in GMTM and how they compare to other athletes:
+   - Their combine results, height, weight, and metrics on record
+   - How they compare to other athletes on the same drill (SELECT from metrics)
+   - Historical scholarship offer data for similar athlete profiles
    NEVER use query_database for college program info — that data may be outdated. Use web_search instead.
+   The athlete's combine results with ranks are ALREADY in CURRENT ATHLETE PROFILE below. Query only when you need more than that.
 
-ATHLETE TABLES (READ-ONLY — SELECT only):
-- users: id, first_name, last_name, sport, position, graduation_year, city, state, height, weight
-- user_metrics: user_id, metric_type, metric_value (40_yard, vertical, bench_press, shuttle)
-- scholarship_offers: id, user_id, organization_id, created_at
+GMTM SCHEMA (READ-ONLY, SELECT only). Column names are exact; there is NO `users.id` column.
+- users(user_id PK, first_name, last_name, email, dob, gender, graduation_year, location_id, type, created_on, last_sign_in)
+- locations(location_id PK, city, province, country)                       -- users.location_id -> locations
+- career(career_id PK, user_id, organization_id, team_id, is_primary)       -- an athlete's team/school rows
+- user_positions(career_id, position_id, is_primary) ; positions(position_id PK, name)
+- organizations(organization_id PK, name)
+- metrics(metric_id PK, user_id, title, value VARCHAR, unit, is_current, verified, percentile, created_on, event_id, in_person_event_id, film_id)
+    title examples: '40 Yard Dash','5-10-5 shuttle','Shuttle','20 Yard Dash','60 Yard','Broad Jump','Push ups','Sit ups','Vertical Jump','Height','Weight'
+    value is a string: CAST(value AS DECIMAL(8,2)) before comparing. Lower is better for times, higher for jumps/reps.
+    event_id set = a digital combine result (Remote App-Captured). in_person_event_id set = official in-person result.
+- user_sparq_history(user_id, sparq_score, created_on, ...)                  -- SPARQ rating history
+- events(event_id PK, name, organization_id, start_date, end_date)          -- digital combines / virtual events
+- event_tasks(task_id PK, event_id, title, type) ; event_task_submissions(task_submission_id PK, user_id, task_id, video_uri, payload JSON, created_on)
+- film(film_id PK, user_id, uri, title, published_on, in_person_event_id)   -- video; prefix uri with https://cdn.gmtm.com/
+- scholarship_offers(id PK, user_id, organization_id, created_at)
 
 CRITICAL: READ-ONLY. Only SELECT allowed. Never INSERT, UPDATE, DELETE, DROP, ALTER, or TRUNCATE.
 
@@ -77,7 +90,7 @@ TOOLS = [
         "description": (
             "Execute a READ-ONLY SQL SELECT query against the GMTM athlete database. "
             "Use this ONLY to look up athlete stats, metrics, and historical offer data. "
-            "Permitted tables: users, user_metrics, scholarship_offers, athlete_profiles, athlete_metrics. "
+            "Permitted tables: users, locations, career, user_positions, positions, organizations, metrics, user_sparq_history, events, event_tasks, event_task_submissions, film, scholarship_offers. "
             "DO NOT use this for college or program information — use web_search for that instead, "
             "as it provides live, current data. Only SELECT statements are permitted."
         ),
@@ -98,7 +111,13 @@ FORBIDDEN_SQL = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNC
 
 # Only allow queries on athlete-related tables. College/program data is served
 # via web_search (live) — not from the GMTM DB (potentially stale).
-ALLOWED_GMTM_TABLES = {"users", "user_metrics", "scholarship_offers", "athlete_profiles", "athlete_metrics"}
+ALLOWED_GMTM_TABLES = {
+    "users", "locations", "career", "user_positions", "positions", "organizations",
+    "metrics", "user_sparq_history", "events", "event_tasks", "event_task_submissions",
+    "film", "scholarship_offers",
+}
+QUERY_ROW_CAP = 200
+QUERY_TIMEOUT_MS = 10000
 
 
 def _get_agent_db():
@@ -145,9 +164,15 @@ def _run_read_only_query(sql: str) -> dict:
                 "Use web_search for college/program information."
             )
         }
+    if " LIMIT " not in sql_upper:
+        sql = sql.rstrip().rstrip(";") + f" LIMIT {QUERY_ROW_CAP}"
     try:
         db = _get_gmtm_db()
         with db.cursor() as c:
+            try:
+                c.execute(f"SET SESSION MAX_EXECUTION_TIME={QUERY_TIMEOUT_MS}")
+            except Exception:
+                pass  # older MySQL; proceed without a statement timeout
             c.execute(sql)
             rows = c.fetchmany(50)
         db.close()
@@ -179,8 +204,20 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
             sport = maxpreps.get("sport") or profile.get("position")
             profile_url = maxpreps.get("profileUrl")
 
+            linked_results = []
+            try:
+                db2 = _get_agent_db()
+                with db2.cursor() as c:
+                    c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (athlete_id,))
+                    link = c.fetchone()
+                db2.close()
+                if link:
+                    linked_results = get_combine_results(int(link["user_id"]), _get_gmtm_db)
+            except Exception:
+                linked_results = []
             return {
                 "source": "sparq_profile",
+                "combine_results": linked_results,
                 "name": profile.get("name"),
                 "position": profile.get("position"),
                 "sport": sport,
@@ -196,18 +233,67 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
             }
     except Exception:
         pass
+    # Legacy GMTM athlete: resolve a Clerk id through the athlete_profiles link table, or accept a numeric id.
+    gmtm_user_id: Optional[int] = None
     if athlete_id and athlete_id.isdigit():
+        gmtm_user_id = int(athlete_id)
+    elif athlete_id:
+        try:
+            db = _get_agent_db()
+            with db.cursor() as c:
+                c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (athlete_id,))
+                row = c.fetchone()
+            db.close()
+            if row:
+                gmtm_user_id = int(row["user_id"])
+        except Exception:
+            pass
+    if gmtm_user_id:
         try:
             db = _get_gmtm_db()
             with db.cursor() as c:
                 c.execute(
-                    "SELECT first_name, last_name, position, graduation_year, city, state FROM users WHERE id = %s",
-                    (int(athlete_id),),
+                    """SELECT u.user_id, u.first_name, u.last_name, u.graduation_year, l.city, l.province AS state
+                       FROM users u LEFT JOIN locations l ON l.location_id = u.location_id
+                       WHERE u.user_id = %s""",
+                    (gmtm_user_id,),
                 )
                 user = c.fetchone()
+                pos = None
+                if user:
+                    c.execute(
+                        """SELECT p.name AS position FROM career c
+                           JOIN user_positions up ON up.career_id = c.career_id
+                           JOIN positions p ON up.position_id = p.position_id
+                           WHERE c.user_id = %s AND up.is_primary = 1 LIMIT 1""",
+                        (gmtm_user_id,),
+                    )
+                    pr = c.fetchone()
+                    pos = pr["position"] if pr else None
             db.close()
             if user:
-                return {"source": "gmtm", **user}
+                results = []
+                try:
+                    results = get_combine_results(gmtm_user_id, _get_gmtm_db)
+                except Exception:
+                    results = []
+                return {
+                    "source": "gmtm",
+                    "gmtm_user_id": gmtm_user_id,
+                    "name": f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip() or None,
+                    "position": pos,
+                    "sport": None,
+                    "school": None,
+                    "class_year": user.get("graduation_year"),
+                    "state": user.get("state"),
+                    "gpa": None,
+                    "recruiting_goals": None,
+                    "combine_metrics": None,
+                    "maxpreps_stats": None,
+                    "maxpreps_season": None,
+                    "maxpreps_url": None,
+                    "combine_results": results,
+                }
         except Exception:
             pass
     return None
@@ -339,6 +425,7 @@ async def stream_agent(
                         combine_str = "\n  Combine metrics: " + ", ".join(parts)
                 except Exception:
                     pass
+            results_str = format_for_prompt(profile.get("combine_results") or [])
             goals = profile.get("recruiting_goals")
             goals_str = ""
             if goals:
@@ -356,7 +443,7 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
   School: {profile.get("school") or "Unknown"}
   Class year: {profile.get("class_year") or "Unknown"}
   State: {profile.get("state") or "Unknown"}
-  GPA: {profile.get("gpa") or "not provided"}{stats_str}{combine_str}{goals_str}
+  GPA: {profile.get("gpa") or "not provided"}{stats_str}{combine_str}{results_str}{goals_str}
 """
         else:
             athlete_context = ""
