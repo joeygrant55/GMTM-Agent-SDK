@@ -37,7 +37,8 @@ export default function ConnectClient() {
         .then(r => r.json())
         .then(data => {
           if (data.found && data.user_id) {
-            router.replace(`/athlete/${data.user_id}`)
+            // Linked athletes go to the workspace; /home builds the workspace row if needed.
+            router.replace('/home')
           } else {
             setLoading(false)
           }
@@ -89,7 +90,7 @@ export default function ConnectClient() {
       })
       setConnected(true)
       setTimeout(() => {
-        router.push(`/athlete/${userId}`)
+        router.push('/home')
       }, 1500)
     } catch {
       setError('Failed to connect profile. Try again.')
