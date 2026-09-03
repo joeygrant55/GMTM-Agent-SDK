@@ -38,7 +38,9 @@ export default function ClaimRedeemPage() {
         if (res.ok) {
           const data = await res.json()
           setPhase('done')
-          router.replace(`/athlete/${data.user_id}`)
+          // The workspace (/home) is the real product; the legacy dashboard is the fallback
+          // only if the workspace row could not be built.
+          router.replace(data.workspace_ready ? '/home/inbox' : `/athlete/${data.user_id}`)
           return
         }
         if (res.status === 409) setPhase('conflict')
@@ -53,7 +55,7 @@ export default function ClaimRedeemPage() {
 
   const copy: Record<Phase, { title: string; body: string }> = {
     working: { title: 'Linking your combine results...', body: 'One second.' },
-    done: { title: 'Linked', body: 'Taking you to your dashboard...' },
+    done: { title: 'Linked', body: 'Taking you to your workspace...' },
     conflict: {
       title: 'This link was already used',
       body: 'Another account already claimed these results. Sign in with that account, or connect your profile by name.',

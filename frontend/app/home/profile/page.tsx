@@ -1,6 +1,8 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import CombineResultsCard from '@/app/athlete/[id]/components/CombineResultsCard'
+import { CombineResult, readCombineResults } from '@/app/athlete/[id]/components/combineResults'
 
 import dynamic from 'next/dynamic'
 
@@ -53,6 +55,7 @@ function WorkspaceProfilePage() {
   const [schoolSize, setSchoolSize] = useState<Size>('No preference')
   const [forty, setForty]   = useState('')
   const [shuttle, setShuttle] = useState('')
+  const [combineResults, setCombineResults] = useState<CombineResult[]>([])
   const [vert, setVert]       = useState('')
   const [htFt, setHtFt]       = useState('')
   const [htIn, setHtIn]       = useState('')
@@ -64,6 +67,7 @@ function WorkspaceProfilePage() {
       .then(r => r.json())
       .then(d => {
         setMaxpreps((d.maxpreps_data as Record<string, unknown>) || {})
+        setCombineResults(readCombineResults(d))
         const cm = (d.combine_metrics as Record<string, unknown>) || {}
         setForty(cm.fortyYardDash != null ? String(cm.fortyYardDash) : '')
         setShuttle(cm.shuttle != null ? String(cm.shuttle) : '')
@@ -160,6 +164,9 @@ function WorkspaceProfilePage() {
           <p className="text-xs text-gray-500 mt-3">Linked from MaxPreps · <a href="/onboarding/search" className="text-sparq-lime hover:underline">Re-link →</a></p>
         </section>
       )}
+
+      {/* Combine results from GMTM (digital combines), with ranks */}
+      <CombineResultsCard results={combineResults} />
 
       {/* Combine */}
       <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 space-y-4">

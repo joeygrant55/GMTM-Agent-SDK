@@ -39,6 +39,7 @@ from pydantic import BaseModel, Field
 
 from auth import require_clerk_id
 from profile_api import _get_agent_db, _get_gmtm_db
+from workspace_bootstrap import ensure_workspace_profile
 
 router = APIRouter(prefix="/api", tags=["Claims"])
 
@@ -314,4 +315,12 @@ async def redeem_claim(token: str, caller_clerk_id: str = Depends(require_clerk_
         db.commit()
     finally:
         db.close()
-    return {"connected": True, "user_id": user_id, "event_id": int(row["event_id"]), "clerk_id": caller_clerk_id}
+    # Land the athlete in the workspace, not the legacy dashboard: make sure a sparq_profiles
+    # row exists (built from GMTM) and college matching is running.
+    try:
+        ws = ensure_workspace_profile(caller_clerk_id, user_id)
+    except Exception as e:  # never fail the claim because of the bootstrap
+        print(f"[claims] workspace bootstrap failed for user {user_id}: {e}")
+        ws = {"ready": False, "created": False, "profile_id": None}
+    return {"connected": True, "user_id": user_id, "event_id": int(row["event_id"]), "clerk_id": caller_clerk_id,
+            "workspace_ready": bool(ws.get("ready")), "workspace_created": bool(ws.get("created"))}
