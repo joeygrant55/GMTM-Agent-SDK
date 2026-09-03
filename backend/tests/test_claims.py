@@ -213,6 +213,11 @@ def client(monkeypatch):
     store = {"claims": {}, "athlete_profiles": {}, "users": {4521, 4522}, "open_writes": 0}
     monkeypatch.setattr(claims_api, "_get_agent_db", lambda: _FakeDB(store))
     monkeypatch.setattr(claims_api, "_get_gmtm_db", lambda: _FakeDB(store))
+    store["bootstrap_calls"] = []
+    def _fake_bootstrap(clerk_id, user_id):
+        store["bootstrap_calls"].append((clerk_id, user_id))
+        return {"ready": True, "created": True, "profile_id": 1}
+    monkeypatch.setattr(claims_api, "ensure_workspace_profile", _fake_bootstrap)
 
     app = FastAPI()
     app.include_router(claims_api.router)
@@ -299,7 +304,9 @@ def test_redeem_links_profile_and_is_idempotent_for_same_clerk(client):
     tok = _mint(client)[0]["token"]
     first = client.post(f"/api/claims/{tok}/redeem")
     assert first.status_code == 200
-    assert first.json() == {"connected": True, "user_id": 4521, "event_id": 1317, "clerk_id": "user_alpha"}
+    assert first.json() == {"connected": True, "user_id": 4521, "event_id": 1317, "clerk_id": "user_alpha",
+                            "workspace_ready": True, "workspace_created": True}
+    assert client.store["bootstrap_calls"] == [("user_alpha", 4521)]
     assert client.store["athlete_profiles"][4521] == "user_alpha"
     second = client.post(f"/api/claims/{tok}/redeem")
     assert second.status_code == 200
@@ -336,3 +343,15 @@ def test_redeem_refuses_to_repoint_an_already_linked_athlete(client):
     # The original owner can still redeem the same link.
     client.identity["clerk"] = "user_original"
     assert client.post(f"/api/claims/{tok}/redeem").status_code == 200
+
+
+def test_redeem_survives_a_failing_workspace_bootstrap(client, monkeypatch):
+    """The claim must still link the athlete even if building the workspace row blows up."""
+    def _boom(clerk_id, user_id):
+        raise RuntimeError("railway down")
+    monkeypatch.setattr(claims_api, "ensure_workspace_profile", _boom)
+    tok = _mint(client)[0]["token"]
+    res = client.post(f"/api/claims/{tok}/redeem")
+    assert res.status_code == 200
+    assert res.json()["workspace_ready"] is False
+    assert client.store["athlete_profiles"][4521] == "user_alpha"

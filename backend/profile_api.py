@@ -620,7 +620,17 @@ async def get_profile_by_clerk(clerk_id: str, caller_clerk_id: str = Depends(req
             c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (clerk_id,))
             row = c.fetchone()
             if row:
-                return {"found": True, "user_id": row['user_id'], "has_sparq_profile": False}
+                c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+                has_ws = c.fetchone() is not None
+                if not has_ws:
+                    # GMTM-linked athlete with no workspace row (claim link or legacy /connect):
+                    # build it now so /home does not bounce them to MaxPreps onboarding.
+                    try:
+                        from workspace_bootstrap import ensure_workspace_profile
+                        has_ws = bool(ensure_workspace_profile(clerk_id, int(row['user_id'])).get("ready"))
+                    except Exception as e:
+                        print(f"[by-clerk] workspace bootstrap failed: {e}")
+                return {"found": True, "user_id": row['user_id'], "has_sparq_profile": has_ws}
 
             # Check new sparq_profiles (MaxPreps onboarding)
             c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
@@ -1339,6 +1349,19 @@ async def get_profile(clerk_id: str, caller_clerk_id: str = Depends(require_cler
                 row[col] = {}
         elif val is None:
             row[col] = {}
+
+    # Combine results with ranks, for GMTM-linked athletes (claim link / legacy connect).
+    row["combine_results"] = []
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (clerk_id,))
+            link = c.fetchone()
+        db.close()
+        if link:
+            row["combine_results"] = get_combine_results(int(link["user_id"]), _get_gmtm_db)
+    except Exception:
+        pass
 
     return row
 
