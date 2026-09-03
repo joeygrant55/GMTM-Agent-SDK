@@ -1,4 +1,25 @@
-# SPARQ Agent — Status (Snapshot 2026-05-13)
+# SPARQ Agent — Status (Snapshot 2026-09-03)
+
+## Cohort one (shipped 2026-09-03, main dc647f8)
+
+- **Real GMTM data bridge.** `backend/combine_results.py` builds an athlete's digital-combine results from real
+  `metrics` rows (`event_id` set) with a fallback to `event_task_submissions` payloads; canonicalizes the
+  per-event drill titles; drops junk values; computes rank-in-event, all-time and same-org percentiles; tags
+  trust tier; links the drill video. The `query_database` tool now describes the real schema (there is no
+  `users.id`; it is `user_id`). Results are injected into CURRENT ATHLETE PROFILE (newest two events) and
+  returned by `GET /api/dashboard/{user_id}` as `combine_results`.
+- **Claim door.** `backend/claims_api.py`: `POST /api/claims/mint` (admin, `X-Claims-Admin`), `GET /api/claims/{token}`
+  (public, stamps `opened_at`), `POST /api/claims/{token}/redeem` (Clerk-authed, links `athlete_profiles`,
+  refuses to re-point an already-linked athlete). Frontend `/claim/[token]` and `/claim/[token]/redeem`.
+- **Combine results card** on `/athlete/[id]` (newest event, trust chip, Watch link); agent greeting names the
+  first result.
+- **Env needed on Railway (not set as of 2026-09-03 12:25 ET):** `SHARE_TOKEN_SECRET` (claims 503 without it),
+  `CLAIMS_ADMIN_SECRET` (mint), optional `FRONTEND_URL`.
+- Tests: `backend/tests/` 40 passing (`.venv/bin/python -m pytest -q tests/`). Live smoke:
+  `backend/scripts/smoke_combine_results.py 1317 1318` (read-only, needs `DB_*`).
+- Spec and learnings: `gmtmsports/sparq` → `docs/specs/sparq-agent-cohort-one-2026-09-03.md`.
+
+# SPARQ Agent — Status (Snapshot 2026-05-13, prior)
 
 ## What's running in prod
 
