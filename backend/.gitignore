@@ -1,2 +1,6 @@
 .vercel
 .env*.local
+
+# local
+.venv/
+.env

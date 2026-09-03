@@ -11,6 +11,7 @@ import threading
 import pymysql
 from dotenv import load_dotenv
 
+from combine_results import get_combine_results
 from auth import require_clerk_id, assert_owner
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
@@ -472,9 +473,15 @@ async def get_dashboard(user_id: int, caller_clerk_id: str = Depends(require_cle
         all_platforms = ['hudl', 'twitter', 'instagram', 'maxpreps', '247sports', 'rivals', 'youtube', 'personal_website']
         missing_platforms = [p for p in all_platforms if p not in existing_platforms]
         
+        try:
+            combine_results = get_combine_results(user_id, _get_gmtm_db)
+        except Exception:
+            combine_results = []
+
         return {
             "profile": profile,
             "metrics": metrics,
+            "combine_results": combine_results,
             "offer_count": offers['offer_count'],
             "links": links,
             "recent_chats": recent_chats,
