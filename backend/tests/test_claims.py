@@ -167,6 +167,9 @@ class _FakeCursor:
             if row["opened_at"] is None:
                 row["opened_at"] = "now"
                 self.store["open_writes"] += 1
+        elif s.startswith("SELECT clerk_id FROM athlete_profiles"):
+            clerk = self.store["athlete_profiles"].get(params[0])
+            self._result = {"clerk_id": clerk} if clerk else None
         elif s.startswith("INSERT INTO athlete_profiles"):
             uid, clerk, _ = params
             self.store["athlete_profiles"][uid] = clerk
@@ -320,3 +323,16 @@ def test_redeem_expired_is_410_and_tampered_is_400(client):
     p, s = tok.split(".")
     assert client.post(f"/api/claims/{p}.{s[:-1]}Q/redeem").status_code == 400
     assert client.store["athlete_profiles"] == {}
+
+
+def test_redeem_refuses_to_repoint_an_already_linked_athlete(client):
+    """A leaked claim link must not hijack a GMTM athlete already connected to another Clerk id."""
+    tok = _mint(client)[0]["token"]
+    client.store["athlete_profiles"][4521] = "user_original"  # linked earlier via /profile/connect
+    client.identity["clerk"] = "user_attacker"
+    res = client.post(f"/api/claims/{tok}/redeem")
+    assert res.status_code == 409
+    assert client.store["athlete_profiles"][4521] == "user_original"
+    # The original owner can still redeem the same link.
+    client.identity["clerk"] = "user_original"
+    assert client.post(f"/api/claims/{tok}/redeem").status_code == 200

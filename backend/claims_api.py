@@ -293,6 +293,15 @@ async def redeem_claim(token: str, caller_clerk_id: str = Depends(require_clerk_
                     detail="This link was already used by another account. Sign in with that account, or connect manually.",
                 )
             user_id = int(row["user_id"])
+            # Never let a claim link re-point a GMTM athlete that is already linked to a
+            # different Clerk account (a leaked link must not hijack an existing user).
+            c.execute("SELECT clerk_id FROM athlete_profiles WHERE user_id = %s", (user_id,))
+            existing = c.fetchone()
+            if existing and existing.get("clerk_id") and existing["clerk_id"] != caller_clerk_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="These results are already connected to another account. Sign in with that account, or connect manually.",
+                )
             # Same write as POST /api/profile/connect.
             c.execute(
                 "INSERT INTO athlete_profiles (user_id, clerk_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE clerk_id = %s",

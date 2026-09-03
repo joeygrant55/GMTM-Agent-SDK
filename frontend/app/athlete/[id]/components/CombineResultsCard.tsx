@@ -9,7 +9,12 @@ const TIER_STYLE: Record<string, string> = {
 
 export default function CombineResultsCard({ results }: { results: CombineResult[] }) {
   if (!results || results.length === 0) return null
+  // Results arrive newest event first and may span several combines. Show the newest
+  // event's drills; older combines are counted so the athlete knows they exist.
+  const newestEventId = results[0].event_id
   const eventName = results[0].event_name
+  const shown = results.filter(r => r.event_id === newestEventId)
+  const olderEvents = new Set(results.filter(r => r.event_id !== newestEventId).map(r => r.event_id)).size
 
   return (
     <div className="bg-gradient-to-br from-sparq-lime/[0.10] via-white/[0.04] to-transparent border border-sparq-lime/30 rounded-2xl p-5 sm:p-6">
@@ -19,12 +24,13 @@ export default function CombineResultsCard({ results }: { results: CombineResult
           <h3 className="font-bold text-white font-display leading-tight truncate">{eventName}</h3>
         </div>
         <span className="text-[11px] text-gray-500 flex-shrink-0">
-          {results.length} drill{results.length !== 1 ? 's' : ''}
+          {shown.length} drill{shown.length !== 1 ? 's' : ''}
+          {olderEvents > 0 ? ` · ${olderEvents} older combine${olderEvents !== 1 ? 's' : ''}` : ''}
         </span>
       </div>
 
       <div className="divide-y divide-white/[0.06]">
-        {results.map((r, i) => {
+        {shown.map((r, i) => {
           const rank = rankLine(r)
           const pct = percentileLine(r)
           const tierClass = TIER_STYLE[r.trust_tier] || TIER_STYLE['Remote App-Captured']
