@@ -164,7 +164,7 @@ async def get_athlete(user_id: int):
         LEFT JOIN sports s ON c.sport_id = s.sport_id
         LEFT JOIN metrics m ON u.user_id = m.user_id AND m.verified = 1
         LEFT JOIN in_person_events ipe ON m.in_person_event_id = ipe.in_person_event_id
-        WHERE u.user_id = %s AND u.type = 1
+        WHERE u.user_id = %s
         GROUP BY u.user_id
     """
     
