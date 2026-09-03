@@ -25,6 +25,7 @@ from agent_api import router as agent_router
 from profile_api import router as profile_router
 from reports_api import router as reports_router
 from artifacts_api import router as artifacts_router
+from claims_api import router as claims_router
 
 # Optional router (best-effort)
 search_router = None
@@ -58,6 +59,7 @@ app.include_router(profile_router)
 app.include_router(agent_router)
 app.include_router(reports_router)
 app.include_router(artifacts_router)
+app.include_router(claims_router)
 if search_router:
     app.include_router(search_router)
 

@@ -3,6 +3,8 @@
 import { apiFetch } from '@/app/_lib/api'
 
 import { useState, useEffect } from 'react'
+import CombineResultsCard from './CombineResultsCard'
+import { COMBINE_FIXTURE, readCombineResults } from './combineResults'
 
 interface DashboardProps {
   athleteId: string
@@ -116,6 +118,10 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
   if (!data) return null
 
   const { profile, metrics, offer_count, links, recent_chats, completeness, suggested_links } = data
+  // combine_results lands with workstream 1; render nothing when it is missing or empty.
+  const fetched = readCombineResults(data)
+  const combineResults =
+    fetched.length === 0 && process.env.NEXT_PUBLIC_COMBINE_FIXTURE === '1' ? COMBINE_FIXTURE : fetched
 
   // Separate highlighted metrics (speed/agility type) from others
   const highlightKeys = ['40-yard dash', '40 yard', 'shuttle', 'vertical', 'broad jump', 'bench']
@@ -123,6 +129,9 @@ export default function Dashboard({ athleteId, onStartChat, onLoadChat, onViewRe
 
   return (
     <div className="space-y-6">
+      {/* ===== COMBINE RESULTS (cohort one) ===== */}
+      <CombineResultsCard results={combineResults} />
+
       {/* ===== PROFILE CARD ===== */}
       <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
         <div className="p-5 sm:p-8">

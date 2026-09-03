@@ -10,12 +10,16 @@ const isPublicRoute = createRouteMatcher([
   '/quick-scan',
   '/athlete/(.*)',
   '/report/(.*)',
+  '/claim/(.*)',
 ])
+// The claim landing is public, but its /redeem leaf must run with a Clerk session.
+// Checked before isPublicRoute so it wins over the '/claim/(.*)' entry above.
+const isClaimRedeemRoute = createRouteMatcher(['/claim/(.*)/redeem'])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
+  if (isClaimRedeemRoute(request) || !isPublicRoute(request)) {
     const { userId, getToken } = await auth()
     if (!userId) {
       const signInUrl = new URL('/sign-in', request.url)
