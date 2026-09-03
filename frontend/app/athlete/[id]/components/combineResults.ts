@@ -9,10 +9,11 @@ export interface CombineResult {
   organization: string
   drill: string
   value: number
+  /** WS1 sends word units: "seconds" | "inches" | "repetitions". */
   unit: string
   ideal: 'lower' | 'higher'
   video_uri: string | null
-  submitted_on: string
+  submitted_on: string | null
   trust_tier: TrustTier
   rank_in_event: number | null
   event_pool_size: number | null
@@ -21,6 +22,28 @@ export interface CombineResult {
   pool_size_all_time: number | null
   /** Percentile among rows from the same organization, 0-100, higher is better. */
   pct_same_org: number | null
+  pool_size_same_org: number | null
+  source?: 'metrics' | 'submission'
+}
+
+export interface CombineEventGroup {
+  event_id: number
+  event_name: string
+  results: CombineResult[]
+}
+
+/** Group by event, preserving backend order (newest event first). */
+export function groupByEvent(results: CombineResult[]): CombineEventGroup[] {
+  const groups: CombineEventGroup[] = []
+  for (const r of results) {
+    let g = groups.find(x => x.event_id === r.event_id)
+    if (!g) {
+      g = { event_id: r.event_id, event_name: r.event_name, results: [] }
+      groups.push(g)
+    }
+    g.results.push(r)
+  }
+  return groups
 }
 
 export function readCombineResults(data: unknown): CombineResult[] {
@@ -46,9 +69,12 @@ export function ordinal(n: number): string {
 export function formatValue(r: Pick<CombineResult, 'value' | 'unit'>): string {
   const n = Number(r.value)
   const text = Number.isFinite(n) ? (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, '')) : String(r.value)
-  const unit = (r.unit || '').trim()
+  const unit = (r.unit || '').trim().toLowerCase()
   if (!unit) return text
-  // Short units hug the number (4.31s); word units get a space (12 reps).
+  // "seconds" -> 4.31s, "inches" -> 102 in, "repetitions" -> 24 reps; unknown units pass through.
+  if (unit === 'seconds' || unit === 'second' || unit === 'sec' || unit === 's') return `${text}s`
+  if (unit === 'inches' || unit === 'inch' || unit === 'in') return `${text} in`
+  if (unit === 'repetitions' || unit === 'reps' || unit === 'rep') return `${text} reps`
   return unit.length <= 2 ? `${text}${unit}` : `${text} ${unit}`
 }
 
@@ -86,7 +112,7 @@ export const COMBINE_FIXTURE: CombineResult[] = [
     organization: 'USA Football',
     drill: '20-Yard Dash',
     value: 2.91,
-    unit: 's',
+    unit: 'seconds',
     ideal: 'lower',
     video_uri: 'https://cdn.gmtm.com/example/20yd.mp4',
     submitted_on: '2026-08-29T18:12:00Z',
@@ -96,6 +122,8 @@ export const COMBINE_FIXTURE: CombineResult[] = [
     pct_flag_all_time: 82,
     pool_size_all_time: 167,
     pct_same_org: 85,
+    pool_size_same_org: 140,
+    source: 'metrics',
   },
   {
     event_id: 1317,
@@ -103,7 +131,7 @@ export const COMBINE_FIXTURE: CombineResult[] = [
     organization: 'USA Football',
     drill: '5-10-5 Shuttle',
     value: 4.31,
-    unit: 's',
+    unit: 'seconds',
     ideal: 'lower',
     video_uri: 'https://cdn.gmtm.com/example/shuttle.mp4',
     submitted_on: '2026-08-29T18:15:00Z',
@@ -113,14 +141,16 @@ export const COMBINE_FIXTURE: CombineResult[] = [
     pct_flag_all_time: 61,
     pool_size_all_time: 1072,
     pct_same_org: null,
+    pool_size_same_org: null,
+    source: 'metrics',
   },
   {
     event_id: 1317,
     event_name: '2027 U.S. Flag National Team Junior Digital Combine #2',
     organization: 'USA Football',
     drill: 'Standing Broad Jump',
-    value: 8.5,
-    unit: 'ft',
+    value: 102,
+    unit: 'inches',
     ideal: 'higher',
     video_uri: null,
     submitted_on: '2026-08-29T18:20:00Z',
@@ -130,5 +160,7 @@ export const COMBINE_FIXTURE: CombineResult[] = [
     pct_flag_all_time: null,
     pool_size_all_time: null,
     pct_same_org: null,
+    pool_size_same_org: null,
+    source: 'submission',
   },
 ]
