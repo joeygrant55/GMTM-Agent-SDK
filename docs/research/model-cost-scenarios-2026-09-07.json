@@ -1,0 +1,182 @@
+{
+  "as_of": "2026-09-07",
+  "currency": "USD",
+  "status": "illustrative_standard_text_token_arithmetic_not_measured_spend",
+  "assumptions": {
+    "input_tokens_per_request": 5000,
+    "output_tokens_per_request": 500,
+    "athletes": 500,
+    "requests_per_athlete": 20,
+    "requests": 10000,
+    "excluded": [
+      "reasoning tokens beyond the stated output",
+      "tool and search charges",
+      "retries",
+      "cache writes and reads",
+      "audio or video processing",
+      "infrastructure",
+      "taxes",
+      "cross-model tokenizer differences"
+    ]
+  },
+  "models": [
+    {
+      "name": "GPT-5.6 Luna",
+      "model": "gpt-5.6-luna",
+      "input_per_million": ".20",
+      "output_per_million": "1.20",
+      "cost_per_example_request_usd": "0.0016",
+      "cost_10000_example_requests_usd": "16.0000",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+    },
+    {
+      "name": "Haiku 4.5",
+      "model": "claude-haiku-4-5-20251001",
+      "input_per_million": "1",
+      "output_per_million": "5",
+      "cost_per_example_request_usd": "0.0075",
+      "cost_10000_example_requests_usd": "75.0000",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "name": "Sonnet 4.6 baseline",
+      "model": "claude-sonnet-4-6",
+      "input_per_million": "3",
+      "output_per_million": "15",
+      "cost_per_example_request_usd": "0.0225",
+      "cost_10000_example_requests_usd": "225.0000",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "name": "Sonnet 5",
+      "model": "claude-sonnet-5",
+      "input_per_million": "2",
+      "output_per_million": "10",
+      "cost_per_example_request_usd": "0.015",
+      "cost_10000_example_requests_usd": "150.000",
+      "source": "https://platform.claude.com/docs/en/models/sonnet-5/overview"
+    },
+    {
+      "name": "GPT-5.6 Terra",
+      "model": "gpt-5.6-terra",
+      "input_per_million": "2",
+      "output_per_million": "12",
+      "cost_per_example_request_usd": "0.016",
+      "cost_10000_example_requests_usd": "160.000",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+    },
+    {
+      "name": "GPT-5.6 Sol",
+      "model": "gpt-5.6-sol",
+      "input_per_million": "4",
+      "output_per_million": "20",
+      "cost_per_example_request_usd": "0.03",
+      "cost_10000_example_requests_usd": "300.00",
+      "source": "https://developers.openai.com/api/docs/pricing"
+    },
+    {
+      "name": "Opus 5",
+      "model": "claude-opus-5",
+      "input_per_million": "5",
+      "output_per_million": "25",
+      "cost_per_example_request_usd": "0.0375",
+      "cost_10000_example_requests_usd": "375.0000",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "name": "GPT-6 Astra",
+      "model": "gpt-6-astra",
+      "input_per_million": "10",
+      "output_per_million": "50",
+      "cost_per_example_request_usd": "0.075",
+      "cost_10000_example_requests_usd": "750.000",
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-astra"
+    },
+    {
+      "name": "Fable 5.1",
+      "model": "claude-fable-5-1",
+      "input_per_million": "10",
+      "output_per_million": "50",
+      "cost_per_example_request_usd": "0.075",
+      "cost_10000_example_requests_usd": "750.000",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "name": "Gemini 3.8 Flash promotional",
+      "model": "gemini-3.8-flash",
+      "input_per_million": ".75",
+      "output_per_million": "3.75",
+      "cost_per_example_request_usd": "0.005625",
+      "cost_10000_example_requests_usd": "56.250000",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "name": "Gemini 3.8 Flash from Jan 1 2027",
+      "model": "gemini-3.8-flash",
+      "input_per_million": "1.50",
+      "output_per_million": "7.50",
+      "cost_per_example_request_usd": "0.01125",
+      "cost_10000_example_requests_usd": "112.50000",
+      "source": "https://ai.google.dev/gemini-api/docs/latest-model"
+    },
+    {
+      "name": "Gemini 3.5 Flash-Lite",
+      "model": "gemini-3.5-flash-lite",
+      "input_per_million": ".30",
+      "output_per_million": "2.50",
+      "cost_per_example_request_usd": "0.00275",
+      "cost_10000_example_requests_usd": "27.50000",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "name": "Mistral Small 4",
+      "model": "mistral-small-2603",
+      "input_per_million": ".15",
+      "output_per_million": ".60",
+      "cost_per_example_request_usd": "0.00105",
+      "cost_10000_example_requests_usd": "10.50000",
+      "source": "https://docs.mistral.ai/inference/pricing"
+    },
+    {
+      "name": "Mistral Large 3",
+      "model": "mistral-large-2512",
+      "input_per_million": ".50",
+      "output_per_million": "1.50",
+      "cost_per_example_request_usd": "0.00325",
+      "cost_10000_example_requests_usd": "32.50000",
+      "source": "https://docs.mistral.ai/inference/pricing"
+    },
+    {
+      "name": "Grok 4.6",
+      "model": "grok-4.6",
+      "input_per_million": "2",
+      "output_per_million": "6",
+      "cost_per_example_request_usd": "0.013",
+      "cost_10000_example_requests_usd": "130.000",
+      "source": "https://docs.x.ai/developers/pricing"
+    },
+    {
+      "name": "DeepSeek V4 Flash off-peak",
+      "model": "deepseek-v4-flash",
+      "input_per_million": ".22",
+      "output_per_million": ".66",
+      "cost_per_example_request_usd": "0.00143",
+      "cost_10000_example_requests_usd": "14.30000",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing/"
+    },
+    {
+      "name": "DeepSeek V4 Flash peak",
+      "model": "deepseek-v4-flash",
+      "input_per_million": ".44",
+      "output_per_million": "1.32",
+      "cost_per_example_request_usd": "0.00286",
+      "cost_10000_example_requests_usd": "28.60000",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing/"
+    }
+  ],
+  "scenarios": {
+    "80_percent_direct_luna_20_percent_direct_sonnet5_usd": "42.80000",
+    "all_luna_then_20_percent_sonnet5_retry_usd": "46.0000",
+    "sonnet5_same_text_30_percent_more_tokens_sensitivity_usd": "195.0000"
+  }
+}

@@ -1,0 +1,39 @@
+# Combine help and long-term data direction
+
+September 6, 2026. Owner: Codex, `Evaluate Sparq agent project` (`01a06f58-7203-7f82-a090-3545f126936b`). Checkout: `/Users/joey/Documents/Codex/2026-09-04/higgsfield-plugin-app-6a3293e129088191abf0875820e839da-openai-curated/work/sparq-agent-review`. Branch `codex/athlete-home-first-value`, HEAD `6c7e649ce5154f211401ed2e4af03d9691366194`, origin `joeygrant55/GMTM-Agent-SDK`.
+
+## Request and completion scope
+
+Joey approved the next combine slice, designated GMTM athlete 2 as his own test profile (no current combine submission reported), and requested an optimal longer-term relationship between the existing database and separate SPARQ build. The [completion contract](../../docs/state/combine-help-build-contract-2026-09-06.md) covers local conversational help, a controlled read-only validation runner and the architecture recommendation. Local implementation is complete; live acceptance remains open because existing DB configuration is unavailable here.
+
+## Implemented
+
+- `backend/combine_api.py` exposes a reusable `load_current_combine`; its existing GET contract is retained. New `combine_context.py` projects bounded authorized requirements/status without private answer values or identity IDs. New `combine_help_api.py` provides authenticated POST `/api/combine/help`, registered once in `main.py`.
+- The help request accepts only supported event/task locators, a bounded question and bounded complete history pairs. Every question reloads current source data; the model has one no-argument snapshot tool and no SQL, source writes, web search or generic recruiting bootstrap. This mode does not persist conversations. Input/output/iterations/time and per-process request/concurrency limits are bounded. A timed-out SQL worker retains admission until it actually finishes; no late model starts. Empty, truncated and failed answers never emit successful `done`.
+- `CombineHelpProvider.tsx` and `CombineHelpPanel.tsx` isolate state by account/event/task. Current-card activity buttons, `WorkspaceShell.tsx` and `WorkspaceAIPanel.tsx` expose contextual help and keep other pages' recruiting chat separate. Static instructions and GMTM continuation work before Send. Account/event/task transitions, explicit Cancel and a 55-second client deadline prevent stale results; canceled questions are restored without accidental resubmission. Successful pairs alone enter bounded session history.
+- `backend/scripts/verify_combine_readonly.py` is a controlled operator tool. It requires explicit settings and the exact approved GMTM hostname, resolves an existing unique mapping in both directions, uses read-only transactions and reviewed fixed SELECTs, rolls back/closes, and emits private redacted receipts. Its CLI accepts positive athlete IDs generally; only the approved user-2 invocation is authorized in this task. Query guards supplement read-only transactions and are not a general untrusted-SQL parser. A cleanup failure blocks success; `connections_closed` records wrapper closure attempts.
+- The [data architecture](../../docs/state/sparq-data-architecture-2026-09-06.md) keeps GMTM canonical records and SPARQ plans/preferences/actions separate. It documents current Agent MySQL evidence, unverified Convex use, stale bootstrap-copy risk, explicit identity/source references, privacy, narrow future APIs, durable jobs, migration discipline and staged organization expansion. Planned records/capabilities are identified as targets.
+
+## Verification
+
+Root ran the full isolated backend suite: **270 passed** (including 54 new help and 34 new runner tests). Actual FastAPI main was imported only under preinstalled offline guards; GET current and POST help are each registered once with `require_clerk_id`.
+
+Actual-component Chromium harnesses passed **47 account checks**, **75 combine journey/layout checks**, and **50 new help checks**. These cover explicit-send-only behavior, current ID/body scoping, complete history, source/HTTP/SSE failures, cancellations/deadlines, late account/event/task responses, generic-chat separation, and 360/390/430/1440 widths. Root reran the existing browser suites and TypeScript after the last Cancel fix. The TypeScript snapshot covers 91 source/config files using existing local dependencies, without installs or application startup. Root and the frontend writer visually inspected the synthetic phone/desktop help screenshots.
+
+Independent source reviews covered backend async/tool boundaries, frontend lifetime/privacy behavior and the read-only runner. No blocker remained for this local scope. Real AsyncAnthropic streaming and answer quality, actual ASGI disconnect/backpressure, Clerk login, driver/MySQL compatibility and full Next build are not proven by these tests. Process-local rate limits are not durable distributed usage accounting. Existing source-module import-time DDL remains a separate migration/reliability item.
+
+Receipt directory relative to the enclosing task workspace: `work/sparq-combine-help-2026-09-06/` contains backend-suite, account-boundary, journey, typecheck, router-wiring, live-configuration and final-source-check receipts. New help receipt/screenshots: `work/sparq-combine-help-frontend-2026-09-06/`. Final captured source hashes matched; this is bounded evidence about tested/protected files, not an audit of every workspace or other checkout.
+
+## Live check and next action
+
+The configuration-only invocation for athlete 2 returned `missing_configuration`: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `AGENT_DB_HOST`, `AGENT_DB_PORT`, `AGENT_DB_USER`, `AGENT_DB_PASSWORD`, `AGENT_DB_NAME`. It performed no DNS or database access. Its event argument was 1318, unused for data reads or eligibility; it did not register/select a real athlete program. User 2 has not been observed live. No existing authenticated GMTM browser session was established; the inspected existing tab was on signup. No tab navigation or account/session change was performed.
+
+Use the existing backend's authorized secure environment to run the documented read-only check for user 2 and the selected event, then compare the observed checklist with an authenticated controlled UI/model session. Obtain configuration through the deployment owner/Fable, without pasting secrets in chat or receipts. Do not create/reassign ownership to make validation pass. Operator instructions are in the enclosing workspace at `outputs/sparq-live-check-instructions-2026-09-06.md`.
+
+Core authenticated `getVirtual` can update invitations even on GET. Avoid treating that navigation as read-only; use interception, a confirmed nonmutating route or Joey's approval for a concrete production write. Do not import full backend main against real configuration because other modules initialize tables at import. No AWS RDS/IAM/parameter-group/account changes or core API deployment are in scope. Never use pre-prod.
+
+## Uncommitted work and boundaries
+
+This turn modified the reusable combine reader, main router registration, offline AsyncAnthropic guard, current-card/shell/panel integration, two existing browser harnesses, state and completion contract. It added combine context/help API/tests, provider/help UI/new harness, read-only runner/tests, architecture document and this handoff. The earlier identity and current-combine batches remain local and uncommitted; the full dirty tree includes those earlier files as well. `final-verification.json` records the final git status and scoped source preservation.
+
+No commit, push, deployment, production mutation, infrastructure/payment change or external message occurred. No other clone was edited. The next local product work should follow the live validation evidence, then prioritize persistent event context, athlete-controlled profile sharing and durable jobs. Keep one product slice and one reliability track; generalize organization programs only after the USA Football journey is proven.

@@ -1,5 +1,7 @@
 # SPARQ Agent SDK - Full Architecture
 
+Historical design proposal. For the current runtime and execution plan, use [README](README.md) and [current state](docs/state/current-state.md). The September 6 implementation uses direct Anthropic calls and a scoped current-athlete tool; the model-selected SQL and Agent SDK proposals below are not the current tool contract.
+
 **Current Status:** Simple Python scripts (proof-of-concept)  
 **Goal:** Full Agent SDK with autonomous web access
 
