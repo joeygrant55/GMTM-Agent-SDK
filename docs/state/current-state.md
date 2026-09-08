@@ -2,6 +2,8 @@
 
 Updated: 2026-09-08. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+Joey's latest question concerns founder versus current-athlete testing. The proposed [athlete pilot guide](athlete-pilot-plan-2026-09-08.md) recommends a founder session followed by five opt-in adult participants and includes an unsent Charles draft. It does not authorize outreach or a live rollout; technical gates below remain open. See the [planning handoff](../../.sammy/handoffs/2026-09-08-athlete-pilot-recommendation.md).
+
 ## Candidate production build and source packaging — September 8, 2026
 
 The [release-readiness contract](candidate-release-readiness-contract-2026-09-08.md) is implemented and locally verified following clean baseline `5347070`. Shared claim/recovery/bootstrap connectors now use finite socket timeouts; eight actual PyMySQL synthetic-transport regressions fail the baseline and pass the fix. These do not impose an overall request/query deadline. Candidate packaging has a separate Dockerfile, an exact 17-file source tar, checked dependency constraints and a fixed non-root launch path that cannot inherit Uvicorn reload/env-file options. Original legacy deployment manifests are unchanged.
