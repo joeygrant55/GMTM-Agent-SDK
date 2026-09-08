@@ -22,3 +22,9 @@ These checks do not establish live Clerk authentication, actual backend/provider
 Run `frontend/tests/check-combine-journey.cjs` with the same three environment variables and a separate receipt path. It compiles the actual home entry, claim handoff, combine card and full workspace shell, and generates CSS from the repository's Tailwind configuration. It saves screenshots at phone and desktop sizes beside its receipt.
 
 The journey harness uses the public junior/adult task fixture with invented submissions. It checks profile/inbox-independent entry, event choice, submission/evidence distinctions, return refresh, request deduplication, failed refresh, stale account/event responses, source-text safety and phone navigation/help controls. Clerk, Next routing and API responses are synthetic, and every browser network request is intercepted. Existing chat Markdown is rendered as plain text by the harness. These are local component/layout checks, not live sign-in, a real GMTM upload, complete Next middleware behavior or physical-device acceptance.
+
+## Explicit college research
+
+Run `frontend/tests/check-college-research.cjs` with the same three explicit environment paths and a new receipt filename. It renders the actual college page, uses the real API wrapper with synthetic Clerk/Next/API interfaces, and controls polling timers in an isolated browser. No stylesheet/layout or full Next integration is claimed.
+
+Checks cover truthful empty/unavailable research, absence of page-open AI prompts, rejected/accepted matching requests, bounded status checks, late/out-of-order reads and account/unmount cleanup. A legacy `complete` response can reload saved research but does not prove the newly requested job completed. Every service response is synthetic; no model, email, database or live API call occurs.

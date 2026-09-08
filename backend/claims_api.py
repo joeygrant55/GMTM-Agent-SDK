@@ -327,8 +327,8 @@ async def redeem_claim(token: str, caller_clerk_id: str = Depends(require_clerk_
         finally:
             # Closing also releases session locks if explicit release fails.
             db.close()
-    # Land the athlete in the workspace, not the legacy dashboard: make sure a sparq_profiles
-    # row exists (built from GMTM) and college matching is running.
+    # Optionally prepare the workspace from GMTM identity/metrics after the claim
+    # commits. Readiness does not mean college matching or research was requested.
     try:
         ws = ensure_workspace_profile(caller_clerk_id, user_id)
     except Exception as e:  # never fail the claim because of the bootstrap

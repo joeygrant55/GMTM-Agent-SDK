@@ -1,16 +1,14 @@
 """
 Bootstrap a workspace (`sparq_profiles`) row for a GMTM-linked athlete.
 
-`/home` sends any Clerk user without a `sparq_profiles` row to MaxPreps onboarding. Athletes
-who arrive through a claim link (or the legacy /connect flow) only get an `athlete_profiles`
-link, so they were bounced to onboarding and never saw the workspace. This builds the row
-from GMTM data (name, position, school, class year, location, combine metrics) and starts
-the same background college matching that MaxPreps onboarding starts. Idempotent.
+Claim redemption can prepare a workspace from GMTM identity and metric data after
+establishing the athlete link. This helper only creates the missing workspace;
+it never starts college matching, research, or provider work. Combine entry and
+progress remain available independently of this optional preparation.
 """
 from __future__ import annotations
 
 import json
-import threading
 from typing import Optional
 
 from combine_results import get_combine_results
@@ -73,15 +71,23 @@ def _num(v) -> Optional[float]:
 def ensure_workspace_profile(clerk_id: str, user_id: int) -> dict:
     """Create the sparq_profiles row for this Clerk user from their GMTM record if missing.
     Returns {"ready": bool, "created": bool, "profile_id": int|None}."""
-    from profile_api import _get_agent_db, _get_gmtm_db, _run_matching_thread  # lazy
+    from profile_api import _get_agent_db, _get_gmtm_db  # lazy
+
+    def owned_profile_id(row):
+        # Older SQL collations may match a different case-sensitive Clerk subject.
+        profile_id = row.get("id") if isinstance(row, dict) else None
+        if (type(profile_id) is not int or profile_id <= 0
+                or row.get("clerk_id") != clerk_id):
+            raise ValueError("Workspace ownership could not be confirmed.")
+        return profile_id
 
     db = _get_agent_db()
     try:
         with db.cursor() as c:
-            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            c.execute("SELECT id, clerk_id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
             row = c.fetchone()
-            if row:
-                return {"ready": True, "created": False, "profile_id": int(row["id"])}
+            if row is not None:
+                return {"ready": True, "created": False, "profile_id": owned_profile_id(row)}
 
         ident = _gmtm_identity(user_id)
         if not ident:
@@ -105,48 +111,23 @@ def ensure_workspace_profile(clerk_id: str, user_id: int) -> dict:
         name = f"{ident.get('first_name') or ''} {ident.get('last_name') or ''}".strip()
         position = ident.get("position") or ""
         state = ident.get("state") or ""
-        # Sport drives college matching. A flag-football combine athlete must not be matched
-        # as tackle "Football"; GMTM's "All Sports" placeholder is not a sport either.
-        flag_context = any(
-            "flag" in (str(r.get("event_name") or "") + str(r.get("organization") or "")).lower()
-            for r in results
-        )
-        gmtm_sport = (ident.get("sport") or "").strip()
-        if flag_context:
-            sport = "Flag Football"
-        elif gmtm_sport and gmtm_sport.lower() != "all sports":
-            sport = gmtm_sport
-        else:
-            sport = "Football"
         with db.cursor() as c:
             c.execute(
                 """INSERT INTO sparq_profiles
                        (clerk_id, name, position, school, class_year, city, state,
                         combine_metrics, enrichment_complete)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,0)
-                   ON DUPLICATE KEY UPDATE updated_at = CURRENT_TIMESTAMP""",
+                   ON DUPLICATE KEY UPDATE id = id""",
                 (clerk_id, name, position, ident.get("school") or "", ident.get("graduation_year"),
                  ident.get("city") or "", state, json.dumps(combine) if combine else None),
             )
+            # The normal PyMySQL connection does not enable CLIENT_FOUND_ROWS:
+            # an insert affects one row; a duplicate no-op affects zero.
+            created = c.rowcount == 1
             db.commit()
-            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
-            pid = int(c.fetchone()["id"])
+            c.execute("SELECT id, clerk_id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
+            pid = owned_profile_id(c.fetchone())
     finally:
         db.close()
 
-    profile_for_matching = {
-        "sport": sport,
-        "position": position,
-        "state": state,
-        "class_year": ident.get("graduation_year"),
-        "maxpreps_stats": {},
-        "combine_metrics": combine,
-        "recruiting_goals": {},
-    }
-    t = threading.Thread(
-        target=_run_matching_thread,
-        args=(pid, profile_for_matching, position or "Athlete", state or "US", sport),
-        daemon=True, name=f"matching-{pid}",
-    )
-    t.start()
-    return {"ready": True, "created": True, "profile_id": pid}
+    return {"ready": True, "created": created, "profile_id": pid}

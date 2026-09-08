@@ -5,9 +5,11 @@ import { apiFetch } from '@/app/_lib/api'
 import dynamic from 'next/dynamic'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
+import { supportedCombineEvent } from '../components/currentCombine'
 
 interface College {
   id: number
@@ -19,8 +21,6 @@ interface College {
   fit_reasons?: string[] | null
   status: string
 }
-
-const MOCK_FALLBACK: College[] = []
 
 const DIVISION_FILTERS = ['All', 'D1', 'D2', 'D3', 'NAIA'] as const
 
@@ -72,111 +72,143 @@ const TIER_CONFIG: Record<Tier, { label: string; emoji: string; description: str
 
 function CollegesPage() {
   const { user, isLoaded } = useUser()
+  if (!isLoaded) return <p role="status" className="p-8 text-gray-400">Loading your account…</p>
+  if (!user?.id) return <p className="p-8 text-gray-400">Sign in to see your saved college matches.</p>
+  return <CollegeSession key={user.id} clerkId={user.id} />
+}
+
+interface ResearchRequest {
+  controller: AbortController
+  pollTimer?: ReturnType<typeof setTimeout>
+  deadlineTimer?: ReturnType<typeof setTimeout>
+}
+
+function CollegeSession({ clerkId }: { clerkId: string }) {
+  const params = useSearchParams()
+  const rawEvent = params.get('event_id')
+  const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
+  const combineHref = eventId ? `/home/inbox?event_id=${eventId}` : '/home/inbox'
   const [division, setDivision] = useState<(typeof DIVISION_FILTERS)[number]>('All')
   const [colleges, setColleges] = useState<College[]>([])
   const [loading, setLoading] = useState(true)
   const [statuses, setStatuses] = useState<Record<number, string>>({})
-  const [enrichmentComplete, setEnrichmentComplete] = useState(false)
-  const [toast, setToast] = useState('')
-  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [researchState, setResearchState] = useState<'idle' | 'requesting' | 'waiting'>('idle')
+  const [researchMessage, setResearchMessage] = useState('')
+  const [researchError, setResearchError] = useState('')
+  const lifetime = useRef<AbortController | null>(null)
+  const request = useRef<ResearchRequest | null>(null)
+  const readGeneration = useRef(0)
+  const refreshing = researchState !== 'idle'
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
 
-  const applyColleges = (list: College[]) => {
-    setColleges(list)
-    setStatuses((prev) => ({ ...Object.fromEntries(list.map((c) => [c.id, c.status])), ...prev }))
-  }
+  const stopChecking = useCallback(() => {
+    const active = request.current
+    request.current = null
+    if (!active) return
+    active.controller.abort()
+    clearTimeout(active.pollTimer)
+    clearTimeout(active.deadlineTimer)
+  }, [])
 
-  const loadColleges = async (clerkId?: string) => {
-    if (!clerkId) {
-      applyColleges([])
-      setLoading(false)
-      return
-    }
+  const loadColleges = useCallback(async (signal: AbortSignal): Promise<'loaded' | 'failed' | 'superseded'> => {
+    const generation = ++readGeneration.current
+    const isCurrentRead = () => !signal.aborted && readGeneration.current === generation
+    setLoadError('')
     try {
-      const res = await apiFetch(`${backendUrl}/api/workspace/colleges/${clerkId}`)
+      const res = await apiFetch(`${backendUrl}/api/workspace/colleges/${clerkId}`, { signal })
+      if (!res.ok) throw new Error('Saved matches unavailable')
       const data = await res.json()
-      const list = data.colleges && data.colleges.length > 0 ? data.colleges : MOCK_FALLBACK
-      applyColleges(list)
-      // Trigger proactive AI analysis if we have matches
-      if (list.length > 0) {
-        const likelyCount = list.filter((c: College) => c.fit_score >= 85).length
-        const topSchool = list.sort((a: College, b: College) => b.fit_score - a.fit_score)[0]
-        const proactivePrompt = `I just opened my college matches page. I have ${list.length} schools matched to my profile — ${likelyCount} Likely fits. My top match is ${topSchool.college_name} (${topSchool.fit_score}% fit). Give me a personalized 2-3 sentence analysis of where I should focus my recruiting efforts first and one concrete action I can take today.`
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('sparq:proactive-prompt', { detail: { prompt: proactivePrompt } }))
-        }, 1200)
+      if (!isCurrentRead()) return 'superseded'
+      if (!Array.isArray(data.colleges) || !data.colleges.every((college: College) =>
+        college && Number.isSafeInteger(college.id) && typeof college.college_name === 'string'
+        && typeof college.fit_score === 'number' && Number.isFinite(college.fit_score))) {
+        throw new Error('Saved matches unconfirmed')
       }
+      setColleges(data.colleges)
+      setStatuses(Object.fromEntries(data.colleges.map((college: College) => [college.id, college.status])))
+      return 'loaded'
     } catch {
-      applyColleges([])
+      if (!isCurrentRead()) return 'superseded'
+      setLoadError('We could not load your saved college matches. Try loading them again.')
+      return 'failed'
     } finally {
-      setLoading(false)
+      if (isCurrentRead()) setLoading(false)
     }
-  }
+  }, [backendUrl, clerkId])
 
   useEffect(() => {
-    if (!isLoaded) return
-    void loadColleges(user?.id)
-  }, [isLoaded, user?.id])
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = setTimeout(() => setToast(''), 4500)
-    return () => clearTimeout(timer)
-  }, [toast])
-
-  useEffect(() => {
-    if (!isLoaded || !user?.id || enrichmentComplete) return
-
-    const pollStatus = async () => {
-      try {
-        const res = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
-        if (!res.ok) return
-        const data = await res.json() as { complete?: boolean }
-        if (data.complete) {
-          setEnrichmentComplete(true)
-          setToast('Research complete — your fit breakdown is ready!')
-          await loadColleges(user.id)
-        }
-      } catch {
-        // no-op
-      }
+    const controller = new AbortController()
+    lifetime.current = controller
+    void loadColleges(controller.signal)
+    return () => {
+      controller.abort()
+      stopChecking()
+      if (lifetime.current === controller) lifetime.current = null
     }
-
-    void pollStatus()
-    const interval = setInterval(() => { void pollStatus() }, 30000)
-    return () => clearInterval(interval)
-  }, [backendUrl, enrichmentComplete, isLoaded, user?.id])
+  }, [loadColleges, stopChecking])
 
   const handleRefreshMatches = async () => {
-    if (!user?.id || refreshing) return
-    setRefreshing(true)
-    setEnrichmentComplete(false)
-    setToast('Finding new college matches for your profile...')
+    if (!lifetime.current || lifetime.current.signal.aborted || request.current) return
+    const active: ResearchRequest = { controller: new AbortController() }
+    request.current = active
+    const isCurrent = () => request.current === active && !active.controller.signal.aborted
+    const finish = (message: string, error = '') => {
+      if (!isCurrent()) return
+      stopChecking()
+      setResearchState('idle')
+      setResearchMessage(message)
+      setResearchError(error)
+    }
+    setResearchState('requesting')
+    setResearchMessage('')
+    setResearchError('')
+    // A hung acceptance request must not leave this page permanently busy.
+    active.deadlineTimer = setTimeout(() => finish('', 'We could not confirm whether your research request was accepted. Reload saved matches before making another request.'), 30000)
     try {
-      await apiFetch(`${backendUrl}/api/workspace/trigger-matching/${user.id}`, { method: 'POST' })
-      const poll = async () => {
-        try {
-          const res = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${user.id}`)
-          if (!res.ok) return false
-          const data = await res.json() as { complete?: boolean }
-          return !!data.complete
-        } catch { return false }
+      const res = await apiFetch(`${backendUrl}/api/workspace/trigger-matching/${clerkId}`, { method: 'POST', signal: active.controller.signal })
+      if (!isCurrent()) return
+      if (!res.ok) {
+        finish('', res.status === 422
+          ? 'College research needs a sport in your recruiting profile. Your combine progress is still available in My next move.'
+          : res.status === 401 ? 'Sign in again before requesting college research.'
+          : 'Your research request was not accepted. Try again later; your saved matches are unchanged.')
+        return
       }
-      const interval = setInterval(async () => {
-        const done = await poll()
-        if (done) {
-          clearInterval(interval)
-          setRefreshing(false)
-          setEnrichmentComplete(true)
-          setToast('Matches refreshed — here are your updated college fits!')
-          await loadColleges(user.id)
+      const data = await res.json()
+      if (!isCurrent()) return
+      if (data.status !== 'matching started' || !Number.isSafeInteger(data.profile_id) || data.profile_id <= 0) {
+        throw new Error('Research acceptance unconfirmed')
+      }
+      clearTimeout(active.deadlineTimer)
+      setResearchState('waiting')
+      setResearchMessage('Matching request accepted. Checking for saved research updates…')
+      active.deadlineTimer = setTimeout(() => finish('We stopped checking after three minutes. Research may still be running. You can reload saved matches without starting another request.'), 180000)
+      const poll = async () => {
+        if (!isCurrent()) return
+        try {
+          const status = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${clerkId}`, { signal: active.controller.signal })
+          if (!isCurrent()) return
+          if (!status.ok) throw new Error('Research status unavailable')
+          const result = await status.json()
+          if (!isCurrent()) return
+          if (typeof result.complete !== 'boolean') throw new Error('Research status unconfirmed')
+          if (result.complete) {
+            // This legacy flag is not a job ID or proof this request completed.
+            const outcome = await loadColleges(active.controller.signal)
+            if (outcome === 'superseded') finish('Research status is available.')
+            else finish(outcome === 'loaded' ? 'Saved college research is available. Review the current matches below.' : '', outcome === 'loaded' ? '' : 'Research status is available, but the saved matches could not be reloaded.')
+          } else {
+            active.pollTimer = setTimeout(() => { void poll() }, 15000)
+          }
+        } catch {
+          finish('', 'We could not check for research updates. Research may still be running. Reload saved matches before making another request.')
         }
-      }, 15000)
-      setTimeout(() => { clearInterval(interval); setRefreshing(false) }, 180000)
+      }
+      active.pollTimer = setTimeout(() => { void poll() }, 15000)
     } catch {
-      setRefreshing(false)
-      setToast('Refresh failed — try again in a moment')
+      finish('', 'We could not confirm whether your research request was accepted. Reload saved matches before making another request.')
     }
   }
 
@@ -211,8 +243,8 @@ function CollegesPage() {
 
   const CollegeCard = ({ college }: { college: College }) => {
     const status = statuses[college.id]
-    const hasEnrichedReasons = Array.isArray(college.fit_reasons) && college.fit_reasons.some(r => r && r.length > 30)
-    const fitReasons = hasEnrichedReasons ? (college.fit_reasons as string[]).filter(Boolean).slice(0, 3) : null
+    const hasEnrichedReasons = Array.isArray(college.fit_reasons) && college.fit_reasons.some(r => typeof r === 'string' && r.length > 30)
+    const fitReasons = hasEnrichedReasons ? (college.fit_reasons as string[]).filter(reason => typeof reason === 'string' && reason.trim()).slice(0, 3) : null
     const tier = getTier(college.fit_score)
     const tierCfg = TIER_CONFIG[tier]
 
@@ -253,10 +285,7 @@ function CollegesPage() {
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-xs text-gray-500 italic flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse inline-block" />
-                Researching this program for you...
-              </p>
+              <p className="mt-2 text-xs text-gray-500 italic">Detailed fit research is not available for this program.</p>
             )}
           </div>
         </div>
@@ -281,7 +310,7 @@ function CollegesPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black text-white">Your College Matches</h1>
-            <p className="text-gray-400 mt-1">{colleges.length} programs matched to your profile</p>
+            <p className="text-gray-400 mt-1">{loadError ? (colleges.length ? 'Showing matches from your last successful check' : 'Saved college matches are unavailable') : `${colleges.length} programs matched to your profile`}</p>
           </div>
           <button
             type="button"
@@ -292,7 +321,7 @@ function CollegesPage() {
             {refreshing ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                Finding matches...
+                {researchState === 'requesting' ? 'Requesting research…' : 'Checking saved research…'}
               </>
             ) : (
               <>
@@ -350,19 +379,20 @@ function CollegesPage() {
           )
         })}
 
-        {filteredColleges.length === 0 && (
+        {!loadError && filteredColleges.length === 0 && (
           <div className="text-center py-16 text-gray-500">
-            <p className="text-lg font-semibold">No matches yet</p>
-            <p className="text-sm mt-1">Complete onboarding or refresh to generate your college list</p>
+            <p className="text-lg font-semibold">{colleges.length === 0 ? 'No college matches are saved.' : 'No saved matches in this division.'}</p>
+            <p className="text-sm mt-1">Your combine progress is available in <Link href={combineHref} className="text-sparq-lime underline">My next move</Link>.</p>
           </div>
         )}
       </div>
 
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-black/80 border border-sparq-lime/40 text-sparq-lime text-sm px-4 py-3 rounded-xl backdrop-blur">
-          {toast}
-        </div>
-      )}
+      <div className="px-8 mt-4 space-y-3">
+        {loadError && <p role="alert" className="text-sm text-amber-200">{loadError}</p>}
+        {researchError && <p role="alert" className="text-sm text-amber-200">{researchError}</p>}
+        {researchMessage && <p role="status" className="text-sm text-gray-300">{researchMessage}</p>}
+        {(loadError || researchError || researchMessage) && <button type="button" onClick={() => { if (lifetime.current) void loadColleges(lifetime.current.signal) }} className="min-h-11 text-sm text-sparq-lime underline">Reload saved matches</button>}
+      </div>
     </div>
   )
 }

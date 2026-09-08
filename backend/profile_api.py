@@ -1136,24 +1136,41 @@ async def trigger_matching(clerk_id: str, caller_clerk_id: str = Depends(require
 
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
+    if profile.get("clerk_id") != caller_clerk_id:
+        raise HTTPException(status_code=403, detail="Not authorized.")
 
     profile_id = profile["id"]
     position = profile.get("position") or "Athlete"
     state = profile.get("state") or "US"
 
+    missing_sport = "College matching needs a sport in your recruiting profile. Your combine progress remains available."
     mp_raw = profile.get("maxpreps_data")
-    maxpreps = {}
-    if mp_raw:
-        try:
-            maxpreps = json.loads(mp_raw) if isinstance(mp_raw, str) else mp_raw
-        except Exception:
-            pass
+    try:
+        maxpreps = json.loads(mp_raw) if isinstance(mp_raw, str) else mp_raw
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail=missing_sport) from None
+    if not isinstance(maxpreps, dict):
+        raise HTTPException(status_code=422, detail=missing_sport)
+
+    def sport_text(value):
+        if not isinstance(value, str) or any(ord(char) < 32 for char in value):
+            return None
+        label = value.strip()
+        placeholders = {"all sports", "athlete", "unknown", "n/a", "na", "none", "null",
+                        "not specified", "unspecified", "tbd", "other", "select sport"}
+        return label if 0 < len(label) <= 100 and label.casefold() not in placeholders else None
+
+    # Preserve the existing first-sport selection, including its gendered label.
+    # A position or default sport cannot stand in for missing source sport data.
+    sports = maxpreps.get("sports")
+    if sports is not None and (not isinstance(sports, list) or any(not sport_text(value) for value in sports)):
+        raise HTTPException(status_code=422, detail=missing_sport)
+    sport_label = sport_text(sports[0]) if sports else sport_text(maxpreps.get("sport"))
+    if not sport_label:
+        raise HTTPException(status_code=422, detail=missing_sport)
 
     stats_preview = maxpreps.get("statsPreview") or []
     maxpreps_stats = {s[0]: s[1] for s in stats_preview} if stats_preview else {}
-    # Use full gendered sport name (e.g. "Girls Basketball") from sports array
-    _sports_list = maxpreps.get("sports") or []
-    sport_label = _sports_list[0] if _sports_list else (maxpreps.get("sport") or position or "Basketball")
 
     goals = profile.get("recruiting_goals")
     if isinstance(goals, str):

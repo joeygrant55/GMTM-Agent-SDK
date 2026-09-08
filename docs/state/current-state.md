@@ -1,6 +1,16 @@
 # SPARQ Agent current work
 
-Updated: 2026-09-07. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+Updated: 2026-09-08. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+
+## Combine onboarding separated and reviewed work checkpointed — September 8, 2026
+
+Joey authorized continuing the product work and asked when to commit/deploy. Prior reviewed implementation is now in local commit `a151b1c`; prior documentation/handoffs are in `2ba64c2`. The new [onboarding package](combine-onboarding-contract-2026-09-08.md) is verified for the next local commit with its [handoff](../../.sammy/handoffs/2026-09-08-combine-onboarding-and-local-commits.md). No push or deployment occurred. This supersedes older blanket uncommitted-status notes below; historical verification remains dated evidence.
+
+Claim redemption's optional workspace creation no longer starts college research. It preserves identity/metrics, exact ownership, accurate concurrent-creation reporting and retry after optional failure. Valid explicit research remains; manual matching refuses missing usable stored sport instead of guessing. College-page visits no longer emit an automatic AI prompt. Empty/error/status copy is truthful, polling starts only after an accepted request and is bounded, and overlapping/account-stale reads cannot replace newer results. The existing status boolean is not treated as a durable job result.
+
+**540 backend tests, 42 actual college-component checks and TypeScript across 93 files pass.** The actual app's synthetic claim→workspace→adult-checklist sequence changes from 0/9 to 1/9 after a fixture source update while excluding other divisions/athletes. This is not a real GMTM upload or current live identity/schema acceptance. Independent final review passes; receipts and exact source scope are in the handoff. This verified package is recorded with its handoff in the next local commit; the exact commit receipt is in the sibling artifact directory.
+
+Next: explicit candidate configuration and supported route/API isolation, then full Next/backend acceptance and the remaining real athlete/source gates. The [commit/release plan](commit-and-release-plan-2026-09-08.md) separates immediate local commits from an explicitly authorized production release. No live-test allowance was reset. Joey separately reports authorizing Fable to delete `family-test`; pre-prod approval/deletion remains a separate lane and no fresh cloud result is asserted here.
 
 ## Real app composition isolated — September 7, 2026
 
