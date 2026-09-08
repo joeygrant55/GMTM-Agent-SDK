@@ -88,6 +88,8 @@ def _clerk_for_link(link_id: int) -> Optional[str]:
     return _clerk_for_gmtm_user(row["user_id"])
 
 
+# Match the combine connectors: bound socket connection and individual I/O
+# operations. These are not DNS, server execution, or whole-request deadlines.
 def _get_agent_db():
     return pymysql.connect(
         host=os.getenv('AGENT_DB_HOST', 'mysql.railway.internal'),
@@ -95,7 +97,8 @@ def _get_agent_db():
         user=os.getenv('AGENT_DB_USER', 'root'),
         password=os.getenv('AGENT_DB_PASSWORD', ''),
         database=os.getenv('AGENT_DB_NAME', 'railway'),
-        cursorclass=pymysql.cursors.DictCursor
+        cursorclass=pymysql.cursors.DictCursor,
+        connect_timeout=5, read_timeout=10, write_timeout=10,
     )
 
 
@@ -107,7 +110,8 @@ def _get_gmtm_db():
         password=os.getenv('DB_PASSWORD'),
         database='gmtm',
         port=3306,
-        cursorclass=pymysql.cursors.DictCursor
+        cursorclass=pymysql.cursors.DictCursor,
+        connect_timeout=5, read_timeout=10, write_timeout=10,
     )
 
 

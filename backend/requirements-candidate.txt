@@ -1,0 +1,14 @@
+# Only the five-route candidate runtime, including RS256 verification.
+# Do not use this set for main:app, legacy workers, schema tools or tests.
+# Exact installed test versions and the dependency-closure limits are recorded
+# in constraints-candidate.txt. No optional extras are selected here.
+-c constraints-candidate.txt
+
+fastapi
+uvicorn
+pydantic
+anthropic
+openai
+PyMySQL
+PyJWT
+cryptography

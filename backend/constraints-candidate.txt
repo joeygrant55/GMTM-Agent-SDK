@@ -1,0 +1,35 @@
+# Candidate test-version constraints captured 2026-09-08 from the installed
+# CPython 3.13.7 runtime used by the application verification.
+# Traversed installed Requires-Dist metadata from the eight candidate roots,
+# without extras, evaluating markers for Linux CPython 3.13.7 on x86_64.
+# All 26 selected versions are installed and satisfy those metadata constraints.
+# This is NOT a hash lock, a fresh Linux dependency resolution, a wheel-availability
+# check or proof of a built container. Resolve/install and test the exact Linux
+# image before release; no packages were installed to produce this file.
+
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anthropic==1.3.0
+anyio==4.15.0
+cffi==2.1.1
+click==8.5.0
+cryptography==50.0.1
+docstring-parser==0.18.0
+fastapi==0.141.1
+h11==0.16.0
+httpcore2==2.12.0
+httpx2==2.12.0
+idna==3.19
+jiter==0.16.0
+openai==3.7.0
+pycparser==3.0
+pydantic==2.13.5
+pydantic-core==2.46.5
+pyjwt==2.13.0
+pymysql==1.2.0
+sniffio==1.3.1
+starlette==1.6.0
+truststore==0.10.4
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+uvicorn==0.52.4

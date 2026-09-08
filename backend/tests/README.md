@@ -16,6 +16,12 @@ The suite covers token validity and ownership conflicts, rollback/interleaving w
 
 Never use production-connected app startup as a substitute for these checks. Database-backed concurrency/schema acceptance belongs in an explicitly isolated integration environment.
 
+## Candidate packaging and socket timeouts
+
+`test_profile_db_timeouts.py` drives the actual installed PyMySQL transport with synthetic sockets. It covers connect, initial handshake read, query read and query write failures for both shared profile connectors, including connection cleanup. It does not create a listener, resolve a hostname or execute SQL on MySQL. Socket timeouts are per operation, not an end-to-end request or query-cancellation guarantee.
+
+`test_candidate_packaging.py` verifies the explicit source allowlist, deterministic tar, excluded secret sentinels, output/source symlink rejection and launcher options using the actual installed Uvicorn CLI parser. A fresh subprocess imports the extracted candidate and executes its real lifespan and ASGI health route with synthetic configuration and recorded service/startup guards. This establishes source composition on the installed Python runtime; it does not establish clean Linux dependency installation or a running container.
+
 ## Synthetic family handoff
 
 Run `backend/tests/test_family_handoff.py` with the same offline command and guards. The fixture uses invented parent, child, sibling and same-name duplicate profiles. Actual claim/connect/recovery/combine/help handlers share the fake mapping/submission state. Cases verify parent links are not repurposed, independently linked athletes receive only their own progress, unknown links remain unknown, and malformed/case-colliding/conflicting ownership stops before GMTM or model access. The child Clerk identity and all transactions are fake; this does not create test accounts in Clerk/GMTM or implement guardian delegation.

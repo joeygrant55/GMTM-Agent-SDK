@@ -8,7 +8,9 @@ if (combine && !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
 module.exports = {
   // Next handles the optimizer before page middleware. The focused surface
   // uses ordinary static images and exposes no server-side image-fetch proxy.
-  ...(combine ? { images: { unoptimized: true } } : {}),
+  // Keep browser font stylesheets, but make candidate builds independent of a
+  // compile-time Google Fonts download.
+  ...(combine ? { images: { unoptimized: true }, optimizeFonts: false } : {}),
   async rewrites() {
     return combine ? [] : [{ source: '/api/:path*', destination: `${backendUrl}/api/:path*` }]
   },

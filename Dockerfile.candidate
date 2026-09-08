@@ -1,0 +1,17 @@
+# Separate, explicitly selected combine candidate. Existing Dockerfile is unchanged.
+# Resolve and record an immutable base-image digest when an image is actually built.
+ARG PYTHON_IMAGE=python:3.13-slim
+FROM ${PYTHON_IMAGE}
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app/backend
+
+COPY backend/requirements-candidate.txt backend/constraints-candidate.txt /app/dependencies/
+RUN python -m pip install --no-cache-dir --requirement /app/dependencies/requirements-candidate.txt --constraint /app/dependencies/constraints-candidate.txt && python -m pip check
+
+# Only the candidate import/handler closure; no environment, tests, agents or legacy entry.
+COPY backend/auth.py backend/candidate_app.py backend/claims_api.py backend/combine_api.py backend/combine_context.py backend/combine_help_api.py backend/combine_model.py backend/combine_requirements.py backend/combine_results.py backend/model_usage.py backend/profile_api.py backend/workspace_bootstrap.py backend/start_candidate.py /app/backend/
+
+USER 10001:10001
+EXPOSE 8000
+ENTRYPOINT ["python", "/app/backend/start_candidate.py"]

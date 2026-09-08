@@ -5,8 +5,8 @@ initializing a model ledger. This is a route boundary, not a network sandbox.
 Claim preview/redemption can write Agent data; GMTM access must use gmtmread.
 
 Launch with access logging disabled: claim URLs contain bearer-like invitations.
-Profile connectors used by preview/bootstrap retain their existing timeout gap;
-this module does not mutate shared connector globals to claim app-local limits.
+Shared profile connectors use finite socket timeouts. These do not establish
+an overall request deadline or cancel an executing database query.
 """
 from __future__ import annotations
 
