@@ -2,6 +2,12 @@
 
 Recommendation prepared for Joey's September 8 question. This is a proposed test plan, not a record of completed sessions or permission to contact athletes/deploy. Implementation checkpoint: `1e4cb98`, verified clean at the start of this planning pass. The [release packet](candidate-release-packet-2026-09-08.md) remains the source for technical acceptance and release boundaries.
 
+## First walkthrough feedback
+
+Joey subsequently tried the sample and reported visual busyness and inability to experience the payoff because Continue in GMTM is blocked. The [feedback handoff](../../.sammy/handoffs/2026-09-08-founder-feedback-and-test-reset.md) supersedes any expectation that the local sample alone can establish usefulness. Its link interception and canned help are test limitations, not athlete mistakes. Do not ask the founder to keep attempting blocked actions or assess the canned reply as model quality.
+
+For this version, use at most five minutes to identify the next unfinished requirement, explain its required submission and describe the expected destination. Feedback can be spoken as "I was trying to __. I expected __. Instead __." Capture uncertainty and distracting information; no formal report is needed from Joey. The next meaningful task test requires a working handoff and observed completion/return, using a genuine eligible participant under the existing release gates. A compact next-action view with expandable remaining requirements and contextual help is the proposed next UI iteration.
+
 ## Sequence and responsibilities
 
 1. **Joey + Codex, approximately 20 minutes:** first check the supported mobile journey and product language. Codex prepares a clearly identified test environment and follows the defects through to verified fixes; Joey judges whether each screen explains its value and next action. Live account/data tests begin only after their environment and scope are verified. A local UI rehearsal can use clearly labeled synthetic state.

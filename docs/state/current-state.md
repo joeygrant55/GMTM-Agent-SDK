@@ -2,6 +2,8 @@
 
 Updated: 2026-09-08. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+Joey's first walkthrough feedback is that the page looks good but is busy and the blocked GMTM action prevents judging usefulness. The [feedback handoff](../../.sammy/handoffs/2026-09-08-founder-feedback-and-test-reset.md) records the observed clutter and resets the test around one complete requirement. A calmer next-action view and a working task handoff are proposed next; no redesign or live acceptance has occurred. The sample remains a clarity rehearsal only.
+
 At Joey's request, a [local sample walkthrough](../../.sammy/handoffs/2026-09-08-founder-walkthrough-running.md) was started and browser-verified at 16:28 UTC on September 8, with a one-hour lifetime. It displays a sample adult athlete and 1/9 submitted activities, with conspicuous simulated-data/help labeling. This is not a real-account test or hosted pilot; recheck availability after the dated session. App source remains unchanged.
 
 Joey's latest question concerns founder versus current-athlete testing. The proposed [athlete pilot guide](athlete-pilot-plan-2026-09-08.md) recommends a founder session followed by five opt-in adult participants and includes an unsent Charles draft. It does not authorize outreach or a live rollout; technical gates below remain open. See the [planning handoff](../../.sammy/handoffs/2026-09-08-athlete-pilot-recommendation.md).
