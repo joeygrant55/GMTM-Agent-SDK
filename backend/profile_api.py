@@ -9,13 +9,10 @@ import os
 import json
 import threading
 import pymysql
-from dotenv import load_dotenv
 
 from combine_results import get_combine_results
 from auth import require_clerk_id, assert_owner
 
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
-load_dotenv()
 
 router = APIRouter(prefix="/api", tags=["Profile"])
 
@@ -140,155 +137,6 @@ def _generate_fit_preview(college: dict, profile: dict) -> list[str]:
         reasons.append(f"Recruiting the Class of {grad_year}")
 
     return reasons[:3]
-
-
-def _ensure_tables():
-    db = None
-    try:
-        db = _get_agent_db()
-        with db.cursor() as c:
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS sparq_profiles (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    clerk_id VARCHAR(255) NOT NULL UNIQUE,
-                    maxpreps_athlete_id VARCHAR(255),
-                    maxpreps_data JSON,
-                    name VARCHAR(255),
-                    position VARCHAR(100),
-                    school VARCHAR(255),
-                    class_year INT,
-                    city VARCHAR(100),
-                    state VARCHAR(50),
-                    gpa DECIMAL(3,2),
-                    major_area VARCHAR(100),
-                    hudl_url VARCHAR(500),
-                    combine_metrics JSON,
-                    recruiting_goals JSON,
-                    enrichment_complete TINYINT(1) DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )
-            """)
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS college_targets (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    sparq_profile_id INT NOT NULL,
-                    college_name VARCHAR(255) NOT NULL,
-                    college_city VARCHAR(100),
-                    college_state VARCHAR(50),
-                    division VARCHAR(20) DEFAULT 'D1',
-                    fit_score INT DEFAULT 75,
-                    fit_reasons JSON,
-                    status ENUM('Researching','Interested','Contacted','Visited','Offered','Committed','Declined') DEFAULT 'Researching',
-                    notes TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_profile (sparq_profile_id)
-                )
-            """)
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS agent_sessions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    clerk_id VARCHAR(255) NOT NULL UNIQUE,
-                    session_id VARCHAR(255) NOT NULL,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_clerk (clerk_id)
-                )
-            """)
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS outreach_log (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    sparq_profile_id INT NOT NULL,
-                    school VARCHAR(200) NOT NULL,
-                    coach VARCHAR(200) DEFAULT NULL,
-                    method ENUM("Email","Phone","Visit","Camp") NOT NULL DEFAULT "Email",
-                    contact_date DATE NOT NULL,
-                    status ENUM("Awaiting Response","Responded","Meeting Scheduled","Archived") NOT NULL DEFAULT "Awaiting Response",
-                    notes TEXT DEFAULT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_profile (sparq_profile_id)
-                )
-            """)
-            try:
-                c.execute("ALTER TABLE sparq_profiles ADD COLUMN enrichment_complete TINYINT(1) DEFAULT 0")
-            except Exception:
-                pass
-            try:
-                c.execute("ALTER TABLE college_targets ADD COLUMN research_data JSON")
-            except Exception:
-                pass
-            try:
-                c.execute("ALTER TABLE college_targets ADD COLUMN deep_research_status VARCHAR(20) DEFAULT 'pending'")
-            except Exception:
-                pass  # Column already exists
-            # Ensure agent_conversations has clerk_id column (may be missing on old tables)
-            try:
-                c.execute("ALTER TABLE agent_conversations ADD COLUMN clerk_id VARCHAR(255) DEFAULT NULL")
-            except Exception:
-                pass  # Column already exists
-            try:
-                c.execute("ALTER TABLE agent_conversations ADD UNIQUE INDEX idx_clerk_conv (clerk_id)")
-            except Exception:
-                pass  # Index already exists
-            # Ensure agent_messages exists with correct structure
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS agent_messages (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    conversation_id INT NOT NULL,
-                    role VARCHAR(20) NOT NULL,
-                    content TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_conv (conversation_id)
-                )
-            """)
-            # Clerk ↔ legacy GMTM athlete mapping (used by /profile/connect + dashboard).
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS athlete_profiles (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL UNIQUE,
-                    clerk_id VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_clerk (clerk_id)
-                )
-            """)
-            # Athlete social/media links (dashboard).
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS athlete_links (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    platform VARCHAR(50) NOT NULL,
-                    url VARCHAR(500) NOT NULL,
-                    label VARCHAR(120) DEFAULT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_user (user_id)
-                )
-            """)
-            # Saved research reports (reports_api).
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS agent_reports (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    conversation_id INT DEFAULT NULL,
-                    report_type VARCHAR(50) NOT NULL,
-                    title VARCHAR(255) NOT NULL,
-                    content MEDIUMTEXT,
-                    summary TEXT DEFAULT NULL,
-                    metadata JSON,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_user (user_id)
-                )
-            """)
-        db.commit()
-    except Exception as e:
-        print(f"Table creation warning: {e}")
-    finally:
-        if db:
-            db.close()
-
-
-_ensure_tables()
 
 
 # ── Models ──────────────────────────────
@@ -541,20 +389,17 @@ async def delete_link(link_id: int, caller_clerk_id: str = Depends(require_clerk
 
 @router.post("/profile/connect")
 async def connect_profile(request: ProfileConnect, caller_clerk_id: str = Depends(require_clerk_id)):
-    """Link a Clerk user ID to an athlete ID. A caller may only connect their own clerk_id."""
+    """Confirm an existing connection. New links require a signed claim invitation."""
     if request.clerk_id != caller_clerk_id:
         raise HTTPException(status_code=403, detail="Cannot connect a different account.")
-    db = _get_agent_db()
-    try:
-        with db.cursor() as c:
-            c.execute(
-                "INSERT INTO athlete_profiles (user_id, clerk_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE clerk_id = %s",
-                (request.user_id, request.clerk_id, request.clerk_id)
-            )
-            db.commit()
-            return {"connected": True, "user_id": request.user_id, "clerk_id": request.clerk_id}
-    finally:
-        db.close()
+    # A public GMTM athlete ID is not proof of ownership. This compatibility
+    # endpoint must never create or replace a Clerk-to-athlete mapping.
+    if _clerk_for_gmtm_user(request.user_id) != caller_clerk_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Use your secure combine invitation to connect this athlete profile.",
+        )
+    return {"connected": True, "user_id": request.user_id, "clerk_id": caller_clerk_id}
 
 
 @router.get("/athlete/search")
@@ -607,40 +452,52 @@ async def search_athletes(name: str, caller_clerk_id: str = Depends(require_cler
 
 @router.get("/profile/by-clerk/{clerk_id}")
 async def get_profile_by_clerk(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    """Look up athlete ID from Clerk user ID. Also checks sparq_profiles.
-
-    A caller may only look up their own clerk_id (prevents mapping other users'
-    clerk ids to GMTM athlete ids)."""
+    """Read this caller's existing unique link/workspace, without creating either."""
     if clerk_id != caller_clerk_id:
         raise HTTPException(status_code=403, detail="Not authorized.")
-    db = _get_agent_db()
+    conflict = "The existing account connection needs review before it can be recovered."
+
+    def owned_id(row, key):
+        # Clerk identifiers are case-sensitive even if an older SQL collation
+        # is not. Do not coerce malformed identity values into an apparent link.
+        value = row.get(key) if isinstance(row, dict) else None
+        if (type(value) is not int or value <= 0
+                or row.get("clerk_id") != caller_clerk_id):
+            raise HTTPException(status_code=409, detail=conflict)
+        return value
+
+    db = None
     try:
+        db = _get_agent_db()
         with db.cursor() as c:
-            # Check legacy GMTM athlete link
-            c.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s", (clerk_id,))
-            row = c.fetchone()
-            if row:
-                c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
-                has_ws = c.fetchone() is not None
-                if not has_ws:
-                    # GMTM-linked athlete with no workspace row (claim link or legacy /connect):
-                    # build it now so /home does not bounce them to MaxPreps onboarding.
-                    try:
-                        from workspace_bootstrap import ensure_workspace_profile
-                        has_ws = bool(ensure_workspace_profile(clerk_id, int(row['user_id'])).get("ready"))
-                    except Exception as e:
-                        print(f"[by-clerk] workspace bootstrap failed: {e}")
-                return {"found": True, "user_id": row['user_id'], "has_sparq_profile": has_ws}
+            c.execute("SELECT user_id, clerk_id FROM athlete_profiles WHERE clerk_id = %s LIMIT 2", (caller_clerk_id,))
+            links = c.fetchall()
+            if len(links) > 1:
+                raise HTTPException(status_code=409, detail=conflict)
+            user_id = owned_id(links[0], "user_id") if links else None
+            if user_id is not None:
+                c.execute("SELECT user_id, clerk_id FROM athlete_profiles WHERE user_id = %s LIMIT 2", (user_id,))
+                owners = c.fetchall()
+                if len(owners) != 1 or owned_id(owners[0], "user_id") != user_id:
+                    raise HTTPException(status_code=409, detail=conflict)
 
-            # Check new sparq_profiles (MaxPreps onboarding)
-            c.execute("SELECT id FROM sparq_profiles WHERE clerk_id = %s", (clerk_id,))
-            sparq_row = c.fetchone()
-            if sparq_row:
-                return {"found": False, "user_id": None, "has_sparq_profile": True}
-
-            return {"found": False, "user_id": None, "has_sparq_profile": False}
+            c.execute("SELECT id, clerk_id FROM sparq_profiles WHERE clerk_id = %s LIMIT 2", (caller_clerk_id,))
+            workspaces = c.fetchall()
+            if len(workspaces) > 1:
+                raise HTTPException(status_code=409, detail=conflict)
+            if workspaces:
+                owned_id(workspaces[0], "id")
+            return {"found": user_id is not None, "user_id": user_id, "has_sparq_profile": bool(workspaces)}
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=503, detail="The existing account connection could not be checked. Please try again.") from None
     finally:
-        db.close()
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                raise HTTPException(status_code=503, detail="The existing account connection could not be checked. Please try again.") from None
 
 
 @router.post("/profile/create-from-onboarding")

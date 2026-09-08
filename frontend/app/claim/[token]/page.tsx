@@ -42,14 +42,14 @@ export default async function ClaimPage({ params }: { params: { token: string } 
           </h1>
           <p className="text-gray-400 mb-8">
             {expired
-              ? 'Claim links last 30 days. You can still connect your GMTM profile by searching for your name.'
-              : 'Check the link in your email, or connect your GMTM profile by searching for your name.'}
+              ? 'Claim links last 30 days. Ask your combine organizer for a new invitation to connect your profile.'
+              : 'Check the link in your email, or ask your combine organizer for a new invitation.'}
           </p>
           <Link
             href="/connect"
             className="inline-block px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg hover:bg-sparq-lime-dark transition-colors"
           >
-            Connect my profile
+            Check an existing connection
           </Link>
         </div>
       </div>
@@ -61,9 +61,9 @@ export default async function ClaimPage({ params }: { params: { token: string } 
       <div className="max-w-md w-full text-center">
         <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
         <h1 className="text-3xl font-bold text-white mb-3">
-          Hey {claim.first_name}, your {claim.event_name} results are in.
+          Hey {claim.first_name}, connect your profile for {claim.event_name}.
         </h1>
-        <p className="text-gray-400 mb-8">See how you compare and what to do next.</p>
+        <p className="text-gray-400 mb-8">Open your athlete workspace, including before your first results are available. Your combine entry and requirements remain in GMTM.</p>
         <Link
           href={claim.claimed ? signInHref : signUpHref}
           className="block w-full px-6 py-4 bg-sparq-lime text-sparq-charcoal font-bold text-lg rounded-xl hover:bg-sparq-lime-dark transition-colors"

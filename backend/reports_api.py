@@ -11,12 +11,9 @@ import hmac
 import hashlib
 import base64
 import pymysql
-from dotenv import load_dotenv
 
 from auth import require_clerk_id, assert_owner
 
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
-load_dotenv()
 
 router = APIRouter(prefix="/api", tags=["Reports"])
 

@@ -3,7 +3,7 @@
 // Authed leaf of the claim flow (spec 2b). Middleware guarantees a Clerk session here.
 // On mount: POST /api/claims/{token}/redeem, then go to the athlete dashboard.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
@@ -14,33 +14,58 @@ export default function ClaimRedeemPage() {
   const params = useParams()
   const token = String(params.token || '')
   const router = useRouter()
-  const { isLoaded, isSignedIn, getToken } = useAuth()
-  const [phase, setPhase] = useState<Phase>('working')
-  const fired = useRef(false)
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth()
 
   const redeemPath = `/claim/${token}/redeem`
   const signInHref = `/sign-in?redirect_url=${encodeURIComponent(redeemPath)}`
 
   useEffect(() => {
-    if (!isLoaded || fired.current) return
-    if (!isSignedIn) {
-      router.replace(signInHref)
-      return
-    }
-    fired.current = true
+    if (isLoaded && !isSignedIn) router.replace(signInHref)
+  }, [isLoaded, isSignedIn, router, signInHref])
+
+  if (!isLoaded || !isSignedIn || !userId) {
+    return <p role="status" className="min-h-screen bg-sparq-charcoal text-gray-300 flex items-center justify-center">Checking your account…</p>
+  }
+  return <ClaimRedemption key={`${userId}:${token}`} clerkId={userId} token={token} getToken={getToken} signInHref={signInHref} />
+}
+
+function ClaimRedemption({ clerkId, token, getToken, signInHref }: {
+  clerkId: string
+  token: string
+  getToken: ReturnType<typeof useAuth>['getToken']
+  signInHref: string
+}) {
+  const router = useRouter()
+  const [phase, setPhase] = useState<Phase>(token ? 'working' : 'invalid')
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (!token) return
+    const controller = new AbortController()
+    setPhase('working')
     ;(async () => {
       try {
         const session = await getToken()
+        if (controller.signal.aborted) return
+        if (!session) throw new Error('Session unavailable')
         const res = await apiFetch(`${BACKEND_URL}/api/claims/${encodeURIComponent(token)}/redeem`, {
           method: 'POST',
-          headers: session ? { Authorization: `Bearer ${session}` } : {},
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${session}` },
         })
+        if (controller.signal.aborted) return
         if (res.ok) {
           const data = await res.json()
+          if (controller.signal.aborted) return
+          if (data?.connected !== true || data.clerk_id !== clerkId || !Number.isSafeInteger(data.user_id) || data.user_id <= 0 || typeof data.workspace_ready !== 'boolean') {
+            throw new Error('Profile connection was not confirmed')
+          }
           setPhase('done')
           // The workspace (/home) is the real product; the legacy dashboard is the fallback
           // only if the workspace row could not be built.
-          router.replace(data.workspace_ready ? '/home/inbox' : `/athlete/${data.user_id}`)
+          // Carry only the supported, server-confirmed event; older invitations retain their fallback.
+          const eventQuery = data.event_id === 1317 || data.event_id === 1318 ? `?event_id=${data.event_id}` : ''
+          router.replace(eventQuery || data.workspace_ready ? `/home/inbox${eventQuery}` : `/athlete/${data.user_id}`)
           return
         }
         if (res.status === 409) setPhase('conflict')
@@ -48,21 +73,22 @@ export default function ClaimRedeemPage() {
         else if (res.status === 400 || res.status === 404) setPhase('invalid')
         else setPhase('error')
       } catch {
-        setPhase('error')
+        if (!controller.signal.aborted) setPhase('error')
       }
     })()
-  }, [isLoaded, isSignedIn, token, getToken, router, signInHref])
+    return () => controller.abort()
+  }, [clerkId, token, getToken, router, attempt])
 
   const copy: Record<Phase, { title: string; body: string }> = {
-    working: { title: 'Linking your combine results...', body: 'One second.' },
+    working: { title: 'Connecting your athlete profile...', body: 'One second.' },
     done: { title: 'Linked', body: 'Taking you to your workspace...' },
     conflict: {
-      title: 'This link was already used',
-      body: 'Another account already claimed these results. Sign in with that account, or connect your profile by name.',
+      title: 'This profile could not be connected',
+      body: 'Try again, check that you are signed in to the intended account, or contact your combine organizer for help.',
     },
-    expired: { title: 'This link has expired', body: 'Claim links last 30 days. Connect your profile by name instead.' },
-    invalid: { title: 'This link is not valid', body: 'Check the link in your email, or connect your profile by name.' },
-    error: { title: 'Something went wrong', body: 'Reload to try again, or connect your profile by name.' },
+    expired: { title: 'This link has expired', body: 'Claim links last 30 days. Ask your combine organizer for a new invitation.' },
+    invalid: { title: 'This link is not valid', body: 'Check the link in your email, or ask your combine organizer for a new invitation.' },
+    error: { title: 'Something went wrong', body: 'Try again. If this keeps happening, contact your combine organizer for help.' },
   }
   const { title, body } = copy[phase]
   const busy = phase === 'working' || phase === 'done'
@@ -79,13 +105,18 @@ export default function ClaimRedeemPage() {
         <p className="text-gray-400 mb-8">{body}</p>
         {!busy && (
           <div className="flex flex-col gap-3">
+            {(phase === 'conflict' || phase === 'error') && (
+              <button type="button" onClick={() => setAttempt(value => value + 1)} className="px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg hover:bg-sparq-lime-dark transition-colors">
+                Try again
+              </button>
+            )}
             {phase === 'conflict' && (
               <a href={signInHref} className="px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg hover:bg-sparq-lime-dark transition-colors">
-                Sign in with the other account
+                Sign in
               </a>
             )}
             <a href="/connect" className="px-6 py-3 border border-white/20 text-white rounded-lg hover:bg-white/5 transition-colors">
-              Connect my profile by name
+              Check an existing connection
             </a>
           </div>
         )}

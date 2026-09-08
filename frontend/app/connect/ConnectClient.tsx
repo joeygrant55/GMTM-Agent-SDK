@@ -1,8 +1,9 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import { ProfileConnectionError, readProfileConnectionResponse } from '@/app/_lib/profileConnection'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 
@@ -15,8 +16,23 @@ interface AthleteResult {
   position?: string
 }
 
-export default function ConnectClient() {
-  const { user } = useUser()
+export default function ConnectClient({ eventId = null }: { eventId?: number | null }) {
+  const { user, isLoaded } = useUser()
+  const supportedEvent = eventId === 1317 || eventId === 1318 ? eventId : null
+  const connectPath = supportedEvent ? `/connect?event_id=${supportedEvent}` : '/connect'
+  const destination = supportedEvent ? `/home/inbox?event_id=${supportedEvent}` : '/home'
+  if (!isLoaded || !user?.id) {
+    return (
+      <div className="min-h-screen bg-sparq-charcoal flex flex-col items-center justify-center gap-4 text-gray-300">
+        <p role="status">{isLoaded ? 'Sign in to check your existing profile connection.' : 'Loading your account…'}</p>
+        {isLoaded && <a href={`/sign-in?redirect_url=${encodeURIComponent(connectPath)}`} className="text-sparq-lime underline">Sign in</a>}
+      </div>
+    )
+  }
+  return <ConnectSession key={`${user.id}:${supportedEvent ?? ''}`} clerkId={user.id} destination={destination} connectPath={connectPath} />
+}
+
+function ConnectSession({ clerkId, destination, connectPath }: { clerkId: string; destination: string; connectPath: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<'choice' | 'id' | 'search'>('choice')
   const [athleteId, setAthleteId] = useState('')
@@ -26,37 +42,54 @@ export default function ConnectClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [connected, setConnected] = useState(false)
+  const [lookupFailure, setLookupFailure] = useState<ProfileConnectionError | null>(null)
+  const [lookupAttempt, setLookupAttempt] = useState(0)
+  const lifetimeRef = useRef<AbortController | null>(null)
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
   // Check if already connected — redirect immediately if so
   useEffect(() => {
-    if (user?.id) {
-      setLoading(true)
-      apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.found && data.user_id) {
-            // Linked athletes go to the workspace; /home builds the workspace row if needed.
-            router.replace('/home')
-          } else {
-            setLoading(false)
-          }
-        })
-        .catch(() => setLoading(false))
+    const controller = new AbortController()
+    lifetimeRef.current = controller
+    setLoading(true)
+    setLookupFailure(null)
+    apiFetch(`${backendUrl}/api/profile/by-clerk/${clerkId}`, { signal: controller.signal })
+      .then(readProfileConnectionResponse)
+      .then(data => {
+        if (controller.signal.aborted) return
+        if (data.found && data.user_id) {
+          // Preserve an explicit public combine choice after confirming this connection.
+          router.replace(destination)
+        } else {
+          setLoading(false)
+        }
+      })
+      .catch(error => {
+        if (controller.signal.aborted) return
+        setLookupFailure(error instanceof ProfileConnectionError ? error : new ProfileConnectionError())
+        setLoading(false)
+      })
+    return () => {
+      controller.abort()
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
     }
-  }, [user?.id, backendUrl, router])
+  }, [clerkId, backendUrl, router, destination, lookupAttempt])
 
   const lookupById = async () => {
-    if (!athleteId.trim()) return
+    if (!athleteId.trim() || loading) return
+    const signal = lifetimeRef.current?.signal
     setLoading(true)
     setError('')
     try {
-      const res = await apiFetch(`${backendUrl}/api/athlete/${athleteId}`)
+      const res = await apiFetch(`${backendUrl}/api/athlete/${athleteId}`, { signal })
       if (!res.ok) throw new Error('Athlete not found')
       const data = await res.json()
+      if (signal?.aborted) return
       setPreview(data)
     } catch {
+      if (signal?.aborted) return
       setError('No athlete found with that ID. Check your number and try again.')
       setPreview(null)
     }
@@ -64,38 +97,57 @@ export default function ConnectClient() {
   }
 
   const searchByName = async () => {
-    if (!searchName.trim() || searchName.trim().length < 2) return
+    if (!searchName.trim() || searchName.trim().length < 2 || loading) return
+    const signal = lifetimeRef.current?.signal
     setLoading(true)
     setError('')
     try {
-      const res = await apiFetch(`${backendUrl}/api/athlete/search?name=${encodeURIComponent(searchName)}`)
+      const res = await apiFetch(`${backendUrl}/api/athlete/search?name=${encodeURIComponent(searchName)}`, { signal })
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
+      if (signal?.aborted) return
       setResults(data.athletes || [])
       if (data.athletes?.length === 0) setError('No athletes found. Try a different name.')
     } catch {
+      if (signal?.aborted) return
       setError('Search failed. Try again.')
     }
     setLoading(false)
   }
 
   const connectProfile = async (userId: number) => {
-    if (!user) return
+    if (loading) return
+    const signal = lifetimeRef.current?.signal
     setLoading(true)
+    setError('')
     try {
-      await apiFetch(`${backendUrl}/api/profile/connect`, {
+      const res = await apiFetch(`${backendUrl}/api/profile/connect`, {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, clerk_id: user.id })
+        body: JSON.stringify({ user_id: userId, clerk_id: clerkId })
       })
+      if (signal?.aborted) return
+      if (res.status === 403) {
+        setError('Open the secure invitation from your combine organizer to connect this profile. If you need a new link, contact the organizer.')
+        return
+      }
+      if (!res.ok) throw new Error('Profile connection failed')
+      const data = await res.json()
+      if (signal?.aborted) return
+      if (data.connected !== true || data.user_id !== userId || data.clerk_id !== clerkId) {
+        throw new Error('Profile connection was not confirmed')
+      }
       setConnected(true)
-      setTimeout(() => {
-        router.push('/home')
+      redirectTimerRef.current = setTimeout(() => {
+        if (!signal?.aborted) router.push(destination)
       }, 1500)
     } catch {
+      if (signal?.aborted) return
       setError('Failed to connect profile. Try again.')
+    } finally {
+      if (!signal?.aborted) setLoading(false)
     }
-    setLoading(false)
   }
 
   // Show loading while checking if already connected
@@ -105,6 +157,21 @@ export default function ConnectClient() {
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-400">Checking your profile...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (lookupFailure) {
+    return (
+      <div className="min-h-screen bg-sparq-charcoal px-5 py-10 text-white flex items-center justify-center">
+        <div className="w-full max-w-lg rounded-2xl border border-white/15 p-6">
+          <h1 className="text-2xl font-bold">Check your connection</h1>
+          <p role="alert" className="mt-4 text-sm text-amber-200">{lookupFailure.message}</p>
+          <p className="mt-3 text-sm text-gray-300">This check has not confirmed whether a profile is connected.</p>
+          <button type="button" onClick={() => setLookupAttempt(value => value + 1)} className="mt-5 min-h-11 rounded-lg bg-sparq-lime px-4 font-bold text-sparq-charcoal">Retry connection check</button>
+          {lookupFailure.status === 401 && <a href={`/sign-in?redirect_url=${encodeURIComponent(connectPath)}`} className="mt-3 block py-3 font-bold text-sparq-lime underline">Sign in again</a>}
+          <a href={destination} className="mt-3 block py-3 text-sm text-sparq-lime underline">Return to your combine</a>
         </div>
       </div>
     )
@@ -130,7 +197,7 @@ export default function ConnectClient() {
           <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-white">Connect Your Profile</h1>
           <p className="text-gray-400 mt-2">
-            Link your SPARQ/GMTM athlete profile to get personalized recruiting advice.
+            Use your secure combine invitation to link a new profile, or check an existing connection below.
           </p>
         </div>
 
@@ -145,7 +212,7 @@ export default function ConnectClient() {
                 <div className="w-12 h-12 bg-sparq-lime/10 rounded-lg flex items-center justify-center text-2xl">🔢</div>
                 <div>
                   <h3 className="text-lg font-bold text-white">I Know My Athlete Number</h3>
-                  <p className="text-gray-400 text-sm">Enter your GMTM athlete ID to connect instantly</p>
+                  <p className="text-gray-400 text-sm">Enter your GMTM athlete ID to check your connection</p>
                 </div>
               </div>
             </button>
@@ -222,13 +289,14 @@ export default function ConnectClient() {
                 </div>
               </div>
             </div>
+            {error && <p role="alert" className="mb-3 text-red-400 text-sm">{error}</p>}
             <div className="flex gap-3">
               <button
                 onClick={() => connectProfile(preview.user_id)}
                 disabled={loading}
                 className="flex-1 px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg hover:bg-sparq-lime-dark disabled:opacity-50 transition-colors"
               >
-                {loading ? 'Connecting...' : "Yes, That's Me!"}
+                {loading ? 'Checking...' : 'Check connection'}
               </button>
               <button
                 onClick={() => { setPreview(null); setAthleteId('') }}

@@ -219,7 +219,7 @@ function WorkspaceProfilePage() {
       </section>
 
       {/* Film */}
-      <section className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 space-y-3">
+      <section id="film" className="scroll-mt-6 bg-white/[0.04] border border-white/10 rounded-2xl p-5 space-y-3">
         <h2 className="text-lg font-black text-white">🎬 Film</h2>
         <div>
           <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-1">Hudl Highlight URL</label>

@@ -1,0 +1,900 @@
+{
+  "schema_version": 1,
+  "purpose": "Public event definitions for isolated adapter development; no athlete responses",
+  "observed_date": "2026-09-06",
+  "events": [
+    {
+      "source_url": "https://gmtm.com/virtuals/1317/2027-u-s-flag-national-team-junior-digital-combine-2",
+      "retrieved_at": "2026-09-06T18:03:52.382542+00:00",
+      "build_id": "b0293a2cc918da59afb53cc75c0cfdd71769c4a3",
+      "event": {
+        "event_id": 1317,
+        "name": "2027 U.S. Flag National Team Junior Digital Combine #2",
+        "organization_id": 249002,
+        "organization_name": "USA Football",
+        "sport_id": 1,
+        "start_date": "2026-08-11T03:59:59.000Z",
+        "end_date": "2026-09-22T23:59:00.000Z",
+        "published": 1,
+        "public": 1,
+        "visibility": 2,
+        "invite_only": 0,
+        "offline": 0,
+        "open_submissions": 0,
+        "product_id": null,
+        "type": 3
+      },
+      "tasks": [
+        {
+          "task_id": 4896,
+          "event_id": 1317,
+          "title": "Athlete Background",
+          "type": 0,
+          "list_order": 0,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "833b1250-b41f-4acc-a4d5-67c78055309c",
+              "question_id": null,
+              "type": "essay",
+              "title": "USA Football Membership ID # (****-******)",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "3dceb821-af0d-4fa9-8f38-025fa3108ee0",
+              "question_id": 3,
+              "type": "phone",
+              "title": "Phone Number",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "a6e27bd1-9185-4f4b-888d-f4cc860f33b4",
+              "question_id": 4,
+              "type": "email",
+              "title": "Email Address",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "c944ae19-7263-426b-a24e-a96cebfff369",
+              "question_id": 32,
+              "type": "gender_id",
+              "title": "What gender do you identify as?",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "8e3eaa3d-2391-4f8f-b001-a7cf67b11f10",
+              "question_id": 6,
+              "type": "date",
+              "title": "Date of Birth",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "6c7ec02a-ca43-472f-8b2b-319163add537",
+              "question_id": 2,
+              "type": "address",
+              "title": "Home Address",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "3e0d9744-e6c0-43f3-99bd-bc1a44715db2",
+              "question_id": 17,
+              "type": "height",
+              "title": "Height",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "a9361b22-73d7-4ac7-a5d7-4bf75738f9c6",
+              "question_id": null,
+              "type": "metric",
+              "title": "Weight",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Weight (pounds)",
+                "id": 2623567,
+                "title": "Weight",
+                "unit": "pounds"
+              }
+            },
+            {
+              "_id": "9dc66f6a-b88f-40ba-8bff-f4b7faed566a",
+              "question_id": null,
+              "type": "essay",
+              "title": "What flag football experience do you have?",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Pull Ups (per minute)",
+                "id": 2631126,
+                "title": "Pull Ups",
+                "unit": "per minute"
+              }
+            },
+            {
+              "_id": "9f2290be-fc36-4881-89bb-d646c964b74c",
+              "question_id": null,
+              "type": "essay",
+              "title": "Athlete Position",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "729ed0fa-987e-45c5-bdcf-c0e4a99b2642",
+              "question_id": null,
+              "type": "video",
+              "title": "Highlight Reel",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "99c65015-de0c-4a8e-9de3-29fcba14b737",
+              "question_id": null,
+              "type": "essay",
+              "title": "Most Recent Team",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "9379170f-a2bc-4772-87a3-c3483be28f40",
+              "question_id": null,
+              "type": "essay",
+              "title": "Notable Athletic Events/Achievements/Accolades",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "e1caf5bf-19e9-4a05-bbcc-af52b43f5de3",
+              "question_id": null,
+              "type": "essay",
+              "title": "What other sports do you play?",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "800f91ee-d823-4b09-944f-7d3e9e154b4b",
+              "question_id": 29,
+              "type": "teammates",
+              "title": "Friends or Teammates",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "e8f015b8-c8a0-4e61-988c-1d588290fbf9",
+              "question_id": null,
+              "type": "essay",
+              "title": "Where did you hear about this opportunity?",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4900,
+          "event_id": 1317,
+          "title": "Highlight Reel",
+          "type": 0,
+          "list_order": 1,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "8c47c3f9-dc74-423c-a4e0-baa3b4255a96",
+              "question_id": null,
+              "type": "video",
+              "title": "Upload your Highlight Reel",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4906,
+          "event_id": 1317,
+          "title": "Stick Overhead Squat",
+          "type": 2,
+          "list_order": 2,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "729ed0fa-987e-45c5-bdcf-c0e4a99b2642",
+              "question_id": null,
+              "type": "video",
+              "title": "Stick Overhead Squat",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4901,
+          "event_id": 1317,
+          "title": "Max. Push-Ups",
+          "type": 2,
+          "list_order": 3,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "bc7e8b29-b5b3-478e-a483-de103b25b146",
+              "question_id": null,
+              "type": "video",
+              "title": "Max. Push-Ups",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "555f0344-13df-4e9c-a3a9-585e7a8c93c7",
+              "question_id": null,
+              "type": "metric",
+              "title": "How many push-ups did you do?",
+              "required": true,
+              "unit": "repetitions",
+              "metric_template": {
+                "label": "Push ups (repetitions)",
+                "id": 2662330,
+                "title": "Push ups",
+                "unit": "repetitions"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4902,
+          "event_id": 1317,
+          "title": "Max. Sit Ups",
+          "type": 2,
+          "list_order": 4,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "729ed0fa-987e-45c5-bdcf-c0e4a99b2642",
+              "question_id": null,
+              "type": "video",
+              "title": "Max. Sit Ups",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "9dc66f6a-b88f-40ba-8bff-f4b7faed566a",
+              "question_id": null,
+              "type": "metric",
+              "title": "How many sit ups did you do? ",
+              "required": true,
+              "unit": "repetitions",
+              "metric_template": {
+                "label": "Sit ups (repetitions)",
+                "id": 2662329,
+                "title": "Sit ups",
+                "unit": "repetitions"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4904,
+          "event_id": 1317,
+          "title": "Standing Broad Jump",
+          "type": 2,
+          "list_order": 5,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "0541ca1c-8541-4630-a8f1-521d678391a6",
+              "question_id": null,
+              "type": "video",
+              "title": "Standing Broad Jump",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "85f617be-258f-4bec-a25e-78637ee58eeb",
+              "question_id": null,
+              "type": "metric",
+              "title": "How far did you jump?",
+              "required": true,
+              "unit": "inches",
+              "metric_template": {
+                "label": "Broad Jump (inches)",
+                "id": 2623678,
+                "title": "Broad Jump",
+                "unit": "inches"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4893,
+          "event_id": 1317,
+          "title": "5-10-5 Shuttle Run",
+          "type": 2,
+          "list_order": 6,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "249bd9d3-658e-4aef-b6a5-537933350763",
+              "question_id": null,
+              "type": "video",
+              "title": "5-10-5 Shuttle Run",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "453fe87f-3cf0-4849-8982-19ecdf1ab683",
+              "question_id": null,
+              "type": "metric",
+              "title": "5-10-5 Shuttle Run Starting to the Right",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Shuttle (seconds)",
+                "id": 2623580,
+                "title": "Shuttle",
+                "unit": "seconds"
+              }
+            },
+            {
+              "_id": "41e49d7c-78ab-4b5b-9015-d3742d8732b4",
+              "question_id": null,
+              "type": "metric",
+              "title": "5-10-5 Shuttle Run Starting to the Left",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Shuttle (seconds)",
+                "id": 2623580,
+                "title": "Shuttle",
+                "unit": "seconds"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4892,
+          "event_id": 1317,
+          "title": "20-Yard Dash",
+          "type": 2,
+          "list_order": 7,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "1f893345-0237-4c00-8184-7d66d46dcdcd",
+              "question_id": null,
+              "type": "metric",
+              "title": "20 Yard Dash Time",
+              "required": true,
+              "unit": "seconds",
+              "metric_template": {
+                "label": "20 Yard Dash (seconds)",
+                "id": 2700905,
+                "title": "20 Yard Dash",
+                "unit": "seconds"
+              }
+            },
+            {
+              "_id": "3283c4b7-abb9-4c88-8429-aca178fc98d4",
+              "question_id": null,
+              "type": "video",
+              "title": "20 Yard Dash",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4894,
+          "event_id": 1317,
+          "title": "60-yard Shuttle",
+          "type": 2,
+          "list_order": 8,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "52031250-89c6-4be5-bae2-4ae28c1fd434",
+              "question_id": null,
+              "type": "video",
+              "title": "60-yard shuttle",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "509ebb6d-c5d0-4b82-9ba4-936f260de028",
+              "question_id": null,
+              "type": "metric",
+              "title": "How fast was your 60-yard shuttle?",
+              "required": true,
+              "unit": "seconds",
+              "metric_template": {
+                "label": "60 Yard (seconds)",
+                "id": 2623602,
+                "title": "60 Yard",
+                "unit": "seconds"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source_url": "https://gmtm.com/virtuals/1318/2027-u-s-flag-national-team-adult-digital-combine-2",
+      "retrieved_at": "2026-09-06T18:03:53.044051+00:00",
+      "build_id": "b0293a2cc918da59afb53cc75c0cfdd71769c4a3",
+      "event": {
+        "event_id": 1318,
+        "name": "2027 U.S. Flag National Team Adult Digital Combine #2",
+        "organization_id": 249002,
+        "organization_name": "USA Football",
+        "sport_id": 1,
+        "start_date": "2026-08-11T03:59:59.000Z",
+        "end_date": "2026-09-22T23:59:00.000Z",
+        "published": 1,
+        "public": 1,
+        "visibility": 2,
+        "invite_only": 0,
+        "offline": 0,
+        "open_submissions": 0,
+        "product_id": null,
+        "type": 3
+      },
+      "tasks": [
+        {
+          "task_id": 4911,
+          "event_id": 1318,
+          "title": "Athlete Background",
+          "type": 0,
+          "list_order": 0,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "3f2a22f0-c5fe-4616-b402-9d30faf18839",
+              "question_id": null,
+              "type": "essay",
+              "title": "USA Football Membership ID # (****-******)",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "3674f04e-67c3-4f58-ab0a-45874a42d39f",
+              "question_id": 3,
+              "type": "phone",
+              "title": "Phone Number",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "a6e27bd1-9185-4f4b-888d-f4cc860f33b4",
+              "question_id": 4,
+              "type": "email",
+              "title": "Email Address",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "c944ae19-7263-426b-a24e-a96cebfff369",
+              "question_id": 32,
+              "type": "gender_id",
+              "title": "What gender do you identify as?",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "8e3eaa3d-2391-4f8f-b001-a7cf67b11f10",
+              "question_id": 6,
+              "type": "date",
+              "title": "Date of Birth",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "6c7ec02a-ca43-472f-8b2b-319163add537",
+              "question_id": 2,
+              "type": "address",
+              "title": "Home Address",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "3e0d9744-e6c0-43f3-99bd-bc1a44715db2",
+              "question_id": 17,
+              "type": "height",
+              "title": "Height",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "a9361b22-73d7-4ac7-a5d7-4bf75738f9c6",
+              "question_id": null,
+              "type": "metric",
+              "title": "Weight",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Weight (pounds)",
+                "id": 2623567,
+                "title": "Weight",
+                "unit": "pounds"
+              }
+            },
+            {
+              "_id": "9dc66f6a-b88f-40ba-8bff-f4b7faed566a",
+              "question_id": null,
+              "type": "essay",
+              "title": "What flag football experience do you have?",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Pull Ups (per minute)",
+                "id": 2631126,
+                "title": "Pull Ups",
+                "unit": "per minute"
+              }
+            },
+            {
+              "_id": "ef4b2dce-a8e7-48f6-b26e-dc668d3d2f62",
+              "question_id": null,
+              "type": "essay",
+              "title": "Position",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "729ed0fa-987e-45c5-bdcf-c0e4a99b2642",
+              "question_id": null,
+              "type": "video",
+              "title": "Highlight Reel",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "9d575999-da36-484c-8ab6-2a2ee4784843",
+              "question_id": null,
+              "type": "essay",
+              "title": "Most Recent Team",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "8eabb3e3-186b-4444-9a67-f44bbcca774b",
+              "question_id": null,
+              "type": "essay",
+              "title": "Notable Athletic Events/Achievements/Accolades",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "e1caf5bf-19e9-4a05-bbcc-af52b43f5de3",
+              "question_id": null,
+              "type": "essay",
+              "title": "What other sports do you play?",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "800f91ee-d823-4b09-944f-7d3e9e154b4b",
+              "question_id": 29,
+              "type": "teammates",
+              "title": "Friends or Teammates",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "e8f015b8-c8a0-4e61-988c-1d588290fbf9",
+              "question_id": null,
+              "type": "essay",
+              "title": "Where did you hear about this opportunity?",
+              "required": false,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4915,
+          "event_id": 1318,
+          "title": "Highlight Reel",
+          "type": 0,
+          "list_order": 1,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "8c47c3f9-dc74-423c-a4e0-baa3b4255a96",
+              "question_id": null,
+              "type": "video",
+              "title": "Upload your Highlight Reel",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4920,
+          "event_id": 1318,
+          "title": "Stick Overhead Squat",
+          "type": 2,
+          "list_order": 2,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "729ed0fa-987e-45c5-bdcf-c0e4a99b2642",
+              "question_id": null,
+              "type": "video",
+              "title": "Stick Overhead Squat",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4916,
+          "event_id": 1318,
+          "title": "Max. Push-Ups",
+          "type": 2,
+          "list_order": 3,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "bc7e8b29-b5b3-478e-a483-de103b25b146",
+              "question_id": null,
+              "type": "video",
+              "title": "Max. Push-Ups",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "555f0344-13df-4e9c-a3a9-585e7a8c93c7",
+              "question_id": null,
+              "type": "metric",
+              "title": "How many push-ups did you do?",
+              "required": true,
+              "unit": "repetitions",
+              "metric_template": {
+                "label": "Push ups (repetitions)",
+                "id": 2662330,
+                "title": "Push ups",
+                "unit": "repetitions"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4917,
+          "event_id": 1318,
+          "title": "Max. Sit Ups",
+          "type": 2,
+          "list_order": 4,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "729ed0fa-987e-45c5-bdcf-c0e4a99b2642",
+              "question_id": null,
+              "type": "video",
+              "title": "Max. Sit Ups",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "9dc66f6a-b88f-40ba-8bff-f4b7faed566a",
+              "question_id": null,
+              "type": "metric",
+              "title": "How many sit ups did you do? ",
+              "required": true,
+              "unit": "repetitions",
+              "metric_template": {
+                "label": "Sit ups (repetitions)",
+                "id": 2662329,
+                "title": "Sit ups",
+                "unit": "repetitions"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4918,
+          "event_id": 1318,
+          "title": "Standing Broad Jump",
+          "type": 2,
+          "list_order": 5,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "0541ca1c-8541-4630-a8f1-521d678391a6",
+              "question_id": null,
+              "type": "video",
+              "title": "Standing Broad Jump",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "85f617be-258f-4bec-a25e-78637ee58eeb",
+              "question_id": null,
+              "type": "metric",
+              "title": "How far did you jump?",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Broad Jump (inches)",
+                "id": 2623577,
+                "title": "Broad Jump",
+                "unit": "inches"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4908,
+          "event_id": 1318,
+          "title": "5-10-5 Shuttle Run",
+          "type": 2,
+          "list_order": 6,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "249bd9d3-658e-4aef-b6a5-537933350763",
+              "question_id": null,
+              "type": "video",
+              "title": "5-10-5 Shuttle Run",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "453fe87f-3cf0-4849-8982-19ecdf1ab683",
+              "question_id": null,
+              "type": "metric",
+              "title": "5-10-5 Shuttle Run Starting to the Right",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Shuttle (seconds)",
+                "id": 2623580,
+                "title": "Shuttle",
+                "unit": "seconds"
+              }
+            },
+            {
+              "_id": "41e49d7c-78ab-4b5b-9015-d3742d8732b4",
+              "question_id": null,
+              "type": "metric",
+              "title": "5-10-5 Shuttle Run Starting to the Left",
+              "required": true,
+              "unit": null,
+              "metric_template": {
+                "label": "Shuttle (seconds)",
+                "id": 2623580,
+                "title": "Shuttle",
+                "unit": "seconds"
+              }
+            }
+          ]
+        },
+        {
+          "task_id": 4907,
+          "event_id": 1318,
+          "title": "20-Yard Dash",
+          "type": 2,
+          "list_order": 7,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "1f893345-0237-4c00-8184-7d66d46dcdcd",
+              "question_id": null,
+              "type": "metric",
+              "title": "40 Yard Dash Time",
+              "required": true,
+              "unit": "seconds",
+              "metric_template": {
+                "label": "20 Yard Shuttle (seconds)",
+                "id": 2623828,
+                "title": "20 Yard Shuttle",
+                "unit": "seconds"
+              }
+            },
+            {
+              "_id": "3283c4b7-abb9-4c88-8429-aca178fc98d4",
+              "question_id": null,
+              "type": "video",
+              "title": "20 Yard Dash",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            }
+          ]
+        },
+        {
+          "task_id": 4909,
+          "event_id": 1318,
+          "title": "60-yard Shuttle",
+          "type": 2,
+          "list_order": 8,
+          "visibility": 2,
+          "questions": [
+            {
+              "_id": "52031250-89c6-4be5-bae2-4ae28c1fd434",
+              "question_id": null,
+              "type": "video",
+              "title": "60-yard shuttle",
+              "required": true,
+              "unit": null,
+              "metric_template": null
+            },
+            {
+              "_id": "509ebb6d-c5d0-4b82-9ba4-936f260de028",
+              "question_id": null,
+              "type": "metric",
+              "title": "How fast was your 60-yard shuttle?",
+              "required": true,
+              "unit": "seconds",
+              "metric_template": {
+                "label": "60 Yard (seconds)",
+                "id": 2623602,
+                "title": "60 Yard",
+                "unit": "seconds"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "synthetic_progress_cases": [
+    {
+      "name": "zero_submissions",
+      "submissions": [],
+      "athlete_id_validity": "unknown"
+    }
+  ],
+  "unresolved_policy": [
+    "closing_date",
+    "standalone_highlight_mandatory",
+    "external_membership_validation",
+    "junior_actor_model"
+  ],
+  "source_conflicts": [
+    "adult_dash_question_and_metric_labels",
+    "adult_membership_price_copy"
+  ]
+}

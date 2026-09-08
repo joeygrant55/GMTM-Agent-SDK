@@ -1,40 +1,41 @@
 'use client'
 
-import { apiFetch } from '@/app/_lib/api'
-
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-
-const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
 export default function HomeClient() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedEvent = searchParams.get('event_id')
+  // Preserve even an invalid selection so the combine view can ask the athlete
+  // to choose, instead of silently substituting a previously claimed event.
+  const destination = requestedEvent !== null
+    ? `/home/inbox?event_id=${encodeURIComponent(requestedEvent)}`
+    : '/home/inbox'
 
   useEffect(() => {
     if (!isLoaded || !user?.id) return
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
-
-    apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data?.has_sparq_profile) {
-          router.replace('/onboarding/search')
-        } else {
-          router.replace('/home/inbox')
-        }
-      })
-      .catch(() => {
-        router.replace('/home/inbox')
-      })
-  }, [isLoaded, user?.id, router])
+    // Public combine requirements are useful before a recruiting profile exists.
+    // Ownership and personal progress are resolved by the combine service itself.
+    router.replace(destination)
+  }, [isLoaded, user?.id, router, destination])
 
   return (
     <div className="h-full min-h-screen bg-sparq-charcoal text-white flex items-center justify-center">
       <div className="text-center">
-        <div className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-400">Loading your workspace…</p>
+        {isLoaded && !user?.id ? (
+          <Link className="text-sparq-lime underline" href={`/sign-in?redirect_url=${encodeURIComponent(destination)}`}>
+            Sign in to your workspace
+          </Link>
+        ) : (
+          <>
+            <div aria-hidden="true" className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p role="status" className="text-gray-400">Loading your workspace…</p>
+          </>
+        )}
       </div>
     </div>
   )

@@ -2,12 +2,14 @@
 
 import { apiFetch } from '@/app/_lib/api'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import ReactMarkdown from 'react-markdown'
 import IterationBanner from './IterationBanner'
 import { ARTIFACT_TYPE_LABEL, ArtifactType } from './artifactStatus'
+import { useCombineHelp } from './CombineHelpProvider'
+import CombineHelpPanel from './CombineHelpPanel'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -50,14 +52,30 @@ const ARTIFACT_QUICK_ITERATIONS: Partial<Record<ArtifactType, { emoji: string; l
   ],
 }
 
+const WELCOME_MESSAGE = 'Your recruiting AI is ready. Ask about your profile, your next step, or a program you want to explore.'
+
 export default function WorkspaceAIPanel() {
   const { user, isLoaded } = useUser()
+  const combineHelp = useCombineHelp()
+  // Combine help never inherits recruiting conversation IDs, forks or artifact state.
+  if (combineHelp?.enabled) return <CombineHelpPanel />
+  if (!isLoaded || !user?.id) {
+    return (
+      <div role="status" className="border-l border-white/10 bg-sparq-charcoal w-[300px] shrink-0 p-4 text-sm text-gray-400">
+        {isLoaded ? 'Sign in to use your recruiting AI.' : 'Loading your account…'}
+      </div>
+    )
+  }
+  // Remount all owner-bound state before rendering a different account's panel.
+  return <WorkspaceAISession key={user.id} clerkId={user.id} />
+}
+
+function WorkspaceAISession({ clerkId }: { clerkId: string }) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content:
-        "Your recruiting AI is ready. I know your stats, your target schools, and how your profile stacks up — ask me anything, or start with one of these:",
+      content: WELCOME_MESSAGE,
     },
   ])
   const [input, setInput] = useState('')
@@ -78,40 +96,58 @@ export default function WorkspaceAIPanel() {
   const [scopedArtifact, setScopedArtifact] = useState<ScopedArtifact | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const mountedRef = useRef(true)
+  const requestRef = useRef<AbortController | null>(null)
+  const sendMessageRef = useRef<(text: string) => Promise<void>>(async () => {})
 
   const hasUserMessages = messages.some(m => m.role === 'user')
   const hasUserMessagesRef = useRef(false)
   hasUserMessagesRef.current = hasUserMessages
 
-  // Active conversation id: fork if active, else main
-  const activeConversationId = forkConversationId ?? mainConversationIdRef.current
-
   useEffect(() => {
-    if (isLoaded && user?.id) {
-      const stored = localStorage.getItem(`sparq_conv_${user.id}`)
-      if (stored) {
-        mainConversationIdRef.current = parseInt(stored, 10)
-      }
+    mountedRef.current = true
+    try {
+      const stored = Number(localStorage.getItem(`sparq_conv_${clerkId}`))
+      mainConversationIdRef.current = Number.isSafeInteger(stored) && stored > 0 ? stored : null
+    } catch {
+      mainConversationIdRef.current = null
     }
-  }, [isLoaded, user?.id])
+    return () => {
+      mountedRef.current = false
+      requestRef.current?.abort()
+      requestRef.current = null
+    }
+  }, [clerkId])
+
+  const stopRequest = useCallback(() => {
+    requestRef.current?.abort()
+    requestRef.current = null
+    setLoading(false)
+    setForkLoading(false)
+    setToolActivity(null)
+  }, [])
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const { prompt } = (e as CustomEvent<{ prompt: string }>).detail
-      if (!hasUserMessagesRef.current && prompt && isLoaded && user?.id) {
-        void sendMessage(prompt)
+      const prompt = (e as CustomEvent<{ prompt?: string }>).detail?.prompt
+      if (!hasUserMessagesRef.current && prompt) {
+        void sendMessageRef.current(prompt)
       }
     }
     window.addEventListener('sparq:proactive-prompt', handler)
     return () => window.removeEventListener('sparq:proactive-prompt', handler)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, user?.id])
+  }, [])
 
   // Mode B wiring — ArtifactViewer fires these when an artifact opens / closes.
   useEffect(() => {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent<ScopedArtifact>).detail
       if (!detail?.artifactId) return
+      stopRequest()
+      setForkScenario(null)
+      setForkConversationId(null)
+      setShowForkInput(false)
+      setForkInputText('')
       setScopedArtifact(detail)
       // Reset chat history so iterations stay scoped to the open artifact.
       const typeLabel = ARTIFACT_TYPE_LABEL[detail.type] ?? 'this artifact'
@@ -123,12 +159,12 @@ export default function WorkspaceAIPanel() {
       ])
     }
     const onClose = () => {
+      stopRequest()
       setScopedArtifact(null)
       setMessages([
         {
           role: 'assistant',
-          content:
-            "Your recruiting AI is ready. I know your stats, your target schools, and how your profile stacks up — ask me anything, or start with one of these:",
+          content: WELCOME_MESSAGE,
         },
       ])
     }
@@ -138,7 +174,7 @@ export default function WorkspaceAIPanel() {
       window.removeEventListener('sparq:artifact-opened', onOpen)
       window.removeEventListener('sparq:artifact-closed', onClose)
     }
-  }, [])
+  }, [stopRequest])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -149,7 +185,11 @@ export default function WorkspaceAIPanel() {
 
   const sendMessage = async (overrideText?: string) => {
     const userMessage = (overrideText ?? input).trim()
-    if (!userMessage || loading || !user?.id) return
+    if (!userMessage || requestRef.current || !mountedRef.current) return
+
+    const request = new AbortController()
+    requestRef.current = request
+    const isCurrent = () => mountedRef.current && requestRef.current === request && !request.signal.aborted
 
     setInput('')
     setLoading(true)
@@ -162,15 +202,17 @@ export default function WorkspaceAIPanel() {
     if (scopedArtifact) {
       setToolActivity('Rewriting your draft…')
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `${backendUrl}/api/artifacts/${scopedArtifact.artifactId}/iterate-via-agent`,
           {
             method: 'POST',
+            signal: request.signal,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ instruction: userMessage, performed_by: user.id }),
+            body: JSON.stringify({ instruction: userMessage, performed_by: clerkId }),
           }
         )
         const data = await res.json()
+        if (!isCurrent()) return
         if (!res.ok || !data?.child_id) {
           throw new Error(data?.detail || 'Iteration failed')
         }
@@ -189,6 +231,7 @@ export default function WorkspaceAIPanel() {
           })
         )
       } catch (err) {
+        if (!isCurrent()) return
         setMessages((prev) => {
           const updated = [...prev]
           updated[updated.length - 1] = {
@@ -198,22 +241,27 @@ export default function WorkspaceAIPanel() {
           return updated
         })
       } finally {
-        setLoading(false)
-        setToolActivity(null)
+        if (isCurrent()) {
+          requestRef.current = null
+          setLoading(false)
+          setToolActivity(null)
+        }
       }
       return
     }
 
+    const activeConversationId = forkConversationId ?? mainConversationIdRef.current
     const params = new URLSearchParams({
-      athlete_id: user.id,
+      athlete_id: clerkId,
       message: userMessage,
       ...(activeConversationId ? { conversation_id: String(activeConversationId) } : {}),
       ...(forkScenario ? { fork_scenario: forkScenario } : {}),
     })
 
     try {
-      const response = await apiFetch(`${backendUrl}/api/agent/stream?${params}`)
-      if (!response.body) throw new Error('No response body')
+      const response = await apiFetch(`${backendUrl}/api/agent/stream?${params}`, { signal: request.signal })
+      if (!isCurrent()) return
+      if (!response.ok || !response.body) throw new Error('Chat request failed')
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
@@ -222,6 +270,7 @@ export default function WorkspaceAIPanel() {
 
       while (true) {
         const { done, value } = await reader.read()
+        if (!isCurrent()) return
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
@@ -232,38 +281,46 @@ export default function WorkspaceAIPanel() {
           const line = eventChunk.split('\n').find((l) => l.startsWith('data: '))
           if (!line) continue
 
+          let data
           try {
-            const data = JSON.parse(line.slice(6))
+            data = JSON.parse(line.slice(6))
+          } catch {
+            continue // Skip malformed chunks without hiding an explicit error event.
+          }
+          if (data.type === 'error') throw new Error('Chat generation failed')
 
-            if (data.type === 'session' && data.session_id) {
-              if (!forkConversationId) {
-                const cid = parseInt(data.session_id, 10)
-                if (!isNaN(cid)) {
-                  mainConversationIdRef.current = cid
-                  localStorage.setItem(`sparq_conv_${user.id}`, String(cid))
+          if (data.type === 'session' && data.session_id) {
+            if (!forkConversationId) {
+              const cid = Number(data.session_id)
+              if (Number.isSafeInteger(cid) && cid > 0) {
+                mainConversationIdRef.current = cid
+                try {
+                  localStorage.setItem(`sparq_conv_${clerkId}`, String(cid))
+                } catch {
+                  // Conversation still works when browser storage is unavailable.
                 }
               }
             }
-
-            if (data.type === 'tool') setToolActivity(data.label)
-
-            if (data.type === 'text') {
-              assistantText += data.text
-              setToolActivity(null)
-              setMessages((prev) => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { role: 'assistant', content: assistantText }
-                return updated
-              })
-            }
-
-            if (data.type === 'done') setToolActivity(null)
-          } catch {
-            // Skip malformed chunks
           }
+
+          if (data.type === 'tool') setToolActivity(data.label)
+
+          if (data.type === 'text') {
+            assistantText += data.text
+            setToolActivity(null)
+            setMessages((prev) => {
+              const updated = [...prev]
+              updated[updated.length - 1] = { role: 'assistant', content: assistantText }
+              return updated
+            })
+          }
+
+          if (data.type === 'done') setToolActivity(null)
         }
       }
+      if (!assistantText) throw new Error('No chat response received')
     } catch {
+      if (!isCurrent()) return
       setMessages((prev) => {
         const updated = [...prev]
         updated[updated.length - 1] = {
@@ -273,28 +330,41 @@ export default function WorkspaceAIPanel() {
         return updated
       })
     } finally {
-      setLoading(false)
-      setToolActivity(null)
+      if (isCurrent()) {
+        requestRef.current = null
+        setLoading(false)
+        setToolActivity(null)
+      }
     }
   }
 
+  useEffect(() => {
+    sendMessageRef.current = sendMessage
+  })
+
   const startFork = async () => {
     const scenario = forkInputText.trim()
-    if (!scenario || !user?.id) return
+    if (!scenario || requestRef.current || !mountedRef.current) return
+    const request = new AbortController()
+    requestRef.current = request
+    const isCurrent = () => mountedRef.current && requestRef.current === request && !request.signal.aborted
     setForkLoading(true)
     try {
       const res = await apiFetch(`${backendUrl}/api/agent/fork`, {
         method: 'POST',
+        signal: request.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          athlete_id: user.id,
+          athlete_id: clerkId,
           scenario,
           parent_conversation_id: mainConversationIdRef.current,
         }),
       })
       const data = await res.json()
-      if (data.session_id) {
-        setForkConversationId(parseInt(data.session_id, 10))
+      if (!isCurrent()) return
+      const sessionId = Number(data.session_id)
+      if (res.ok && Number.isSafeInteger(sessionId) && sessionId > 0) {
+        setForkConversationId(sessionId)
         setForkScenario(data.fork_scenario)
         setForkInputText('')
         setShowForkInput(false)
@@ -302,22 +372,26 @@ export default function WorkspaceAIPanel() {
           role: 'assistant',
           content: `I'm now looking at your recruiting through a different lens: **${data.fork_scenario}**\n\nAsk me anything — I'll factor in this scenario for every answer.`,
         }])
-      }
+      } else throw new Error('Could not start scenario')
     } catch {
-      // silently fail
+      if (isCurrent()) setMessages(prev => [...prev, { role: 'assistant', content: 'I could not start that scenario. Please try again.' }])
     } finally {
-      setForkLoading(false)
+      if (isCurrent()) {
+        requestRef.current = null
+        setForkLoading(false)
+      }
     }
   }
 
   const exitFork = () => {
+    stopRequest()
     setForkScenario(null)
     setForkConversationId(null)
     setShowForkInput(false)
     setForkInputText('')
     setMessages([{
       role: 'assistant',
-      content: "Your recruiting AI is ready. I know your stats, your target schools, and how your profile stacks up — ask me anything, or start with one of these:",
+      content: WELCOME_MESSAGE,
     }])
   }
 
@@ -360,7 +434,7 @@ export default function WorkspaceAIPanel() {
             />
             <button
               onClick={() => void startFork()}
-              disabled={forkLoading || !forkInputText.trim()}
+              disabled={loading || forkLoading || !forkInputText.trim()}
               className="w-full bg-sparq-lime/20 border border-sparq-lime/30 hover:bg-sparq-lime/30 text-sparq-lime text-xs font-semibold py-1.5 rounded-lg transition-colors disabled:opacity-40"
             >
               {forkLoading ? 'Starting...' : 'Explore scenario →'}
@@ -435,7 +509,7 @@ export default function WorkspaceAIPanel() {
                   <button
                     key={sp.prompt}
                     type="button"
-                    disabled={loading}
+                    disabled={loading || forkLoading}
                     onClick={() => void sendMessage(sp.prompt)}
                     className="w-full text-left px-3 py-2 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] hover:border-sparq-lime/30 transition-colors text-xs text-gray-300 flex items-center gap-2 disabled:opacity-40"
                   >
@@ -477,11 +551,11 @@ export default function WorkspaceAIPanel() {
               void sendMessage()
             }
           }}
-          disabled={loading || !isLoaded}
+          disabled={loading || forkLoading}
         />
         <button
           onClick={() => void sendMessage()}
-          disabled={loading || !input.trim() || !isLoaded}
+          disabled={loading || forkLoading || !input.trim()}
           className="bg-sparq-lime text-sparq-charcoal font-black px-3 py-2 rounded-lg text-sm disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         >
           Send

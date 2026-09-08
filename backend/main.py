@@ -16,9 +16,10 @@ from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
 
-load_dotenv()
+
+# Configuration is injected by the process; imports never load local env files
+# or prepare database schema. See docs/state/agent-schema-preparation-2026-09-07.md.
 
 # Core routers — must work
 from agent_api import router as agent_router
@@ -26,6 +27,8 @@ from profile_api import router as profile_router
 from reports_api import router as reports_router
 from artifacts_api import router as artifacts_router
 from claims_api import router as claims_router
+from combine_api import router as combine_router
+from combine_help_api import router as combine_help_router
 
 # Optional router (best-effort)
 search_router = None
@@ -60,6 +63,8 @@ app.include_router(agent_router)
 app.include_router(reports_router)
 app.include_router(artifacts_router)
 app.include_router(claims_router)
+app.include_router(combine_router)
+app.include_router(combine_help_router)
 if search_router:
     app.include_router(search_router)
 

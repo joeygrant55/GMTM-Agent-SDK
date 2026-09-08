@@ -3,9 +3,10 @@
 import { apiFetch } from '@/app/_lib/api'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
+import { supportedCombineEvent } from './currentCombine'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
@@ -17,7 +18,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: '📥 Inbox', href: '/home/inbox', badgeKey: 'inbox' },
+  { label: '⚡ My next move', href: '/home/inbox', badgeKey: 'inbox' },
   { label: '🎓 Colleges', href: '/home/colleges' },
   { label: '✉️ Outreach', href: '/home/outreach', badgeKey: 'outreach_drafts' },
   { label: '👤 Profile', href: '/home/profile' },
@@ -38,6 +39,9 @@ interface Badges {
 
 export default function WorkspaceSidebar() {
   const pathname = usePathname()
+  const params = useSearchParams()
+  const rawEvent = params.get('event_id')
+  const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
   const { user, isLoaded } = useUser()
   const [badges, setBadges] = useState<Badges>({ inbox: 0, outreach_drafts: 0, active_agents: 0 })
 
@@ -86,7 +90,7 @@ export default function WorkspaceSidebar() {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.href === '/home/inbox' && eventId ? `${item.href}?event_id=${eventId}` : item.href}
               className={`flex items-center justify-between px-3 py-2 text-sm rounded-lg ${
                 active ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
               }`}

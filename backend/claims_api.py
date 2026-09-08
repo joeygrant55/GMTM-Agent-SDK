@@ -3,7 +3,7 @@ Claim tokens — the GMTM-to-SPARQ door (cohort-one spec, workstream 2a).
 
 A combine submitter gets one signed link. Opening it shows a landing page with their
 first name and the event name; redeeming it (after Clerk sign-up) links their GMTM
-`user_id` to their Clerk id exactly the way `POST /api/profile/connect` does.
+`user_id` to their Clerk id without replacing an existing owner's mapping.
 
 Routes
     POST /api/claims/mint            admin (header X-Claims-Admin = CLAIMS_ADMIN_SECRET)
@@ -13,12 +13,12 @@ Routes
 Token format
     base64url(json{"u": user_id, "e": event_id, "x": exp_unix}) + "." + base64url(HMAC-SHA256)
     Signed with SHARE_TOKEN_SECRET (already a required env var). Only sha256(token) is
-    stored, in the self-created `claim_tokens` table (Railway agent DB).
+    stored in `claim_tokens`, prepared explicitly in the separate Agent DB.
 
 Status semantics
     400  malformed token or bad signature (tampered)
     410  signature valid but expired
-    409  already redeemed by a different Clerk id
+    409  ownership conflict or another claim is being acquired; safe to retry
     404  token not minted here / GMTM user missing
 
 The pure token helpers (`mint_token`, `verify_token`, `token_hash`) have no DB or
@@ -34,6 +34,7 @@ import time
 from datetime import datetime, timezone
 from typing import List, Optional
 
+import pymysql
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
@@ -148,39 +149,6 @@ def _require_admin(x_claims_admin: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="Invalid admin secret.")
 
 
-# ── Table ───────────────────────────────────────────────────────────────────
-
-def _ensure_claim_tables():
-    db = None
-    try:
-        db = _get_agent_db()
-        with db.cursor() as c:
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS claim_tokens (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    token_hash CHAR(64) NOT NULL UNIQUE,
-                    user_id INT NOT NULL,
-                    event_id INT NOT NULL,
-                    minted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at DATETIME NOT NULL,
-                    opened_at DATETIME NULL,
-                    claimed_at DATETIME NULL,
-                    clerk_id VARCHAR(255) NULL,
-                    INDEX idx_user (user_id),
-                    INDEX idx_event (event_id)
-                )
-            """)
-        db.commit()
-    except Exception as e:
-        print(f"⚠️ claim_tokens table setup skipped: {e}")
-    finally:
-        if db:
-            db.close()
-
-
-_ensure_claim_tables()
-
-
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 def _verify_or_http(token: str) -> dict:
@@ -190,9 +158,10 @@ def _verify_or_http(token: str) -> dict:
         raise HTTPException(status_code=e.status_code, detail={"valid": False, "reason": e.code})
 
 
-def _lookup_claim_row(c, thash: str) -> dict:
+def _lookup_claim_row(c, thash: str, *, for_update: bool = False) -> dict:
     c.execute(
-        "SELECT id, user_id, event_id, opened_at, claimed_at, clerk_id FROM claim_tokens WHERE token_hash = %s",
+        "SELECT id, user_id, event_id, opened_at, claimed_at, clerk_id FROM claim_tokens WHERE token_hash = %s"
+        + (" FOR UPDATE" if for_update else ""),
         (thash,),
     )
     row = c.fetchone()
@@ -280,41 +249,84 @@ async def get_claim(token: str):
 
 @router.post("/claims/{token}/redeem")
 async def redeem_claim(token: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    """Link the token's GMTM user_id to the caller's Clerk id. Idempotent for the same
-    Clerk id; 409 if a different Clerk id already redeemed it."""
+    """Atomically acquire one athlete mapping and claim; same-owner retries are safe.
+
+    Requires transactional tables and UNIQUE athlete_profiles.user_id. The existing
+    Clerk index is not unique, so cooperating claim writers also serialize by Clerk
+    on the same MySQL server. GET_LOCK is session-scoped, not transaction-scoped:
+    https://dev.mysql.com/doc/refman/8.0/en/locking-functions.html
+    Keep the lock until commit/rollback and release it on this exact connection.
+    """
     data = _verify_or_http(token)
     thash = token_hash(token)
+    # Application-prefixed, opaque and below MySQL's 64-character name limit.
+    lock_name = "sparq.claim." + hashlib.sha256(caller_clerk_id.encode()).hexdigest()[:48]
     db = _get_agent_db()
+    lock_acquired = False
     try:
         with db.cursor() as c:
-            row = _lookup_claim_row(c, thash)
-            if row["claimed_at"] is not None and row["clerk_id"] and row["clerk_id"] != caller_clerk_id:
+            c.execute("SELECT GET_LOCK(%s, 0) AS acquired", (lock_name,))
+            lock = c.fetchone()
+            if not lock or lock.get("acquired") != 1:
                 raise HTTPException(
                     status_code=409,
-                    detail="This link was already used by another account. Sign in with that account, or connect manually.",
+                    detail="Your connection could not be acquired. Please retry the secure invitation.",
                 )
+            lock_acquired = True
+        db.begin()
+        with db.cursor() as c:
+            # Same-token contenders must read the latest committed claimant.
+            row = _lookup_claim_row(c, thash, for_update=True)
+            if (int(row["user_id"]), int(row["event_id"])) != (data["user_id"], data["event_id"]):
+                raise HTTPException(status_code=400, detail={"valid": False, "reason": "mismatch"})
+            if row["clerk_id"] not in (None, caller_clerk_id) or (
+                row["claimed_at"] is not None and row["clerk_id"] is None
+            ):
+                raise HTTPException(status_code=409, detail="This invitation is already connected to another account.")
             user_id = int(row["user_id"])
-            # Never let a claim link re-point a GMTM athlete that is already linked to a
-            # different Clerk account (a leaked link must not hijack an existing user).
-            c.execute("SELECT clerk_id FROM athlete_profiles WHERE user_id = %s", (user_id,))
-            existing = c.fetchone()
-            if existing and existing.get("clerk_id") and existing["clerk_id"] != caller_clerk_id:
+            # The workspace assumes one athlete per Clerk. Do not silently select a
+            # second athlete or repair historical ambiguous mappings during a claim.
+            c.execute(
+                "SELECT user_id FROM athlete_profiles WHERE clerk_id = %s AND user_id <> %s LIMIT 1 FOR UPDATE",
+                (caller_clerk_id, user_id),
+            )
+            if c.fetchone():
                 raise HTTPException(
                     status_code=409,
-                    detail="These results are already connected to another account. Sign in with that account, or connect manually.",
+                    detail="This account is already connected to a different athlete. Use the correct account or contact support.",
                 )
-            # Same write as POST /api/profile/connect.
+            # Different tokens for the same athlete contend on UNIQUE user_id.
+            # A duplicate is deliberately a no-op: never overwrite its owner.
             c.execute(
-                "INSERT INTO athlete_profiles (user_id, clerk_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE clerk_id = %s",
-                (user_id, caller_clerk_id, caller_clerk_id),
+                "INSERT INTO athlete_profiles (user_id, clerk_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE user_id = user_id",
+                (user_id, caller_clerk_id),
             )
-            c.execute(
-                "UPDATE claim_tokens SET claimed_at = COALESCE(claimed_at, NOW()), clerk_id = %s WHERE id = %s",
-                (caller_clerk_id, row["id"]),
-            )
+            c.execute("SELECT clerk_id FROM athlete_profiles WHERE user_id = %s FOR UPDATE", (user_id,))
+            owner = c.fetchone()
+            if not owner or owner.get("clerk_id") != caller_clerk_id:
+                raise HTTPException(status_code=409, detail="This athlete is already connected to another account.")
+            if row["claimed_at"] is None:
+                c.execute(
+                    """UPDATE claim_tokens SET claimed_at = NOW(), clerk_id = %s
+                       WHERE id = %s AND claimed_at IS NULL AND (clerk_id IS NULL OR clerk_id = %s)""",
+                    (caller_clerk_id, row["id"], caller_clerk_id),
+                )
+                if c.rowcount != 1:
+                    raise HTTPException(status_code=409, detail="This invitation changed. Please retry the secure invitation.")
         db.commit()
+    except Exception as exc:
+        db.rollback()
+        if isinstance(exc, (pymysql.err.IntegrityError, pymysql.err.OperationalError)) and exc.args and exc.args[0] in (1062, 1205, 1213):
+            raise HTTPException(status_code=409, detail="Another connection is being acquired. Please retry the secure invitation.") from exc
+        raise
     finally:
-        db.close()
+        try:
+            if lock_acquired:
+                with db.cursor() as c:
+                    c.execute("SELECT RELEASE_LOCK(%s)", (lock_name,))
+        finally:
+            # Closing also releases session locks if explicit release fails.
+            db.close()
     # Land the athlete in the workspace, not the legacy dashboard: make sure a sparq_profiles
     # row exists (built from GMTM) and college matching is running.
     try:

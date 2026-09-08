@@ -1,6 +1,7 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import { ProfileConnectionError, readProfileConnectionResponse } from '@/app/_lib/profileConnection'
 
 import { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
@@ -218,10 +219,17 @@ function LoadingSkeleton() {
 
 export default function QuickScanClient() {
   const { user, isLoaded: clerkLoaded } = useUser()
+  if (!clerkLoaded) return <LoadingSkeleton />
+  if (!user?.id) return <p role="status" className="p-8 text-gray-300">Sign in to view your Quick Scan.</p>
+  return <QuickScanSession key={user.id} clerkId={user.id} />
+}
+
+function QuickScanSession({ clerkId }: { clerkId: string }) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [athleteId, setAthleteId] = useState<number | null>(null)
   const [state, setState] = useState<'loading' | 'no-athlete' | 'ready' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState('')
+  const [lookupAttempt, setLookupAttempt] = useState(0)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
@@ -263,17 +271,17 @@ export default function QuickScanClient() {
   }, [showWaitlist, waitlistDone])
 
   useEffect(() => {
-    if (!clerkLoaded) return
-    if (!user) {
-      setState('error')
-      setErrorMsg('Sign in to view your Quick Scan.')
-      return
-    }
+    const controller = new AbortController()
+    setData(null)
+    setAthleteId(null)
 
     // Look up linked athlete via Clerk ID
-    apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`)
-      .then(r => r.json())
+    setState('loading')
+    setErrorMsg('')
+    apiFetch(`${backendUrl}/api/profile/by-clerk/${clerkId}`, { signal: controller.signal })
+      .then(readProfileConnectionResponse)
       .then(async linkData => {
+        if (controller.signal.aborted) return
         if (!linkData.found || !linkData.user_id) {
           setState('no-athlete')
           return
@@ -282,17 +290,20 @@ export default function QuickScanClient() {
         setAthleteId(uid)
 
         // Fetch dashboard data
-        const res = await apiFetch(`${backendUrl}/api/dashboard/${uid}`)
+        const res = await apiFetch(`${backendUrl}/api/dashboard/${uid}`, { signal: controller.signal })
         if (!res.ok) throw new Error('Failed to load athlete data')
         const dashboard = await res.json()
+        if (controller.signal.aborted) return
         setData(dashboard)
         setState('ready')
       })
       .catch(err => {
+        if (controller.signal.aborted) return
         setState('error')
-        setErrorMsg(err.message || 'Something went wrong.')
+        setErrorMsg(err instanceof ProfileConnectionError ? err.message : 'We could not load your athlete information. Please try again.')
       })
-  }, [clerkLoaded, user, backendUrl])
+    return () => controller.abort()
+  }, [clerkId, backendUrl, lookupAttempt])
 
   // Filter to recognized metrics only
   const displayMetrics = (data?.metrics ?? []).filter(m => METRIC_CONFIG[m.title])
@@ -358,7 +369,8 @@ export default function QuickScanClient() {
         {/* ── ERROR / UNAUTHENTICATED ───────────────── */}
         {state === 'error' && (
           <div className="text-center py-16">
-            <p className="text-gray-400 mb-4">{errorMsg}</p>
+            <p role="alert" className="text-gray-400 mb-4">{errorMsg}</p>
+            <button type="button" onClick={() => setLookupAttempt(value => value + 1)} className="mx-auto mb-4 block min-h-11 rounded-lg bg-sparq-lime px-4 font-bold text-sparq-charcoal">Retry profile check</button>
             <Link href="/sign-in" className="text-sparq-lime hover:underline">Sign in →</Link>
           </div>
         )}

@@ -1,26 +1,22 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import { ProfileConnectionError, readProfileConnectionResponse } from '@/app/_lib/profileConnection'
 
 import dynamic from 'next/dynamic'
 
 import Link from 'next/link'
 import { useUser } from '@clerk/nextjs'
-import { useEffect, useMemo, useState } from 'react'
-import { MaxPrepsAthlete, ONBOARDING_MAXPREPS_KEY } from '@/app/onboarding/_lib/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
+
+class DraftDataError extends Error {}
 
 interface College {
   id: number
   college_name: string
   fit_reasons?: string[] | null
-}
-
-interface ProfileByClerkResponse {
-  found?: boolean
-  user_id?: number | null
-  has_sparq_profile?: boolean
 }
 
 interface DraftProfile {
@@ -49,10 +45,10 @@ function toReadableStatName(key: string) {
     .toLowerCase()
 }
 
-function buildKeyAchievement(maxprepsData: MaxPrepsAthlete | null) {
-  if (!maxprepsData?.seasonStats?.length) return ''
+function buildKeyAchievement(maxprepsData: Record<string, unknown>) {
+  if (!Array.isArray(maxprepsData.seasonStats)) return ''
   const latestSeason = maxprepsData.seasonStats[0]
-  if (!latestSeason) return ''
+  if (!latestSeason || typeof latestSeason !== 'object' || Array.isArray(latestSeason)) return ''
 
   let bestKey = ''
   let bestValue = 0
@@ -107,7 +103,16 @@ ${profile.name}
 
 function DraftCoachEmailPage() {
   const { user, isLoaded } = useUser()
+  if (!isLoaded || !user?.id) {
+    return <p role="status" className="p-8 text-gray-300">{isLoaded ? 'Sign in to draft outreach emails.' : 'Loading your account…'}</p>
+  }
+  return <DraftCoachEmailSession key={user.id} user={user} />
+}
+
+function DraftCoachEmailSession({ user }: { user: { id: string; firstName?: string | null; lastName?: string | null } }) {
   const [loading, setLoading] = useState(true)
+  const [profileReady, setProfileReady] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [error, setError] = useState('')
   const [colleges, setColleges] = useState<College[]>([])
   const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
@@ -124,6 +129,8 @@ function DraftCoachEmailPage() {
   const [emailDraft, setEmailDraft] = useState('')
   const [copying, setCopying] = useState(false)
   const [toast, setToast] = useState('')
+  const lifetimeRef = useRef<AbortController | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
 
@@ -133,83 +140,96 @@ function DraftCoachEmailPage() {
   )
 
   useEffect(() => {
-    if (!isLoaded || !user?.id) return
-
-    let cancelled = false
+    const controller = new AbortController()
+    lifetimeRef.current = controller
+    const signal = controller.signal
     const loadData = async () => {
       setLoading(true)
+      setProfileReady(false)
       setError('')
 
       try {
-        const [profileRes, collegesRes] = await Promise.all([
-          apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`),
-          apiFetch(`${backendUrl}/api/workspace/colleges/${user.id}`),
-        ])
-
-        const profileData = (await profileRes.json()) as ProfileByClerkResponse
-        if (!profileData?.has_sparq_profile) {
-          throw new Error('Complete onboarding first to draft outreach emails.')
+        const profileRes = await apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`, { signal })
+        const profileData = await readProfileConnectionResponse(profileRes)
+        if (signal.aborted) return
+        if (!profileData.has_sparq_profile) {
+          throw new DraftDataError('Complete onboarding first to draft outreach emails.')
         }
 
+        const [workspaceRes, collegesRes] = await Promise.all([
+          apiFetch(`${backendUrl}/api/workspace/profile/${user.id}`, { signal }),
+          apiFetch(`${backendUrl}/api/workspace/colleges/${user.id}`, { signal }),
+        ])
+        if (!workspaceRes.ok) throw new DraftDataError('We could not load your athlete information. Please try again.')
+        if (!collegesRes.ok) throw new DraftDataError('We could not load your colleges. Please try again.')
+        const workspaceData = await workspaceRes.json()
+        if (!workspaceData || typeof workspaceData !== 'object' || Array.isArray(workspaceData)
+          || workspaceData.clerk_id !== user.id) {
+          throw new DraftDataError('We could not confirm the owner of this profile. Please try again.')
+        }
         const collegesData = await collegesRes.json()
         const list: College[] = Array.isArray(collegesData?.colleges) ? collegesData.colleges : []
 
-        let maxprepsData: MaxPrepsAthlete | null = null
-        const maxprepsRaw = sessionStorage.getItem(ONBOARDING_MAXPREPS_KEY)
-        if (maxprepsRaw) {
-          try {
-            maxprepsData = JSON.parse(maxprepsRaw) as MaxPrepsAthlete
-          } catch {
-            maxprepsData = null
-          }
-        }
+        // The old onboarding cache has no account owner. Use this caller's
+        // saved workspace instead of carrying another athlete's browser data.
+        const maxprepsData: Record<string, unknown> = workspaceData.maxpreps_data
+          && typeof workspaceData.maxpreps_data === 'object' && !Array.isArray(workspaceData.maxpreps_data)
+          ? workspaceData.maxpreps_data : {}
+        const text = (value: unknown, fallback = '') => typeof value === 'string' && value.trim() ? value : fallback
+        const classYear = maxprepsData.classYear ?? workspaceData.class_year
 
         const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
         const draftProfile: DraftProfile = {
-          name: maxprepsData?.name || fullName || 'Athlete',
-          position: maxprepsData?.position || 'Athlete',
-          classYear: String(maxprepsData?.classYear || 'Unknown'),
-          school: maxprepsData?.school || 'My High School',
-          city: maxprepsData?.city || '',
-          state: maxprepsData?.state || '',
-          hudlUrl: '',
+          name: text(maxprepsData.name, text(workspaceData.name, fullName || 'Athlete')),
+          position: text(maxprepsData.position, text(workspaceData.position, 'Athlete')),
+          classYear: typeof classYear === 'number' && Number.isFinite(classYear) ? String(classYear) : text(classYear, 'Unknown'),
+          school: text(maxprepsData.school, text(workspaceData.school, 'My High School')),
+          city: text(maxprepsData.city, text(workspaceData.city)),
+          state: text(maxprepsData.state, text(workspaceData.state)),
+          hudlUrl: text(workspaceData.hudl_url),
           keyAchievement: buildKeyAchievement(maxprepsData),
         }
 
-        if (!cancelled) {
+        if (!signal.aborted) {
           setProfile(draftProfile)
           setColleges(list)
           setSelectedCollegeId(list[0]?.id ?? null)
+          setProfileReady(true)
         }
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load draft data.')
+        if (!signal.aborted) {
+          setError(err instanceof ProfileConnectionError || err instanceof DraftDataError
+            ? err.message : 'We could not load your draft information. Please try again.')
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!signal.aborted) setLoading(false)
       }
     }
 
     loadData()
     return () => {
-      cancelled = true
+      controller.abort()
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     }
-  }, [backendUrl, isLoaded, user?.firstName, user?.id, user?.lastName])
+  }, [backendUrl, user.firstName, user.id, user.lastName, loadAttempt])
 
   useEffect(() => {
     setEmailDraft(buildEmailTemplate(profile, selectedCollege))
   }, [profile, selectedCollege])
 
   const copyEmail = async () => {
-    if (!user?.id || !selectedCollege || !emailDraft.trim()) return
+    const signal = lifetimeRef.current?.signal
+    if (!profileReady || signal?.aborted || !selectedCollege || !emailDraft.trim()) return
 
     setCopying(true)
     setError('')
 
     try {
       await navigator.clipboard.writeText(emailDraft)
+      if (signal?.aborted) return
       const outreachRes = await apiFetch(`${backendUrl}/api/workspace/outreach/${user.id}`, {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           school: selectedCollege.college_name,
@@ -219,15 +239,16 @@ function DraftCoachEmailPage() {
           notes: 'Drafted via SPARQ',
         }),
       })
+      if (signal?.aborted) return
       if (!outreachRes.ok) {
         throw new Error('Failed to log outreach')
       }
       setToast('Copied! Logged to your outreach tracker.')
-      setTimeout(() => setToast(''), 2500)
+      toastTimerRef.current = setTimeout(() => setToast(''), 2500)
     } catch {
-      setError('Email copied failed or outreach log failed. Please try again.')
+      if (!signal?.aborted) setError('Email copied failed or outreach log failed. Please try again.')
     } finally {
-      setCopying(false)
+      if (!signal?.aborted) setCopying(false)
     }
   }
 
@@ -235,6 +256,17 @@ function DraftCoachEmailPage() {
     return (
       <div className="p-8 flex items-center justify-center min-h-64">
         <div className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!profileReady) {
+    return (
+      <div className="p-8 text-white">
+        <h1 className="text-3xl font-black">Draft Coach Emails</h1>
+        <p role="alert" className="mt-4 text-amber-200">{error}</p>
+        <button type="button" onClick={() => setLoadAttempt(value => value + 1)} className="mt-5 min-h-11 rounded-lg bg-sparq-lime px-4 font-bold text-sparq-charcoal">Retry profile check</button>
+        <Link href="/home/outreach" className="mt-3 block py-3 text-sparq-lime underline">Back to Outreach</Link>
       </div>
     )
   }

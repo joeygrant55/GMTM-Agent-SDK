@@ -9,7 +9,8 @@ web_search is handled via Anthropic's built-in web_search_20250305 tool —
 no Brave API key, no external calls. Anthropic executes the search server-side
 and returns results automatically within the same API response stream.
 
-query_database is a custom tool we handle ourselves (read-only GMTM MySQL).
+get_current_athlete returns the profile already loaded for the authenticated caller.
+The model cannot choose an athlete identity or execute SQL.
 """
 
 import json
@@ -18,18 +19,16 @@ from typing import Optional
 
 import anthropic
 import pymysql
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from auth import optional_clerk_id, require_clerk_id, demo_secret_ok, rate_limit
+from auth import optional_clerk_id, require_clerk_id, demo_secret_ok, rate_limit, assert_owner
 from combine_results import get_combine_results, format_for_prompt
+from athlete_context import CURRENT_ATHLETE_TOOL, current_athlete_tool_result
 
 # Hard cap on agentic tool-loop iterations — bounds worst-case Claude spend per request.
 MAX_AGENT_ITERATIONS = 8
 
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env"))
-load_dotenv()
 
 router = APIRouter()
 
@@ -45,30 +44,12 @@ You have two tools:
    - Anything about a specific school, conference, or program
    web_search gives you live, current data. Always prefer it over any internal database for college-related questions.
 
-2. **query_database** — Use this ONLY to look up the current athlete's own results in GMTM and how they compare to other athletes:
-   - Their combine results, height, weight, and metrics on record
-   - How they compare to other athletes on the same drill (SELECT from metrics)
-   - Historical scholarship offer data for similar athlete profiles
-   NEVER use query_database for college program info — that data may be outdated. Use web_search instead.
-   The athlete's combine results with ranks are ALREADY in CURRENT ATHLETE PROFILE below. Query only when you need more than that.
-
-GMTM SCHEMA (READ-ONLY, SELECT only). Column names are exact; there is NO `users.id` column.
-- users(user_id PK, first_name, last_name, email, dob, gender, graduation_year, location_id, type, created_on, last_sign_in)
-- locations(location_id PK, city, province, country)                       -- users.location_id -> locations
-- career(career_id PK, user_id, organization_id, team_id, is_primary)       -- an athlete's team/school rows
-- user_positions(career_id, position_id, is_primary) ; positions(position_id PK, name)
-- organizations(organization_id PK, name)
-- metrics(metric_id PK, user_id, title, value VARCHAR, unit, is_current, verified, percentile, created_on, event_id, in_person_event_id, film_id)
-    title examples: '40 Yard Dash','5-10-5 shuttle','Shuttle','20 Yard Dash','60 Yard','Broad Jump','Push ups','Sit ups','Vertical Jump','Height','Weight'
-    value is a string: CAST(value AS DECIMAL(8,2)) before comparing. Lower is better for times, higher for jumps/reps.
-    event_id set = a digital combine result (Remote App-Captured). in_person_event_id set = official in-person result.
-- user_sparq_history(user_id, sparq_score, created_on, ...)                  -- SPARQ rating history
-- events(event_id PK, name, organization_id, start_date, end_date)          -- digital combines / virtual events
-- event_tasks(task_id PK, event_id, title, type) ; event_task_submissions(task_submission_id PK, user_id, task_id, video_uri, payload JSON, created_on)
-- film(film_id PK, user_id, uri, title, published_on, in_person_event_id)   -- video; prefix uri with https://cdn.gmtm.com/
-- scholarship_offers(id PK, user_id, organization_id, created_at)
-
-CRITICAL: READ-ONLY. Only SELECT allowed. Never INSERT, UPDATE, DELETE, DROP, ALTER, or TRUNCATE.
+2. **get_current_athlete** — Returns only the current athlete's server-loaded profile,
+   results, and existing aggregate comparisons. It takes no arguments. Use it for
+   structured detail beyond the CURRENT ATHLETE PROFILE below. It cannot look up
+   other athletes, execute database queries, or supply new comparisons.
+   Missing data means unavailable; do not invent results, completion, or coach interest.
+   The public demo has no private athlete data. Use web_search for public recruiting information.
 
 When helping an athlete:
 - Be specific, confident, and actionable — you are a recruiting expert, not a general chatbot
@@ -79,45 +60,14 @@ When helping an athlete:
 """
 
 # Native web_search tool — Anthropic executes it server-side, no client handling needed
-# query_database — we execute this ourselves (read-only GMTM MySQL)
+# Current-athlete tool — no database access or caller-selected identity during tool execution.
 TOOLS = [
     {
         "type": "web_search_20250305",
         "name": "web_search",
     },
-    {
-        "name": "query_database",
-        "description": (
-            "Execute a READ-ONLY SQL SELECT query against the GMTM athlete database. "
-            "Use this ONLY to look up athlete stats, metrics, and historical offer data. "
-            "Permitted tables: users, locations, career, user_positions, positions, organizations, metrics, user_sparq_history, events, event_tasks, event_task_submissions, film, scholarship_offers. "
-            "DO NOT use this for college or program information — use web_search for that instead, "
-            "as it provides live, current data. Only SELECT statements are permitted."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "sql": {
-                    "type": "string",
-                    "description": "A SELECT SQL query on athlete tables only. Must start with SELECT.",
-                }
-            },
-            "required": ["sql"],
-        },
-    },
+    CURRENT_ATHLETE_TOOL,
 ]
-
-FORBIDDEN_SQL = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "REPLACE", "GRANT", "REVOKE"]
-
-# Only allow queries on athlete-related tables. College/program data is served
-# via web_search (live) — not from the GMTM DB (potentially stale).
-ALLOWED_GMTM_TABLES = {
-    "users", "locations", "career", "user_positions", "positions", "organizations",
-    "metrics", "user_sparq_history", "events", "event_tasks", "event_task_submissions",
-    "film", "scholarship_offers",
-}
-QUERY_ROW_CAP = 200
-QUERY_TIMEOUT_MS = 10000
 
 
 def _get_agent_db():
@@ -140,45 +90,6 @@ def _get_gmtm_db():
         port=3306,
         cursorclass=pymysql.cursors.DictCursor,
     )
-
-
-def _run_read_only_query(sql: str) -> dict:
-    """Execute a read-only SELECT query against the GMTM DB (athlete tables only)."""
-    sql_upper = sql.strip().upper()
-    for keyword in FORBIDDEN_SQL:
-        if sql_upper.startswith(keyword) or f" {keyword} " in sql_upper:
-            return {"error": f"GMTM database is READ-ONLY. {keyword} operations are not permitted."}
-    if not sql_upper.startswith("SELECT"):
-        return {"error": "Only SELECT queries are allowed."}
-    # Table allowlist — only athlete-related tables permitted
-    # College/program data should come from web_search (live), not GMTM (may be stale)
-    import re
-    referenced_tables = set(re.findall(r'\bFROM\s+(\w+)|\bJOIN\s+(\w+)', sql_upper))
-    flat_tables = {t for pair in referenced_tables for t in pair if t}
-    disallowed = flat_tables - {t.upper() for t in ALLOWED_GMTM_TABLES}
-    if disallowed:
-        return {
-            "error": (
-                f"Table(s) not permitted: {', '.join(disallowed).lower()}. "
-                "query_database is for athlete stats only. "
-                "Use web_search for college/program information."
-            )
-        }
-    if " LIMIT " not in sql_upper:
-        sql = sql.rstrip().rstrip(";") + f" LIMIT {QUERY_ROW_CAP}"
-    try:
-        db = _get_gmtm_db()
-        with db.cursor() as c:
-            try:
-                c.execute(f"SET SESSION MAX_EXECUTION_TIME={QUERY_TIMEOUT_MS}")
-            except Exception:
-                pass  # older MySQL; proceed without a statement timeout
-            c.execute(sql)
-            rows = c.fetchmany(50)
-        db.close()
-        return {"rows": rows, "count": len(rows)}
-    except Exception as e:
-        return {"error": str(e)}
 
 
 def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
@@ -233,11 +144,9 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
             }
     except Exception:
         pass
-    # Legacy GMTM athlete: resolve a Clerk id through the athlete_profiles link table, or accept a numeric id.
+    # Legacy GMTM athlete: resolve only through the authenticated Clerk mapping.
     gmtm_user_id: Optional[int] = None
-    if athlete_id and athlete_id.isdigit():
-        gmtm_user_id = int(athlete_id)
-    elif athlete_id:
+    if athlete_id:
         try:
             db = _get_agent_db()
             with db.cursor() as c:
@@ -299,73 +208,122 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
     return None
 
 
-def _load_conversation(athlete_id: str, conversation_id: Optional[int] = None) -> list:
-    """Load last 20 messages for session continuity.
+def _conversation_id(value) -> Optional[int]:
+    """Accept the existing numeric/string request shape, never a falsey or malformed ID."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise HTTPException(status_code=400, detail="Invalid conversation ID.")
+    if isinstance(value, str) and not value.isdigit():
+        raise HTTPException(status_code=400, detail="Invalid conversation ID.")
+    try:
+        result = int(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid conversation ID.") from exc
+    if result <= 0:
+        raise HTTPException(status_code=400, detail="Invalid conversation ID.")
+    return result
 
-    If conversation_id is given (e.g. a What-If fork), load that thread; otherwise
-    load the athlete's default conversation by clerk_id.
-    """
+
+def _default_conversation_id(c, athlete_id: str) -> Optional[int]:
+    # Keep the existing oldest-thread convention for both reads and writes. Do not
+    # mix newer What-If forks into the default history or require a schema migration.
+    c.execute("SELECT id FROM agent_conversations WHERE clerk_id = %s ORDER BY id ASC LIMIT 1", (athlete_id,))
+    row = c.fetchone()
+    return int(row["id"]) if row else None
+
+
+def _require_conversation_owner(athlete_id: str, conversation_id: int) -> None:
+    """Preflight explicit IDs before any profile, model, or tool work."""
+    db = None
     try:
         db = _get_agent_db()
         with db.cursor() as c:
-            if conversation_id:
-                c.execute(
-                    """SELECT role, content FROM agent_messages am
-                       JOIN agent_conversations ac ON am.conversation_id = ac.id
-                       WHERE ac.id = %s AND ac.clerk_id = %s
-                       ORDER BY am.id DESC LIMIT 20""",
-                    (conversation_id, athlete_id),
-                )
-            else:
-                c.execute(
-                    """SELECT role, content FROM agent_messages am
-                       JOIN agent_conversations ac ON am.conversation_id = ac.id
-                       WHERE ac.clerk_id = %s
-                       ORDER BY am.id DESC LIMIT 20""",
-                    (athlete_id,),
-                )
+            c.execute("SELECT clerk_id FROM agent_conversations WHERE id = %s", (conversation_id,))
+            row = c.fetchone()
+            assert_owner(row.get("clerk_id") if row else None, athlete_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Conversation storage is unavailable.") from exc
+    finally:
+        if db:
+            db.close()
+
+
+def _load_conversation(athlete_id: str, conversation_id: Optional[int] = None) -> list:
+    """Load the last 20 messages from one owned thread, never all of an athlete's forks."""
+    db = None
+    try:
+        db = _get_agent_db()
+        with db.cursor() as c:
+            conv_id = conversation_id if conversation_id is not None else _default_conversation_id(c, athlete_id)
+            if conv_id is None:
+                return []
+            c.execute(
+                """SELECT role, content FROM agent_messages am
+                   JOIN agent_conversations ac ON am.conversation_id = ac.id
+                   WHERE ac.id = %s AND ac.clerk_id = %s
+                   ORDER BY am.id DESC LIMIT 20""",
+                (conv_id, athlete_id),
+            )
             rows = c.fetchall()
-        db.close()
         messages = []
         for row in reversed(rows):
             content = row["content"]
             if isinstance(content, str):
                 try:
                     content = json.loads(content)
-                except Exception:
+                except (ValueError, TypeError):
                     pass
             messages.append({"role": row["role"], "content": content})
         return messages
-    except Exception:
-        return []
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Conversation history is unavailable.") from exc
+    finally:
+        if db:
+            db.close()
 
 
-def _save_message(athlete_id: str, role: str, content, conversation_id: Optional[int] = None):
-    """Persist message for conversation history. Uses conversation_id if provided (for forks)."""
+def _save_message(athlete_id: str, role: str, content, conversation_id: Optional[int] = None) -> int:
+    """Persist only into a currently owned conversation; reject ownership changes atomically."""
+    db = None
     try:
         db = _get_agent_db()
         with db.cursor() as c:
-            if conversation_id:
-                conv_id = conversation_id
-            else:
-                c.execute(
-                    "INSERT IGNORE INTO agent_conversations (clerk_id, created_at, updated_at) VALUES (%s, NOW(), NOW())",
-                    (athlete_id,),
-                )
-                db.commit()
-                c.execute("SELECT id FROM agent_conversations WHERE clerk_id = %s ORDER BY id ASC LIMIT 1", (athlete_id,))
-                conv = c.fetchone()
-                conv_id = conv["id"] if conv else None
-            if conv_id:
-                content_str = json.dumps(content) if not isinstance(content, str) else content
-                c.execute(
-                    "INSERT INTO agent_messages (conversation_id, role, content, created_at) VALUES (%s, %s, %s, NOW())",
-                    (conv_id, role, content_str),
-                )
+            conv_id = conversation_id
+            if conv_id is None:
+                conv_id = _default_conversation_id(c, athlete_id)
+                if conv_id is None:
+                    c.execute(
+                        "INSERT IGNORE INTO agent_conversations (clerk_id, created_at, updated_at) VALUES (%s, NOW(), NOW())",
+                        (athlete_id,),
+                    )
+                    conv_id = _default_conversation_id(c, athlete_id)
+            if conv_id is None:
+                raise HTTPException(status_code=503, detail="Could not create a conversation.")
+            content_str = json.dumps(content) if not isinstance(content, str) else content
+            c.execute(
+                """INSERT INTO agent_messages (conversation_id, role, content, created_at)
+                   SELECT ac.id, %s, %s, NOW() FROM agent_conversations ac
+                   WHERE ac.id = %s AND ac.clerk_id = %s""",
+                (role, content_str, conv_id, athlete_id),
+            )
+            if c.rowcount != 1:
+                raise HTTPException(status_code=403, detail="This conversation is no longer available to your account.")
         db.commit()
-        db.close()
-    except Exception as e:
-        print(f"Warning: could not save message: {e}")
+        return int(conv_id)
+    except HTTPException:
+        if db:
+            db.rollback()
+        raise
+    except Exception as exc:
+        if db:
+            db.rollback()
+        raise HTTPException(status_code=503, detail="Your message could not be saved. Please try again.") from exc
+    finally:
+        if db:
+            db.close()
 
 
 @router.get("/api/agent/stream")
@@ -382,12 +340,12 @@ async def stream_agent(
     """
     Streaming workspace AI chat.
     - web_search: Anthropic native tool (web_search_20250305) — server-side, no client handling
-    - query_database: custom tool — client executes read-only SQL against GMTM DB
+    - get_current_athlete: returns the authenticated request's already-loaded profile
 
     Auth: either a valid Clerk token whose subject matches athlete_id (the athlete
     chatting about their own profile), or the demo path — a request carrying the
     DEMO_PROXY_SECRET (injected by the Next.js /api/demo-chat proxy) which is
-    rate-limited by client IP and never loads a real athlete's private history.
+    rate-limited by client IP and never loads any real athlete's profile or history.
     """
     is_demo = False
     if caller_clerk_id:
@@ -403,10 +361,24 @@ async def stream_agent(
             raise HTTPException(status_code=429, detail="Demo limit reached. Sign up to keep going.")
         is_demo = True
 
+    conversation_id = _conversation_id(conversation_id)
+    if is_demo:
+        if conversation_id is not None:
+            raise HTTPException(status_code=400, detail="Demo chat cannot use a saved conversation.")
+        profile, history = None, []
+    else:
+        if conversation_id is not None:
+            _require_conversation_owner(caller_clerk_id, conversation_id)
+        history = _load_conversation(caller_clerk_id, conversation_id)
+        # Persist before returning an SSE response so storage/ownership failures
+        # have an ordinary HTTP error and never start paid model work.
+        conversation_id = _save_message(caller_clerk_id, "user", message, conversation_id)
+        profile = _load_athlete_profile(caller_clerk_id)
+
     async def generate():
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
-        profile = _load_athlete_profile(athlete_id)
+        if conversation_id is not None:
+            yield f"data: {json.dumps({'type': 'session', 'session_id': str(conversation_id)})}\n\n"
 
         # Build athlete-aware system prompt — always injected, every message
         if profile:
@@ -452,16 +424,12 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
         if fork_scenario:
             system_with_profile += f"\n\nHYPOTHETICAL SCENARIO (the athlete is exploring this what-if — adjust all advice accordingly): {fork_scenario}"
 
-        # The public demo is stateless — never load or persist private history for it.
-        history = [] if is_demo else _load_conversation(athlete_id, conversation_id=conversation_id)
         messages = history + [{"role": "user", "content": message}]
-        if not is_demo:
-            _save_message(athlete_id, "user", message, conversation_id=conversation_id)
 
         # Agentic loop — continues until end_turn
         # web_search is native: Anthropic executes it server-side within the stream,
         # result blocks come back automatically, stop_reason stays "end_turn"
-        # query_database is custom: we execute it and loop back with tool_results
+        # Current-athlete data is a fixed request snapshot, not a new database query.
         pending_tool_results = []
 
         iterations = 0
@@ -493,8 +461,8 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
                             tool_name = getattr(block, "name", "")
                             if tool_name == "web_search":
                                 yield f"data: {json.dumps({'type': 'tool', 'label': '🔍 Searching the web...'})}\n\n"
-                            elif tool_name == "query_database":
-                                yield f"data: {json.dumps({'type': 'tool', 'label': '🗄️ Querying athlete database...'})}\n\n"
+                            elif tool_name == CURRENT_ATHLETE_TOOL["name"]:
+                                yield f"data: {json.dumps({'type': 'tool', 'label': 'Reviewing your athlete profile...'})}\n\n"
 
                     elif event.type == "content_block_delta":
                         delta = event.delta
@@ -515,18 +483,18 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
                     return
 
                 elif final_message.stop_reason == "tool_use":
-                    # Only query_database requires client-side handling
+                    # Only our typed current-athlete tool requires local handling.
                     # web_search_20250305 is server-side — skip it here
                     for block in assistant_content:
                         if not (hasattr(block, "type") and block.type == "tool_use"):
                             continue
-                        if block.name == "query_database":
-                            result = _run_read_only_query(block.input.get("sql", ""))
-                            pending_tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": json.dumps(result, default=str),
-                            })
+                        result = current_athlete_tool_result(block.name, block.input, profile, is_demo=is_demo)
+                        pending_tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps(result, default=str),
+                            "is_error": "error" in result,
+                        })
                         # web_search_20250305: server-side, no tool_result needed from us
 
                     if not pending_tool_results:
@@ -535,7 +503,7 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
                             _save_message(athlete_id, "assistant", current_text, conversation_id=conversation_id)
                         yield f"data: {json.dumps({'type': 'done'})}\n\n"
                         return
-                    # Loop continues to send query_database results
+                    # Loop continues with the scoped tool result.
                 else:
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
                     return
@@ -546,8 +514,17 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return
 
+    async def generate_with_errors():
+        try:
+            async for event in generate():
+                yield event
+        except HTTPException as exc:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(exc.detail)})}\n\n"
+        except Exception:
+            yield f"data: {json.dumps({'type': 'error', 'error': 'The response could not be completed. Please try again.'})}\n\n"
+
     return StreamingResponse(
-        generate(),
+        generate_with_errors(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -560,13 +537,16 @@ async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk
     if athlete_id != caller_clerk_id:
         raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     message = request.get("message", "")
+    conversation_id = _conversation_id(request.get("conversation_id"))
+    if conversation_id is not None:
+        _require_conversation_owner(caller_clerk_id, conversation_id)
+    history = _load_conversation(caller_clerk_id, conversation_id)
+    conversation_id = _save_message(caller_clerk_id, "user", message, conversation_id)
 
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-    profile = _load_athlete_profile(athlete_id)
+    profile = _load_athlete_profile(caller_clerk_id)
     profile_context = f"\n\nAthlete profile:\n{json.dumps(profile, default=str)}\n" if profile else ""
-    history = _load_conversation(athlete_id)
-    user_content = f"{profile_context}\n\nUser question: {message}" if (profile_context and not history) else message
-    messages = history + [{"role": "user", "content": user_content}]
+    messages = history + [{"role": "user", "content": message}]
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     full_text = ""
     pending_tool_results = []
@@ -581,7 +561,7 @@ async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk
         response = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2048,
-            system=SYSTEM_PROMPT,
+            system=SYSTEM_PROMPT + profile_context,
             tools=TOOLS,
             messages=messages,
         )
@@ -595,21 +575,22 @@ async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk
             break
         elif response.stop_reason == "tool_use":
             for block in response.content:
-                if hasattr(block, "type") and block.type == "tool_use" and block.name == "query_database":
-                    result = _run_read_only_query(block.input.get("sql", ""))
+                if hasattr(block, "type") and block.type == "tool_use":
+                    result = current_athlete_tool_result(block.name, block.input, profile)
                     pending_tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
                         "content": json.dumps(result, default=str),
+                        "is_error": "error" in result,
                     })
             if not pending_tool_results:
                 break
         else:
             break
 
-    _save_message(athlete_id, "user", user_content)
-    _save_message(athlete_id, "assistant", full_text)
+    _save_message(caller_clerk_id, "assistant", full_text, conversation_id)
     return {
+        "session_id": str(conversation_id),
         "response": full_text,
         "tools_used": [],
         "steps": [],
@@ -618,72 +599,53 @@ async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk
 
 # ── Session Forking ────────────────────────────────────────────────────────────
 
-def _ensure_fork_columns():
-    """Add fork columns to agent_conversations if missing (idempotent)."""
-    try:
-        db = _get_agent_db()
-        with db.cursor() as c:
-            for ddl in [
-                "ALTER TABLE agent_conversations ADD COLUMN fork_scenario VARCHAR(500) DEFAULT NULL",
-                "ALTER TABLE agent_conversations ADD COLUMN parent_id INT DEFAULT NULL",
-            ]:
-                try:
-                    c.execute(ddl)
-                    db.commit()
-                except Exception:
-                    db.rollback()
-        db.close()
-    except Exception:
-        pass
-
-
 @router.post("/api/agent/fork")
 async def fork_session(request: dict, caller_clerk_id: str = Depends(require_clerk_id)):
-    """
-    Create a What-If fork of the athlete's current conversation.
-    Copies parent messages into a new conversation with fork_scenario set.
-    Returns: {session_id: str, fork_scenario: str}
-    """
-    _ensure_fork_columns()
+    """Copy one owned parent atomically. Schema changes belong in a separate migration."""
     athlete_id = str(request.get("athlete_id", ""))
     if athlete_id != caller_clerk_id:
         raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     scenario = str(request.get("scenario", "")).strip()[:500]
-    parent_conv_id = request.get("parent_conversation_id")  # optional int
+    parent_conv_id = _conversation_id(request.get("parent_conversation_id"))
+    if not scenario:
+        raise HTTPException(status_code=400, detail="A What-If scenario is required.")
 
-    if not athlete_id or not scenario:
-        return {"error": "athlete_id and scenario are required"}, 400
-
+    db = None
     try:
         db = _get_agent_db()
         with db.cursor() as c:
-            # Find parent conversation
-            if parent_conv_id:
-                c.execute("SELECT id FROM agent_conversations WHERE id = %s AND clerk_id = %s", (parent_conv_id, athlete_id))
-            else:
-                c.execute("SELECT id FROM agent_conversations WHERE clerk_id = %s ORDER BY id DESC LIMIT 1", (athlete_id,))
+            parent_id = parent_conv_id if parent_conv_id is not None else _default_conversation_id(c, athlete_id)
+            if parent_id is None:
+                raise HTTPException(status_code=404, detail="Start a conversation before creating a What-If fork.")
+            # Hold the parent through creation and copying. A foreign or missing
+            # explicit ID is an error, never an empty newly-created conversation.
+            c.execute("SELECT clerk_id FROM agent_conversations WHERE id = %s FOR UPDATE", (parent_id,))
             parent = c.fetchone()
-            parent_id = parent["id"] if parent else None
-
-            # Create fork conversation
+            assert_owner(parent.get("clerk_id") if parent else None, athlete_id)
             c.execute(
                 "INSERT INTO agent_conversations (clerk_id, fork_scenario, parent_id, created_at, updated_at) VALUES (%s, %s, %s, NOW(), NOW())",
                 (athlete_id, scenario, parent_id),
             )
-            db.commit()
             fork_conv_id = c.lastrowid
-
-            # Copy parent messages into fork
-            if parent_id:
-                c.execute(
-                    """INSERT INTO agent_messages (conversation_id, role, content, created_at)
-                       SELECT %s, role, content, created_at FROM agent_messages
-                       WHERE conversation_id = %s ORDER BY id ASC""",
-                    (fork_conv_id, parent_id),
-                )
-                db.commit()
-
-        db.close()
+            c.execute(
+                """INSERT INTO agent_messages (conversation_id, role, content, created_at)
+                   SELECT %s, am.role, am.content, am.created_at FROM agent_messages am
+                   JOIN agent_conversations ac ON am.conversation_id = ac.id
+                   WHERE ac.id = %s AND ac.clerk_id = %s ORDER BY am.id ASC""",
+                (fork_conv_id, parent_id, athlete_id),
+            )
+        db.commit()
         return {"session_id": str(fork_conv_id), "fork_scenario": scenario}
-    except Exception as e:
-        return {"error": str(e)}
+    except HTTPException:
+        if db:
+            db.rollback()
+        raise
+    except Exception as exc:
+        if db:
+            db.rollback()
+        # Some existing schemas still enforce one conversation per Clerk. Do not
+        # mask that incompatibility as success or alter schema during a request.
+        raise HTTPException(status_code=503, detail="What-If forks are unavailable. Your existing conversation is unchanged.") from exc
+    finally:
+        if db:
+            db.close()

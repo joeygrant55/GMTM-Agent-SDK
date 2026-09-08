@@ -11,7 +11,7 @@ Endpoints powering the Inbox + Artifact Viewer flow:
 - POST /api/artifacts/{artifact_id}/discard → state -> rejected
 - POST /api/artifacts/seed-demo/{clerk_id}  → seeds 3 mock artifacts for the demo loop
 
-Tables (artifacts, artifact_actions) created idempotently on import.
+Tables are prepared explicitly with prepare_agent_schema; imports never run DDL.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -23,13 +23,10 @@ import re
 import pymysql
 import anthropic
 from datetime import datetime, timezone, date
-from dotenv import load_dotenv
 
 from email_sender import send_outreach_email, is_valid_email
 from auth import require_clerk_id, assert_owner
 
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
-load_dotenv()
 
 router = APIRouter(prefix="/api", tags=["Artifacts"])
 
@@ -55,52 +52,6 @@ def _get_agent_db():
         database=os.getenv('AGENT_DB_NAME', 'railway'),
         cursorclass=pymysql.cursors.DictCursor
     )
-
-
-def _ensure_tables():
-    db = None
-    try:
-        db = _get_agent_db()
-        with db.cursor() as c:
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS artifacts (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    clerk_id VARCHAR(255) NOT NULL,
-                    type VARCHAR(40) NOT NULL,
-                    state VARCHAR(40) NOT NULL DEFAULT 'draft',
-                    agent_id VARCHAR(64) DEFAULT NULL,
-                    parent_artifact_id INT DEFAULT NULL,
-                    title VARCHAR(255) DEFAULT NULL,
-                    summary TEXT DEFAULT NULL,
-                    payload JSON,
-                    sources JSON,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_athlete_state_updated (clerk_id, state, updated_at),
-                    INDEX idx_athlete_type (clerk_id, type),
-                    INDEX idx_state_updated (state, updated_at)
-                )
-            """)
-            c.execute("""
-                CREATE TABLE IF NOT EXISTS artifact_actions (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    artifact_id INT NOT NULL,
-                    kind VARCHAR(40) NOT NULL,
-                    performed_by VARCHAR(64) DEFAULT NULL,
-                    payload JSON,
-                    performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_artifact (artifact_id, performed_at)
-                )
-            """)
-        db.commit()
-    except Exception as e:
-        print(f"⚠️ artifacts table creation warning: {e}")
-    finally:
-        if db:
-            db.close()
-
-
-_ensure_tables()
 
 
 # ---------- helpers ----------

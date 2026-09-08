@@ -29,7 +29,7 @@ interface Props {
 export default function ArtifactCard({ artifact, onApprove, onDiscard, pending }: Props) {
   const router = useRouter()
   const icon = ARTIFACT_TYPE_ICON[artifact.type] ?? '📄'
-  const approveLabel = artifact.type === 'outreach_draft' ? 'Approve & send' : 'Approve'
+  const approveLabel = artifact.type === 'outreach_draft' ? 'Review draft' : 'Approve'
 
   const open = () => router.push(`/home/artifact/${artifact.id}`)
 
@@ -74,7 +74,7 @@ export default function ArtifactCard({ artifact, onApprove, onDiscard, pending }
           Open
         </button>
         <button
-          onClick={() => onApprove?.(artifact.id)}
+          onClick={() => artifact.type === 'outreach_draft' ? open() : onApprove?.(artifact.id)}
           disabled={pending}
           className="text-xs px-3 py-1.5 rounded-lg bg-sparq-lime text-sparq-charcoal font-bold hover:bg-sparq-lime-light disabled:opacity-40"
         >
