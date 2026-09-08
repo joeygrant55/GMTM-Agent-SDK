@@ -29,7 +29,7 @@ def success(body):
     return launcher.ProcessResult(0, json.dumps(body).encode(), False, True, False, ())
 
 
-def fake_runner(monkeypatch, *, execute=False, result=None, child_receipt=None):
+def fake_runner(monkeypatch, *, execute=False, result=None, child_receipt=None, scope="profile", returned_scope=None):
     calls = []
     monkeypatch.setattr(launcher, "fable_credentials", lambda: dict(CREDENTIALS))
     def run(command, env, timeout):
@@ -42,6 +42,7 @@ def fake_runner(monkeypatch, *, execute=False, result=None, child_receipt=None):
             service = command[command.index("--service") + 1]
             return success(BACKEND if service == launcher.BACKEND_SERVICE else MYSQL)
         assert command[:4] == [str(launcher.PYTHON), "-I", "-B", str(launcher.READER)]
+        assert command[-2:] == ["--scope", scope]
         assert timeout == 105.0
         assert set(env) == {"DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD",
                             "AGENT_DB_HOST", "AGENT_DB_PORT", "AGENT_DB_NAME", "AGENT_DB_USER",
@@ -53,11 +54,16 @@ def fake_runner(monkeypatch, *, execute=False, result=None, child_receipt=None):
             output.mkdir(mode=0o700)
             receipt = child_receipt if child_receipt is not None else {
                 "status": "observed", "complete": True, "all_connections_closed": True,
+                "requested_scope": returned_scope or scope,
+                "scope": launcher.SCOPES[returned_scope or scope][0],
+                "caps": launcher.SCOPES[returned_scope or scope][1],
+                "attempts": launcher.SCOPES[returned_scope or scope][1],
                 "forbidden_attempts": {}, "source_hashes_before": HASHES, "source_hashes_after": HASHES}
             (output / "receipt.json").write_text(json.dumps(receipt))
             return result if result else success({"private": "synthetic-child-secret"})
-        assert len(command) == 4
+        assert len(command) == 6
         return success({"mode": "offline_preflight", "configured": True,
+                        "scope": returned_scope or scope, "caps": launcher.SCOPES[returned_scope or scope][1],
                         "source_digest": DIGEST, "database_attempts": 0, "connectivity_verified": False,
                         "ignored_secret": "synthetic-child-secret"})
     return run, calls
@@ -271,3 +277,52 @@ def test_configuration_cancellation_prevents_any_next_phase(capsys):
         return launcher.ProcessResult(0, b"synthetic-secret", False, True, False, (), True)
     assert launcher.main([], runner=cancelled) == 2
     assert len(calls) == 1 and "synthetic-secret" not in capsys.readouterr().out
+
+
+def test_materials_preflight_forwards_scope_without_execution(monkeypatch, capsys):
+    run, calls = fake_runner(monkeypatch, scope="materials")
+    assert launcher.main(["--scope", "materials"], runner=run) == 0
+    body = json.loads(capsys.readouterr().out)
+    assert body["scope"] == "materials" and body["caps"] == {"connections": 2, "selects": 7, "statements": 11}
+    assert calls[-1][0][-2:] == ["--scope", "materials"]
+    assert "--execute-reviewed" not in calls[-1][0] and body["database_attempts"] == 0
+
+
+@pytest.mark.parametrize("execute", [False, True])
+def test_materials_run_cannot_accept_profile_preflight_or_receipt(monkeypatch, tmp_path, capsys, execute):
+    run, _ = fake_runner(monkeypatch, scope="materials", returned_scope="profile", execute=execute)
+    args = ["--scope", "materials"]
+    directory = tmp_path.resolve() / "wrong-scope"
+    if execute:
+        args.extend(["--execute-reviewed", "--source-digest", DIGEST, "--output", str(directory)])
+    assert launcher.main(args, runner=run) == 2
+    if execute:
+        receipt = json.loads((directory / "supervisor.json").read_text())
+        assert receipt["scope"] == "materials" and receipt["complete"] is False
+    assert "synthetic-private" not in capsys.readouterr().out
+
+
+def test_materials_supervisor_records_matching_scope(monkeypatch, tmp_path, capsys):
+    run, calls = fake_runner(monkeypatch, scope="materials", execute=True)
+    directory = tmp_path.resolve() / "materials"
+    assert launcher.main(["--scope", "materials", "--execute-reviewed", "--source-digest", DIGEST,
+                          "--output", str(directory)], runner=run) == 0
+    receipt = json.loads((directory / "supervisor.json").read_text())
+    assert receipt["scope"] == "materials" and receipt["complete"] is True
+    assert receipt["caps"] == {"connections": 2, "selects": 7, "statements": 11}
+    assert calls[-1][0][-2:] == ["--scope", "materials"]
+    assert "synthetic-private" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("field,value", [("requested_scope", "profile"), ("scope", "designated_owner_profile_projection"),
+    ("caps", {"connections": 2, "selects": 8, "statements": 12}),
+    ("attempts", {"connections": 2, "selects": 8, "statements": 11}),
+    ("attempts", {"connections": True, "selects": 7, "statements": 11})])
+def test_materials_receipt_scope_or_budget_mismatch_is_rejected(tmp_path, field, value):
+    receipt = {"status": "observed", "complete": True, "all_connections_closed": True,
+               "requested_scope": "materials", "scope": launcher.SCOPES["materials"][0],
+               "caps": launcher.SCOPES["materials"][1], "attempts": launcher.SCOPES["materials"][1],
+               "forbidden_attempts": {}, "source_hashes_before": HASHES, "source_hashes_after": HASHES}
+    receipt[field] = value
+    (tmp_path / "receipt.json").write_text(json.dumps(receipt))
+    assert launcher.observed_child(tmp_path, DIGEST, "materials") is False

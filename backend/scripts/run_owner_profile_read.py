@@ -38,6 +38,10 @@ KILL_GRACE = 2.0
 MAX_CAPTURE = 1024 * 1024
 SAFE_PATH = "/usr/bin:/bin"
 INTERRUPT_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+SCOPES = {
+    "profile": ("designated_owner_profile_projection", {"connections": 2, "selects": 6, "statements": 10}),
+    "materials": ("designated_owner_materials_projection", {"connections": 2, "selects": 7, "statements": 11}),
+}
 
 
 class Blocked(Exception):
@@ -281,12 +285,17 @@ def write_supervisor(directory, receipt):
         os.close(fd)
 
 
-def observed_child(directory, expected_digest):
+def observed_child(directory, expected_digest, scope="profile"):
     try:
         receipt = json.loads(read_regular(directory / "receipt.json", 128 * 1024))
         hashes = receipt.get("source_hashes_before")
         actual = hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
+        receipt_scope, caps = SCOPES[scope]
+        attempts = receipt.get("attempts")
         return (receipt.get("status") == "observed" and receipt.get("complete") is True
+                and receipt.get("requested_scope") == scope and receipt.get("scope") == receipt_scope
+                and receipt.get("caps") == caps and isinstance(attempts, dict) and set(attempts) == set(caps)
+                and all(type(attempts[key]) is int and 0 <= attempts[key] <= cap for key, cap in caps.items())
                 and receipt.get("all_connections_closed") is True
                 and receipt.get("forbidden_attempts") == {}
                 and isinstance(hashes, dict) and actual == expected_digest
@@ -300,6 +309,7 @@ def _main(argv=None, *, runner=run_bounded):
     parser.add_argument("--execute-reviewed", action="store_true")
     parser.add_argument("--source-digest")
     parser.add_argument("--output")
+    parser.add_argument("--scope", choices=tuple(SCOPES), default="profile")
     args = parser.parse_args(argv)
     execute = args.execute_reviewed
     directory = None
@@ -317,26 +327,30 @@ def _main(argv=None, *, runner=run_bounded):
         if execute:
             command.extend(["--execute-reviewed", "--source-digest", args.source_digest,
                             "--output", str(directory)])
+        command.extend(["--scope", args.scope])
         env = {**config, "PATH": SAFE_PATH, "PYTHONDONTWRITEBYTECODE": "1"}
         result = runner(command, env, READER_TIMEOUT)
         if not execute:
             require_process(result)
             body = json.loads(result.stdout)
             if (not isinstance(body, dict) or body.get("mode") != "offline_preflight"
+                    or body.get("scope") != args.scope or body.get("caps") != SCOPES[args.scope][1]
                     or body.get("configured") is not True or body.get("database_attempts") != 0
                     or body.get("connectivity_verified") is not False
                     or not isinstance(body.get("source_digest"), str)
                     or not re.fullmatch(r"[a-f0-9]{64}", body["source_digest"])):
                 raise Blocked("reader_preflight_invalid")
             print(json.dumps({"mode": "offline_preflight", "configured": True,
+                              "scope": args.scope, "caps": SCOPES[args.scope][1],
                               "source_digest": body["source_digest"], "launcher_sha256": launcher_hash,
                               "agent_service_binding_verified": True, "database_attempts": 0,
                               "connectivity_verified": False, "owned_process_groups_dead": True}))
             return 0
         complete = (not result.timed_out and not result.interrupted and result.group_dead and not result.output_limit
-                    and result.returncode == 0 and observed_child(directory, args.source_digest)
+                    and result.returncode == 0 and observed_child(directory, args.source_digest, args.scope)
                     and hashlib.sha256(Path(__file__).read_bytes()).hexdigest() == launcher_hash)
         summary = {"schema_version": 1, "status": "completed" if complete else "incomplete",
+                   "scope": args.scope, "caps": SCOPES[args.scope][1],
                    "complete": complete, "launcher_sha256": launcher_hash,
                    "reviewed_reader_source_digest": args.source_digest,
                    "reader_runtime_limit_seconds": READER_TIMEOUT,

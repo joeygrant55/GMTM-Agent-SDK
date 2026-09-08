@@ -193,8 +193,10 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     title = "SPARQ Combine Candidate"
     if surface == "profile":
         from athlete_evidence import current_athlete_evidence
+        from athlete_materials import current_athlete_materials
         routes = (
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
+            ("GET", "/api/athlete/materials", current_athlete_materials),
             *BUSINESS_ROUTES[2:],
         )
         title = "SPARQ Profile Candidate"

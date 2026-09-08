@@ -30,6 +30,21 @@ REPO = BACKEND.parent
 CAPS = {"connections": 2, "selects": 6, "statements": 10}
 SOURCE_FILES = ("scripts/read_owner_profile_evidence.py", "athlete_evidence.py",
                 "combine_api.py", "combine_requirements.py", "auth.py")
+SCOPES = {
+    "profile": {"caps": CAPS, "module": "athlete_evidence", "files": SOURCE_FILES,
+                "receipt_scope": "designated_owner_profile_projection",
+                "filename": "private-profile-evidence.json", "collection": "evidence", "limit": 20,
+                "functions": (("_identity", 2, ((OWNER,), (OWNER,)), "user_id"),
+                              ("_metric_rows", 1, ((OWNER, 101),), "user_id"))},
+    "materials": {"caps": {"connections": 2, "selects": 7, "statements": 11},
+                  "module": "athlete_materials", "files": SOURCE_FILES + ("athlete_materials.py",),
+                  "receipt_scope": "designated_owner_materials_projection",
+                  "filename": "private-athlete-materials.json", "collection": "items", "limit": 30,
+                  "functions": (("_submission_rows", 1, ((OWNER, 51),), "user_id"),
+                                ("_submitted_film_rows", 1, ((OWNER, 51),), "submission_user_id"),
+                                ("_direct_film_rows", 1, ((OWNER, 51),), "direct_user_id"),
+                                ("_career_film_rows", 1, ((OWNER, 51),), "career_user_id"))},
+}
 ENV_KEYS = ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD",
             "AGENT_DB_HOST", "AGENT_DB_PORT", "AGENT_DB_USER",
             "AGENT_DB_PASSWORD", "AGENT_DB_NAME")
@@ -48,9 +63,9 @@ def normalized(sql):
     return " ".join(sql.split())
 
 
-def source_hashes():
+def source_hashes(scope="profile"):
     result = {}
-    for name in SOURCE_FILES:
+    for name in SCOPES[scope]["files"]:
         path = BACKEND / name
         if path.is_symlink() or not path.is_file():
             raise Blocked("source_missing_or_symlink")
@@ -102,21 +117,25 @@ def output_directory(raw):
 
 
 class Ledger:
-    def __init__(self, directory, hashes):
+    def __init__(self, directory, hashes, scope="profile"):
+        self.scope = scope
+        self.caps = dict(SCOPES[scope]["caps"])
         self.path = directory / "receipt.json"
         self.fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         self.data = {
             "schema_version": 1, "status": "prepared", "complete": False,
             "started_at": datetime.now(timezone.utc).isoformat(),
-            "caps": dict(CAPS), "attempts": dict.fromkeys(CAPS, 0),
+            "caps": dict(self.caps), "attempts": dict.fromkeys(self.caps, 0),
             "statement_counter_scope": "guarded_selects_and_explicit_transaction_setup_not_driver_protocol",
             "forbidden_attempts": {}, "source_hashes_before": hashes,
-            "scope": "designated_owner_profile_projection",
+            "scope": SCOPES[scope]["receipt_scope"], "requested_scope": scope,
             "stored_owner_confirmed": False, "current_clerk_jwt_verified": False,
             "authenticated_http_verified": False, "historical_submissions_read": False,
             "provider_calls": 0, "application_data_writes": False,
             "connections_created": 0, "connections_closed": 0,
         }
+        if scope == "materials":
+            self.data["source_row_counts"] = {}
         self.flush()
 
     def flush(self):
@@ -129,7 +148,7 @@ class Ledger:
         os.fsync(self.fd)
 
     def reserve(self, kind):
-        if self.data["attempts"][kind] >= CAPS[kind]:
+        if self.data["attempts"][kind] >= self.caps[kind]:
             self.deny("budget_" + kind)
         self.data["attempts"][kind] += 1
         self.flush()  # Durable reservation occurs before the operation.
@@ -141,34 +160,42 @@ class Ledger:
         raise Blocked(kind)
 
 
-def reviewed_queries():
+def reviewed_query_specs(scope="profile"):
     """Only fixed SQL literals from the hash-pinned, reviewed source functions.
 
     Never derives authority from runtime SQL. The operator-approved source
     digest includes these functions; changes require a new reviewed digest.
     """
-    tree = ast.parse((BACKEND / "athlete_evidence.py").read_text())
-    queries = []
-    for name, expected in (("_identity", 2), ("_metric_rows", 1)):
+    spec = SCOPES[scope]
+    tree = ast.parse((BACKEND / (spec["module"] + ".py")).read_text())
+    queries = {}
+    for name, expected, parameters, owner_column in spec["functions"]:
         function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == name)
         calls = sorted((node for node in ast.walk(function) if isinstance(node, ast.Call)
                         and isinstance(node.func, ast.Attribute) and node.func.attr == "execute"),
                        key=lambda node: node.lineno)
         if len(calls) != expected:
             raise Blocked("reviewed_sql_shape_changed")
-        for call in calls:
+        for call, params in zip(calls, parameters):
             if len(call.args) != 2 or not isinstance(call.args[0], ast.Constant) or not isinstance(call.args[0].value, str):
                 raise Blocked("reviewed_sql_not_literal")
             sql = normalized(call.args[0].value)
             if not sql.startswith("SELECT ") or re.search(r";|--|/\*|\*/|#|\b(?:INTO|UPDATE|DELETE|INSERT|LOCK|SLEEP|OUTFILE|DUMPFILE)\b", sql, re.I):
                 raise Blocked("reviewed_sql_not_readonly")
-            queries.append(sql)
-    return dict(zip(queries, ((OWNER,), (OWNER,), (OWNER, 101))))
+            if sql in queries:
+                raise Blocked("reviewed_sql_shape_changed")
+            queries[sql] = (params, owner_column)
+    return queries
+
+
+def reviewed_queries(scope="profile"):
+    return {sql: value[0] for sql, value in reviewed_query_specs(scope).items()}
 
 
 class ReadCursor:
     def __init__(self, connection, raw):
         self.connection, self.raw = connection, raw
+        self.query = None
 
     def __enter__(self):
         return self
@@ -187,6 +214,7 @@ class ReadCursor:
             owner.ledger.deny("owner_unresolved")
         owner.ledger.reserve("selects")
         owner.ledger.reserve("statements")
+        self.query = key
         return self.raw.execute(sql, params)
 
     def fetchall(self):
@@ -195,18 +223,36 @@ class ReadCursor:
         # if a driver unexpectedly violates the parameterized WHERE condition.
         if not isinstance(rows, (list, tuple)):
             self.connection.ledger.deny("source_rows_invalid")
+        if self.query is None:
+            self.connection.ledger.deny("fetch_without_reviewed_query")
+        material_source = self.connection.kind == "gmtm" and self.connection.ledger.scope == "materials"
+        required_owner = self.connection.owner_columns[self.query] if material_source else "user_id"
+        if material_source and len(rows) > 51:
+            self.connection.ledger.deny("source_row_bound")
         for row in rows:
-            if (not isinstance(row, dict) or type(row.get("user_id")) is not int
-                    or row["user_id"] != OWNER):
+            if (not isinstance(row, dict) or type(row.get(required_owner)) is not int
+                    or row[required_owner] != OWNER):
                 self.connection.ledger.deny("foreign_owner_row")
+            if material_source:
+                for name in ("user_id", "direct_user_id", "career_user_id", "submission_user_id"):
+                    if row.get(name) is not None and (type(row[name]) is not int or row[name] != OWNER):
+                        self.connection.ledger.deny("foreign_owner_row")
             if self.connection.kind == "agent" and self.connection.clerk is not None and row.get("clerk_id") != self.connection.clerk:
                 self.connection.ledger.deny("case_or_reverse_owner_conflict")
+        if material_source:
+            path = {"user_id": "submissions", "submission_user_id": "submitted_films",
+                    "direct_user_id": "direct_films", "career_user_id": "career_films"}[required_owner]
+            self.connection.ledger.data["source_row_counts"][path] = len(rows)
+            if path == "submissions":
+                self.connection.ledger.data["historical_submissions_read"] = True
+            self.connection.ledger.flush()
         return rows
 
 
 class ReadConnection:
     def __init__(self, raw, kind, ledger, queries):
         self.raw, self.kind, self.ledger, self.queries = raw, kind, ledger, queries
+        self.owner_columns = {sql: value[1] for sql, value in reviewed_query_specs(ledger.scope).items()}
         self.clerk, self.closed = None, False
 
     def start(self):
@@ -306,7 +352,9 @@ def guarded_runtime(ledger):
 
 def read_projection(config, ledger, *, driver=None):
     connections = []
-    queries = reviewed_queries()
+    scope = ledger.scope
+    spec = SCOPES[scope]
+    queries = reviewed_queries(scope)
     try:
         with guarded_runtime(ledger) as network:
             sys.path.insert(0, str(BACKEND))
@@ -323,7 +371,7 @@ def read_projection(config, ledger, *, driver=None):
             service = None
             try:
                 sys.path.insert(0, str(BACKEND))
-                import athlete_evidence as service
+                service = __import__(spec["module"])
                 from starlette.requests import Request
             except BaseException:
                 pymysql.connect = original_connect
@@ -366,8 +414,10 @@ def read_projection(config, ledger, *, driver=None):
                 agent.clerk = clerk
                 service._get_agent_db = lambda: agent
                 service._get_gmtm_db = lambda: connect("gmtm")
-                response = service.current_athlete_evidence(
-                    Request({"type": "http", "method": "GET", "path": "/api/athlete/evidence",
+                endpoint = service.current_athlete_materials if scope == "materials" else service.current_athlete_evidence
+                path = "/api/athlete/materials" if scope == "materials" else "/api/athlete/evidence"
+                response = endpoint(
+                    Request({"type": "http", "method": "GET", "path": path,
                              "query_string": b"", "headers": []}), caller_clerk_id=clerk)
                 if ledger.data["forbidden_attempts"]:
                     raise Blocked("forbidden_operation_attempted")
@@ -379,8 +429,10 @@ def read_projection(config, ledger, *, driver=None):
                     raise Blocked("source_without_confirmed_owner")
                 # Response has no owner ID. Every fetched row was separately
                 # checked against hard-coded user2 before adapter processing.
-                expected = {"state", "athlete", "evidence", "observations", "limitations", "fetched_at"}
-                if set(body) != expected or not isinstance(body["evidence"], list) or len(body["evidence"]) > 20:
+                expected = ({"state", "items", "limitations", "fetched_at"} if scope == "materials"
+                            else {"state", "athlete", "evidence", "observations", "limitations", "fetched_at"})
+                if (set(body) != expected or not isinstance(body[spec["collection"]], list)
+                        or len(body[spec["collection"]]) > spec["limit"]):
                     raise Blocked("unexpected_response_contract")
                 return {"http_status": response.status_code, "response": body}
             finally:
@@ -405,16 +457,19 @@ def main(argv=None):
     parser.add_argument("--execute-reviewed", action="store_true")
     parser.add_argument("--source-digest")
     parser.add_argument("--output", help="New absolute directory outside every Git checkout")
+    parser.add_argument("--scope", choices=tuple(SCOPES), default="profile")
     args = parser.parse_args(argv)
+    scope, spec = args.scope, SCOPES[args.scope]
     try:
-        hashes = source_hashes()
+        hashes = source_hashes(scope)
         config = configuration(os.environ)
         configured, reason = True, None
     except Blocked as error:
         configured, reason = False, error.code
-        hashes = source_hashes()
+        hashes = source_hashes(scope)
     if not args.execute_reviewed:
         print(json.dumps({"mode": "offline_preflight", "configured": configured,
+                          "scope": scope, "caps": spec["caps"],
                           "reason": reason, "source_digest": digest(hashes),
                           "connectivity_verified": False, "database_attempts": 0}))
         return 0 if configured else 2
@@ -425,7 +480,7 @@ def main(argv=None):
     ledger = None
     try:
         directory = output_directory(args.output)
-        ledger = Ledger(directory, hashes)
+        ledger = Ledger(directory, hashes, scope)
         # Inherit only explicitly validated DB configuration. No provider keys,
         # proxies, auth tokens or previous live-test allowances survive.
         os.environ.clear()
@@ -442,17 +497,17 @@ def main(argv=None):
         signal.signal(signal.SIGALRM, lambda *args: ledger.deny("runtime_deadline"))
         signal.alarm(90)
         projection = read_projection(config, ledger)
-        if source_hashes() != hashes:
+        if source_hashes(scope) != hashes:
             raise Blocked("source_changed_during_read")
         payload = (json.dumps(projection, indent=2, sort_keys=True) + "\n").encode()
-        target = directory / "private-profile-evidence.json"
+        target = directory / spec["filename"]
         fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as output:
             output.write(payload)
             output.flush()
             os.fsync(output.fileno())
         ledger.data.update(status="observed", projection_state=projection["response"]["state"],
-                           evidence_count=len(projection["response"]["evidence"]),
+                           evidence_count=len(projection["response"][spec["collection"]]),
                            private_projection_sha256=hashlib.sha256(payload).hexdigest())
     except Blocked as error:
         if ledger:
@@ -464,7 +519,7 @@ def main(argv=None):
         signal.alarm(0)
         if ledger:
             try:
-                ledger.data["source_hashes_after"] = source_hashes()
+                ledger.data["source_hashes_after"] = source_hashes(scope)
                 if ledger.data["source_hashes_after"] != hashes:
                     ledger.data.update(status="blocked", reason="source_changed_during_read")
                 ledger.data["complete"] = True

@@ -1,0 +1,37 @@
+# Existing submissions and footage in the athlete profile
+
+Starting point: local `29efaf2`, Codex's existing SPARQ lane. Joey approved connecting richer existing evidence after the first live adapter returned height/weight only.
+
+## Completion contract
+
+An athlete can inspect supported results already submitted to GMTM and their existing footage records, see the program and source date, choose eligible evidence, and include it in the editable summary/introduction. This is a retrospective evidence collection, with no new checklist or submission workflow. Media opens on an existing validated GMTM film page only on an explicit click; nothing downloads, embeds, autoplays or analyzes footage in this slice.
+
+Use a separate private `GET /api/athlete/materials` in the explicit profile surface. Keep the current identity/measurement endpoint intact. Resolve the stored forward/reverse owner link on the server; accept no athlete ID or query parameter. GMTM remains read-only. Source failures must be distinguishable from no returned material, and must not remove an otherwise usable measurement profile.
+
+Read the original `event_task_submissions.payload.questions` snapshot. The normalized answer mirror can retain outdated rows after edits. Admit only explicitly supported numeric result shapes/units and their retained question labels; no free-text essay, contact, parent/teammate, address, scout note or arbitrary nested object enters this first projection. A submission date is not a measurement date or last-edit date. Approval/processing flags never establish scouting selection or athletic verification.
+
+Footage comes from canonical film rows with validated ownership through every applicable direct-user/career/submission path. Exclude removed or unapproved suggested records and unsupported challenge ownership. Link only to a generated `https://gmtm.com/film/{positive integer}`; no raw CDN, embedded-service, poster or arbitrary payload URL is returned. Stored flags do not prove playback. Exact `dead_link=1` means source-marked unavailable. A public canonical page reference can be included when `dead_link` is exact 0 or NULL; malformed/undocumented dead-link values remain view-only. The legacy `processed` flag neither establishes an active processing job nor blocks an otherwise permitted page reference.
+
+An owner can inspect their own non-removed material according to the existing owner-read semantics. Copy inclusion is separately limited to confirmed public source scope and supported usable records. Restricted records remain private context; they do not silently enter an outward-facing draft. Missing or inconsistent ownership fails closed. Bound rows, payload bytes, output items and field lengths; no broad queries or fallbacks.
+
+## API and ownership of work
+
+Response: `state` (`ready`, `unlinked`, `source_unavailable`), `items`, `limitations`, UTC `fetched_at`. Each item has `id`, `kind` (`submitted_result`, `footage`), `title`, `source_label`, nullable `recorded_at`, `date_label` (`Submitted`, `Published`), nullable numeric `result` (`value`, explicit `unit`), nullable generated `source_url`, `can_include`, and `availability` (`recorded`, `processing`, `unavailable`, `unchecked`). Results must be finite, source-attributable and unverified. Limit displayed items to 30, of which at most 20 are submission results and 10 footage records.
+
+- Backend agent: new `athlete_materials.py` and focused tests; source map and bounded SQL/projection implementation.
+- Frontend agent: materials parser/component and focused component coverage, integrating selections into the existing composer in its assigned files.
+- Root: route/policy and fixture integration, reviewed owner-only live validation, full-app verification, independent review, current state/handoff and local commit.
+
+## Verification and finish
+
+Exercise ownership collisions/foreign joined rows, missing/deleted/restricted sources, invalid or oversized payloads, stale answer ambiguity, unsupported units, exact URL policy and ordinary error cleanup. Verify loading/error/empty states, explicit selection, safe text rendering, stale-account/refresh clearing, draft inclusion and no implicit media/provider requests. Run one heavy local verification at a time under the existing finite supervision/cleanup pattern.
+
+A new live read may cover only Joey's already designated user 2, under a fresh source-pinned contract and separate private ledger. Do not restart or widen the completed September 8 measurement read. Existing read-only credentials/service binding and the finite parent launcher may be reused after reviewing the new read's exact queries and limits. No other athlete is a test dataset. No API deployment, infrastructure/data/settings change, provider call, publication or outreach is included.
+
+The reviewed execution path is now `run_owner_profile_read.py --scope materials`: exactly two connections, at most seven SELECTs and eleven explicit statements including four read-only transaction setup statements. The seven reads are the initial fixed user 2 link resolution, existing forward/reverse link checks, and the four literal queries named in the [source map](athlete-materials-source-map-2026-09-08.md), each with `(2,51)`. No schema introspection or retry/fallback query is authorized. The reader pins source hashes before/after, records the four owner-validated row counts, rejects foreign joined owners and oversized source batches, closes both connections, and writes only its minimized projection to a new mode 0700 directory outside Git. Projection and receipt files are mode 0600. The launcher revalidates the existing Railway MySQL service binding and uses the reviewed first-definition `gmtmread` credentials with the pinned db2-dev host; it does not use the deployed backend's GMTM user. Existing runtime/network/provider/data-write restrictions remain in effect. Root reviewed the scoped diff and the 85 offline reader/launcher regressions before live execution. A completed read is source evidence, not current Clerk/browser/HTTP or playback acceptance.
+
+Finish with actual results and limits, a local commit and dated handoff. This connects existing evidence for the next interpretation/opportunity slice; it does not claim film analysis, selection outcomes, verified benchmarks, current opportunity matching or paid demand.
+
+## Live-source correction within this slice
+
+The first materials read succeeded under its exact budget, returning19 submission snapshots and 60 footage rows across three paths. Its first 10 projected films all had stored processed0; the initial implementation incorrectly labeled them processing and blocked inclusion. Local core/client review established that GMTM persists 0 for supported footage, can return1 for the same stored record, and does not use that flag to gate its player or metadata read. The adapter now labels non-dead footage unchecked and separates permission to include a canonical page link from playback verification. Ownership/publicity gates and SQL bounds remain unchanged. After the corrected adapter's independent review and targeted regression/full-app checks, one fresh source-pinned owner 2 read may verify the corrected projection under the same two-connection/seven-SELECT/eleven-statement caps. Use a separate new private directory and retain the first receipt; no raw media, additional query, other athlete, provider or data write is added.

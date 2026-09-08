@@ -58,6 +58,8 @@ class SyntheticCursor:
                               value="4.75", unit="seconds", created_on="2026-09-01",
                               is_current=1, visibility=2, user_approved=0,
                               suggested_by=None, event_id=None)]
+        elif sql in connection.driver.material_rows:
+            self.rows = deepcopy(connection.driver.material_rows[sql])
         else:
             raise AssertionError("Unexpected synthetic SQL")
 
@@ -82,10 +84,11 @@ class SyntheticConnection:
 
 
 class SyntheticDriver:
-    def __init__(self, on_execute=None, links=None):
+    def __init__(self, on_execute=None, links=None, material_rows=None):
         self.on_execute = on_execute
         self.links = links if links is not None else [dict(user_id=reader.OWNER, clerk_id=CLERK)]
         self.connections = []
+        self.material_rows = material_rows or {}
 
     def __call__(self, **kwargs):
         assert kwargs["connect_timeout"] == 5
@@ -99,9 +102,9 @@ class SyntheticDriver:
 
 
 @contextmanager
-def ledger_at(tmp_path):
+def ledger_at(tmp_path, scope="profile"):
     directory = reader.output_directory(str(tmp_path.resolve() / "receipt"))
-    ledger = reader.Ledger(directory, reader.source_hashes())
+    ledger = reader.Ledger(directory, reader.source_hashes(scope), scope)
     try:
         yield ledger
     finally:
@@ -121,9 +124,35 @@ def configure_main(monkeypatch, driver):
     return handlers, alarms
 
 
-def invoke_main(directory):
-    return reader.main(["--execute-reviewed", "--source-digest", reader.digest(reader.source_hashes()),
-                        "--output", str(directory)])
+def invoke_main(directory, scope="profile", source_digest=None):
+    return reader.main(["--execute-reviewed", "--source-digest", source_digest or reader.digest(reader.source_hashes(scope)),
+                        "--output", str(directory), "--scope", scope])
+
+
+def material_rows():
+    """Independent source fixtures for each exact guarded query and owner path."""
+    event = dict(event_id=1318, joined_event_id=1318, event_name="Synthetic combine",
+                 event_visibility=2, event_published=1, event_public=1,
+                 event_invite_only=0, event_networks_only=0, event_product_id=None)
+    payload = json.dumps({"questions": {"metric:40 Yard Dash": {
+        "type": "metric", "value": {"value": "4.75", "unit": "seconds"}}}})
+    submission = dict(user_id=reader.OWNER, task_submission_id=101, task_id=21,
+                      joined_task_id=21, task_title="Sprint", task_visibility=2,
+                      visibility=2, created_on="2026-09-01", payload=payload,
+                      payload_bytes=len(payload.encode()), **event)
+    film = dict(user_id=reader.OWNER, film_id=301, direct_user_id=reader.OWNER,
+                career_id=None, joined_career_id=None, career_user_id=None,
+                task_submission_id=None, film_event_id=0, in_person_event_id=None,
+                challenge_id=None, approved=0, suggested_by=None, suggested_by_org_id=None,
+                visibility=2, processed=1, dead_link=0, title="Synthetic highlights",
+                published_on="2026-09-01", joined_event_id=None)
+    submitted = dict(film, film_id=302, task_submission_id=101, joined_submission_id=101,
+                     submission_user_id=reader.OWNER, submission_visibility=2,
+                     task_id=21, joined_task_id=21, task_visibility=2, **event)
+    career = dict(film, film_id=303, direct_user_id=None, career_id=31,
+                  joined_career_id=31, career_user_id=reader.OWNER, career_visibility=2,
+                  career_approved=0, career_suggested_by=None, career_suggested_by_org_id=None)
+    return dict(zip(reader.reviewed_queries("materials"), ([submission], [submitted], [film], [career])))
 
 
 @pytest.mark.parametrize("interruption", [signal.SIGINT, signal.SIGTERM, signal.SIGALRM])
@@ -262,3 +291,99 @@ def test_output_refuses_git_existing_and_symlink_destinations(tmp_path):
 def test_configuration_rejects_unreviewed_destinations(overrides, reason):
     with pytest.raises(reader.Blocked, match=reason):
         reader.configuration({**CONFIG, **overrides})
+
+
+def test_materials_scope_retains_actual_projection_with_exact_separate_budgets(tmp_path, monkeypatch, capsys):
+    driver = SyntheticDriver(material_rows=material_rows())
+    configure_main(monkeypatch, driver)
+    directory = tmp_path.resolve() / "materials"
+    assert invoke_main(directory, "materials") == 0
+    receipt = json.loads((directory / "receipt.json").read_text())
+    projection = json.loads((directory / "private-athlete-materials.json").read_text())
+    assert receipt["scope"] == "designated_owner_materials_projection"
+    assert receipt["requested_scope"] == "materials"
+    assert receipt["caps"] == receipt["attempts"] == {"connections": 2, "selects": 7, "statements": 11}
+    assert receipt["source_row_counts"] == dict(submissions=1, submitted_films=1, direct_films=1, career_films=1)
+    assert receipt["historical_submissions_read"] is True and receipt["stored_owner_confirmed"] is True
+    assert receipt["all_connections_closed"] is True and receipt["forbidden_attempts"] == {}
+    assert "athlete_materials.py" in receipt["source_hashes_before"]
+    assert not (directory / "private-profile-evidence.json").exists()
+    assert projection["response"]["state"] == "ready" and len(projection["response"]["items"]) == 4
+    assert projection["response"]["items"][0]["result"] == {"value": 4.75, "unit": "seconds"}
+    assert all(item["source_url"].startswith("https://gmtm.com/film/") for item in projection["response"]["items"][1:])
+    assert "synthetic-private" not in json.dumps(receipt) + json.dumps(projection) + capsys.readouterr().out
+    assert (directory / "private-athlete-materials.json").stat().st_mode & 0o777 == 0o600
+    assert all(connection.rollbacks == connection.closes == 1 for connection in driver.connections)
+    sql = [query for connection in driver.connections for query, _ in connection.executed]
+    assert not any("FROM users u" in query or "FROM metrics m" in query for query in sql)
+
+
+@pytest.mark.parametrize("index,field", [(0, "user_id"), (1, "submission_user_id"),
+    (1, "direct_user_id"), (1, "career_user_id"), (2, "user_id"),
+    (2, "direct_user_id"), (2, "career_user_id"), (3, "career_user_id")])
+def test_materials_driver_foreign_owner_never_reaches_projection_or_count(tmp_path, index, field):
+    rows = material_rows()
+    query = list(rows)[index]
+    rows[query][0][field] = 999
+    driver = SyntheticDriver(material_rows=rows)
+    with ledger_at(tmp_path, "materials") as ledger:
+        with pytest.raises(reader.Blocked, match="forbidden_operation_attempted"):
+            reader.read_projection(CONFIG, ledger, driver=driver)
+        assert ledger.data["forbidden_attempts"] == {"foreign_owner_row": 1}
+        assert len(ledger.data["source_row_counts"]) == index
+        assert ledger.data["all_connections_closed"] is True
+
+
+def test_materials_scope_bounds_source_rows_before_projection_or_count(tmp_path):
+    rows = material_rows()
+    first = next(iter(rows))
+    rows[first] *= 52
+    with ledger_at(tmp_path, "materials") as ledger:
+        with pytest.raises(reader.Blocked, match="forbidden_operation_attempted"):
+            reader.read_projection(CONFIG, ledger, driver=SyntheticDriver(material_rows=rows))
+        assert ledger.data["forbidden_attempts"] == {"source_row_bound": 1}
+        assert ledger.data["source_row_counts"] == {} and ledger.data["all_connections_closed"] is True
+
+
+def test_materials_empty_read_records_four_zero_counts_not_missing_source(tmp_path):
+    rows = {query: [] for query in reader.reviewed_queries("materials")}
+    with ledger_at(tmp_path, "materials") as ledger:
+        projection = reader.read_projection(CONFIG, ledger, driver=SyntheticDriver(material_rows=rows))
+        assert projection["response"]["state"] == "ready" and projection["response"]["items"] == []
+        assert ledger.data["source_row_counts"] == dict(submissions=0, submitted_films=0, direct_films=0, career_films=0)
+
+
+def test_materials_scope_cannot_reuse_profile_digest(tmp_path, monkeypatch):
+    driver = SyntheticDriver(material_rows=material_rows())
+    configure_main(monkeypatch, driver)
+    directory = tmp_path.resolve() / "wrong-scope"
+    assert invoke_main(directory, "materials", reader.digest(reader.source_hashes())) == 2
+    assert not directory.exists() and driver.connections == []
+    assert set(reader.source_hashes("materials")) == set(reader.SOURCE_FILES) | {"athlete_materials.py"}
+    assert reader.CAPS == {"connections": 2, "selects": 6, "statements": 10}
+
+
+@pytest.mark.parametrize("bad_query,bad_params", [
+    ("profile_query", (reader.OWNER,)), ("materials_query", (999, 51)),
+    ("materials_query", (reader.OWNER, 52)),
+])
+def test_materials_query_scope_cannot_expand_owner_or_bound(tmp_path, bad_query, bad_params):
+    queries = reader.reviewed_queries("materials")
+    sql = next(iter(reader.reviewed_queries())) if bad_query == "profile_query" else next(iter(queries))
+    raw = SyntheticConnection(SyntheticDriver(), "gmtm")
+    with ledger_at(tmp_path, "materials") as ledger:
+        connection = reader.ReadConnection(raw, "gmtm", ledger, queries)
+        with connection.cursor() as cursor:
+            with pytest.raises(reader.Blocked, match="query_scope"):
+                cursor.execute(sql, bad_params)
+        assert raw.executed == [] and ledger.data["attempts"]["selects"] == 0
+
+
+@pytest.mark.parametrize("scope", ["profile", "materials"])
+def test_each_scope_offline_preflight_has_zero_database_attempts(scope, monkeypatch, capsys):
+    monkeypatch.setattr(reader.os, "environ", dict(CONFIG))
+    monkeypatch.setattr(reader, "read_projection", lambda *args: pytest.fail("No source access during preflight"))
+    assert reader.main(["--scope", scope]) == 0
+    body = json.loads(capsys.readouterr().out)
+    assert body["scope"] == scope and body["caps"] == reader.SCOPES[scope]["caps"]
+    assert body["database_attempts"] == 0 and body["connectivity_verified"] is False

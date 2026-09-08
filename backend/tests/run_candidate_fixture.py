@@ -243,6 +243,7 @@ def main():
 
     if surface == "profile":
         import athlete_evidence
+        import athlete_materials
 
         class EvidenceAgentDB(AgentDB):
             """Use the shared claim link, but permit only the two owner reads."""
@@ -294,6 +295,61 @@ def main():
 
         athlete_evidence._get_agent_db = EvidenceAgentDB
         athlete_evidence._get_gmtm_db = EvidenceDB
+
+        public_event = dict(joined_event_id=1318, event_name="Fixture digital combine",
+                            event_visibility=2, event_published=1, event_public=1,
+                            event_invite_only=0, event_networks_only=0, event_product_id=None)
+
+        def material_submission(identifier, task_id, title, value, visibility):
+            payload = json.dumps({"questions": {"metric:" + title: {
+                "type": "metric", "key": "metric:" + title,
+                "value": {"value": value, "unit": "inches"}},
+                "essay:Personal contact": {"type": "essay", "value": "synthetic-excluded-contact"}}})
+            return dict(user_id=ATHLETE, task_submission_id=identifier, task_id=task_id,
+                        created_on=datetime(2026, 9, 2, 10, 0), visibility=visibility,
+                        payload=payload, payload_bytes=len(payload.encode()),
+                        joined_task_id=task_id, event_id=1318, task_title="Fixture assessment",
+                        task_visibility=2, **public_event)
+
+        def material_film(identifier, visibility):
+            return dict(user_id=ATHLETE, film_id=identifier, direct_user_id=ATHLETE,
+                        career_id=None, joined_career_id=None, career_user_id=None,
+                        task_submission_id=None, title="Fixture highlight reel",
+                        published_on=datetime(2026, 9, 3, 11, 0), visibility=visibility,
+                        approved=0, suggested_by=None, suggested_by_org_id=None,
+                        processed=0, dead_link=0, challenge_id=None, film_event_id=0,
+                        in_person_event_id=None, joined_event_id=None, event_name=None,
+                        event_visibility=None, event_published=None, event_public=None,
+                        event_invite_only=None, event_networks_only=None, event_product_id=None)
+
+        class MaterialsDB(IdentityDB):
+            """Independent source snapshots, including a private result and film."""
+            def execute(self, sql, params):
+                normalized = " ".join(sql.split())
+                if (not normalized.startswith("SELECT ") or ";" in normalized
+                        or params != (ATHLETE, 51) or not normalized.endswith("LIMIT %s")):
+                    blocked("fixture.unexpected_materials_source_query")()
+                if ("FROM event_task_submissions s" in normalized
+                        and "WHERE s.user_id = %s" in normalized and "NOT EXISTS" in normalized
+                        and "OCTET_LENGTH(s.payload) <= 65536" in normalized):
+                    self.rows = [material_submission(701, 801, "Vertical Jump", 28.5, 2),
+                                 material_submission(702, 802, "Broad Jump", 94, 0)]
+                elif "FROM film f" in normalized and "WHERE s.user_id = %s" in normalized:
+                    self.rows = []
+                elif ("FROM film f" in normalized and "WHERE f.user_id = %s" in normalized
+                      and "f.task_submission_id IS NULL" in normalized and "f.challenge_id IS NULL" in normalized):
+                    private = material_film(704, 0)
+                    private["title"] = "Fixture private practice"
+                    private["published_on"] = datetime(2026, 9, 2, 11, 0)
+                    self.rows = [material_film(703, 2), private]
+                elif ("FROM film f" in normalized and "WHERE c.user_id = %s" in normalized
+                      and "f.user_id IS NULL" in normalized and "f.task_submission_id IS NULL" in normalized):
+                    self.rows = []
+                else:
+                    blocked("fixture.unexpected_materials_source_query")()
+
+        athlete_materials._get_agent_db = EvidenceAgentDB
+        athlete_materials._get_gmtm_db = MaterialsDB
 
     async def synthetic_answer(**kwargs):
         assert kwargs["model"] == "claude-sonnet-4-6"
@@ -356,7 +412,7 @@ def main():
     app = candidate_app.app if surface == "combine" else candidate_app.create_app(surface="profile")
     expected = ({path for _, path, _ in candidate_app.BUSINESS_ROUTES} | {"/health"}
                 if surface == "combine" else {
-                    "/health", "/api/athlete/evidence", "/api/profile/by-clerk/{clerk_id}",
+                    "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/{clerk_id}",
                     "/api/claims/{token}", "/api/claims/{token}/redeem",
                 })
     assert set(app.openapi()["paths"]) == expected
@@ -431,7 +487,7 @@ def main():
             "source_hashes": {name: hashlib.sha256((backend/name).read_bytes()).hexdigest() for name in (
                 "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
                 "combine_help_api.py", "tests/run_candidate_fixture.py",
-                *(("athlete_evidence.py",) if surface == "profile" else ()))},
+                *(("athlete_evidence.py", "athlete_materials.py") if surface == "profile" else ()))},
         }
         descriptor = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as handle:

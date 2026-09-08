@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/profileEvidence.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -94,15 +94,15 @@ window.__identity={isLoaded:true,user:{id:'athlete-a'}};window.__listeners=new S
 window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(fn=>fn())};
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
 window.Clerk={session:{getToken:async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null}};
-window.__requests=[];window.__pending=[];window.__mode={};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
+window.__requests=[];window.__pending=[];window.__mode={};window.__materialsMode={};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
 Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__clipboard.push(text);if(window.__clipboardMode==='failure')throw Error('Fixture clipboard denial');if(window.__clipboardMode==='pending')return new Promise(resolve=>window.__copyPending.push(resolve))}}});
 window.__now=1000000;window.__timers=new Map();let timerId=0;
 window.setTimeout=(fn,ms=0,...args)=>{const id=++timerId;window.__timers.set(id,{at:window.__now+ms,fn:()=>fn(...args)});return id};
 window.clearTimeout=id=>window.__timers.delete(id);
 window.__advance=async ms=>{const end=window.__now+ms;for(const[id,t]of [...window.__timers]){if(t.at<=end){window.__timers.delete(id);t.fn();for(let n=0;n<15;n++)await Promise.resolve()}}window.__now=end};
-function reply(mode={}){if(mode.reject)throw Error('Fixture network failure');const response=new Response(mode.badJSON?'malformed-json':JSON.stringify(mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});if(mode.bodyPending)response.json=()=>new Promise(resolve=>window.__pending.push({stage:'body',resolve}));return response}
-window.fetch=async(input,init={})=>{const u=new URL(String(input),location.origin);if(u.origin!==location.origin||u.pathname!=='/api/athlete/evidence'||u.search||(init.method||'GET')!=='GET')throw Error('Unexpected endpoint '+u);const request={path:u.pathname,method:init.method||'GET',signal:init.signal,authorization:new Headers(init.headers).get('Authorization'),cache:init.cache};window.__requests.push(request);const mode=window.__mode;if(mode.pending)return new Promise(resolve=>window.__pending.push({stage:'response',resolve,request}));return reply(mode)};
-window.__release=(mode={})=>{const pending=window.__pending.shift();if(!pending)throw Error('No pending read');pending.resolve(pending.stage==='body'?mode.body:reply(mode))};
+function reply(mode={},request){if(mode.reject)throw Error('Fixture network failure');const response=new Response(mode.badJSON?'malformed-json':JSON.stringify(mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});if(mode.bodyPending)response.json=()=>new Promise(resolve=>window.__pending.push({stage:'body',resolve,request}));return response}
+window.fetch=async(input,init={})=>{const u=new URL(String(input),location.origin);if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials'].includes(u.pathname)||u.search||(init.method||'GET')!=='GET')throw Error('Unexpected endpoint '+u);const request={path:u.pathname,method:init.method||'GET',signal:init.signal,authorization:new Headers(init.headers).get('Authorization'),cache:init.cache};window.__requests.push(request);const mode=u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;if(mode.pending)return new Promise(resolve=>window.__pending.push({stage:'response',resolve,request}));return reply(mode,request)};
+window.__release=(mode={},path)=>{const index=path?window.__pending.findIndex(p=>p.request?.path===path):0;const pending=index>=0?window.__pending.splice(index,1)[0]:null;if(!pending)throw Error('No pending read');pending.resolve(pending.stage==='body'?mode.body:reply(mode,pending.request))};
 const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefined?{key}:{})});
 function load(id,from=''){
  if(id==='react')return React;
@@ -113,6 +113,7 @@ function load(id,from=''){
  if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;if(!modules[id])throw Error('Missing module '+id);modules[id](x=>load(x,id),m,m.exports);return m.exports;
 }
 window.__helpers=load('app/home/components/profileEvidence');
+window.__materialHelpers=load('app/home/components/profileMaterials');
 const root=ReactDOM.createRoot(document.getElementById('root'));
 window.__mount=(strict=false)=>{const app=React.createElement(load('app/home/components/ProfileWorkspaceShell').default,null,React.createElement(load('app/home/components/ProfileWorkspace').default));root.render(strict?React.createElement(React.StrictMode,null,app):app)};
 window.__unmount=()=>root.render(null);
@@ -128,6 +129,9 @@ const athlete = name => ({ name, sport: 'Flag football', position: 'Receiver', s
 const result = (id, label, value) => ({ id, label, value, unit: 'seconds', recorded_at: '2026-08-20T00:00:00Z', source_label: 'Recorded GMTM metric', verification: 'unconfirmed', event_name: 'Fixture Adult Combine' });
 const profile = (name='Alex Fixture') => ({ state: 'ready', athlete: athlete(name), evidence: [result('m1','20-yard dash',3.12),result('m2','Three-cone drill',7.34)], observations: [{ title: 'Two recorded results', detail: 'These records have a source and a date. They do not establish selection.', evidence_ids:['m1','m2'] }], limitations: ['Verification has not been confirmed.'], fetched_at:'2026-09-08T17:00:00Z' });
 const emptyState = state => ({ state, athlete:null, evidence:[], observations:[], limitations:[], fetched_at:'2026-09-08T17:00:00Z' });
+const materialResult = (id='submission-1', extra={}) => ({id,kind:'submitted_result',title:'Submitted sprint',source_label:'Fixture combine · Sprint exercise',recorded_at:'2026-08-21T12:00:00',date_label:'Submitted',result:{value:4.8,unit:'seconds'},source_url:null,can_include:true,availability:'recorded',...extra});
+const materialFilm = (id='film-12', extra={}) => ({id,kind:'footage',title:'Game footage',source_label:'GMTM footage record',recorded_at:'2026-08-22',date_label:'Published',result:null,source_url:'https://gmtm.com/film/12',can_include:true,availability:'unchecked',...extra});
+const materials = (items=[],state='ready') => ({state,items,limitations:['Only supported existing records are in this view.'],fetched_at:'2026-09-08T17:00:00Z'});
 const checks=[], errors=[], denied=[];
 const work = (async()=>{
     lifecycle('run_started', { runBudgetMs, cleanupBudgetMs });
@@ -149,11 +153,13 @@ const work = (async()=>{
     await context.route('**/*',route=>{const u=new URL(route.request().url());if(u.origin!==origin||!(u.pathname in assets)){denied.push(u.origin+u.pathname);return route.abort()}return route.fulfill({status:200,contentType:u.pathname.endsWith('.js')?'application/javascript':'text/html',body:assets[u.pathname]})});
     const check=(condition,name)=>{assert(condition,name);checks.push(name)};
     const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    const reset=async(mode={body:profile()},identity={isLoaded:true,user:{id:'athlete-a'}},strict=false)=>{await page.goto(origin);await page.evaluate(({mode,identity,strict})=>{window.__mode=mode;window.__setIdentity(identity);window.__mount(strict)},{mode,identity,strict});await settle()};
+    const reset=async(mode={body:profile()},identity={isLoaded:true,user:{id:'athlete-a'}},strict=false,materialMode={body:materials()})=>{await page.goto(origin);await page.evaluate(({mode,identity,strict,materialMode})=>{window.__mode=mode;window.__materialsMode=materialMode;window.__setIdentity(identity);window.__mount(strict)},{mode,identity,strict,materialMode});await settle()};
     const ready=()=>page.getByRole('heading',{name:'What your profile records',exact:true}).waitFor();
     const setMode=async mode=>page.evaluate(mode=>{window.__mode=mode},mode);
+    const setMaterialsMode=async mode=>page.evaluate(mode=>{window.__materialsMode=mode},mode);
     const switchAccount=async id=>{await page.evaluate(id=>window.__setIdentity({isLoaded:true,user:id?{id}:null}),id);await settle()};
     const release=async mode=>{await page.evaluate(mode=>window.__release(mode),mode);await settle()};
+    const releaseMaterials=async mode=>{await page.evaluate(mode=>window.__release(mode,'/api/athlete/materials'),mode);await settle()};
     const goal=()=>page.getByLabel('What are you working toward?',{exact:true});
     const draft=()=>page.getByLabel('Your text — ready to edit',{exact:true});
     const prepare=()=>page.getByRole('button',{name:'Prepare my text',exact:true}).click();
@@ -164,7 +170,7 @@ const work = (async()=>{
     check(await page.getByText('3.12 seconds',{exact:true}).isVisible()&&await page.getByText(/Recorded GMTM metric · Aug 20, 2026/).count()===2,'Results retain exact value, unit, source and date');
     check(await page.getByText('Two recorded results',{exact:true}).isVisible()&&await page.getByText('Based on: 20-yard dash, Three-cone drill',{exact:true}).isVisible(),'Backend observations retain evidence attribution');
     check(await page.getByRole('button',{name:'Prepare my text',exact:true}).isDisabled(),'A real stated goal is required before output preparation');
-    check(await page.evaluate(()=>window.__requests.length===1&&window.__requests[0].path==='/api/athlete/evidence'&&window.__requests[0].authorization==='Bearer fixture-athlete-a'&&window.__requests[0].cache==='no-store'),'Only the authenticated no-store evidence GET runs, without caller athlete IDs');
+    check(await page.evaluate(()=>window.__requests.length===2&&window.__requests.map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&window.__requests.every(r=>r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.method==='GET')),'Only the two authenticated no-store evidence GETs run, without caller athlete IDs');
     check(await page.getByRole('navigation').count()===0&&await page.getByRole('textbox').count()===2&&await page.getByRole('heading',{name:'Combine help'}).count()===0,'Shell has no task navigation, chat panel or additional workspace request');
 
     await page.getByRole('checkbox').first().check();await goal().fill('Prepare for a specific adult team trial');await page.getByLabel('Intended use (optional)',{exact:true}).fill('My trial application');await prepare();
@@ -182,7 +188,7 @@ const work = (async()=>{
     check(await page.getByLabel('Who is this for?',{exact:true}).inputValue()===''&&await page.getByRole('button',{name:'Rebuild from these details'}).isDisabled(),'Introduction requires an explicitly provided recipient, not the earlier intended-use text');
     await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await page.getByRole('button',{name:'Rebuild from these details'}).click();
     check((await draft().inputValue()).startsWith('Hello Coach Fixture,')&&!(await draft().inputValue()).includes('guaranteed'),'Introduction names only the recipient supplied by the athlete');
-    check(await page.evaluate(()=>window.__requests.length)===1&&await page.evaluate(()=>localStorage.length===0&&sessionStorage.length===0),'Selection, preparation, editing and copying call no provider/API and persist no browser storage');
+    check(await page.evaluate(()=>window.__requests.length===2&&window.__requests.map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&localStorage.length===0&&sessionStorage.length===0),'Selection, preparation, editing and copying add no API calls beyond the two initial reads and persist no browser storage');
 
     await page.evaluate(()=>{window.__clipboardMode='failure'});await page.getByRole('button',{name:'Copy text',exact:true}).click();await page.getByText(/Clipboard access is unavailable/).waitFor();
     check(await page.getByText('Copied to clipboard. Nothing has been sent.',{exact:true}).count()===0,'Clipboard denial never reports copy success');
@@ -265,6 +271,80 @@ const work = (async()=>{
     check(dates[2]==='Aug 2, 2026','Explicit-offset timestamps normalize to the stated UTC display date');
     const naiveProfile=profile();naiveProfile.evidence[0].recorded_at='2026-08-01T23:30:00';await reset({body:naiveProfile});await ready();await page.getByRole('checkbox').first().check();await goal().fill('An actual goal');await prepare();
     check((await draft().inputValue()).includes('Aug 1, 2026')&&await page.getByText(/Recorded GMTM metric · Aug 1, 2026/).isVisible(),'The actual rendered record and prepared draft both preserve the naive source date');
+
+    const materialRegion=()=>page.getByRole('region',{name:'Your submitted results and footage',exact:true});
+    const richMaterials=materials([materialResult(),materialFilm(),materialResult('private-result',{title:'Private submitted result',can_include:false}),materialFilm('processing-film',{title:'Processing footage',availability:'processing',can_include:false,source_url:null})]);
+    await reset({body:profile()},undefined,false,{body:richMaterials});await ready();
+    await materialRegion().getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
+    check(await page.evaluate(()=>!!(document.getElementById('profile-output-title').compareDocumentPosition(document.getElementById('profile-materials-title'))&Node.DOCUMENT_POSITION_FOLLOWING))&&await page.getByRole('link',{name:'Explore submitted results and footage (4)',exact:true}).getAttribute('href')==='#profile-materials-title','Composer precedes the material list in phone reading order with a direct evidence jump');
+    check(await materialRegion().getByRole('article').count()===3&&await materialRegion().getByRole('checkbox').count()===2,'Three materials appear initially and private records have no include control');
+    check(await materialRegion().getByText(/Submitted: Aug 21, 2026/).count()===2&&await materialRegion().getByText(/Published: Aug 22, 2026/).count()===1,'Submission and publication dates are explicitly distinguished from measurement dates');
+    const filmLink=materialRegion().getByRole('link',{name:/View footage on GMTM: Game footage/});
+    check(await filmLink.getAttribute('href')==='https://gmtm.com/film/12'&&await filmLink.getAttribute('target')==='_blank'&&await filmLink.getAttribute('rel')==='noopener noreferrer','Footage offers only its explicit generated GMTM page link');
+    check(await page.locator('img,video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__requests.length===2),'Viewing material records loads no media, preview, provider or extra endpoint');
+    await materialRegion().getByRole('checkbox',{name:/Include Submitted sprint/}).check();await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).check();await goal().fill('Prepare evidence for my next real application');await prepare();
+    const materialDraft=await draft().inputValue();
+    check(materialDraft.includes('Submitted sprint: 4.8 seconds')&&materialDraft.includes('Fixture combine · Sprint exercise; Submitted: Aug 21, 2026')&&materialDraft.includes('https://gmtm.com/film/12 (Playback not checked.)')&&!materialDraft.includes('Private submitted result'),'Selected public results and film references keep source, date and uncertainty; private material never enters the draft');
+    await draft().fill('My own edited text');await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).uncheck();
+    check((await draft().inputValue())==='My own edited text'&&await page.getByText(/Your selections changed/).isVisible(),'Changing material selection marks an edited draft stale without replacing it');
+    await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    check((await draft().inputValue()).includes('Submitted sprint')&&!(await draft().inputValue()).includes('/film/12'),'Only explicit rebuild applies the changed material selection');
+    await materialRegion().getByRole('button',{name:'Show all 4 materials',exact:true}).click();
+    check(await materialRegion().getByRole('article').count()===4&&await materialRegion().getByText('Processing not confirmed in GMTM. View only; this record will not be included in your text.',{exact:true}).isVisible(),'Expanded processing footage is visible as source context and cannot enter text');
+    await materialRegion().getByRole('button',{name:'Show fewer materials',exact:true}).click();
+    check(await materialRegion().getByRole('checkbox',{name:/Include Submitted sprint/}).isChecked(),'Collapsing materials preserves selected public evidence');
+    await page.getByLabel('Introduction',{exact:true}).check();await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Example');await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    const introduction=await draft().inputValue();
+    check(introduction.startsWith('Hello Coach Example,')&&introduction.indexOf('Additional evidence')<introduction.indexOf('Thank you for your time.')&&introduction.endsWith('Alex Fixture'),'Material facts are inserted before the existing introduction closing');
+    await setMaterialsMode({body:materials()});await page.getByRole('button',{name:'Refresh profile',exact:true}).click();await ready();
+    check(await draft().count()===0&&await materialRegion().getByRole('checkbox').count()===0&&await page.locator('input[type=checkbox]:checked').count()===0,'Main refresh clears material records, selections and the draft before the new source view');
+
+    for(const materialMode of [{status:503,body:{detail:'PRIVATE MATERIAL ERROR'}},{body:materials([],'source_unavailable')},{reject:true},{badJSON:true}]){
+      await reset({body:profile()},undefined,false,materialMode);await ready();await materialRegion().getByRole('alert').waitFor();await goal().fill('Use my available profile measurements');await page.getByRole('checkbox').first().check();await prepare();
+      check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible()&&await page.getByText('PRIVATE MATERIAL ERROR',{exact:false}).count()===0,'Failed materials read preserves usable base profile and composer: '+JSON.stringify(Object.keys(materialMode)));
+    }
+    await setMaterialsMode({body:richMaterials});await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('checkbox').first().waitFor();
+    check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&await materialRegion().getByRole('alert').count()===0,'Materials retry restores source cards without erasing an existing base-evidence draft');
+    await reset({body:profile()},undefined,false,{body:materials()});await ready();
+    check(await materialRegion().getByText(/No supported submissions or footage were returned in this view/).isVisible()&&await materialRegion().getByRole('alert').count()===0,'An empty material view is distinct from source failure and does not claim the overall profile is empty');
+    await reset({body:profile()},undefined,false,{body:materials([],'unlinked')});await ready();
+    check(await materialRegion().getByText(/Your connection could not be confirmed for these materials/).isVisible()&&await materialRegion().getByRole('checkbox').count()===0,'Unconfirmed material ownership displays no source records while retaining the independently read base profile');
+
+    const malformedMaterials=[
+      materials([materialFilm('film-1',{source_url:'https://cdn.example.invalid/raw.mp4'})]),
+      materials([materialFilm('film-1',{source_url:'https://gmtm.com/film/1?token=private'})]),
+      materials([materialFilm('film-1',{source_url:'https://gmtm.com/film/0'})]),
+      materials([materialFilm('film-1',{source_url:'javascript:alert(1)'})]),
+      materials([materialFilm('film-1',{availability:'processing',can_include:true})]),
+      materials([materialFilm('film-1',{availability:'unchecked',source_url:null,can_include:true})]),
+      materials([materialResult('r',{result:null})]),
+      materials([materialResult('r',{date_label:'Published'})]),
+      materials([materialResult('r',{recorded_at:'2026-02-30'})]),
+      materials([materialResult('duplicate'),materialResult('duplicate')]),
+      materials([materialFilm()],'unlinked'),
+      materials(Array.from({length:21},(_,i)=>materialResult('r'+i))),
+      materials(Array.from({length:11},(_,i)=>materialFilm('f'+i))),
+    ];
+    for(const [index,body] of malformedMaterials.entries()){
+      await reset({body:profile()},undefined,false,{body});await ready();await materialRegion().getByRole('alert').waitFor();
+      check(await materialRegion().getByRole('checkbox').count()===0&&await materialRegion().getByRole('link').count()===0&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible(),'Unsafe or contradictory material response is withheld without erasing base evidence: '+index);
+    }
+    const hostileMaterial=materialResult('hostile',{title:'<img src=x onerror="window.__materialXss=1">'});
+    await reset({body:profile()},undefined,false,{body:materials([hostileMaterial])});await ready();await materialRegion().getByRole('checkbox').first().check();await goal().fill('A genuine use for my recorded evidence');await prepare();
+    check(await page.locator('img,iframe,video').count()===0&&await page.evaluate(()=>window.__materialXss===undefined)&&(await draft().inputValue()).includes(hostileMaterial.title),'Material labels render and copy as escaped plain text without media or code execution');
+
+    await reset({body:profile()},undefined,false,{pending:true});await ready();await goal().fill('Continue while materials load');await prepare();await page.evaluate(()=>window.__advance(30000));await settle();await materialRegion().getByRole('alert').waitFor();
+    check((await draft().inputValue()).includes('Continue while materials load')&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/materials').signal.aborted),'Materials timeout aborts only its request and keeps the base-evidence draft usable');
+    await setMaterialsMode({body:materials([materialFilm('new-film',{title:'Latest footage'})])});await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('heading',{name:'Latest footage',exact:true}).waitFor();await releaseMaterials({body:materials([materialFilm('old-film',{title:'LATE OLD FOOTAGE'})])});
+    check(await materialRegion().getByRole('heading',{name:'Latest footage',exact:true}).isVisible()&&await page.getByText('LATE OLD FOOTAGE',{exact:true}).count()===0,'Timed-out materials cannot overwrite a newer successful retry');
+    for(const mode of [{pending:true},{bodyPending:true,body:richMaterials}]){
+      await reset({body:profile()},undefined,false,mode);await ready();await setMaterialsMode({body:materials([materialFilm('new-account-film',{title:'New account footage'})])});await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();await releaseMaterials({body:materials([materialFilm('old-account-film',{title:'PRIVATE OLD FOOTAGE'})])});
+      check(await materialRegion().getByRole('heading',{name:'New account footage',exact:true}).isVisible()&&await page.getByText('PRIVATE OLD FOOTAGE',{exact:true}).count()===0&&await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/materials').at(-1).authorization==='Bearer fixture-athlete-b'),'Account switch aborts stale material '+(mode.pending?'response':'body')+' and reads with the new credential');
+    }
+    await reset({body:profile()},undefined,false,{pending:true});await ready();await switchAccount(null);await releaseMaterials({body:richMaterials});
+    check(await materialRegion().count()===0&&await page.getByText('Game footage',{exact:true}).count()===0&&await page.evaluate(()=>window.__timers.size===0),'Logout removes materials and late responses cannot reintroduce private records');
+    await reset({body:profile()},undefined,false,{pending:true});await ready();await page.evaluate(()=>window.__unmount());await settle();await releaseMaterials({body:richMaterials});
+    check(await page.locator('#root').innerHTML()===''&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/materials').signal.aborted&&window.__timers.size===0),'Unmount cancels the materials read and clears its timer');
     check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside the intercepted fixture assets');
     const changed=files.filter(file=>crypto.createHash('sha256').update(fs.readFileSync(path.join(frontend,file))).digest('hex')!==sourceHashes[file]);check(changed.length===0,'Captured application inputs remain unchanged during the check');
     assertRunning();

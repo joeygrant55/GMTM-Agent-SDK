@@ -20,6 +20,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
     schema = profile_app.openapi()
     expected = {
         "/api/athlete/evidence": "get", "/api/profile/by-clerk/{clerk_id}": "get",
+        "/api/athlete/materials": "get",
         "/api/claims/{token}": "get", "/api/claims/{token}/redeem": "post",
         "/health": "get",
     }
@@ -27,6 +28,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
     assert all(set(schema["paths"][path]) == {method} for path, method in expected.items())
     # Choosing this app never widens the original manifest.
     assert "/api/athlete/evidence" not in candidate_app.create_app().openapi()["paths"]
+    assert "/api/athlete/materials" not in candidate_app.create_app().openapi()["paths"]
     with pytest.raises(ValueError):
         candidate_app.create_app(surface="unexpected")
 
@@ -52,12 +54,16 @@ def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, si
             assert response.status_code == 401
             assert response.headers["cache-control"] == "private, no-store"
             assert "Authorization" in response.headers["vary"]
+            materials = client.get("/api/athlete/materials", headers=headers)
+            assert materials.status_code == 401
+            assert materials.headers["cache-control"] == "private, no-store"
 
 
 def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, signed):
     with TestClient(profile_app) as client:
         for method, path in (
             ("POST", "/api/athlete/evidence"), ("GET", "/api/athlete/evidence/"),
+            ("POST", "/api/athlete/materials"), ("GET", "/api/athlete/materials/"),
             ("GET", "/api/combine/current"), ("POST", "/api/combine/help"),
             ("POST", "/api/artifacts/draft-outreach"), ("POST", "/api/profile/connect"),
             ("GET", "/api/workspace/inbox/user"), ("GET", "/api/reports/public/token"),
@@ -72,6 +78,7 @@ def test_profile_configuration_drift_and_query_overrides_fail_closed(profile_app
     with TestClient(profile_app) as client:
         response = client.get("/api/athlete/evidence?user_id=2", headers=signed())
         assert response.status_code == 400
+        assert client.get("/api/athlete/materials?user_id=2", headers=signed()).status_code == 400
         monkeypatch.setenv("DB_USER", "unexpected")
         response = client.get("/api/athlete/evidence", headers=signed())
         assert response.status_code == 503

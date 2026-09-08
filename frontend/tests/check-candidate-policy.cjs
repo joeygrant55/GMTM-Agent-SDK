@@ -23,12 +23,14 @@ check('No candidate POST pages or server actions', () => assert.equal(policy.can
 check('Legacy transport remains explicit and unrestricted by candidate manifest', () => assert.equal(policy.resolveAPIRequest('/api/workspace/inbox/me','https://backend.example','legacy'), 'https://backend.example/api/workspace/inbox/me'))
 
 check('Profile surface keeps the restricted boundary', () => { assert.equal(policy.isProfileSurface('profile'),true); assert.equal(policy.isCombineSurface('profile'),false); assert.equal(policy.isRestrictedSurface('profile'),true); assert.equal(policy.isRestrictedSurface('legacy'),false) })
-for (const input of ['/api/athlete/evidence','/api/profile/by-clerk/user_fixture']) check('Profile allows narrow read '+input,()=>assert.equal(policy.resolveAPIRequest(input,'https://backend.example','profile'),'https://backend.example'+input))
+for (const input of ['/api/athlete/evidence','/api/athlete/materials','/api/profile/by-clerk/user_fixture']) check('Profile allows narrow read '+input,()=>assert.equal(policy.resolveAPIRequest(input,'https://backend.example','profile'),'https://backend.example'+input))
 for (const [method,input] of [['POST','/api/athlete/evidence'],['GET','/api/athlete/evidence?user_id=2'],['GET','/api/athlete/evidence?'],['GET','/api/combine/current'],['POST','/api/combine/help'],['GET','/api/workspace/inbox/me'],['POST','/api/profile/connect'],['GET','/api/reports/public/token']]) {
  if(input.endsWith('?')) continue // URL normalizes an empty query; it cannot select another athlete.
  check('Profile denies '+method+' '+input,()=>assert.throws(()=>policy.resolveAPIRequest(input,'https://backend.example','profile',method)))
 }
 check('Combine does not gain profile evidence route',()=>assert.throws(()=>policy.resolveAPIRequest('/api/athlete/evidence','https://backend.example','combine')))
+check('Combine does not gain materials route',()=>assert.throws(()=>policy.resolveAPIRequest('/api/athlete/materials','https://backend.example','combine')))
+for (const [method,input] of [['POST','/api/athlete/materials'],['GET','/api/athlete/materials?user_id=2'],['GET','/api/athlete/materials?event_id=1318'],['GET','/api/athlete/materials/'],['GET','/api/athlete/materials#film']]) check('Profile denies material selector or alternate route '+method+' '+input,()=>assert.throws(()=>policy.resolveAPIRequest(input,'https://backend.example','profile',method)))
 
 const apiFile = path.resolve(__dirname,'../app/_lib/api.ts')
 const code = ts.transpileModule(fs.readFileSync(apiFile,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText

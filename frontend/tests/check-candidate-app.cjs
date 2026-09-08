@@ -408,12 +408,36 @@ const work = (async () => {
     await page.getByRole('heading', {name:'Ava Fixture',exact:true}).waitFor();
     check(await page.locator('#combine-workspace-main').count() === 0, 'Profile entry does not mount the combine checklist');
     check(await page.getByRole('heading', {name:'Put your profile to work.',exact:true}).count() === 1, 'Actual claimed profile reaches the new workspace');
-    await page.getByRole('checkbox').first().check();
+    const measurementGroup = page.getByRole('group', {name:'Evidence to include',exact:true});
+    const materialsRegion = page.getByRole('region', {name:'Your submitted results and footage',exact:true});
+    await materialsRegion.getByText('2 submitted results and 2 footage records in this view.', {exact:true}).waitFor();
+    check(await materialsRegion.locator('article').count() === 3, 'Actual ASGI materials initially show three records');
+    check(await materialsRegion.getByRole('heading',{name:'Broad Jump',exact:true}).count() === 1
+      && await materialsRegion.getByRole('checkbox',{name:/Include Broad Jump/}).count() === 0, 'Restricted submission is private context without a draft checkbox');
+    check(!await page.getByText('synthetic-excluded-contact',{exact:true}).count(), 'Arbitrary submission contact text never enters the profile');
+    const footageLink = materialsRegion.getByRole('link',{name:/View footage on GMTM.*Fixture highlight reel/});
+    check(await footageLink.getAttribute('href') === 'https://gmtm.com/film/703'
+      && await footageLink.getAttribute('target') === '_blank', 'Legacy processed-zero footage exposes its canonical GMTM page link without a playback claim');
+    await measurementGroup.getByRole('checkbox').first().check();
+    await materialsRegion.getByRole('checkbox',{name:/Include Vertical Jump from/}).check();
+    await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).check();
     await page.getByLabel('What are you working toward?').fill('Prepare for my next flag football opportunity.');
     await page.getByRole('button', {name:'Prepare my text',exact:true}).click();
     const editor = page.getByLabel('Your text — ready to edit');
     const generated = await editor.inputValue();
     check(generated.includes('Ava Fixture') && generated.includes('4.75 seconds') && generated.includes('Prepare for my next flag football opportunity.'), 'Actual GMTM-shaped fixture evidence and athlete goal feed the draft');
+    check(generated.includes('Vertical Jump: 28.5 inches') && generated.includes('Fixture digital combine')
+      && generated.includes('https://gmtm.com/film/703') && !generated.includes('Broad Jump')
+      && !generated.includes('Fixture private practice'), 'Selected public material retains its source in the draft; private material stays out');
+    await materialsRegion.getByRole('button',{name:'Show all 4 materials',exact:true}).click();
+    check(await materialsRegion.getByRole('heading',{name:'Fixture private practice',exact:true}).count() === 1
+      && await materialsRegion.getByRole('checkbox',{name:/Include Fixture private practice/}).count() === 0, 'Expanded private footage remains view-only');
+    await materialsRegion.getByRole('button',{name:'Show fewer materials',exact:true}).click();
+    await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).uncheck();
+    await page.getByText('Your selections changed. Rebuild to include them, or keep editing this version.',{exact:true}).waitFor();
+    check(await editor.inputValue() === generated, 'Changing selected material preserves edits until an explicit rebuild');
+    await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    check(!(await editor.inputValue()).includes('https://gmtm.com/film/703'), 'Explicit rebuild removes deselected footage');
     const revised = generated + '\nI am available to discuss my next step.';
     await editor.fill(revised);
     await page.getByRole('button', {name:'Copy text',exact:true}).click();
@@ -426,6 +450,23 @@ const work = (async () => {
     await page.getByRole('button',{name:'Refresh profile',exact:true}).click();
     await page.getByRole('heading',{name:'Ava Fixture',exact:true}).waitFor();
     check(await page.getByLabel('Your text — ready to edit').count() === 0, 'Refresh clears the page-local draft');
+    await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
+    check(await materialsRegion.getByRole('checkbox').evaluateAll(inputs => inputs.every(input => !input.checked)), 'Refresh also clears all material selections');
+    const materialsURL = backOrigin + '/api/athlete/materials';
+    const failedMaterials = route => route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Synthetic materials outage'})});
+    await page.route(materialsURL, failedMaterials);
+    try {
+      await page.getByRole('button',{name:'Refresh profile',exact:true}).click();
+      await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).waitFor();
+      check(await measurementGroup.getByRole('checkbox').count() === 1, 'Materials failure preserves usable profile evidence in the actual app');
+      await page.getByLabel('What are you working toward?').fill('Keep working while footage is unavailable.');
+      await page.getByRole('button',{name:'Prepare my text',exact:true}).click();
+      check((await editor.inputValue()).includes('Keep working while footage is unavailable.'), 'An independent materials outage does not block the composer');
+    } finally { await page.unroute(materialsURL, failedMaterials); }
+    const draftBeforeRetry = await editor.inputValue();
+    await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).click();
+    await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
+    check(await editor.inputValue() === draftBeforeRetry, 'Successful materials retry preserves the existing edited draft');
     // Exact local GET response overlay only, after the real ASGI-backed journey.
     // This stresses presentation of the adapter's maximum 20 displayed results.
     const evidenceURL = backOrigin + '/api/athlete/evidence';
@@ -443,12 +484,12 @@ const work = (async () => {
     try {
       await page.getByRole('button', { name: 'Refresh profile', exact: true }).click();
       await page.getByRole('button', { name: 'Show all 20 results', exact: true }).waitFor();
-      check(await page.getByRole('checkbox').count() === 3, 'Twenty-result phone profile initially presents three results');
+      check(await measurementGroup.getByRole('checkbox').count() === 3, 'Twenty-result phone profile initially presents three results');
       await page.getByRole('button', { name: 'Show all 20 results', exact: true }).click();
-      check(await page.getByRole('checkbox').count() === 20, 'Phone athlete can expand all twenty results');
-      await page.getByRole('checkbox').last().check();
+      check(await measurementGroup.getByRole('checkbox').count() === 20, 'Phone athlete can expand all twenty results');
+      await measurementGroup.getByRole('checkbox').last().check();
       await page.getByRole('button', { name: 'Show fewer results', exact: true }).click();
-      check(await page.getByRole('checkbox').count() === 3, 'Phone athlete can collapse the result list again');
+      check(await measurementGroup.getByRole('checkbox').count() === 3, 'Phone athlete can collapse the result list again');
       const composerTop = await page.locator('#profile-output-title').evaluate(element => element.getBoundingClientRect().top + window.scrollY);
       check(composerTop < 2 * 844, 'Collapsed twenty-result phone profile reaches the composer within two viewports');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Twenty-result phone layout has no horizontal overflow');
@@ -509,7 +550,7 @@ Promise.race([work, interrupted]).catch(error => { result = { status: 'failed', 
       if (result.status === 'passed') {
         assert.equal(receipt.synthetic_help_calls, surface === 'combine' ? 1 : 0, 'Unexpected synthetic help calls for surface');
         assert(receipt.fixture_connection_count > 0, 'No synthetic SQL work observed');
-        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence'];
+        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence','GET /api/athlete/materials'];
         for (const route of [...surfaceRoutes, 'GET /api/profile/by-clerk/{clerk_id}', 'GET /api/claims/{token}', 'POST /api/claims/{token}/redeem']) assert(receipt.requests_by_route_template[route] > 0, 'Actual backend route was not exercised: ' + route);
       }
       assert.deepEqual(backendHashes(), backendSourceHashes, 'Backend source changed during harness');

@@ -5,6 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import { apiFetch } from '@/app/_lib/api'
 import { evidenceDate, evidenceValue, prepareProfileDraft, ProfileDraftKind, ProfileEvidence, readProfileEvidence } from './profileEvidence'
+import ProfileMaterialsPanel, { useProfileMaterials } from './ProfileMaterialsPanel'
+import { addMaterialsToDraft } from './profileMaterials'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 const secondary = `inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-white/40 disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -93,6 +95,8 @@ function ProfileSession() {
 function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEvidence; refreshing: boolean; onRefresh: () => void }) {
   const athlete = profile.athlete!
   const [selected, setSelected] = useState<string[]>([])
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
+  const materials = useProfileMaterials()
   const [showAllResults, setShowAllResults] = useState(false)
   const [kind, setKind] = useState<ProfileDraftKind>('summary')
   const [goal, setGoal] = useState('')
@@ -107,7 +111,9 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
   useEffect(() => { lifetime.current = true; return () => { lifetime.current = false } }, [])
   const changed = () => { if (draft !== null) setInputsChanged(true); setCopyStatus('') }
   const prepare = () => {
-    setDraft(prepareProfileDraft(profile, selected, goal, destination, kind))
+    const includedMaterials = materials.snapshot?.state === 'ready'
+      ? materials.snapshot.items.filter(item => item.can_include && selectedMaterials.includes(item.id)) : []
+    setDraft(addMaterialsToDraft(prepareProfileDraft(profile, selected, goal, destination, kind), includedMaterials, kind))
     draftRevision.current += 1
     setInputsChanged(false)
     setCopyStatus('')
@@ -143,21 +149,27 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
 
           {profile.observations.length > 0 && <div className="mt-8 space-y-5">{profile.observations.map((observation, index) => <article key={index}><h3 className="text-sm font-semibold">{observation.title}</h3><p className="mt-2 text-sm leading-relaxed text-gray-300">{observation.detail}</p>{observation.evidence_ids.length > 0 && <p className="mt-2 text-xs leading-relaxed text-gray-400">Based on: {observation.evidence_ids.map(id => profile.evidence.find(item => item.id === id)?.label).join(', ')}</p>}</article>)}</div>}
           <details className="mt-7 border-t border-white/10 pt-2"><summary className={`min-h-11 cursor-pointer py-3 text-sm text-gray-400 ${focus}`}>Sources &amp; limitations</summary><p className="text-xs leading-relaxed text-gray-400">Profile read {evidenceDate(profile.fetched_at)}. Recorded results do not confirm eligibility, selection or a coach’s interest.</p>{profile.limitations.length > 0 && <ul className="mt-3 list-disc space-y-2 pl-4 text-xs leading-relaxed text-gray-400">{profile.limitations.map((limit, index) => <li key={index}>{limit}</li>)}</ul>}<a href="https://gmtm.com" className={`mt-3 inline-flex min-h-11 items-center text-sm text-gray-300 underline underline-offset-4 ${focus}`}>Open GMTM for your profile and submissions</a></details>
+          <a href="#profile-materials-title" className={`mt-4 inline-flex min-h-11 items-center text-sm text-sparq-lime underline underline-offset-4 ${focus}`}>Explore submitted results and footage{materials.snapshot?.state === 'ready' && materials.snapshot.items.length > 0 ? ` (${materials.snapshot.items.length})` : ''}</a>
         </section>
 
-        <section aria-labelledby="profile-output-title" className="min-w-0 rounded-2xl border border-white/15 bg-sparq-charcoal-light p-5 sm:p-7">
+        <section aria-labelledby="profile-output-title" className="min-w-0 rounded-2xl border border-white/15 bg-sparq-charcoal-light p-5 sm:p-7 lg:col-start-2 lg:row-start-1 lg:row-span-2">
           <h2 id="profile-output-title" className="text-2xl font-semibold tracking-tight">Put your profile to work.</h2><p className="mt-3 text-sm leading-relaxed text-gray-400">Prepare a factual summary for a real use. Make it yours before copying.</p>
           <form className="mt-6" onSubmit={event => { event.preventDefault(); prepare() }}>
             <label htmlFor="profile-goal" className="text-sm font-medium">What are you working toward?</label><textarea id="profile-goal" value={goal} onChange={event => { setGoal(event.target.value); changed() }} maxLength={600} rows={2} required className={field} placeholder="Your next goal, in your own words" />
             <fieldset className="mt-5"><legend className="sr-only">Output format</legend><div className="flex flex-wrap gap-4">{(['summary', 'introduction'] as const).map(value => <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="radio" name="profile-output-format" value={value} checked={kind === value} onChange={() => { setKind(value); setDestination(''); changed() }} className={`h-4 w-4 accent-sparq-lime ${focus}`} />{value === 'summary' ? 'Profile summary' : 'Introduction'}</label>)}</div></fieldset>
             <label htmlFor="profile-destination" className="mt-3 block text-sm font-medium">{kind === 'introduction' ? 'Who is this for?' : 'Intended use (optional)'}</label><input id="profile-destination" value={destination} onChange={event => { setDestination(event.target.value); changed() }} maxLength={200} required={kind === 'introduction'} className={field} placeholder={kind === 'introduction' ? 'A real recipient you already have in mind' : 'Where you plan to use this summary'} />
-            <p className="mt-3 text-xs leading-relaxed text-gray-400">{selected.length ? `${selected.length} recorded ${selected.length === 1 ? 'result' : 'results'} selected.` : 'No results selected; your summary will use profile details and your goal.'}{kind === 'introduction' ? ' This does not find or contact a recipient.' : ''}</p>
+            <p className="mt-3 text-xs leading-relaxed text-gray-400">{selected.length ? `${selected.length} recorded ${selected.length === 1 ? 'result' : 'results'} selected.` : selectedMaterials.length ? 'No profile measurements selected.' : 'No results selected; your summary will use profile details and your goal.'}{selectedMaterials.length > 0 && ` ${selectedMaterials.length} submitted or footage ${selectedMaterials.length === 1 ? 'record' : 'records'} selected.`}{kind === 'introduction' ? ' This does not find or contact a recipient.' : ''}</p>
             <button type="submit" disabled={!goal.trim() || (kind === 'introduction' && !destination.trim())} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-5 py-3 text-sm font-bold text-sparq-charcoal transition-colors hover:bg-sparq-lime-light disabled:cursor-not-allowed disabled:opacity-40 ${focus}`}>{draft === null ? 'Prepare my text' : 'Rebuild from these details'}</button>
           </form>
 
           {draft !== null && <div className="mt-7 border-t border-white/10 pt-6"><label htmlFor="profile-draft" className="text-sm font-semibold">Your text — ready to edit</label><p className="mt-2 text-xs leading-relaxed text-gray-400">Assembled from your selected facts and words. Review the details before using them. Rebuilding replaces your edits.</p>{inputsChanged && <p role="status" className="mt-3 text-xs text-amber-200">Your selections changed. Rebuild to include them, or keep editing this version.</p>}<textarea id="profile-draft" ref={draftInput} value={draft} onChange={event => { setDraft(event.target.value); draftRevision.current += 1; setCopyStatus('') }} rows={12} className={`${field} resize-y`} /><div className="mt-4 flex flex-wrap gap-3"><button type="button" disabled={copying || !draft.trim()} onClick={() => void copy()} className={secondary}>{copying ? 'Copying…' : 'Copy text'}</button><button type="button" onClick={() => { draftInput.current?.focus(); draftInput.current?.select(); setCopyStatus('Text selected. Use your device’s copy command.') }} className={secondary}>Select all text</button></div><p role="status" aria-live="polite" className="mt-3 text-xs leading-relaxed text-gray-300">{copyStatus}</p></div>}
           <p className="mt-6 text-xs leading-relaxed text-gray-400">Private to this page. Nothing is sent or published. Refreshing or leaving clears your draft.</p>
         </section>
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <ProfileMaterialsPanel snapshot={materials.snapshot} loading={materials.loading} error={materials.error} selected={selectedMaterials}
+            onToggle={(item, checked) => { setSelectedMaterials(value => checked ? [...value, item.id] : value.filter(id => id !== item.id)); changed() }}
+            onRetry={() => { setSelectedMaterials([]); void materials.reload() }} />
+        </div>
       </div>
     </>
   )
