@@ -18,6 +18,24 @@ One private **profile debrief** that answers an actual question and helps prepar
 
 Example question: "What does this profile tell a coach, and help me introduce myself?" The answer should reference this athlete's evidence and produce usable text. Another generic congratulations or checklist fails the test. Process education alone is helpful but insufficient reason to adopt SPARQ; the profile must yield an action or output worth using.
 
+## Commercial objective confirmed by Joey
+
+Joey subsequently affirmed that SPARQ should enhance athletes' understanding, presentation and outreach enough to become something they would pay for. This confirms the objective; it does not establish willingness to pay or authorize pricing, charges, messages or deployment.
+
+Proposed promise: **Understand my athletic evidence, find credible opportunities relevant to my goals, and help me pursue them.** The private debrief is the first proof of accurate personalization, not the complete paid product. A summary and generic advice alone are an insufficient subscription hypothesis.
+
+The proposed paid offering has a continuing sequence: select a real athlete goal; interpret attributable evidence; identify a small number of current opportunities with source, eligibility, deadline and reasons for relevance; prepare the right next action; let the athlete review/approve communications; record actual responses and adapt. An opportunity is not a guaranteed match or invitation. Where the program uses centralized selection, show its actual route instead of inventing a coach-outreach shortcut. A coach should be able to evaluate the resulting material without joining a new platform.
+
+The first opportunity set can be curated with human review to validate usefulness before automating discovery. Record that support effort, source-checking time and model/delivery cost; a useful service is not yet an autonomous or profitable product. Automate only the parts whose inputs, quality and outcomes we understand.
+
+**Proposed access boundary:** preserve existing GMTM combine participation and submission access. Basic profile understanding and process guidance can demonstrate value. The paid hypothesis is sustained, personalized opportunity work. Do not market payment as better official consideration, selection priority or privileged access we do not have. This is a product recommendation, not a change to any customer entitlement.
+
+**First commercial test:** after a working real-profile experience passes founder review, propose five consenting adult athletes with an active near-term goal. First establish that each gains specific value beyond their existing GMTM profile and uses a verified opportunity/action in their actual workflow. Then offer a clearly scoped, explicitly priced 30-day continuation with published deliverables and terms for Joey's review before any offer is sent. Price remains undecided until delivery cost and scope are concrete; do not claim a survey answer is revenue. Capture offers made, actual payments, real use, staff time, replies and invitations separately, with denominators. Five participants are qualitative learning, not market validation.
+
+A recurring plan must respond usefully to real changes: new suitable opportunities, imminent relevant deadlines, replies, changed goals or new comparable performance evidence. If athletes only need the initial debrief or use the service during a short recruiting window, test a one-time/seasonal product rather than forcing annual recurring revenue assumptions. Adult national-team athletes and junior families are different buyer/use hypotheses; validate adults first, and resolve parent/club payment and guardian authority before a junior offer. Team/club sponsorship remains a possible distribution/payment route, not another simultaneous product build.
+
+Market context checked September 8: [FieldLevel's published Premium description](https://support.fieldlevel.com/en/articles/2034971-explaining-fieldlevel-s-premium-plans) includes college matching, recruiting-needs alerts and personalized college contact. These are existing competitive features, not unique SPARQ inventions. The proposed advantage must be tested: canonical GMTM evidence and actual program context producing less athlete work and better-supported actions. The published college-recruiting offering does not validate demand or pricing among adult USA Football participants.
+
 ## Success indicators and selection data
 
 Start with observable facts: dated performance history, comparable improvement where protocols match, available film and athlete-visible feedback. Calibrated cohort comparisons require a defined and validated reference population. Selection likelihood needs actual outcome labels and validation; high drill percentiles alone cannot establish it.
