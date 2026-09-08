@@ -6,7 +6,7 @@ Start with [current work](docs/state/current-state.md), then read the linked Con
 
 Keep the existing writer and checkout for an active task. The project registry records observed paths; it does not assign a task or transfer a worktree. Preserve unrelated local changes and separate SPARQ implementation lanes until their owners hand off.
 
-The September 5 current-work document distinguishes today's combine-completion direction from earlier pricing, demo and post-results-only proposals. Older specs remain context; they are not evidence of current implementation or permission to ship.
+Joey's September 8 product correction makes athlete profile value the priority: understand existing evidence, learn what happens next, and use the profile to pursue opportunities. GMTM already owns the mobile combine submission flow. Follow the [profile-value direction](docs/state/profile-value-direction-2026-09-08.md); it supersedes earlier checklist-first product priorities, including dated Control Tower planning language. Preserve the tested identity/data isolation foundations, but do not treat checklist test coverage as proof of product value. Older specs remain context; they are not evidence of current implementation or permission to ship.
 
 Local startup must explicitly target an isolated backend and data environment. The frontend now requires an explicit `NEXT_PUBLIC_BACKEND_URL`; never restore an implicit live-backend fallback. The focused combine candidate has separate frontend/backend entry settings, documented in the candidate runbook linked from the README. Use the current task's verification and authorization boundaries before running mutation-capable flows.
 

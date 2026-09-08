@@ -1,4 +1,10 @@
-# Athlete testing: founder first, then current combine participants
+# Athlete testing: revised around profile value
+
+**Superseded experiment:** Joey's later September 8 feedback rejects the duplicate combine checklist as the product premise. Follow the [profile-value direction and acceptance criteria](profile-value-direction-2026-09-08.md). The next founder test should answer a real athlete question from their existing profile, comparing what it adds beyond GMTM. Test editable/copyable output when it serves a real intended use; a coach email is not a universal next action. A proposed small adult round should include completed-combine profiles and judge whether the experience helps pursue their goal. No further attempt to test the blocked local GMTM handoff is needed. No recruitment or live release is authorized here.
+
+The checklist protocol, participant mix and unsent Charles draft below are retained as historical planning evidence only. Do not execute or send them as the current pilot plan.
+
+## Historical checklist experiment
 
 Recommendation prepared for Joey's September 8 question. This is a proposed test plan, not a record of completed sessions or permission to contact athletes/deploy. Implementation checkpoint: `1e4cb98`, verified clean at the start of this planning pass. The [release packet](candidate-release-packet-2026-09-08.md) remains the source for technical acceptance and release boundaries.
 
