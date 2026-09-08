@@ -11,9 +11,9 @@
  * (relative `/api/...` paths) should keep using plain `fetch` — those proxy server-side.
  */
 
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  'https://focused-essence-production-9809.up.railway.app'
+import { resolveBackendOrigin, resolveAPIRequest } from '@/lib/backend-config.cjs'
+
+export const BACKEND_URL = resolveBackendOrigin(process.env.NEXT_PUBLIC_BACKEND_URL)
 
 async function getClerkToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
@@ -30,11 +30,13 @@ async function getClerkToken(): Promise<string | null> {
 }
 
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  const url = /^https?:\/\//.test(input) ? input : `${BACKEND_URL}${input.startsWith('/') ? '' : '/'}${input}`
+  // Validate before acquiring a credential. Never forward a token to a caller-
+  // supplied origin or follow a redirect outside the supported API surface.
+  const url = resolveAPIRequest(input, BACKEND_URL, process.env.NEXT_PUBLIC_APP_SURFACE, init.method || 'GET')
   const token = await getClerkToken()
   const headers = new Headers(init.headers || {})
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`)
   }
-  return fetch(url, { ...init, headers })
+  return fetch(url, { ...init, headers, redirect: 'error' })
 }

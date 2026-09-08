@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
+import { isCombineSurface } from '@/lib/backend-config.cjs'
 
 type Phase = 'working' | 'done' | 'conflict' | 'expired' | 'invalid' | 'error'
 
@@ -61,11 +62,12 @@ function ClaimRedemption({ clerkId, token, getToken, signInHref }: {
             throw new Error('Profile connection was not confirmed')
           }
           setPhase('done')
-          // The workspace (/home) is the real product; the legacy dashboard is the fallback
-          // only if the workspace row could not be built.
-          // Carry only the supported, server-confirmed event; older invitations retain their fallback.
+          // Carry only the supported, server-confirmed event. The focused surface
+          // can show public event choices even when optional workspace creation failed.
+          // Older invitations keep their existing dashboard fallback in the legacy app.
           const eventQuery = data.event_id === 1317 || data.event_id === 1318 ? `?event_id=${data.event_id}` : ''
-          router.replace(eventQuery || data.workspace_ready ? `/home/inbox${eventQuery}` : `/athlete/${data.user_id}`)
+          const useCombineWorkspace = isCombineSurface(process.env.NEXT_PUBLIC_APP_SURFACE) || eventQuery !== '' || data.workspace_ready
+          router.replace(useCombineWorkspace ? `/home/inbox${eventQuery}` : `/athlete/${data.user_id}`)
           return
         }
         if (res.status === 409) setPhase('conflict')

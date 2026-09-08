@@ -13,7 +13,7 @@ const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const files = [
   'app/home/components/CombineHelpProvider.tsx', 'app/home/components/CombineHelpPanel.tsx',
-  'app/home/HomeClient.tsx', 'app/home/layout.tsx', 'app/home/components/WorkspaceShell.tsx',
+  'app/home/HomeClient.tsx', 'app/home/layout.tsx', 'app/home/components/WorkspaceShell.tsx', 'app/home/components/CombineWorkspaceShell.tsx',
   'app/home/components/CurrentCombineCard.tsx', 'app/home/components/currentCombine.ts',
   'app/home/components/ActivityRequirements.tsx',
   'app/home/components/InboxFeed.tsx', 'app/home/components/AthleteStartingPoint.tsx',
@@ -21,7 +21,7 @@ const files = [
   'app/home/components/IterationBanner.tsx', 'app/home/components/ArtifactCard.tsx',
   'app/home/components/ArtifactStatusPill.tsx', 'app/home/components/SpecialistAvatar.tsx',
   'app/home/components/artifactStatus.ts', 'app/athlete/[id]/components/CombineResultsCard.tsx',
-  'app/athlete/[id]/components/combineResults.ts', 'app/_lib/api.ts', 'app/claim/[token]/redeem/page.tsx',
+  'app/athlete/[id]/components/combineResults.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs', 'app/claim/[token]/redeem/page.tsx',
 ];
 const sourceHashes = {}, rawSources = [];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4320'}};const modules={},cache={};\n";

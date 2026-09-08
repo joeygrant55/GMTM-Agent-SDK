@@ -17,9 +17,9 @@ const files = [
   'app/home/components/ActivityRequirements.tsx', 'app/home/components/currentCombine.ts',
   'app/_lib/profileConnection.ts', 'app/quick-scan/QuickScanClient.tsx',
   'app/home/outreach/draft/page.tsx', 'app/onboarding/_lib/types.ts',
-  'app/connect/ConnectClient.tsx', 'app/connect/page.tsx', 'app/claim/[token]/page.tsx',
+  'app/connect/ConnectClient.tsx', 'app/connect/CombineConnectionRecovery.tsx', 'app/connect/page.tsx', 'app/claim/[token]/page.tsx',
   'app/claim/[token]/redeem/page.tsx', 'app/home/components/WorkspaceAIPanel.tsx',
-  'app/home/components/IterationBanner.tsx', 'app/home/components/artifactStatus.ts', 'app/_lib/api.ts',
+  'app/home/components/IterationBanner.tsx', 'app/home/components/artifactStatus.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs',
 ];
 const sourceHashes = {};
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4319'}};const modules={},cache={};\n";
@@ -335,6 +335,10 @@ const assets = {
     check((await page.locator('body').innerText()).includes('before your first results'), 'Valid claim invitation is truthful before results');
     await reset('claim', { claim: { status: 410 } });await page.getByRole('heading', { name: 'This link has expired' }).waitFor();
     check((await page.locator('body').innerText()).includes('Ask your combine organizer for a new invitation') && await page.getByRole('link', { name: 'Check an existing connection' }).isVisible(), 'Expired claim directs to organizer invitation and existing-connection recovery');
+    for (const mode of [{status:503},{status:429},{reject:true}]) {
+      await reset('claim', {claim:mode});await page.getByRole('heading',{name:'We could not check this invitation',exact:true}).waitFor();
+      check(await page.getByRole('heading',{name:'This link is not valid',exact:true}).count()===0 && await page.getByRole('link',{name:'Check an existing connection',exact:true}).isVisible(), 'Unavailable invitation check stays unknown and offers recovery: '+JSON.stringify(mode));
+    }
     await reset('redeem', { redeem: { status: 409 } });await page.getByRole('heading', { name: 'This profile could not be connected' }).waitFor();
     check((await page.locator('body').innerText()).includes('contact your combine organizer') && !(await page.locator('body').innerText()).includes('by name') && !(await page.locator('body').innerText()).includes('already used'), 'Claim conflict copy is neutral about cause and avoids takeover recovery');
     await page.evaluate(() => window.__modes.redeem = {});await page.getByRole('button', { name: 'Try again', exact: true }).click();await page.waitForFunction(() => window.__navigation.length === 1);

@@ -8,6 +8,6 @@ Keep the existing writer and checkout for an active task. The project registry r
 
 The September 5 current-work document distinguishes today's combine-completion direction from earlier pricing, demo and post-results-only proposals. Older specs remain context; they are not evidence of current implementation or permission to ship.
 
-Local startup must explicitly target an isolated backend and data environment. The README documents a live backend fallback when `NEXT_PUBLIC_BACKEND_URL` is absent. Use the current task's verification and authorization boundaries before running mutation-capable flows.
+Local startup must explicitly target an isolated backend and data environment. The frontend now requires an explicit `NEXT_PUBLIC_BACKEND_URL`; never restore an implicit live-backend fallback. The focused combine candidate has separate frontend/backend entry settings, documented in the candidate runbook linked from the README. Use the current task's verification and authorization boundaries before running mutation-capable flows.
 
 Close meaningful work with a dated `.sammy/handoffs/` note, relevant verification, and an accurate list of uncommitted changes. Update current state when the implementation status or next action changes. Share or deploy only within Joey's explicit authorization for the active task.

@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
+import { isCombineSurface } from '@/lib/backend-config.cjs'
+
+const combine = isCombineSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
 
 export const metadata: Metadata = {
-  title: 'SPARQ Agent — The AI Recruiting Advisor',
-  description:
+  title: combine ? 'SPARQ — Your digital combine' : 'SPARQ Agent — The AI Recruiting Advisor',
+  description: combine ? 'Know what to submit, get help with each activity, and keep your digital combine moving.' :
     'Built on 75,000 athlete profiles and 2,900 college programs. The recruiting consultant your family couldn\u2019t afford — for $29/month.',
 }
 

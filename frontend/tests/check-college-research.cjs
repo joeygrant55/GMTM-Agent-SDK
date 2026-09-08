@@ -15,7 +15,7 @@ const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
-for (const file of ['app/home/colleges/page.tsx', 'app/home/components/currentCombine.ts', 'app/_lib/api.ts']) {
+for (const file of ['app/home/colleges/page.tsx', 'app/home/components/currentCombine.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs']) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
   sourceHashes[file] = crypto.createHash('sha256').update(source).digest('hex');
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true }}).outputText;

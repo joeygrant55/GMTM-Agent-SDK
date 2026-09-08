@@ -28,7 +28,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --env-file /absolute/pat
 # → http://localhost:8000  (docs at /docs)
 ```
 
-Choose isolated Agent/GMTM database and Clerk settings before exercising requests; importing the app does not validate connectivity or prepare schema. Existing legacy request handlers can write Agent data, run matching or send outreach. `/health` reports process/configuration state, not database readiness. The supported combine candidate is still being isolated; this command is not authorization to run it with production credentials.
+Choose isolated Agent/GMTM database and Clerk settings before exercising requests; importing the app does not validate connectivity or prepare schema. Existing legacy request handlers can write Agent data, run matching or send outreach. `/health` reports process/configuration state, not database readiness. A separate focused entry point is `candidate_app:app`; its contract and required settings are documented in the [candidate runbook](docs/state/combine-candidate-runbook-2026-09-08.md). Neither command authorizes production requests.
 
 Schema preparation is a separate explicit operator step. See [Agent schema preparation](docs/state/agent-schema-preparation-2026-09-07.md) for dry-run/apply commands, the required existing conversation baseline and failure behavior. Nothing applies DDL during import or FastAPI startup.
 
@@ -44,7 +44,7 @@ npm run dev
 # → http://localhost:3001
 ```
 
-If you omit `NEXT_PUBLIC_BACKEND_URL`, the frontend falls back to the live Railway backend.
+An explicit `NEXT_PUBLIC_BACKEND_URL` origin is required; missing or invalid configuration fails startup/build. For the focused combine candidate also set `NEXT_PUBLIC_APP_SURFACE=combine` and an explicit Clerk publishable key. The default `legacy` surface retains the broader app. The effective Next 14 configuration is `frontend/next.config.js`; the ignored duplicate TypeScript config has been removed.
 
 ## Product docs
 

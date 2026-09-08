@@ -11,17 +11,17 @@ import ActivityRequirements from './ActivityRequirements'
 
 const button = 'inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-3 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 
-export default function CurrentCombineCard() {
+export default function CurrentCombineCard({ showProfileNextStep = true }: { showProfileNextStep?: boolean } = {}) {
   const { user, isLoaded } = useUser()
   const params = useSearchParams()
   const rawEvent = params.get('event_id')
   const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
   if (!isLoaded) return <p role="status">Loading your account…</p>
   if (!user?.id) return null
-  return <CombineSession key={`${user.id}:${rawEvent ?? ''}`} clerkId={user.id} eventId={eventId} invalidEvent={rawEvent !== null && eventId === null} />
+  return <CombineSession key={`${user.id}:${rawEvent ?? ''}`} clerkId={user.id} eventId={eventId} invalidEvent={rawEvent !== null && eventId === null} showProfileNextStep={showProfileNextStep} />
 }
 
-function CombineSession({ clerkId, eventId, invalidEvent }: { clerkId: string; eventId: number | null; invalidEvent: boolean }) {
+function CombineSession({ clerkId, eventId, invalidEvent, showProfileNextStep }: { clerkId: string; eventId: number | null; invalidEvent: boolean; showProfileNextStep: boolean }) {
   const router = useRouter()
   const [snapshot, setSnapshot] = useState<CurrentCombine | null>(null)
   const [refreshing, setRefreshing] = useState(true)
@@ -141,8 +141,10 @@ function CombineSession({ clerkId, eventId, invalidEvent }: { clerkId: string; e
           <p className="mt-4 text-sm text-gray-400">Athlete ID validity is not checked here. See <a href={PROGRAM_SOURCE} className="text-sparq-lime underline">USA Football’s Athlete ID and program requirements</a>.</p>
           {hasPersonalProgress && snapshot.counts.submitted === snapshot.counts.activities && snapshot.counts.activities > 0 && (
             <div className="mt-5 border-t border-white/10 pt-4 text-sm">
-              <p>Your listed activities have submissions. You can review your performance evidence below and keep your athlete profile current while any organizer review takes place.</p>
-              <Link href="/home/profile" className="mt-2 inline-flex min-h-11 items-center font-bold text-sparq-lime underline">Review your athlete profile</Link>
+              {showProfileNextStep ? <>
+                <p>Your listed activities have submissions. You can review your performance evidence below and keep your athlete profile current while any organizer review takes place.</p>
+                <Link href="/home/profile" className="mt-2 inline-flex min-h-11 items-center font-bold text-sparq-lime underline">Review your athlete profile</Link>
+              </> : <p>Your listed activities have submissions. You can review your entry in GMTM and refresh saved progress here. USA Football confirms eligibility and selection separately.</p>}
             </div>
           )}
         </>

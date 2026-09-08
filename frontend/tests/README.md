@@ -28,3 +28,13 @@ The journey harness uses the public junior/adult task fixture with invented subm
 Run `frontend/tests/check-college-research.cjs` with the same three explicit environment paths and a new receipt filename. It renders the actual college page, uses the real API wrapper with synthetic Clerk/Next/API interfaces, and controls polling timers in an isolated browser. No stylesheet/layout or full Next integration is claimed.
 
 Checks cover truthful empty/unavailable research, absence of page-open AI prompts, rejected/accepted matching requests, bounded status checks, late/out-of-order reads and account/unmount cleanup. A legacy `complete` response can reload saved research but does not prove the newly requested job completed. Every service response is synthetic; no model, email, database or live API call occurs.
+
+## Focused candidate policy and actual Next integration
+
+`check-candidate-policy.cjs` uses `SPARQ_TEST_NODE_MODULES` and an optional new `SPARQ_TEST_RECEIPT` to exercise pure origin/route policy plus the compiled API helper. Denied operations must fail before token retrieval; callers cannot override redirect refusal.
+
+`check-candidate-app.cjs` requires a new absolute `SPARQ_CANDIDATE_ARTIFACT_DIR` outside the checkout. It uses the recorded installed MacBook Node/Next/Python/Playwright runtimes without installing packages. It copies an allowlisted frontend snapshot (including middleware) without environment files, adds Clerk identity adapters only in that snapshot, and launches actual Next development routing/RSC with the real candidate ASGI app through `backend/tests/run_candidate_fixture.py`.
+
+The Python fixture scrubs environment, blocks live connections/providers/jobs and accepts fixture changes through stdin only. The actual app has no fixture HTTP routes or auth bypass. Locally signed JWTs use a local JWKS adapter; database interfaces and help output are synthetic. Node DNS/socket/fetch instrumentation and browser interception permit only the selected loopback services. These are test guards, not an OS firewall.
+
+Receipts must include source/overlay hashes, route observations, zero forbidden backend/provider attempts, closed synthetic connections and independent service/browser cleanup. A pass establishes development integration, not a production build, live Clerk/database/model acceptance or a real GMTM upload. Full-app runs use distinct artifact directories and preserve failed-run evidence.

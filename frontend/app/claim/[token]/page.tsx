@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { BACKEND_URL } from '@/app/_lib/api'
+import { apiFetch } from '@/app/_lib/api'
 
 // Public claim landing (spec 2b). Server-fetches GET /api/claims/{token}; that call is
 // what stamps `opened_at`, the funnel's "opened" signal.
@@ -15,7 +15,7 @@ interface ClaimInfo {
 
 async function fetchClaim(token: string): Promise<ClaimInfo> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/claims/${encodeURIComponent(token)}`, { cache: 'no-store' })
+    const res = await apiFetch(`/api/claims/${encodeURIComponent(token)}`, { cache: 'no-store' })
     if (!res.ok) return { valid: false, status: res.status }
     const data = await res.json()
     return { ...data, valid: Boolean(data?.valid), status: res.status }
@@ -33,15 +33,18 @@ export default async function ClaimPage({ params }: { params: { token: string } 
 
   if (!claim.valid) {
     const expired = claim.status === 410
+    const unavailable = claim.status === 0 || claim.status >= 500 || claim.status === 401 || claim.status === 403 || claim.status === 429
     return (
       <div className="min-h-screen bg-sparq-charcoal flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
           <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
           <h1 className="text-2xl font-bold text-white mb-3">
-            {expired ? 'This link has expired' : 'This link is not valid'}
+            {unavailable ? 'We could not check this invitation' : expired ? 'This link has expired' : 'This link is not valid'}
           </h1>
           <p className="text-gray-400 mb-8">
-            {expired
+            {unavailable
+              ? 'Your invitation has not been confirmed. Reload this page to try again, or check an existing connection below.'
+              : expired
               ? 'Claim links last 30 days. Ask your combine organizer for a new invitation to connect your profile.'
               : 'Check the link in your email, or ask your combine organizer for a new invitation.'}
           </p>
