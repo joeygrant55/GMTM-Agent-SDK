@@ -100,7 +100,8 @@ def _validate_request(model, system, messages, max_output_tokens, max_stream_cha
 
 async def stream_answer(*, model, system, messages, is_disconnected,
                         anthropic_factory=None, timeout_seconds=30,
-                        max_output_tokens=1200, max_stream_chars=16_000):
+                        max_output_tokens=1200, max_stream_chars=16_000,
+                        usage_ledger=None):
     """Yield text/done/error dictionaries from the preloaded system snapshot.
 
     Each question makes exactly one provider request with no tools or fallback.
@@ -111,7 +112,7 @@ async def stream_answer(*, model, system, messages, is_disconnected,
     try:
         _validate_request(model, system, messages, max_output_tokens, max_stream_chars, timeout_seconds)
         messages = deepcopy(messages)
-        ledger = get_usage_ledger()
+        ledger = get_usage_ledger() if usage_ledger is None else usage_ledger
         emitted_chars = 0
         async with asyncio.timeout(timeout_seconds) as deadline:
             if await is_disconnected():

@@ -407,7 +407,7 @@ const work = (async () => {
   } else {
     await page.getByRole('heading', {name:'Ava Fixture',exact:true}).waitFor();
     check(await page.locator('#combine-workspace-main').count() === 0, 'Profile entry does not mount the combine checklist');
-    check(await page.getByRole('heading', {name:'Put your profile to work.',exact:true}).count() === 1, 'Actual claimed profile reaches the new workspace');
+    check(await page.getByRole('heading', {name:'What comes next for you?',exact:true}).count() === 1, 'Actual claimed profile reaches the question-based workspace');
     const measurementGroup = page.getByRole('group', {name:'Evidence to include',exact:true});
     const materialsRegion = page.getByRole('region', {name:'Your submitted results and footage',exact:true});
     await materialsRegion.getByText('2 submitted results and 2 footage records in this view.', {exact:true}).waitFor();
@@ -418,6 +418,24 @@ const work = (async () => {
     const footageLink = materialsRegion.getByRole('link',{name:/View footage on GMTM.*Fixture highlight reel/});
     check(await footageLink.getAttribute('href') === 'https://gmtm.com/film/703'
       && await footageLink.getAttribute('target') === '_blank', 'Legacy processed-zero footage exposes its canonical GMTM page link without a playback claim');
+    check(!requests.some(request => request.origin === 'backend' && request.path === '/api/athlete/debrief'), 'Loading a profile does not automatically ask the model');
+    await page.screenshot({path:path.join(output,'desktop-initial.png'),fullPage:true});
+    await page.getByLabel('Your focus', {exact:true}).selectOption('profile');
+    await page.getByLabel('What would you like to figure out?', {exact:true}).fill('How can I use my recorded results for a useful next step?');
+    const debriefResponse = page.waitForResponse(response => response.url() === backOrigin + '/api/athlete/debrief' && response.request().method() === 'POST');
+    await page.getByRole('button', {name:'Ask SPARQ',exact:true}).click();
+    assert.equal((await debriefResponse).status(), 200, 'Actual debrief route must return a complete successful response');
+    // The paragraph also contains its citation button; match the answer text
+    // independently of the resolved reference numbers appended in the DOM.
+    await page.getByText('Your recorded result can anchor a factual profile summary. Timing conditions and comparison standards are not confirmed here.').waitFor();
+    check(true, 'Explicit question traverses actual auth, owner evidence reads and buffered debrief validation with a synthetic provider');
+    await page.screenshot({path:path.join(output,'desktop-debrief.png'),fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Answered debrief phone layout has no horizontal overflow');
+    await page.screenshot({path:path.join(output,'phone-debrief.png'),fullPage:true});
+    await page.setViewportSize({width:1440,height:1000});
+    await page.getByRole('button', {name:'Prepare my profile summary',exact:true}).click();
+    check(await page.getByLabel('Your text — ready to edit').count() === 0, 'Debrief action opens manual preparation without silently generating a draft');
     await measurementGroup.getByRole('checkbox').first().check();
     await materialsRegion.getByRole('checkbox',{name:/Include Vertical Jump from/}).check();
     await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).check();
@@ -459,6 +477,7 @@ const work = (async () => {
       await page.getByRole('button',{name:'Refresh profile',exact:true}).click();
       await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).waitFor();
       check(await measurementGroup.getByRole('checkbox').count() === 1, 'Materials failure preserves usable profile evidence in the actual app');
+      await page.getByText('Prepare text yourself', {exact:true}).click();
       await page.getByLabel('What are you working toward?').fill('Keep working while footage is unavailable.');
       await page.getByRole('button',{name:'Prepare my text',exact:true}).click();
       check((await editor.inputValue()).includes('Keep working while footage is unavailable.'), 'An independent materials outage does not block the composer');
@@ -490,8 +509,9 @@ const work = (async () => {
       await measurementGroup.getByRole('checkbox').last().check();
       await page.getByRole('button', { name: 'Show fewer results', exact: true }).click();
       check(await measurementGroup.getByRole('checkbox').count() === 3, 'Phone athlete can collapse the result list again');
-      const composerTop = await page.locator('#profile-output-title').evaluate(element => element.getBoundingClientRect().top + window.scrollY);
-      check(composerTop < 2 * 844, 'Collapsed twenty-result phone profile reaches the composer within two viewports');
+      await page.getByText('Prepare text yourself', {exact:true}).click();
+      const debriefTop = await page.locator('#profile-debrief-title').evaluate(element => element.getBoundingClientRect().top + window.scrollY);
+      check(debriefTop < 2 * 844, 'Collapsed twenty-result phone profile reaches the primary debrief within two viewports');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Twenty-result phone layout has no horizontal overflow');
       await page.getByLabel('What are you working toward?').fill('Use my selected result for a next opportunity.');
       await page.getByRole('button', { name: 'Prepare my text', exact: true }).click();
@@ -545,12 +565,14 @@ Promise.race([work, interrupted]).catch(error => { result = { status: 'failed', 
       const receipt = JSON.parse(fs.readFileSync(backendReceipt, 'utf8'));
       assert.deepEqual(receipt.forbidden_attempts, {}, 'Backend attempted a forbidden operation');
       assert.equal(receipt.real_provider_attempts, 0, 'Backend attempted a real provider');
+      assert.equal(receipt.real_debrief_provider_attempts, 0, 'Debrief attempted a real provider');
+      if (surface === 'profile') assert.equal(receipt.synthetic_debrief_calls, 1, 'Expected exactly one explicit synthetic debrief call');
       assert.equal(receipt.all_synthetic_connections_closed, true, 'Synthetic connections leaked');
       assert.equal(receipt.status, 'stopped', 'Backend did not stop normally');
       if (result.status === 'passed') {
         assert.equal(receipt.synthetic_help_calls, surface === 'combine' ? 1 : 0, 'Unexpected synthetic help calls for surface');
         assert(receipt.fixture_connection_count > 0, 'No synthetic SQL work observed');
-        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence','GET /api/athlete/materials'];
+        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence','GET /api/athlete/materials','POST /api/athlete/debrief'];
         for (const route of [...surfaceRoutes, 'GET /api/profile/by-clerk/{clerk_id}', 'GET /api/claims/{token}', 'POST /api/claims/{token}/redeem']) assert(receipt.requests_by_route_template[route] > 0, 'Actual backend route was not exercised: ' + route);
       }
       assert.deepEqual(backendHashes(), backendSourceHashes, 'Backend source changed during harness');

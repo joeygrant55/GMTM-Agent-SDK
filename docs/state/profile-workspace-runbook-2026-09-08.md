@@ -6,11 +6,23 @@ This is the first implementation of the September 8 profile-value direction. It 
 
 - Frontend: `NEXT_PUBLIC_APP_SURFACE=profile`, an explicit `NEXT_PUBLIC_BACKEND_URL`, and the existing Clerk settings.
 - Backend: `profile_candidate_app:app`. Its factory selects the profile route manifest explicitly; a request or environment variable cannot widen that manifest.
-- The candidate configuration validation, identity/claim settings, origin allowlist and finite database connection settings still apply. The shared configuration validator currently also requires the documented combine-help configuration shape, even though this entry exposes no help route or provider action.
+- The candidate configuration validation, identity/claim settings, origin allowlist and finite database connection settings still apply. The shared configuration validator also requires the documented combine-help configuration shape, even though this entry exposes no combine-help route.
 - Existing Clerk-to-GMTM linkage is authoritative. The new evidence GET takes no athlete ID or query parameters and verifies both directions of the stored link before reading GMTM.
 - GMTM supplies canonical identity, unambiguous approved/unsuggested primary-career context and bounded current public numeric measurements. Restricted, invite-only, paid and network-only digital-event evidence is excluded. Missing units, unknown verification and ambiguous source context are never filled in by inference.
 
-The backend exposes `GET /api/athlete/evidence`, `GET /api/athlete/materials`, the existing by-Clerk connection GET, claim preview GET, claim redemption POST and health. Both athlete reads accept no query parameters and independently confirm ownership. Claim redemption can write existing Agent records; GMTM remains read-only. This profile entry imports no legacy startup/schema hook and adds no tables. Health reports configuration readiness, not database or model success.
+The backend exposes `GET /api/athlete/evidence`, `GET /api/athlete/materials`, `POST /api/athlete/debrief`, the existing by-Clerk connection GET, claim preview GET, claim redemption POST and health. Athlete endpoints accept no query parameters and independently confirm ownership. Claim redemption can write existing Agent records; GMTM remains read-only. This profile entry imports no legacy startup/schema hook and adds no tables. Health reports configuration readiness, not database or model success.
+
+## Question-based debrief
+
+The [debrief contract](profile-debrief-contract-2026-09-08.md) adds one explicit question with a focus: the adult USA Football pathway, profile understanding, or outreach preparation. The server resolves the owner again, reads the current evidence, closes the connections, and makes one bounded model call. It supplies supported numbers, generic eligible footage records and coverage limits; server-derived identity, contact details, private material, media titles/descriptions and media URLs stay out of the provider context. The athlete's question is included verbatim and may itself contain personal information.
+
+The answer remains buffered until strict paragraph, citation and action validation completes. The interface shows the answer, observations, unknowns and one action. Source details expand on request. Local actions open the existing editable composer without replacing an existing draft or selecting new facts. Changing the question/focus marks an earlier answer as belonging to that earlier question. Profile/account refresh and materials retry clear the debrief; all state is page-local.
+
+This feature is disabled by default. Enable only in a separately approved isolated run with `PROFILE_DEBRIEF_ENABLED=true`, an allowlisted `PROFILE_DEBRIEF_MODEL` (default `claude-sonnet-4-6`), and explicit positive `PROFILE_DEBRIEF_MAX_MODEL_CALLS` and `PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS`. These limits use a separate process ledger; they do not reuse the earlier combine allowance. They are not durable across restarts or multiple workers. Deployment still needs durable quota and retention decisions.
+
+Official facts in `backend/profile_pathways.py` were reviewed September 8 and expire October 8, 2026 at 22:51 UTC. The national-team track refuses expired sources; other tracks remain usable. A reviewer must recheck the facts before updating the dates. No upcoming adult camp or 2027 Trials date is confirmed. The available external actions open the published support or development-resource page; neither sends a message nor claims a recruiting connection.
+
+Synthetic provider responses verify the flow, not AI quality. The separate [quality evaluation](profile-debrief-quality-evaluation-2026-09-08.md) covers invented benchmarks, unsupported film judgments and selection claims. Valid citation IDs prove reference membership, not that a claim follows from that reference.
 
 ## Athlete behavior
 

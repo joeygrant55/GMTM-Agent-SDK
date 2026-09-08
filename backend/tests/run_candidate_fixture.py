@@ -55,9 +55,12 @@ def main():
         "ANTHROPIC_API_KEY": "synthetic-provider-never-used", "COMBINE_HELP_MODEL": "claude-sonnet-4-6",
         "COMBINE_HELP_TEST_MODE": "1", "COMBINE_HELP_MAX_MODEL_CALLS": "8",
         "COMBINE_HELP_MAX_CONCURRENT_CALLS": "1",
+        "PROFILE_DEBRIEF_ENABLED": "true" if surface == "profile" else "false",
+        "PROFILE_DEBRIEF_MODEL": "claude-sonnet-4-6", "PROFILE_DEBRIEF_MAX_MODEL_CALLS": "4",
+        "PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS": "1",
     })
     attempts, requests, commands = Counter(), Counter(), Counter()
-    counts = {"synthetic_help_calls": 0}
+    counts = {"synthetic_help_calls": 0, "synthetic_debrief_calls": 0}
     def blocked(name):
         def stop(*args, **kwargs):
             attempts[name] += 1
@@ -351,6 +354,39 @@ def main():
         athlete_materials._get_agent_db = EvidenceAgentDB
         athlete_materials._get_gmtm_db = MaterialsDB
 
+        import profile_debrief
+
+        class DebriefDB(EvidenceDB):
+            def execute(self, sql, params):
+                if "FROM event_task_submissions s" in sql or "FROM film f" in sql:
+                    return MaterialsDB.execute(self, sql, params)
+                return super().execute(sql, params)
+
+        profile_debrief._get_agent_db = EvidenceAgentDB
+        profile_debrief._get_gmtm_db = DebriefDB
+
+        async def synthetic_debrief(**kwargs):
+            assert kwargs["model"] == "claude-sonnet-4-6"
+            assert kwargs["usage_ledger"] is not None
+            assert all(db.closed for db in shared_connections)
+            # Provider fixture sees only the actual minimized context. It does
+            # not bypass ownership/source reads, admission or JSON validation.
+            encoded = json.dumps({"system": kwargs["system"], "messages": kwargs["messages"]})
+            for excluded in ("Ava Fixture", "Fixture High", "Austin", "synthetic-excluded-contact",
+                             "Fixture private practice", "Fixture highlight reel", "gmtm.com/film", CALLER):
+                assert excluded not in encoded
+            counts["synthetic_debrief_calls"] += 1
+            result = {
+                "answer": {"text": "Your recorded result can anchor a factual profile summary. Timing conditions and comparison standards are not confirmed here.", "refs": ["f1", "coverage"]},
+                "insights": [{"text": "Use the recorded measurement with its source, then explain what opportunity you are working toward.", "refs": ["f1"]}],
+                "unknowns": [{"text": "This view does not establish whether a scout reviewed or selected you.", "refs": ["coverage"]}],
+                "action": {"id": "prepare_summary", "reason": {"text": "Prepare a summary using the evidence you choose and your own goal.", "refs": ["f1"]}},
+            }
+            yield {"type": "text", "text": json.dumps(result)}
+            yield {"type": "done"}
+
+        profile_debrief.stream_answer = synthetic_debrief
+
     async def synthetic_answer(**kwargs):
         assert kwargs["model"] == "claude-sonnet-4-6"
         assert "CURRENT SERVER SNAPSHOT" in kwargs["system"]
@@ -413,6 +449,7 @@ def main():
     expected = ({path for _, path, _ in candidate_app.BUSINESS_ROUTES} | {"/health"}
                 if surface == "combine" else {
                     "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/{clerk_id}",
+                    "/api/athlete/debrief",
                     "/api/claims/{token}", "/api/claims/{token}/redeem",
                 })
     assert set(app.openapi()["paths"]) == expected
@@ -479,6 +516,8 @@ def main():
             "requests_by_route_template": dict(requests), "fixture_commands": dict(commands),
             "forbidden_attempts": dict(attempts), **counts,
             "real_provider_attempts": model_usage.get_usage_snapshot()["attempted_calls"],
+            "real_debrief_provider_attempts": (profile_debrief._ledger_state[1].snapshot()["attempted_calls"]
+                                               if surface == "profile" and profile_debrief._ledger_state else 0),
             "all_synthetic_connections_closed": all(db.closed for db in all_connections),
             "fixture_connection_count": len(all_connections),
             "live_clerk_verified": False, "live_database_verified": False,
@@ -487,7 +526,7 @@ def main():
             "source_hashes": {name: hashlib.sha256((backend/name).read_bytes()).hexdigest() for name in (
                 "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
                 "combine_help_api.py", "tests/run_candidate_fixture.py",
-                *(("athlete_evidence.py", "athlete_materials.py") if surface == "profile" else ()))},
+                *(("athlete_evidence.py", "athlete_materials.py", "profile_debrief.py", "profile_pathways.py", "combine_model.py") if surface == "profile" else ()))},
         }
         descriptor = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as handle:

@@ -95,7 +95,8 @@ def _safe_environment(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-no-network")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key-no-network")
     for name in ("COMBINE_HELP_MODEL", "COMBINE_HELP_TEST_MODE", "COMBINE_HELP_MAX_MODEL_CALLS",
-                 "COMBINE_HELP_MAX_CONCURRENT_CALLS"):
+                 "COMBINE_HELP_MAX_CONCURRENT_CALLS", "PROFILE_DEBRIEF_ENABLED", "PROFILE_DEBRIEF_MODEL",
+                 "PROFILE_DEBRIEF_MAX_MODEL_CALLS", "PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS"):
         monkeypatch.delenv(name, raising=False)
     import model_usage
     monkeypatch.setattr(model_usage, "_ledger", None)

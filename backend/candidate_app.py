@@ -45,6 +45,8 @@ _CONFIGURATION_KEYS = (
     "AGENT_DB_HOST", "AGENT_DB_PORT", "AGENT_DB_NAME", "AGENT_DB_USER", "AGENT_DB_PASSWORD",
     "SHARE_TOKEN_SECRET", "COMBINE_HELP_MODEL", "COMBINE_HELP_TEST_MODE",
     "COMBINE_HELP_MAX_MODEL_CALLS", "COMBINE_HELP_MAX_CONCURRENT_CALLS",
+    "PROFILE_DEBRIEF_ENABLED", "PROFILE_DEBRIEF_MODEL",
+    "PROFILE_DEBRIEF_MAX_MODEL_CALLS", "PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS",
     "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
 )
 
@@ -194,9 +196,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     if surface == "profile":
         from athlete_evidence import current_athlete_evidence
         from athlete_materials import current_athlete_materials
+        from profile_debrief import current_profile_debrief, validate_configuration as debrief_configuration
         routes = (
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
             ("GET", "/api/athlete/materials", current_athlete_materials),
+            ("POST", "/api/athlete/debrief", current_profile_debrief),
             *BUSINESS_ROUTES[2:],
         )
         title = "SPARQ Profile Candidate"
@@ -204,12 +208,16 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         config = validate_configuration(os.environ)
+        if surface == "profile":
+            # Pure validation only; no provider or usage ledger is initialized.
+            application.state.profile_debrief_configuration = debrief_configuration(os.environ)
         # Pure configuration work only; no schema, provider or shared override.
         application.state.candidate_configuration = config
         try:
             yield
         finally:
             application.state.candidate_configuration = None
+            application.state.profile_debrief_configuration = None
 
     application = FastAPI(title=title, version="1.0.0",
                           docs_url=None, redoc_url=None, openapi_url=None,
@@ -223,12 +231,18 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     async def health():
         config = application.state.candidate_configuration
         ready = config is not None and config.signature == _signature(os.environ)
-        return JSONResponse({
+        body = {
             "service": title, "surface": f"{surface}_candidate",
             "configuration_ready": ready, "connectivity_verified": False,
             "schema_verified": False, "provider_delivery_verified": False,
             "help_provider_configured": config.help_provider_configured if ready and surface == "combine" else False,
-        }, status_code=200 if ready else 503)
+        }
+        if surface == "profile":
+            debrief = getattr(application.state, "profile_debrief_configuration", None)
+            body["debrief_enabled"] = bool(ready and debrief is not None)
+            key = "OPENAI_API_KEY" if debrief is not None and MODELS[debrief.model] == "openai" else "ANTHROPIC_API_KEY"
+            body["debrief_provider_configured"] = bool(ready and debrief is not None and os.environ.get(key, "").strip())
+        return JSONResponse(body, status_code=200 if ready else 503)
 
     @application.exception_handler(Exception)
     async def unavailable(request: Request, exc: Exception):

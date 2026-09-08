@@ -21,6 +21,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
     expected = {
         "/api/athlete/evidence": "get", "/api/profile/by-clerk/{clerk_id}": "get",
         "/api/athlete/materials": "get",
+        "/api/athlete/debrief": "post",
         "/api/claims/{token}": "get", "/api/claims/{token}/redeem": "post",
         "/health": "get",
     }
@@ -29,6 +30,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
     # Choosing this app never widens the original manifest.
     assert "/api/athlete/evidence" not in candidate_app.create_app().openapi()["paths"]
     assert "/api/athlete/materials" not in candidate_app.create_app().openapi()["paths"]
+    assert "/api/athlete/debrief" not in candidate_app.create_app().openapi()["paths"]
     with pytest.raises(ValueError):
         candidate_app.create_app(surface="unexpected")
 
@@ -41,6 +43,8 @@ def test_profile_health_is_not_a_claim_of_live_data_or_provider_delivery(profile
         assert response.json()["connectivity_verified"] is False
         assert response.json()["provider_delivery_verified"] is False
         assert response.json()["help_provider_configured"] is False
+        assert response.json()["debrief_enabled"] is False
+        assert response.json()["debrief_provider_configured"] is False
         assert response.headers["cache-control"] == "private, no-store"
         assert "Authorization" in response.headers["vary"]
         assert model_usage._ledger is None
@@ -57,6 +61,9 @@ def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, si
             materials = client.get("/api/athlete/materials", headers=headers)
             assert materials.status_code == 401
             assert materials.headers["cache-control"] == "private, no-store"
+            debrief = client.post("/api/athlete/debrief", headers=headers,
+                                  json={"track": "profile", "question": "What can I use?"})
+            assert debrief.status_code == 401
 
 
 def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, signed):
@@ -64,6 +71,7 @@ def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, s
         for method, path in (
             ("POST", "/api/athlete/evidence"), ("GET", "/api/athlete/evidence/"),
             ("POST", "/api/athlete/materials"), ("GET", "/api/athlete/materials/"),
+            ("GET", "/api/athlete/debrief"), ("POST", "/api/athlete/debrief/"),
             ("GET", "/api/combine/current"), ("POST", "/api/combine/help"),
             ("POST", "/api/artifacts/draft-outreach"), ("POST", "/api/profile/connect"),
             ("GET", "/api/workspace/inbox/user"), ("GET", "/api/reports/public/token"),
@@ -91,3 +99,22 @@ def test_profile_cors_preserves_origin_and_authorization_variance(profile_app):
         assert response.status_code == 401
         assert response.headers["access-control-allow-origin"] == ENV["ALLOWED_ORIGINS"]
         assert {"Origin", "Authorization"}.issubset(set(response.headers["vary"].split(", ")))
+
+
+def test_profile_debrief_limits_are_required_and_runtime_drift_is_rejected(profile_app, signed, monkeypatch):
+    monkeypatch.setenv("PROFILE_DEBRIEF_ENABLED", "true")
+    with pytest.raises(ValueError):
+        with TestClient(profile_app):
+            pass
+    monkeypatch.setenv("PROFILE_DEBRIEF_MAX_MODEL_CALLS", "3")
+    monkeypatch.setenv("PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS", "1")
+    with TestClient(profile_app) as client:
+        health = client.get("/health").json()
+        assert health["debrief_enabled"] is True
+        assert health["provider_delivery_verified"] is False
+        assert model_usage._ledger is None
+        monkeypatch.setenv("PROFILE_DEBRIEF_MAX_MODEL_CALLS", "4")
+        response = client.post("/api/athlete/debrief", headers=signed(),
+                               json={"track": "profile", "question": "What can I use?"})
+        assert response.status_code == 503
+        assert response.headers["cache-control"] == "private, no-store"

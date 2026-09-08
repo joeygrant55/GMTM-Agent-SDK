@@ -30,6 +30,9 @@ for (const [method,input] of [['POST','/api/athlete/evidence'],['GET','/api/athl
 }
 check('Combine does not gain profile evidence route',()=>assert.throws(()=>policy.resolveAPIRequest('/api/athlete/evidence','https://backend.example','combine')))
 check('Combine does not gain materials route',()=>assert.throws(()=>policy.resolveAPIRequest('/api/athlete/materials','https://backend.example','combine')))
+check('Profile explicitly allows one debrief POST',()=>assert.equal(policy.resolveAPIRequest('/api/athlete/debrief','https://backend.example','profile','POST'),'https://backend.example/api/athlete/debrief'))
+check('Combine does not gain debrief route',()=>assert.throws(()=>policy.resolveAPIRequest('/api/athlete/debrief','https://backend.example','combine','POST')))
+for (const [method,input] of [['GET','/api/athlete/debrief'],['POST','/api/athlete/debrief?user_id=2'],['POST','/api/athlete/debrief/']]) check('Profile denies debrief alternate '+method+' '+input,()=>assert.throws(()=>policy.resolveAPIRequest(input,'https://backend.example','profile',method)))
 for (const [method,input] of [['POST','/api/athlete/materials'],['GET','/api/athlete/materials?user_id=2'],['GET','/api/athlete/materials?event_id=1318'],['GET','/api/athlete/materials/'],['GET','/api/athlete/materials#film']]) check('Profile denies material selector or alternate route '+method+' '+input,()=>assert.throws(()=>policy.resolveAPIRequest(input,'https://backend.example','profile',method)))
 
 const apiFile = path.resolve(__dirname,'../app/_lib/api.ts')

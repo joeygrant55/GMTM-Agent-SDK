@@ -7,6 +7,7 @@ import { apiFetch } from '@/app/_lib/api'
 import { evidenceDate, evidenceValue, prepareProfileDraft, ProfileDraftKind, ProfileEvidence, readProfileEvidence } from './profileEvidence'
 import ProfileMaterialsPanel, { useProfileMaterials } from './ProfileMaterialsPanel'
 import { addMaterialsToDraft } from './profileMaterials'
+import AthleteDebriefPanel from './AthleteDebriefPanel'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 const secondary = `inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-white/40 disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -105,11 +106,18 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
   const [inputsChanged, setInputsChanged] = useState(false)
   const [copyStatus, setCopyStatus] = useState('')
   const [copying, setCopying] = useState(false)
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [debriefVersion, setDebriefVersion] = useState(0)
   const draftInput = useRef<HTMLTextAreaElement>(null)
   const lifetime = useRef(false)
   const draftRevision = useRef(0)
   useEffect(() => { lifetime.current = true; return () => { lifetime.current = false } }, [])
   const changed = () => { if (draft !== null) setInputsChanged(true); setCopyStatus('') }
+  const openComposer = (nextKind: ProfileDraftKind, question: string) => {
+    setComposerOpen(true)
+    if (kind !== nextKind) { setKind(nextKind); setDestination(''); changed() }
+    if (!goal.trim() && question.length <= 600) { setGoal(question); changed() }
+  }
   const prepare = () => {
     const includedMaterials = materials.snapshot?.state === 'ready'
       ? materials.snapshot.items.filter(item => item.can_include && selectedMaterials.includes(item.id)) : []
@@ -141,10 +149,10 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
         <button type="button" disabled={refreshing} onClick={onRefresh} className={secondary}>{refreshing ? 'Refreshing…' : 'Refresh profile'}</button>
       </header>
 
-      <div className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12">
+      <div className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:grid-rows-[min-content_1fr] lg:gap-12">
         <section aria-labelledby="profile-evidence-title" className="min-w-0">
           <h2 id="profile-evidence-title" className="text-2xl font-semibold tracking-tight">What your profile records</h2>
-          <p className="mt-3 text-sm leading-relaxed text-gray-400">{profile.evidence.length ? 'Choose the results you want to include. Each keeps its source and date.' : 'Your profile details are available. No numeric performance results were returned with this profile.'}</p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-400">{profile.evidence.length ? 'Choose results for your summary or introduction. Each keeps its source and date.' : 'Your profile details are available. No numeric performance results were returned with this profile.'}</p>
           {profile.evidence.length > 0 ? <fieldset className="mt-6"><legend className="sr-only">Evidence to include</legend><div className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02]">{(showAllResults ? profile.evidence : profile.evidence.slice(0, 3)).map(item => <label key={item.id} className="flex cursor-pointer items-start gap-4 p-4 sm:p-5"><input type="checkbox" checked={selected.includes(item.id)} onChange={event => { setSelected(value => event.target.checked ? [...value, item.id] : value.filter(id => id !== item.id)); changed() }} className={`mt-1 h-5 w-5 shrink-0 accent-sparq-lime ${focus}`} /><span className="min-w-0 flex-1"><span className="block break-words text-sm font-medium text-gray-300">{item.label}</span><span className="mt-1 block break-words text-2xl font-semibold tabular-nums">{evidenceValue(item)}</span><span className="mt-2 block break-words text-xs leading-relaxed text-gray-400">{item.source_label} · {evidenceDate(item.recorded_at)}{item.event_name ? ` · ${item.event_name}` : ''}</span></span><span className="sr-only">Include {item.label}</span></label>)}</div>{profile.evidence.length > 3 && <button type="button" aria-expanded={showAllResults} onClick={() => setShowAllResults(value => !value)} className={`${secondary} mt-3`}>{showAllResults ? 'Show fewer results' : `Show all ${profile.evidence.length} results`}</button>}<p className="mt-3 text-xs leading-relaxed text-gray-400">Recorded results; measurement verification is unconfirmed.</p></fieldset> : <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-6"><p className="text-sm leading-relaxed text-gray-300">You can still prepare a summary from your profile and goal. We won’t fill in results or infer measurements from uploads.</p></div>}
 
           {profile.observations.length > 0 && <div className="mt-8 space-y-5">{profile.observations.map((observation, index) => <article key={index}><h3 className="text-sm font-semibold">{observation.title}</h3><p className="mt-2 text-sm leading-relaxed text-gray-300">{observation.detail}</p>{observation.evidence_ids.length > 0 && <p className="mt-2 text-xs leading-relaxed text-gray-400">Based on: {observation.evidence_ids.map(id => profile.evidence.find(item => item.id === id)?.label).join(', ')}</p>}</article>)}</div>}
@@ -152,8 +160,11 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
           <a href="#profile-materials-title" className={`mt-4 inline-flex min-h-11 items-center text-sm text-sparq-lime underline underline-offset-4 ${focus}`}>Explore submitted results and footage{materials.snapshot?.state === 'ready' && materials.snapshot.items.length > 0 ? ` (${materials.snapshot.items.length})` : ''}</a>
         </section>
 
-        <section aria-labelledby="profile-output-title" className="min-w-0 rounded-2xl border border-white/15 bg-sparq-charcoal-light p-5 sm:p-7 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-          <h2 id="profile-output-title" className="text-2xl font-semibold tracking-tight">Put your profile to work.</h2><p className="mt-3 text-sm leading-relaxed text-gray-400">Prepare a factual summary for a real use. Make it yours before copying.</p>
+        <section aria-label="Profile guidance and text" className="min-w-0 rounded-2xl border border-white/15 bg-sparq-charcoal-light p-5 sm:p-7 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start">
+          <AthleteDebriefPanel key={debriefVersion} onPrepare={openComposer} />
+          <details open={composerOpen} onToggle={event => setComposerOpen(event.currentTarget.open)} className="mt-7 border-t border-white/10 pt-2">
+          <summary className={`min-h-11 cursor-pointer py-3 text-sm font-semibold text-gray-300 ${focus}`}>Prepare text yourself</summary>
+          <h2 id="profile-output-title" className="mt-3 text-xl font-semibold tracking-tight">Put your profile to work.</h2><p className="mt-3 text-sm leading-relaxed text-gray-400">Prepare a factual summary from the facts you choose. Make it yours before copying.</p>
           <form className="mt-6" onSubmit={event => { event.preventDefault(); prepare() }}>
             <label htmlFor="profile-goal" className="text-sm font-medium">What are you working toward?</label><textarea id="profile-goal" value={goal} onChange={event => { setGoal(event.target.value); changed() }} maxLength={600} rows={2} required className={field} placeholder="Your next goal, in your own words" />
             <fieldset className="mt-5"><legend className="sr-only">Output format</legend><div className="flex flex-wrap gap-4">{(['summary', 'introduction'] as const).map(value => <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="radio" name="profile-output-format" value={value} checked={kind === value} onChange={() => { setKind(value); setDestination(''); changed() }} className={`h-4 w-4 accent-sparq-lime ${focus}`} />{value === 'summary' ? 'Profile summary' : 'Introduction'}</label>)}</div></fieldset>
@@ -163,12 +174,13 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
           </form>
 
           {draft !== null && <div className="mt-7 border-t border-white/10 pt-6"><label htmlFor="profile-draft" className="text-sm font-semibold">Your text — ready to edit</label><p className="mt-2 text-xs leading-relaxed text-gray-400">Assembled from your selected facts and words. Review the details before using them. Rebuilding replaces your edits.</p>{inputsChanged && <p role="status" className="mt-3 text-xs text-amber-200">Your selections changed. Rebuild to include them, or keep editing this version.</p>}<textarea id="profile-draft" ref={draftInput} value={draft} onChange={event => { setDraft(event.target.value); draftRevision.current += 1; setCopyStatus('') }} rows={12} className={`${field} resize-y`} /><div className="mt-4 flex flex-wrap gap-3"><button type="button" disabled={copying || !draft.trim()} onClick={() => void copy()} className={secondary}>{copying ? 'Copying…' : 'Copy text'}</button><button type="button" onClick={() => { draftInput.current?.focus(); draftInput.current?.select(); setCopyStatus('Text selected. Use your device’s copy command.') }} className={secondary}>Select all text</button></div><p role="status" aria-live="polite" className="mt-3 text-xs leading-relaxed text-gray-300">{copyStatus}</p></div>}
-          <p className="mt-6 text-xs leading-relaxed text-gray-400">Private to this page. Nothing is sent or published. Refreshing or leaving clears your draft.</p>
+          <p className="mt-6 text-xs leading-relaxed text-gray-400">Your draft stays on this page. Nothing is sent or published to a coach. Refreshing or leaving clears your draft.</p>
+          </details>
         </section>
         <div className="min-w-0 lg:col-start-1 lg:row-start-2">
           <ProfileMaterialsPanel snapshot={materials.snapshot} loading={materials.loading} error={materials.error} selected={selectedMaterials}
             onToggle={(item, checked) => { setSelectedMaterials(value => checked ? [...value, item.id] : value.filter(id => id !== item.id)); changed() }}
-            onRetry={() => { setSelectedMaterials([]); void materials.reload() }} />
+            onRetry={() => { setSelectedMaterials([]); setDebriefVersion(value => value + 1); void materials.reload() }} />
         </div>
       </div>
     </>
