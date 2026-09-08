@@ -1,10 +1,13 @@
 // Pure configuration and route policy shared by Next, Edge and browser code.
 // No environment reads here: callers use explicit (statically inlined) settings.
-function isCombineSurface(value) {
-  if (value === undefined || value === '' || value === 'legacy') return false
-  if (value === 'combine') return true
-  throw new Error('NEXT_PUBLIC_APP_SURFACE must be combine or legacy')
+function readSurface(value) {
+  if (value === undefined || value === '' || value === 'legacy') return 'legacy'
+  if (value === 'combine' || value === 'profile') return value
+  throw new Error('NEXT_PUBLIC_APP_SURFACE must be combine, profile or legacy')
 }
+function isCombineSurface(value) { return readSurface(value) === 'combine' }
+function isProfileSurface(value) { return readSurface(value) === 'profile' }
+function isRestrictedSurface(value) { return readSurface(value) !== 'legacy' }
 function resolveBackendOrigin(value) {
   if (typeof value !== 'string' || !value || value !== value.trim()) throw new Error('Set an explicit NEXT_PUBLIC_BACKEND_URL origin')
   let url
@@ -13,11 +16,13 @@ function resolveBackendOrigin(value) {
   if (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw new Error('Non-loopback backends require HTTPS')
   return url.origin
 }
-function candidateAPIAllowed(pathname, method, search = '') {
+function candidateAPIAllowed(pathname, method, search = '', surface = 'combine') {
+  if (!['combine', 'profile'].includes(surface)) return false
   const query = new URLSearchParams(search)
-  if (pathname === '/api/combine/current' && method === 'GET') return [...query.keys()].every(k => k === 'event_id') && query.getAll('event_id').length <= 1
+  if (surface === 'combine' && pathname === '/api/combine/current' && method === 'GET') return [...query.keys()].every(k => k === 'event_id') && query.getAll('event_id').length <= 1
   if (search) return false
-  if (pathname === '/api/combine/help') return method === 'POST'
+  if (surface === 'combine' && pathname === '/api/combine/help') return method === 'POST'
+  if (surface === 'profile' && pathname === '/api/athlete/evidence') return method === 'GET'
   if (/^\/api\/profile\/by-clerk\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
   if (/^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?\/redeem$/.test(pathname)) return method === 'POST'
   return /^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?$/.test(pathname) && pathname !== '/api/claims/mint' && method === 'GET'
@@ -27,7 +32,7 @@ function resolveAPIRequest(input, origin, surface, method = 'GET') {
   const base = resolveBackendOrigin(origin)
   const url = new URL(input.startsWith('/') || /^https?:\/\//.test(input) ? input : '/' + input, base)
   if (url.origin !== base || url.username || url.password || url.hash) throw new Error('Backend request must use the configured origin')
-  if (isCombineSurface(surface) && !candidateAPIAllowed(url.pathname, method.toUpperCase(), url.search)) throw new Error('This API operation is unavailable in the combine surface')
+  if (isRestrictedSurface(surface) && !candidateAPIAllowed(url.pathname, method.toUpperCase(), url.search, surface)) throw new Error('This API operation is unavailable in the selected surface')
   return url.href
 }
 function candidatePagePolicy(pathname, method) {
@@ -40,4 +45,4 @@ function candidatePagePolicy(pathname, method) {
   if (/^\/claim\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?(?:\/redeem)?$/.test(pathname)) return 'page'
   return 'deny'
 }
-module.exports = { isCombineSurface, resolveBackendOrigin, candidateAPIAllowed, resolveAPIRequest, candidatePagePolicy }
+module.exports = { isCombineSurface, isProfileSurface, isRestrictedSurface, resolveBackendOrigin, candidateAPIAllowed, resolveAPIRequest, candidatePagePolicy }

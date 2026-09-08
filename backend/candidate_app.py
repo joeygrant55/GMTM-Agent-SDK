@@ -184,7 +184,21 @@ class CandidateBoundaryMiddleware:
         await cors(scope, receive, send)
 
 
-def create_app() -> FastAPI:
+def create_app(*, surface: str = "combine") -> FastAPI:
+    if surface not in ("combine", "profile"):
+        raise ValueError("Unsupported candidate surface")
+    # Explicit entry-point choice only, never inferred from a request or env.
+    # The default combine package keeps its existing import/source manifest.
+    routes = BUSINESS_ROUTES
+    title = "SPARQ Combine Candidate"
+    if surface == "profile":
+        from athlete_evidence import current_athlete_evidence
+        routes = (
+            ("GET", "/api/athlete/evidence", current_athlete_evidence),
+            *BUSINESS_ROUTES[2:],
+        )
+        title = "SPARQ Profile Candidate"
+
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         config = validate_configuration(os.environ)
@@ -195,12 +209,12 @@ def create_app() -> FastAPI:
         finally:
             application.state.candidate_configuration = None
 
-    application = FastAPI(title="SPARQ Combine Candidate", version="1.0.0",
+    application = FastAPI(title=title, version="1.0.0",
                           docs_url=None, redoc_url=None, openapi_url=None,
                           lifespan=lifespan, redirect_slashes=False)
     application.state.candidate_configuration = None
     application.dependency_overrides[auth.require_clerk_id] = require_candidate_clerk_id
-    for method, path, endpoint in BUSINESS_ROUTES:
+    for method, path, endpoint in routes:
         application.add_api_route(path, endpoint, methods=[method])
 
     @application.get("/health")
@@ -208,10 +222,10 @@ def create_app() -> FastAPI:
         config = application.state.candidate_configuration
         ready = config is not None and config.signature == _signature(os.environ)
         return JSONResponse({
-            "service": "SPARQ Combine Candidate", "surface": "combine_candidate",
+            "service": title, "surface": f"{surface}_candidate",
             "configuration_ready": ready, "connectivity_verified": False,
             "schema_verified": False, "provider_delivery_verified": False,
-            "help_provider_configured": config.help_provider_configured if ready else False,
+            "help_provider_configured": config.help_provider_configured if ready and surface == "combine" else False,
         }, status_code=200 if ready else 503)
 
     @application.exception_handler(Exception)
@@ -220,6 +234,17 @@ def create_app() -> FastAPI:
         return JSONResponse({"detail": "Combine service is temporarily unavailable."}, status_code=500)
 
     application.add_middleware(CandidateBoundaryMiddleware)
+
+    if surface == "profile":
+        @application.middleware("http")
+        async def private_profile_responses(request: Request, call_next):
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "private, no-store"
+            vary = [part.strip() for part in response.headers.get("Vary", "").split(",") if part.strip()]
+            if not any(part.lower() == "authorization" for part in vary):
+                vary.append("Authorization")
+            response.headers["Vary"] = ", ".join(vary)
+            return response
 
     return application
 

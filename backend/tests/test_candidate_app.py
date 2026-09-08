@@ -197,7 +197,8 @@ def test_cors_uses_exact_origins_and_preflight_does_not_call_auth(configured):
         assert client.get("/health").status_code == 200  # Server requests need not carry Origin.
 
 
-def test_fresh_candidate_import_and_lifespan_attempt_no_external_work():
+@pytest.mark.parametrize("entry", ["candidate_app", "profile_candidate_app"])
+def test_fresh_candidate_import_and_lifespan_attempt_no_external_work(entry):
     program = r'''
 import asyncio, collections, os, socket, sys, threading
 from unittest.mock import patch
@@ -223,7 +224,8 @@ openai.OpenAI=openai.AsyncOpenAI=blocked('openai')
 dotenv.load_dotenv=dotenv.dotenv_values=blocked('dotenv')
 threading.Thread.start=blocked('thread')
 sys.path.insert(0,sys.argv[1])
-import candidate_app, model_usage
+import importlib, model_usage
+candidate_app = importlib.import_module(sys.argv[2])
 assert 'main' not in sys.modules
 assert not any(name in sys.modules for name in ('agent_api','artifacts_api','reports_api','search_api','enrichment_worker'))
 assert model_usage._ledger is None
@@ -238,7 +240,7 @@ asyncio.run(run())
 assert dict(attempts)=={},dict(attempts)
 print('CANDIDATE_COMPOSITION zero external attempts')
 '''
-    result = subprocess.run([sys.executable, "-I", "-B", "-c", program, str(Path(__file__).resolve().parents[1])],
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", program, str(Path(__file__).resolve().parents[1]), entry],
                             env={**ENV, "PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
                             capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr

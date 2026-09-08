@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
-import { candidatePagePolicy, isCombineSurface, resolveBackendOrigin } from './lib/backend-config.cjs'
+import { candidatePagePolicy, isRestrictedSurface, resolveBackendOrigin } from './lib/backend-config.cjs'
 
 const isPublicRoute = createRouteMatcher([
   '/', '/sign-in(.*)', '/sign-up(.*)', '/connect', '/demo', '/quick-scan',
@@ -8,7 +8,7 @@ const isPublicRoute = createRouteMatcher([
 ])
 const isClaimRedeemRoute = createRouteMatcher(['/claim/(.*)/redeem'])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
-const combine = isCombineSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
+const combine = isRestrictedSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
 const backendUrl = resolveBackendOrigin(process.env.NEXT_PUBLIC_BACKEND_URL)
 const authenticatedMiddleware = clerkMiddleware(async (auth, request) => {
   if (isClaimRedeemRoute(request) || !isPublicRoute(request)) {

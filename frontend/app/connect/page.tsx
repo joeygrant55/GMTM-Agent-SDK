@@ -1,6 +1,6 @@
 import ConnectClient from './ConnectClient'
 import CombineConnectionRecovery from './CombineConnectionRecovery'
-import { isCombineSurface } from '@/lib/backend-config.cjs'
+import { isRestrictedSurface, isProfileSurface } from '@/lib/backend-config.cjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +14,6 @@ export default function ConnectPage({ searchParams }: { searchParams?: Record<st
   // Repeated and unsupported values must not silently choose a division.
   const requestedEvent = searchParams?.event_id
   const eventId = requestedEvent === '1317' ? 1317 : requestedEvent === '1318' ? 1318 : null
-  if (isCombineSurface(process.env.NEXT_PUBLIC_APP_SURFACE)) return <CombineConnectionRecovery eventId={eventId} />
+  if (isRestrictedSurface(process.env.NEXT_PUBLIC_APP_SURFACE)) return <CombineConnectionRecovery eventId={eventId} profileMode={isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE)} />
   return <ConnectClient eventId={eventId} />
 }

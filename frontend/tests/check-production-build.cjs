@@ -10,6 +10,8 @@ const { spawn } = require('node:child_process');
 
 const frontend = path.resolve(__dirname, '..');
 const repo = path.dirname(frontend);
+const surface = process.env.SPARQ_BUILD_SURFACE || 'combine';
+if (!['combine', 'profile'].includes(surface)) throw Error('Unsupported build surface');
 const output = process.env.SPARQ_PRODUCTION_BUILD_ARTIFACT_DIR;
 if (!output || !path.isAbsolute(output) || fs.existsSync(output)) throw Error('Set a new absolute SPARQ_PRODUCTION_BUILD_ARTIFACT_DIR.');
 const realOutput = path.join(fs.realpathSync(path.dirname(output)), path.basename(output));
@@ -19,7 +21,7 @@ const snapshotRoot = path.join(output, 'frontend');
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const sourceHashes = {}, children = [], log = { build: '', start: '' }, smoke = [];
 let port, interrupted = false, server;
-let result = { status: 'incomplete', authOverlays: false };
+let result = { status: 'incomplete', authOverlays: false, surface };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const writeJSON = (name, value) => fs.writeFileSync(path.join(output, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
 
@@ -141,7 +143,7 @@ async function portClosed() {
   for (const name of ['next', 'react', 'react-dom', '@clerk/nextjs', 'tailwindcss', 'postcss', 'typescript']) versions[name] = JSON.parse(fs.readFileSync(path.join(deps, name, 'package.json'))).version;
   writeJSON('runtime.json', { node: process.version, executable: process.execPath, dependencies: deps, versions, originalConfigHash: sourceHashes['next.config.js'], harnessSha256: sha(harness), authOverlays: false, port });
   const guardPath = path.join(output, 'guard.cjs'); fs.writeFileSync(guardPath, guardSource()); require(guardPath);
-  const env = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'production', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: 'combine', NEXT_PUBLIC_BACKEND_URL: 'https://candidate-backend.example.invalid', NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_' + Buffer.from('clerk.example.invalid$').toString('base64'), CLERK_SECRET_KEY: 'sk_test_synthetic_build_only_not_a_credential' };
+  const env = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'production', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: surface, NEXT_PUBLIC_BACKEND_URL: 'https://candidate-backend.example.invalid', NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_' + Buffer.from('clerk.example.invalid$').toString('base64'), CLERK_SECRET_KEY: 'sk_test_synthetic_build_only_not_a_credential' };
   process.stdout.write('PRODUCTION_BUILD_STAGE compile-started\n');
   const build = startChild('build', ['build'], env);
   const buildExit = await waitExit(build, 240000);

@@ -44,7 +44,7 @@ npm run dev
 # → http://localhost:3001
 ```
 
-An explicit `NEXT_PUBLIC_BACKEND_URL` origin is required; missing or invalid configuration fails startup/build. For the focused combine candidate also set `NEXT_PUBLIC_APP_SURFACE=combine` and an explicit Clerk publishable key. The default `legacy` surface retains the broader app. The effective Next 14 configuration is `frontend/next.config.js`; the ignored duplicate TypeScript config has been removed.
+An explicit `NEXT_PUBLIC_BACKEND_URL` origin is required; missing or invalid configuration fails startup/build. For the focused combine candidate also set `NEXT_PUBLIC_APP_SURFACE=combine` and an explicit Clerk publishable key. The private profile workspace uses `NEXT_PUBLIC_APP_SURFACE=profile` with `profile_candidate_app:app`; see its [runbook and acceptance limits](docs/state/profile-workspace-runbook-2026-09-08.md). The default `legacy` surface retains the broader app. The effective Next 14 configuration is `frontend/next.config.js`; the ignored duplicate TypeScript config has been removed.
 
 ## Product docs
 

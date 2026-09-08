@@ -11,6 +11,8 @@ const readline = require('node:readline');
 
 const frontend = path.resolve(__dirname, '..');
 const repo = path.dirname(frontend);
+const surface = process.env.SPARQ_CANDIDATE_SURFACE || 'combine';
+if (!['combine', 'profile'].includes(surface)) throw Error('Unsupported fixture surface');
 const output = process.env.SPARQ_CANDIDATE_ARTIFACT_DIR;
 if (!output || !path.isAbsolute(output) || fs.existsSync(output)) throw Error('Set a new absolute SPARQ_CANDIDATE_ARTIFACT_DIR; existing artifacts are never overwritten.');
 const realOutput = path.join(fs.realpathSync(path.dirname(output)), path.basename(output));
@@ -26,9 +28,85 @@ const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const writeJSON = (name, value) => fs.writeFileSync(path.join(output, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const cleanPath = url => new URL(url).pathname.replace(/\/(api\/)?claims?\/[^/]+/g, '/$1claim/[token]');
-let fixture, next, browser, fixtureReady, commandId = 0, ownedPorts = [];
+let fixture, next, browser, browserServer, browserLaunch, fixtureReady, commandId = 0, ownedPorts = [];
 const pendingCommands = new Map();
 let nextLog = '', fixtureLog = '', nextReady = false, result = { status: 'incomplete' };
+const runId = crypto.randomUUID(), runStartedAt = Date.now();
+const runBudgetMs = 8 * 60 * 1000, cleanupBudgetMs = 60000;
+const ownedProcesses = new Map();
+let stopping = false, interruption = null, runTimer, cleanupTimer, rejectInterrupted;
+const interrupted = new Promise((_, reject) => { rejectInterrupted = reject; });
+
+function lifecycle(event, detail = {}) {
+  if (!fs.existsSync(output)) return;
+  const fd = fs.openSync(path.join(output, 'lifecycle.jsonl'), 'a', 0o600);
+  try {
+    fs.writeSync(fd, JSON.stringify({ at: new Date().toISOString(), runId, harnessPid: process.pid, event, ...detail }) + '\n');
+    fs.fsyncSync(fd);
+  } finally { fs.closeSync(fd); }
+}
+
+function assertRunning() {
+  if (stopping) throw Error(interruption || 'Candidate verification is stopping');
+}
+
+function ownProcess(role, child) {
+  // These are detached children created by this invocation. Chromium's public
+  // BrowserServer.process() exposes Playwright's detached POSIX group leader.
+  child?.on('error', error => lifecycle('owned_process_error', { role, pid: child.pid, code: error.code || error.name }));
+  if (!Number.isSafeInteger(child?.pid) || child.pid <= 1) throw Error('No owned PID for ' + role);
+  ownedProcesses.set(child, { role, pid: child.pid, pgid: child.pid, released: false });
+  lifecycle('owned_process_started', { role, pid: child.pid, pgid: child.pid });
+  child.once('exit', (code, signal) => lifecycle('owned_leader_exited', { role, pid: child.pid, code, signal }));
+  return child;
+}
+
+const leaderDead = child => !child || child.exitCode !== null || child.signalCode !== null;
+function groupAlive(child) {
+  const owned = ownedProcesses.get(child);
+  if (!owned || owned.released) return false;
+  try { process.kill(-owned.pgid, 0); return true; }
+  catch (error) { if (error.code === 'ESRCH') return false; throw error; }
+}
+function signalOwned(child, signal) {
+  const owned = ownedProcesses.get(child);
+  if (!owned || owned.released) return;
+  try { process.kill(-owned.pgid, signal); lifecycle('owned_group_signalled', { role: owned.role, pgid: owned.pgid, signal }); }
+  catch (error) { if (error.code !== 'ESRCH') throw error; }
+}
+function interrupt(reason) {
+  if (stopping) return;
+  stopping = true; interruption = reason;
+  lifecycle('interrupted', { reason });
+  rejectInterrupted(Error(reason));
+}
+for (const name of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(name, () => interrupt('Received ' + name));
+
+async function within(promise, timeout, label) {
+  let timer;
+  try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(label + ' timed out')), timeout); })]); }
+  finally { clearTimeout(timer); }
+}
+
+function emergencyStop(reason) {
+  result.status = 'failed'; result.lifecycleError = reason;
+  const groups = [];
+  for (const [child, owned] of ownedProcesses) {
+    try { if (groupAlive(child)) signalOwned(child, 'SIGKILL'); groups.push({ role: owned.role, pid: owned.pid, groupDead: !groupAlive(child) }); }
+    catch (error) { groups.push({ role: owned.role, pid: owned.pid, error: error.code || error.name }); }
+  }
+  lifecycle('emergency_cleanup', { reason, groups, verifiedComplete: false });
+  if (fs.existsSync(output)) writeJSON('receipt.json', { ...result, ownedProcesses: [...ownedProcesses.values()], emergencyCleanup: groups, cleanupVerified: false });
+  process.exitCode = 1;
+}
+process.on('exit', () => {
+  // Also covers an unexpected synchronous exit. SIGKILL, host shutdown and a
+  // blocked JS event loop require an external supervisor; journaled PIDs are
+  // recovery evidence, not a claim that this finally block ran in those cases.
+  for (const child of ownedProcesses.keys()) {
+    try { if (groupAlive(child)) signalOwned(child, 'SIGKILL'); } catch {}
+  }
+});
 
 async function unusedPort() {
   const server = net.createServer();
@@ -64,9 +142,9 @@ function backendHashes(dir = path.join(repo, 'backend'), relative = '', result =
   return result;
 }
 
-function nodeGuard(frontPort, backPort) {
+function nodeGuard(frontPort, backPort, browserPort) {
   return `const fs=require('node:fs'),net=require('node:net'),dns=require('node:dns');
-const allowed=new Set([${frontPort},${backPort}]);
+const allowed=new Set([${frontPort},${backPort},${browserPort}]);
 const local=h=>!h||h==='127.0.0.1'||h==='localhost'||h==='::1';
 function denied(kind){fs.appendFileSync(${JSON.stringify(path.join(output, 'network-denials.jsonl'))},JSON.stringify({kind,pid:process.pid})+'\\n');throw Error('Candidate network boundary: '+kind)}
 const connect=net.Socket.prototype.connect;
@@ -112,6 +190,7 @@ export async function auth(){return identity(cookies().get('sparq_fixture_auth')
 }
 
 async function command(op, values = {}) {
+  if (op !== 'stop') assertRunning();
   const id = ++commandId;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { pendingCommands.delete(id); reject(Error('Fixture command timed out: ' + op)); }, 10000);
@@ -123,6 +202,7 @@ async function command(op, values = {}) {
 async function waitHTTP(origin) {
   const until = Date.now() + 90000;
   while (Date.now() < until) {
+    assertRunning();
     if (next.exitCode !== null || next.signalCode !== null) throw Error('Next exited before readiness');
     if (!nextReady) { await delay(200); continue; }
     try { const response = await fetch(origin + '/sign-in', { signal: AbortSignal.timeout(12000) }); if (response.status === 200) return; } catch {}
@@ -132,17 +212,18 @@ async function waitHTTP(origin) {
 }
 
 async function stop(child) {
-  if (!child) return { started: false, dead: true };
-  const dead = () => child.exitCode !== null || child.signalCode !== null;
-  const wait = () => new Promise(resolve => {
-    if (dead()) return resolve();
-    const done = () => { clearTimeout(timer); child.off('exit', done); resolve(); };
-    const timer = setTimeout(done, 5000); child.once('exit', done);
-  });
-  const signal = value => { try { process.kill(-child.pid, value); } catch (error) { if (error.code !== 'ESRCH') throw error; } };
-  if (!dead()) { signal('SIGTERM'); await wait(); }
-  if (!dead()) { signal('SIGKILL'); await wait(); }
-  return { started: true, pid: child.pid, dead: dead(), exitCode: child.exitCode, signal: child.signalCode };
+  if (!child) return { started: false, dead: true, groupDead: true };
+  const owned = ownedProcesses.get(child);
+  for (const signal of ['SIGTERM', 'SIGKILL']) {
+    if (leaderDead(child) && !groupAlive(child)) break;
+    signalOwned(child, signal);
+    const until = Date.now() + 5000;
+    while ((!leaderDead(child) || groupAlive(child)) && Date.now() < until) await delay(50);
+  }
+  const cleanup = { role: owned.role, started: true, pid: child.pid, pgid: owned.pgid, dead: leaderDead(child), groupDead: !groupAlive(child), exitCode: child.exitCode, signal: child.signalCode };
+  if (cleanup.groupDead) owned.released = true;
+  lifecycle('owned_process_cleanup', cleanup);
+  return cleanup;
 }
 
 async function stopFixture() {
@@ -157,6 +238,26 @@ async function stopFixture() {
   return { ...await stop(fixture), ipcStop };
 }
 
+async function stopBrowser() {
+  const failures = [];
+  // A signal can arrive while launchServer is resolving. Its launch has its own
+  // 30-second bound; await the owned PID before claiming browser cleanup.
+  if (browserLaunch) {
+    try { await within(browserLaunch, 35000, 'Browser launch settlement'); }
+    catch (error) { failures.push(error.message); }
+  }
+  if (browser) {
+    try { await within(browser.close(), 5000, 'Browser close'); }
+    catch (error) { failures.push(error.message); }
+  }
+  if (browserServer) {
+    try { await within(browserServer.close(), 5000, 'Browser server close'); }
+    catch (error) { failures.push(error.message); }
+  }
+  const stopped = await stop(browserServer?.process());
+  return { ...stopped, closed: !browser?.isConnected(), ownershipConfirmed: !browserLaunch || !!browserServer, closeErrors: failures };
+}
+
 async function portClosed(port) {
   return new Promise(resolve => {
     const socket = net.createConnection({ host: '127.0.0.1', port });
@@ -167,12 +268,21 @@ async function portClosed(port) {
   });
 }
 
-(async () => {
+const work = (async () => {
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
+  lifecycle('run_started', { surface, checkout: repo, runBudgetMs, cleanupBudgetMs, supervisor: 'In-process timeout and POSIX signal cleanup; external SIGKILL or a blocked JS event loop cannot be intercepted.' });
+  runTimer = setTimeout(() => interrupt('Candidate verification exceeded its 8-minute run budget'), runBudgetMs);
+  assert(process.platform !== 'win32', 'Owned process-group cleanup requires POSIX');
   const frontPort = await unusedPort(); let backPort = await unusedPort();
   while (backPort === frontPort) backPort = await unusedPort();
-  ownedPorts = [frontPort, backPort];
+  let browserPort = await unusedPort();
+  while ([frontPort, backPort].includes(browserPort)) browserPort = await unusedPort();
+  ownedPorts = [frontPort, backPort, browserPort];
+  lifecycle('owned_ports_reserved', { ports: ownedPorts });
   const frontOrigin = `http://127.0.0.1:${frontPort}`, backOrigin = `http://127.0.0.1:${backPort}`;
+  // NextURL normalizes 127.0.0.1 to localhost in development redirects. This
+  // exact alias reaches the same owned listener; other hosts/ports stay denied.
+  const frontOrigins = new Set([frontOrigin, `http://localhost:${frontPort}`]);
   const snapshotRoot = path.join(output, 'frontend'); fs.mkdirSync(snapshotRoot); snapshot(frontend);
   fs.symlinkSync(deps, path.join(snapshotRoot, 'node_modules'), 'dir');
   writeJSON('source-hashes.json', sourceHashes);
@@ -180,10 +290,11 @@ async function portClosed(port) {
   const versions = {};
   for (const name of ['next', 'react', 'react-dom', '@clerk/nextjs', 'tailwindcss', 'postcss', 'typescript']) versions[name] = JSON.parse(fs.readFileSync(path.join(deps, name, 'package.json'))).version;
   writeJSON('runtime.json', { node: process.version, dependencies: deps, versions, ports: { frontend: frontPort, backend: backPort }, nextConfig: 'next.config.js (Next14 supported .js/.mjs)', duplicateNextTS: fs.existsSync(path.join(snapshotRoot, 'next.config.ts')), postcssConfig: 'postcss.config.js (before .mjs)', duplicatePostCSSMJS: fs.existsSync(path.join(snapshotRoot, 'postcss.config.mjs')) });
-  const guardPath = path.join(output, 'network-guard.cjs'); fs.writeFileSync(guardPath, nodeGuard(frontPort, backPort));
+  const guardPath = path.join(output, 'network-guard.cjs'); fs.writeFileSync(guardPath, nodeGuard(frontPort, backPort, browserPort));
   require(guardPath);
-  const environment = { PATH: '/usr/bin:/bin', PYTHONDONTWRITEBYTECODE: '1', SPARQ_FIXTURE_FRONTEND_PORT: String(frontPort), SPARQ_FIXTURE_BACKEND_PORT: String(backPort), SPARQ_FIXTURE_RECEIPT: path.join(output, 'backend-receipt.json') };
-  fixture = spawn(python, [path.join(repo, 'backend/tests/run_candidate_fixture.py')], { cwd: repo, env: environment, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const environment = { PATH: '/usr/bin:/bin', PYTHONDONTWRITEBYTECODE: '1', SPARQ_FIXTURE_SURFACE: surface, SPARQ_FIXTURE_FRONTEND_PORT: String(frontPort), SPARQ_FIXTURE_BACKEND_PORT: String(backPort), SPARQ_FIXTURE_RECEIPT: path.join(output, 'backend-receipt.json') };
+  assertRunning();
+  fixture = ownProcess('backend', spawn(python, [path.join(repo, 'backend/tests/run_candidate_fixture.py')], { cwd: repo, env: environment, detached: true, stdio: ['pipe', 'pipe', 'pipe'] }));
   fixture.stderr.on('data', data => { fixtureLog += data.toString(); });
   fixtureReady = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(Error('Backend fixture startup timed out')), 30000);
@@ -196,20 +307,30 @@ async function portClosed(port) {
     });
     fixture.once('exit', () => { clearTimeout(timer); reject(Error('Backend fixture exited before readiness')); });
   });
+  assertRunning();
   assert(fixtureReady.token && fixtureReady.claim_token && fixtureReady.clerk_id);
   authOverlays(snapshotRoot, fixtureReady);
-  const nextEnvironment = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'development', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: 'combine', NEXT_PUBLIC_BACKEND_URL: backOrigin, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only', CLERK_SECRET_KEY: 'sk_test_fixture_only' };
-  next = spawn(process.execPath, [path.join(deps, 'next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', String(frontPort)], { cwd: snapshotRoot, env: nextEnvironment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const nextEnvironment = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'development', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: surface, NEXT_PUBLIC_BACKEND_URL: backOrigin, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only', CLERK_SECRET_KEY: 'sk_test_fixture_only' };
+  assertRunning();
+  next = ownProcess('next', spawn(process.execPath, [path.join(deps, 'next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', String(frontPort)], { cwd: snapshotRoot, env: nextEnvironment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] }));
   for (const stream of [next.stdout, next.stderr]) stream.on('data', data => { nextLog += data.toString(); nextReady = nextLog.includes('Ready in'); });
   await waitHTTP(frontOrigin);
   process.stdout.write('CANDIDATE_STAGE actual Next ready\n');
   const { chromium } = require(playwrightPath);
-  browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
+  assertRunning();
+  browserLaunch = chromium.launchServer({ headless: true, host: '127.0.0.1', port: browserPort, timeout: 30000, handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false }).then(server => {
+    browserServer = server; ownProcess('chromium', server.process()); return server;
+  });
+  await browserLaunch;
+  assertRunning();
+  browser = await chromium.connect({ wsEndpoint: browserServer.wsEndpoint(), timeout: 10000 });
+  assertRunning();
+  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
+  context.setDefaultTimeout(20000); context.setDefaultNavigationTimeout(30000);
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
-    if (![frontOrigin, backOrigin].includes(url.origin)) { blockedBrowser.push({ origin: url.origin, path: cleanPath(url.href) }); return route.abort(); }
-    requests.push({ origin: url.origin === frontOrigin ? 'frontend' : 'backend', method: route.request().method(), path: cleanPath(url.href), rsc: route.request().headers()['rsc'] === '1' });
+    if (!frontOrigins.has(url.origin) && url.origin !== backOrigin) { blockedBrowser.push({ origin: url.origin, path: cleanPath(url.href) }); return route.abort(); }
+    requests.push({ origin: frontOrigins.has(url.origin) ? 'frontend' : 'backend', method: route.request().method(), path: cleanPath(url.href), rsc: route.request().headers()['rsc'] === '1' });
     return route.continue();
   });
   const page = await context.newPage(); page.on('pageerror', error => browserErrors.push(error.message));
@@ -217,7 +338,8 @@ async function portClosed(port) {
   const cookie = async signedIn => context.addCookies([{ name: 'sparq_fixture_auth', value: signedIn ? 'signed-in' : 'signed-out', url: frontOrigin }]);
   await cookie(false);
   const authRedirect = await context.request.get(frontOrigin + '/home/inbox?event_id=1318', { maxRedirects: 0 });
-  check([302, 307].includes(authRedirect.status()) && authRedirect.headers().location.includes('/sign-in'), 'Actual middleware rejects a missing fixture session');
+  const authLocation = new URL(authRedirect.headers().location || '/', frontOrigin);
+  check([302, 307].includes(authRedirect.status()) && authLocation.pathname === '/sign-in' && frontOrigins.has(authLocation.origin), 'Actual middleware rejects a missing fixture session at the owned frontend');
   for (const route of ['/home/colleges', '/home/profile', '/home/outreach', '/athlete/7201', '/home/colleges/private.json', '/home/artifact/123.jpg', '/_next/image?url=https%3A%2F%2Fexample.invalid%2Fphoto.jpg&w=64&q=75', '/_next/image?url=%2Fsparq-logo.jpg&w=64&q=75', '/home/%63olleges', '/home%2fcolleges', '/api/combine/current', '/api/workspace/inbox/fixture', '/trpc/private']) {
     const response = await context.request.get(frontOrigin + route, { maxRedirects: 0 });
     httpChecks.push({ path: route, method: 'GET', status: response.status(), fixtureAuthCalled: !!response.headers()['x-candidate-fixture-auth'] });
@@ -245,6 +367,7 @@ async function portClosed(port) {
   check(true, 'Actual public claim RSC fetch renders synthetic organizer invitation');
   await page.goto(frontOrigin + '/claim/' + fixtureReady.claim_token + '/redeem');
   await page.waitForURL(url => url.pathname === '/home/inbox' && url.searchParams.get('event_id') === '1318');
+  if (surface === 'combine') {
   await page.getByText('0 of 9 activities submitted', { exact: true }).waitFor();
   check(await page.locator('#combine-workspace-main').count() === 1, 'Actual redemption creates synthetic link and lands in the focused adult workspace');
   check(await page.getByRole('link', { name: /college|profile|outreach/i }).count() === 0, 'Focused navigation excludes legacy college/profile/outreach surfaces');
@@ -281,20 +404,92 @@ async function portClosed(port) {
   await page.waitForURL(url => url.pathname === '/home/inbox' && !url.searchParams.has('event_id'));
   await page.getByRole('heading', { name: 'Choose your USA Football combine' }).waitFor();
   check(true, 'Older-event redemption with workspace failure lands in the focused combine chooser');
+  } else {
+    await page.getByRole('heading', {name:'Ava Fixture',exact:true}).waitFor();
+    check(await page.locator('#combine-workspace-main').count() === 0, 'Profile entry does not mount the combine checklist');
+    check(await page.getByRole('heading', {name:'Put your profile to work.',exact:true}).count() === 1, 'Actual claimed profile reaches the new workspace');
+    await page.getByRole('checkbox').first().check();
+    await page.getByLabel('What are you working toward?').fill('Prepare for my next flag football opportunity.');
+    await page.getByRole('button', {name:'Prepare my text',exact:true}).click();
+    const editor = page.getByLabel('Your text — ready to edit');
+    const generated = await editor.inputValue();
+    check(generated.includes('Ava Fixture') && generated.includes('4.75 seconds') && generated.includes('Prepare for my next flag football opportunity.'), 'Actual GMTM-shaped fixture evidence and athlete goal feed the draft');
+    const revised = generated + '\nI am available to discuss my next step.';
+    await editor.fill(revised);
+    await page.getByRole('button', {name:'Copy text',exact:true}).click();
+    await page.getByText('Copied to clipboard. Nothing has been sent.', {exact:true}).waitFor();
+    check(await page.evaluate(() => navigator.clipboard.readText()) === revised, 'Actual browser clipboard contains exact edited output');
+    await page.screenshot({path:path.join(output,'desktop.png'),fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Profile phone layout has no horizontal overflow');
+    await page.screenshot({path:path.join(output,'phone.png'),fullPage:true});
+    await page.getByRole('button',{name:'Refresh profile',exact:true}).click();
+    await page.getByRole('heading',{name:'Ava Fixture',exact:true}).waitFor();
+    check(await page.getByLabel('Your text — ready to edit').count() === 0, 'Refresh clears the page-local draft');
+    // Exact local GET response overlay only, after the real ASGI-backed journey.
+    // This stresses presentation of the adapter's maximum 20 displayed results.
+    const evidenceURL = backOrigin + '/api/athlete/evidence';
+    const stressEvidence = async route => {
+      if (route.request().method() !== 'GET' || route.request().url() !== evidenceURL) return route.fallback();
+      const response = await route.fetch({ timeout: 10000 });
+      const body = await response.json();
+      assert.equal(body.state, 'ready'); assert(body.evidence.length > 0);
+      const first = body.evidence[0];
+      body.evidence = Array.from({ length: 20 }, (_, index) => ({ ...first, id: String(9001 + index), label: 'Fixture result ' + (index + 1), value: index === 19 ? 6.19 : 4.75 }));
+      body.observations = [];
+      return route.fulfill({ response, json: body });
+    };
+    await page.route(evidenceURL, stressEvidence);
+    try {
+      await page.getByRole('button', { name: 'Refresh profile', exact: true }).click();
+      await page.getByRole('button', { name: 'Show all 20 results', exact: true }).waitFor();
+      check(await page.getByRole('checkbox').count() === 3, 'Twenty-result phone profile initially presents three results');
+      await page.getByRole('button', { name: 'Show all 20 results', exact: true }).click();
+      check(await page.getByRole('checkbox').count() === 20, 'Phone athlete can expand all twenty results');
+      await page.getByRole('checkbox').last().check();
+      await page.getByRole('button', { name: 'Show fewer results', exact: true }).click();
+      check(await page.getByRole('checkbox').count() === 3, 'Phone athlete can collapse the result list again');
+      const composerTop = await page.locator('#profile-output-title').evaluate(element => element.getBoundingClientRect().top + window.scrollY);
+      check(composerTop < 2 * 844, 'Collapsed twenty-result phone profile reaches the composer within two viewports');
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Twenty-result phone layout has no horizontal overflow');
+      await page.getByLabel('What are you working toward?').fill('Use my selected result for a next opportunity.');
+      await page.getByRole('button', { name: 'Prepare my text', exact: true }).click();
+      const stressDraft = await page.getByLabel('Your text — ready to edit').inputValue();
+      check(stressDraft.includes('Fixture result 20') && stressDraft.includes('6.19 seconds') && !stressDraft.includes('Fixture result 1:'), 'Collapsed selected result remains in the actual app draft');
+      await page.screenshot({ path: path.join(output, 'phone-twenty-results-collapsed.png'), fullPage: true });
+    } finally { await page.unroute(evidenceURL, stressEvidence); }
+    await page.goto(frontOrigin + '/connect');
+    await page.waitForURL(url => url.pathname === '/home/inbox');
+    await page.getByRole('heading',{name:'Ava Fixture',exact:true}).waitFor();
+    check(true,'Profile connection recovery returns to the profile workspace');
+    check(!requests.some(request => request.origin === 'backend' && request.path.startsWith('/api/combine/')), 'Profile journey calls no combine status or help endpoint');
+    const deniedHelp = await context.request.post(backOrigin + '/api/combine/help');
+    check(deniedHelp.status() === 404,'Profile ASGI does not expose model-backed combine help');
+    await cookie(false); await page.reload();
+    await page.waitForURL(url => url.pathname === '/sign-in');
+    check(frontOrigins.has(new URL(page.url()).origin), 'Signed-out redirect remains on the exact owned frontend port');
+    await page.getByRole('heading', { name: 'Fixture sign in', exact: true }).waitFor();
+    check(await page.getByLabel('Your text — ready to edit').count() === 0,'Signed-out profile no longer displays athlete draft');
+  }
   check(!requests.some(request => request.origin === 'backend' && /workspace|artifacts|badges|search|agent\//.test(request.path)), 'Focused browser never calls legacy workspace/artifact/badge/search/agent APIs');
   check(blockedBrowser.every(request => ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].includes(request.origin)), 'Browser blocks external font assets and attempts no service origin');
   check(browserErrors.length === 0, 'No browser runtime errors');
   for (const [file, hash] of Object.entries(sourceHashes)) assert(sha(fs.readFileSync(path.join(frontend, file))) === hash, 'Source changed during harness: ' + file);
   check(true, 'All captured application source bytes remain unchanged');
-  result = { status: 'passed', checks, requestCount: requests.length, requests, blockedBrowser, browserErrors, sourceFileCount: Object.keys(sourceHashes).length, limits: ['Synthetic Clerk identity, SQL stores and provider response.', 'Actual Next development routing/RSC and ASGI runtime; not a production build or deployment.', 'Fixture submission update is not a real GMTM submission.'] };
-})().catch(error => { result = { status: 'failed', error: error.stack, checks, requests, blockedBrowser, browserErrors }; process.exitCode = 1; }).finally(async () => {
+  assertRunning();
+  result = { status: 'passed', surface, checks, requestCount: requests.length, requests, blockedBrowser, browserErrors, sourceFileCount: Object.keys(sourceHashes).length, limits: ['Synthetic Clerk identity, SQL stores and provider response.', 'Actual Next development routing/RSC and ASGI runtime; not a production build or deployment.', 'Fixture submission update is not a real GMTM submission.'] };
+})();
+Promise.race([work, interrupted]).catch(error => { result = { status: 'failed', error: error.stack, checks, requests, blockedBrowser, browserErrors }; process.exitCode = 1; }).finally(async () => {
+  stopping = true; clearTimeout(runTimer);
+  lifecycle('cleanup_started', { interruption });
+  cleanupTimer = setTimeout(() => { emergencyStop('Cleanup exceeded its 60-second budget'); process.exit(1); }, cleanupBudgetMs);
   const cleanup = await Promise.allSettled([
-    Promise.resolve().then(async () => { if (browser) await browser.close(); return { closed: true }; }),
+    stopBrowser(),
     stop(next), stopFixture(),
   ]);
   result.cleanup = cleanup;
   result.httpChecks = httpChecks;
-  if (cleanup.some(item => item.status === 'rejected' || item.value.dead === false)) { result.status = 'failed'; process.exitCode = 1; }
+  if (cleanup.some(item => item.status === 'rejected' || item.value.dead === false || item.value.groupDead === false || item.value.closed === false || item.value.ownershipConfirmed === false)) { result.status = 'failed'; process.exitCode = 1; }
   result.portsAfterCleanup = await Promise.all(ownedPorts.map(portClosed));
   if (result.portsAfterCleanup.some(port => !port.closed)) { result.status = 'failed'; process.exitCode = 1; }
   const redact = text => fixtureReady ? [fixtureReady.token, fixtureReady.claim_token, fixtureReady.old_claim_token].filter(Boolean).reduce((value, token) => value.split(token).join('[synthetic-token]'), text) : text;
@@ -312,9 +507,10 @@ async function portClosed(port) {
       assert.equal(receipt.all_synthetic_connections_closed, true, 'Synthetic connections leaked');
       assert.equal(receipt.status, 'stopped', 'Backend did not stop normally');
       if (result.status === 'passed') {
-        assert.equal(receipt.synthetic_help_calls, 1, 'Expected exactly one synthetic help call');
+        assert.equal(receipt.synthetic_help_calls, surface === 'combine' ? 1 : 0, 'Unexpected synthetic help calls for surface');
         assert(receipt.fixture_connection_count > 0, 'No synthetic SQL work observed');
-        for (const route of ['GET /api/combine/current', 'POST /api/combine/help', 'GET /api/profile/by-clerk/{clerk_id}', 'GET /api/claims/{token}', 'POST /api/claims/{token}/redeem']) assert(receipt.requests_by_route_template[route] > 0, 'Actual backend route was not exercised: ' + route);
+        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence'];
+        for (const route of [...surfaceRoutes, 'GET /api/profile/by-clerk/{clerk_id}', 'GET /api/claims/{token}', 'POST /api/claims/{token}/redeem']) assert(receipt.requests_by_route_template[route] > 0, 'Actual backend route was not exercised: ' + route);
       }
       assert.deepEqual(backendHashes(), backendSourceHashes, 'Backend source changed during harness');
       for (const [file, hash] of Object.entries(sourceHashes)) assert.equal(sha(fs.readFileSync(path.join(frontend, file))), hash, 'Frontend source changed: ' + file);
@@ -322,7 +518,14 @@ async function portClosed(port) {
     } catch (error) { result.status = 'failed'; result.safetyError = error.message; process.exitCode = 1; }
     if (result.nodeNetworkDenials.length || !result.backendReceiptSha256) { result.status = 'failed'; process.exitCode = 1; }
     fs.writeFileSync(path.join(output, 'next.log'), redact(nextLog)); fs.writeFileSync(path.join(output, 'fixture.log'), redact(fixtureLog));
+    result.lifecycle = { runId, harnessPid: process.pid, elapsedMs: Date.now() - runStartedAt, runBudgetMs, cleanupBudgetMs, interruption, ownedProcesses: [...ownedProcesses.values()], scope: 'Only this invocation\'s detached POSIX process groups; no shared browser sessions. In-process deadlines cannot intercept SIGKILL, host shutdown or a blocked JS event loop.' };
+    lifecycle('cleanup_finished', { status: result.status, portsAfterCleanup: result.portsAfterCleanup });
     writeJSON('receipt.json', result);
   }
+  for (const done of pendingCommands.values()) done({ ok: false });
+  pendingCommands.clear(); clearTimeout(cleanupTimer);
   process.stdout.write('CANDIDATE_RESULT ' + JSON.stringify({ status: result.status, checks: checks.length, receipt: path.join(output, 'receipt.json') }) + '\n');
-});
+  // End this finite CLI even if a library retains a timer; Playwright's own exit
+  // hooks also cover a launch failure before BrowserServer returned its PID.
+  process.exit(process.exitCode || 0);
+}).catch(error => { emergencyStop(error.message); process.exit(1); });

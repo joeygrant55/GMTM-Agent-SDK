@@ -1,4 +1,4 @@
-"""Bounded loopback fixture server for the real combine candidate ASGI app.
+"""Bounded loopback fixture server for an explicitly chosen candidate ASGI app.
 
 This executable scrubs its environment, blocks real services, and accepts fixture
 control only on stdin. It creates no HTTP fixture routes. JWT/claim tokens are
@@ -24,7 +24,11 @@ from types import SimpleNamespace
 
 def main():
     raw = {name: os.environ.get(name) for name in (
-        "SPARQ_FIXTURE_FRONTEND_PORT", "SPARQ_FIXTURE_BACKEND_PORT", "SPARQ_FIXTURE_RECEIPT")}
+        "SPARQ_FIXTURE_FRONTEND_PORT", "SPARQ_FIXTURE_BACKEND_PORT", "SPARQ_FIXTURE_RECEIPT",
+        "SPARQ_FIXTURE_SURFACE")}
+    surface = raw["SPARQ_FIXTURE_SURFACE"] or "combine"
+    if surface not in ("combine", "profile"):
+        raise ValueError("Fixture surface must be combine or profile")
     def port(name):
         value = raw[name]
         if not isinstance(value, str) or not value.isascii() or not value.isdecimal() or not 1024 <= int(value) <= 65535:
@@ -237,6 +241,60 @@ def main():
     combine_api._get_agent_db = lambda: combine_connection("agent")
     combine_api._get_gmtm_db = lambda: combine_connection("gmtm")
 
+    if surface == "profile":
+        import athlete_evidence
+
+        class EvidenceAgentDB(AgentDB):
+            """Use the shared claim link, but permit only the two owner reads."""
+            def execute(self, sql, params):
+                normalized = " ".join(sql.split())
+                allowed = {
+                    "SELECT user_id, clerk_id FROM athlete_profiles WHERE clerk_id = %s LIMIT 2": (CALLER,),
+                    "SELECT user_id, clerk_id FROM athlete_profiles WHERE user_id = %s LIMIT 2": (ATHLETE,),
+                }
+                if normalized not in allowed or params != allowed[normalized]:
+                    blocked("fixture.unexpected_evidence_agent_query")()
+                return super().execute(sql, params)
+
+            def commit(self):
+                blocked("fixture.evidence_agent_write")()
+
+        class EvidenceDB(IdentityDB):
+            """Read-only synthetic identity and one explicitly unit-bearing fact."""
+            def execute(self, sql, params):
+                normalized = " ".join(sql.split())
+                if not normalized.startswith("SELECT ") or ";" in normalized:
+                    blocked("fixture.unexpected_evidence_source_query")()
+                if ("FROM users u LEFT JOIN locations" in normalized
+                        and "WHERE u.user_id = %s LIMIT 2" in normalized and params == (ATHLETE,)):
+                    self.rows = [{"user_id": ATHLETE, "first_name": "Ava", "last_name": "Fixture",
+                                  "graduation_year": 2027, "city": "Austin", "state": "TX"}]
+                elif ("FROM career c" in normalized and params == (ATHLETE,)
+                      and "c.is_primary = 1 AND c.visibility >= 0" in normalized
+                      and "c.approved = 1 OR c.suggested_by IS NULL" in normalized
+                      and normalized.endswith("ORDER BY c.career_id DESC LIMIT 2")):
+                    self.rows = [{"user_id": ATHLETE, "career_id": 31, "is_primary": 1,
+                                  "visibility": 1, "approved": 0, "suggested_by": None,
+                                  "position": "WR", "school": "Fixture High", "sport": "Flag Football"}]
+                elif ("FROM metrics m" in normalized and params == (ATHLETE, 101)
+                      and "WHERE m.user_id = %s AND m.is_current = 1 AND m.visibility = 2" in normalized
+                      and "m.user_approved = 0 AND m.suggested_by IS NULL" in normalized
+                      and "e.published = 1 AND e.`public` = 1 AND e.visibility = 2" in normalized
+                      and "e.invite_only = 0 AND e.product_id IS NULL" in normalized
+                      and "m.event_id IS NULL OR e.event_id IS NOT NULL" in normalized
+                      and normalized.endswith("ORDER BY m.created_on DESC, m.metric_id DESC LIMIT %s")):
+                    self.rows = [{"metric_id": 401, "user_id": ATHLETE, "title": "40 Yard Dash",
+                                  "value": "4.75", "unit": "seconds", "created_on": datetime(2026, 9, 1, 12, 30),
+                                  "is_current": 1, "visibility": 2, "user_approved": 0, "suggested_by": None,
+                                  "event_id": None, "public_event_id": None, "event_name": None,
+                                  "event_published": None, "event_public": None, "event_visibility": None,
+                                  "event_invite_only": None, "event_product_id": None}]
+                else:
+                    blocked("fixture.unexpected_evidence_source_query")()
+
+        athlete_evidence._get_agent_db = EvidenceAgentDB
+        athlete_evidence._get_gmtm_db = EvidenceDB
+
     async def synthetic_answer(**kwargs):
         assert kwargs["model"] == "claude-sonnet-4-6"
         assert "CURRENT SERVER SNAPSHOT" in kwargs["system"]
@@ -295,8 +353,12 @@ def main():
                 # header, JWT, claim token, payload, or athlete data is logged.
                 requests[f'{scope["method"]} {path}'] += 1
 
-    app = candidate_app.app
-    expected = {path for _, path, _ in candidate_app.BUSINESS_ROUTES} | {"/health"}
+    app = candidate_app.app if surface == "combine" else candidate_app.create_app(surface="profile")
+    expected = ({path for _, path, _ in candidate_app.BUSINESS_ROUTES} | {"/health"}
+                if surface == "combine" else {
+                    "/health", "/api/athlete/evidence", "/api/profile/by-clerk/{clerk_id}",
+                    "/api/claims/{token}", "/api/claims/{token}/redeem",
+                })
     assert set(app.openapi()["paths"]) == expected
     server = uvicorn.Server(uvicorn.Config(CountRequests(app), host="127.0.0.1", port=backend_port,
                                            loop="asyncio", http="h11", access_log=False,
@@ -340,7 +402,7 @@ def main():
                     await task
                     raise RuntimeError("Fixture server did not start")
                 await asyncio.sleep(0.01)
-            emit({"event": "ready", "token": token, "claim_token": claim_tokens[1318],
+            emit({"event": "ready", "surface": surface, "token": token, "claim_token": claim_tokens[1318],
                   "old_claim_token": claim_tokens[999], "clerk_id": CALLER, "athlete_id": ATHLETE,
                   "adult_task_id": next(task["task_id"] for task in source["tasks"] if task["event_id"] == 1318)})
             await task
@@ -357,7 +419,7 @@ def main():
     finally:
         all_connections = claims["connections"] + source["connections"] + shared_connections
         report = {
-            "kind": "synthetic_actual_candidate_asgi", "status": exit_status,
+            "kind": "synthetic_actual_candidate_asgi", "status": exit_status, "surface": surface,
             "requests_by_route_template": dict(requests), "fixture_commands": dict(commands),
             "forbidden_attempts": dict(attempts), **counts,
             "real_provider_attempts": model_usage.get_usage_snapshot()["attempted_calls"],
@@ -368,7 +430,8 @@ def main():
             "limits": "Loopback transport, locally signed JWT/JWKS, fake database interfaces and provider output; no live integration claim.",
             "source_hashes": {name: hashlib.sha256((backend/name).read_bytes()).hexdigest() for name in (
                 "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
-                "combine_help_api.py", "tests/run_candidate_fixture.py")},
+                "combine_help_api.py", "tests/run_candidate_fixture.py",
+                *(("athlete_evidence.py",) if surface == "profile" else ()))},
         }
         descriptor = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as handle:
