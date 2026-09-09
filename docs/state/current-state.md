@@ -2,6 +2,14 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## First useful output and separate profile package — September 9, 2026
+
+Home's **Create my summary / Prepare introduction** now immediately prepares an editable draft from the saved intent and chosen eligible work, without a second form submission. Existing edits, including an empty draft, are preserved. Pending sources settle before first preparation; a blank recipient produces a summary. Copy, Save and Rebuild remain explicit; no provider or automatic save is added.
+
+The profile app now has a separate fixed launcher, Docker source recipe and 24-file allowlisted source archive. Existing combine/production defaults are unchanged. **317 component checks, 47 packaging/profile-entry tests, 120 actual-app checks plus five safety assertions, and the real Next production build/start pass.** Source hashes reconcile; all owned verification groups/ports closed. Independent review and in-app one-click/reload checks passed. See the [handoff](../../.sammy/handoffs/2026-09-09-first-output-and-profile-package.md) for exact receipts, retained failed attempts, finite preview05 and local commit status.
+
+**Next:** bounded real-account acceptance using Joey's linked profile and reviewed Agent-only table preparation, followed by AI advice quality and a small athlete pilot. No live workspace schema was applied, no Linux image built, no real model allowance changed, and no push/deployment occurred. Synthetic tests do not prove athlete usefulness or willingness to pay.
+
 ## Actual SPARQ logo — September 9, 2026
 
 Joey supplied the official transparent wordmark. The active athlete header and shared sign-in, sign-up, profile connection and claim screens now use that exact PNG through a shared component, rendered white on charcoal with its original aspect ratio. It replaces the typed header and square image treatment. The exact public asset is allowlisted; no route or backend scope was broadened. See the [logo handoff](../../.sammy/handoffs/2026-09-09-actual-sparq-logo.md) for verification and commit status.

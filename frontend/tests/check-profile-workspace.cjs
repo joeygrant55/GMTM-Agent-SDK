@@ -318,6 +318,29 @@ const work = (async()=>{
     const remount=async()=>{await page.evaluate(()=>window.__unmount());await settle();await page.evaluate(()=>window.__mount());await settle()};
     const setWorkspaceMode=async mode=>page.evaluate(mode=>{window.__workspaceMode=mode},mode);
     const currentWorkspace=()=>page.evaluate(()=>window.__workspaceStore[window.__identity.user.id]);
+    const initialGoal={text:'Use my recorded work for my next application',destination:'   ',timeframe:null};
+    await reset({body:canonicalProfile},undefined,false,{pending:true},workspaceState({goal:initialGoal,featured_source_id:'film-12'}));await overviewReady();
+    check(await page.getByRole('button',{name:'Loading your profile…',exact:true}).isDisabled()&&await draft().count()===0,
+      'First output waits for pending footage instead of silently dropping the saved featured source');
+    await releaseMaterials({body:materials([publicPoster,secondClip,privateClip,deadClip])});
+    await selectEvidence(0);
+    const beforeSummary=await page.evaluate(()=>window.__requests.length);
+    await page.getByRole('button',{name:'Create my summary',exact:true}).click();
+    const firstSummary=await draft().inputValue();
+    check(firstSummary.includes(initialGoal.text)&&firstSummary.includes('20-yard dash: 3.12 seconds')&&!firstSummary.includes('Three-cone drill')
+      &&firstSummary.split('https://gmtm.com/film/12').length===2&&!firstSummary.includes('Second clip')&&!firstSummary.includes('Private poster record')
+      &&!firstSummary.includes('Unavailable poster record')&&!firstSummary.includes(posterURL)&&!firstSummary.startsWith('Hello '),
+      'One Home click prepares a summary from saved intent, selected metrics and one eligible featured link without inventing a recipient or adding other footage');
+    check(!await goal().isVisible()&&await draft().evaluate(el=>document.activeElement===el)&&await page.evaluate(()=>window.__requests.length)===beforeSummary
+      &&(await currentWorkspace()).draft===null, 'First text receives focus with details collapsed and no extra request or automatic save');
+    await draft().fill('');await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='', 'An intentionally empty edited draft resumes unchanged instead of being regenerated');
+    await setMaterialsMode({body:materials([publicPoster,secondClip,privateClip,deadClip])});await remount();await overviewReady();
+    check(await page.getByRole('button',{name:'Create my summary',exact:true}).isVisible(), 'Preparing text does not persist it without an explicit save');
+    await reset({body:canonicalProfile},undefined,false,{status:503,body:{}},workspaceState({goal:initialGoal,featured_source_id:'film-12'}));await overviewReady();
+    await page.getByRole('button',{name:'Create my summary',exact:true}).click();
+    check((await draft().inputValue()).includes(initialGoal.text)&&!(await draft().inputValue()).includes('gmtm.com/film/'),
+      'A settled footage outage still permits a goal-only summary and never restores a stale featured link');
     await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials});await overviewReady();
     await saveGoal('Explore a team opportunity using my existing work','Coach Fixture','This fall');
     check(await overview().getByText('Explore a team opportunity using my existing work',{exact:true}).isVisible()
@@ -325,9 +348,9 @@ const work = (async()=>{
     let saved=await currentWorkspace();
     check(saved.version===1&&saved.goal.destination==='Coach Fixture'&&saved.goal.timeframe==='This fall'&&saved.recent_work[0].kind==='goal_saved', 'Saving a goal stores only authored goal fields and one real save activity');
     await page.getByRole('button',{name:'Prepare introduction',exact:true}).click();
-    check(await page.getByLabel('Introduction',{exact:true}).isChecked()&&await page.getByLabel('Who is this for?',{exact:true}).inputValue()==='Coach Fixture'
-      &&await draft().count()===0, 'The adaptive action fills the athlete’s actual goal and recipient without generating text');
-    await selectEvidence(0);await openProfile();await profileDialog().getByRole('checkbox',{name:/Include Game footage/}).check();await closeProfile();await prepare();
+    check((await draft().inputValue()).startsWith('Hello Coach Fixture,')&&(await draft().inputValue()).includes('Explore a team opportunity using my existing work')
+      &&!(await draft().inputValue()).includes('gmtm.com/film/')&&!await goal().isVisible(), 'The adaptive action immediately prepares the introduction from saved intent without selecting fallback footage');
+    await selectEvidence(0);await openProfile();await profileDialog().getByRole('checkbox',{name:/Include Game footage/}).check();await closeProfile();await rebuild();
     const exactSavedText='My exact saved introduction.\nLiteral <tags> & punctuation.';
     await draft().fill(exactSavedText);await saveDraft();saved=await currentWorkspace();
     check(saved.draft.text===exactSavedText&&saved.draft.selected_evidence_ids.join(',')==='metric-1'&&saved.draft.selected_material_ids.join(',')==='film-12'
@@ -608,7 +631,7 @@ const work = (async()=>{
     check(await page.getByRole('alert').count()===0&&await page.evaluate(()=>window.__sourceRequests().some(r=>r.signal.aborted)),'StrictMode cleanup cannot overwrite its fresh read with an abort error');
 
     const hostile='<img src=x onerror="window.__xss=1">';const escaped=profile(hostile);escaped.evidence[0].label=hostile;escaped.observations[0].detail=hostile;await reset({body:escaped});await ready();await selectEvidence(0);await fillGoal(hostile);await prepare();
-    check(await page.locator('img,iframe').count()===0&&await page.evaluate(()=>window.__xss===undefined)&&(await draft().inputValue()).includes(hostile),'Source and athlete-provided HTML stay escaped text in presentation and output');
+    check(await page.locator('img[src="/sparq-wordmark.png"]').count()===1&&await page.locator('img:not([src="/sparq-wordmark.png"]),iframe').count()===0&&await page.evaluate(()=>window.__xss===undefined)&&(await draft().inputValue()).includes(hostile),'Source and athlete-provided HTML stay escaped text; the only image here is the official header logo');
     const exact=await page.evaluate(()=>window.__helpers.evidenceValue({value:0.00000000003,unit:'seconds'}));check(exact==='3e-11 seconds','Numeric presentation does not round a small recorded measurement into zero');
     const many=profile();many.evidence=Array.from({length:20},(_,i)=>result('m'+i,'Recorded test '+(i+1),i+1));many.observations=[];
     await reset({body:many});await ready();await openProfile();
@@ -639,7 +662,7 @@ const work = (async()=>{
     check(await materialRegion().getByText(/Submitted: Aug 21, 2026/).count()===2&&await materialRegion().getByText(/Published: Aug 22, 2026/).count()===1,'Submission and publication dates are explicitly distinguished from measurement dates');
     const filmLink=materialRegion().getByRole('link',{name:/View footage on GMTM: Game footage/});
     check(await filmLink.getAttribute('href')==='https://gmtm.com/film/12'&&await filmLink.getAttribute('target')==='_blank'&&await filmLink.getAttribute('rel')==='noopener noreferrer','Footage offers only its explicit generated GMTM page link');
-    check(await page.locator('img,video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__sourceRequests().length===2),'Viewing material records loads no media, preview, provider or extra endpoint');
+    check(await page.locator('img:not([src="/sparq-wordmark.png"]),video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__sourceRequests().length===2),'Viewing material records loads no source media, preview, provider or extra endpoint');
     await materialRegion().getByRole('checkbox',{name:/Include Submitted sprint/}).check();await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).check();
     await page.keyboard.press('Escape');await settle();
     check(!await profileDialog().isVisible()&&await page.getByRole('button',{name:/^Choose profile details/}).evaluate(el=>document.activeElement===el),'Closing profile details restores focus to the composer trigger');
@@ -694,7 +717,7 @@ const work = (async()=>{
     }
     const hostileMaterial=materialResult('hostile',{title:'<img src=x onerror="window.__materialXss=1">'});
     await reset({body:profile()},undefined,false,{body:materials([hostileMaterial])});await ready();await openProfile();await materialRegion().getByRole('checkbox').first().check();await fillGoal('A genuine use for my recorded evidence');await prepare();
-    check(await page.locator('img,iframe,video').count()===0&&await page.evaluate(()=>window.__materialXss===undefined)&&(await draft().inputValue()).includes(hostileMaterial.title),'Material labels render and copy as escaped plain text without media or code execution');
+    check(await page.locator('img:not([src="/sparq-wordmark.png"]),iframe,video').count()===0&&await page.evaluate(()=>window.__materialXss===undefined)&&(await draft().inputValue()).includes(hostileMaterial.title),'Material labels render and copy as escaped plain text without source media or code execution');
 
     await reset({body:profile()},undefined,false,{pending:true});await ready();await fillGoal('Continue while materials load');await prepare();await page.evaluate(()=>window.__advance(30000));await settle();await openProfile();await materialRegion().getByRole('alert').waitFor();
     check((await draft().inputValue()).includes('Continue while materials load')&&await page.evaluate(()=>window.__sourceRequests().find(r=>r.path==='/api/athlete/materials').signal.aborted),'Materials timeout aborts only its request and keeps the base-evidence draft usable');
@@ -842,7 +865,7 @@ const work = (async()=>{
       await fillQuestion('A revised question');check(await page.getByRole('link',{name:body.next_action.label,exact:true}).count()===0,'A stale answer cannot present its earlier external action as current: '+action);
     }
     const literal='<img src=x onerror="window.__debriefXss=1">';await reset();await ready(false);await fillQuestion(literal);const escapedAnswer={...debrief(literal),answer:{text:literal,refs:['f1']}};await setDebriefMode({body:escapedAnswer});await ask();await answerRegion().waitFor();
-    check(await answerRegion().getByText(literal,{exact:false}).count()>0&&await page.locator('img,iframe,video,audio').count()===0&&await page.evaluate(()=>window.__debriefXss===undefined&&localStorage.length===0&&sessionStorage.length===0),'Athlete and generated text render escaped without media, code execution or persisted conversation');
+    check(await answerRegion().getByText(literal,{exact:false}).count()>0&&await page.locator('img:not([src="/sparq-wordmark.png"]),iframe,video,audio').count()===0&&await page.evaluate(()=>window.__debriefXss===undefined&&localStorage.length===0&&sessionStorage.length===0),'Athlete and generated text render escaped without source media, code execution or persisted conversation');
     check(await page.evaluate(body=>{body.references[0].href='https://gmtm.com/film/12';try{return !!window.__debriefHelpers.readAthleteDebrief(body,{track:'profile',question:body.question})}catch{return false}},debrief('Can I use https://gmtm.com in my introduction?')),'A question may contain a URL as quoted input; evidence links still require the canonical server-resolved film form');
     check(posterRequests.length>0&&posterRequests.every(request=>request.url===posterURL&&!request.hasCookie&&!request.hasAuthorization&&!request.hasReferrer),'Every native poster request uses the one exact inert fixture without cookies, authorization or referrer');
     check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside intercepted fixture assets and the one inert poster');

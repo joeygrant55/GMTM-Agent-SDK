@@ -15,6 +15,7 @@ export interface AthleteCareerHomeProps {
   goal: { text: string; destination: string | null; timeframe: string | null } | null
   featuredId: string | null
   saving: boolean
+  nextPending: boolean
   nextMove: { title: string; detail: string; label: string }
   recent: Array<{ id: string; kind: string; at: string }>
   onNext: () => void
@@ -63,7 +64,7 @@ const activityLabels: Record<string, string> = {
   draft_saved: 'Draft saved', draft_removed: 'Draft removed',
 }
 
-export default function AthleteCareerHome({ profile, snapshot, loading, error, goal, featuredId, saving, nextMove, recent, onNext, onEditGoal, onFeature, onAsk, onBrowse, onProgress }: AthleteCareerHomeProps) {
+export default function AthleteCareerHome({ profile, snapshot, loading, error, goal, featuredId, saving, nextPending, nextMove, recent, onNext, onEditGoal, onFeature, onAsk, onBrowse, onProgress }: AthleteCareerHomeProps) {
   const sourceReady = !loading && !error && snapshot?.state === 'ready'
   const items = sourceReady ? snapshot.items : []
   const clips = items.filter(item => item.kind === 'footage' && item.can_include && item.availability === 'unchecked' && item.source_url).slice(0, 10)
@@ -121,7 +122,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, g
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-300">Your next move</p>
           <h2 id="career-next-title" className="mt-3 break-words text-3xl font-semibold leading-[1.08] tracking-[-0.04em] sm:mt-4 xl:text-[2.6rem]">{nextMove.title}</h2>
           <p className="mt-2 break-words text-base leading-relaxed text-gray-400 sm:mt-3 xl:text-lg">{nextMove.detail}</p>
-          <button type="button" onClick={onNext} disabled={saving} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-base font-semibold text-sparq-charcoal hover:bg-sparq-lime-light disabled:cursor-wait disabled:opacity-50 sm:mt-6 sm:min-h-14 sm:w-auto sm:px-8 sm:text-lg ${focus}`}>{nextMove.label}</button>
+          <button type="button" onClick={onNext} disabled={saving || nextPending} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-base font-semibold text-sparq-charcoal hover:bg-sparq-lime-light disabled:cursor-wait disabled:opacity-50 sm:mt-6 sm:min-h-14 sm:w-auto sm:px-8 sm:text-lg ${focus}`}>{nextPending ? 'Loading your profile…' : nextMove.label}</button>
           <div className="mt-4"><button type="button" onClick={onAsk} className={textAction}>Ask SPARQ</button></div>
         </section>
       </aside>

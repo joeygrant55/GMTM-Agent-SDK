@@ -324,23 +324,39 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
     } finally { if (lifetime.current) setCopying(false) }
   }
   const savedGoal = workspace.snapshot?.goal || null
+  const savedDestination = savedGoal?.destination?.trim() || ''
   const hasDraft = draft !== null
+  const nextPending = !hasDraft && !!savedGoal && materials.loading
   const eligibleFeature = materials.snapshot?.state === 'ready' ? materials.snapshot.items.find(item => item.id === workspace.snapshot?.featured_source_id && item.can_include && item.kind === 'footage' && item.source_url) : undefined
   const nextMove = hasDraft
     ? { title: 'Pick up where you left off.', detail: 'Your words are here. Keep shaping them for your next opportunity.', label: 'Continue my draft' }
     : !savedGoal
       ? { title: 'Choose your next chapter.', detail: 'Set a goal so your next move has a purpose.', label: 'Set my goal' }
-      : savedGoal.destination
+      : savedDestination
         ? { title: 'Make your introduction count.', detail: 'Use your selected work to introduce yourself to the recipient you chose.', label: 'Prepare introduction' }
         : { title: 'Put your work to use.', detail: 'Turn your selected footage and results into an athlete summary.', label: 'Create my summary' }
   const takeNextMove = () => {
-    if (workspace.loading) return
+    if (workspace.loading || workspace.saving || nextPending) return
     if (hasDraft) { setDetailsOpen(false); openComposer(kind, ''); return }
     if (!savedGoal) { editGoal(); return }
-    setEditor(value => ({ ...value, kind: savedGoal.destination ? 'introduction' : 'summary', goal: savedGoal.text,
-      destination: savedGoal.destination || '', selected_material_ids: eligibleFeature && !value.selected_material_ids.includes(eligibleFeature.id) ? [...value.selected_material_ids, eligibleFeature.id] : value.selected_material_ids }))
-    setDetailsOpen(true); setComposerOpen(true)
-    requestAnimationFrame(() => { if (lifetime.current) composerHeading.current?.focus() })
+    setEditor(value => {
+      // An existing buffer always wins, including deliberately erased text.
+      if (value.text !== null) return value
+      const nextKind = savedDestination ? 'introduction' : 'summary'
+      const nextDestination = savedDestination
+      const requestedMaterials = new Set(value.selected_material_ids)
+      if (eligibleFeature) requestedMaterials.add(eligibleFeature.id)
+      const includedMaterials = materials.snapshot?.state === 'ready'
+        ? materials.snapshot.items.filter(item => item.can_include && requestedMaterials.has(item.id)) : []
+      const selectedEvidence = value.selected_evidence_ids.filter(id => profile.evidence.some(item => item.id === id))
+      return { ...value, kind: nextKind, goal: savedGoal.text, destination: nextDestination,
+        selected_evidence_ids: selectedEvidence, selected_material_ids: includedMaterials.map(item => item.id),
+        text: addMaterialsToDraft(prepareProfileDraft(profile, selectedEvidence, savedGoal.text, nextDestination, nextKind), includedMaterials, nextKind),
+        inputs_changed: false }
+    })
+    draftRevision.current += 1
+    setCopyStatus(''); setDetailsOpen(false); setComposerOpen(true)
+    requestAnimationFrame(() => { if (lifetime.current) draftInput.current?.focus() })
   }
   const savedDraft = workspace.snapshot?.draft
   const draftDirty = draft !== null && draftSignature(editor) !== draftSignature(savedDraft)
@@ -365,7 +381,7 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
       <div hidden={composerOpen || guidanceOpen}>
         <AthleteCareerHome profile={profile} snapshot={materials.snapshot} loading={materials.loading} error={materials.error}
           goal={savedGoal} featuredId={workspace.snapshot?.featured_source_id || null} saving={workspace.saving || workspace.loading}
-          nextMove={nextMove} recent={workspace.snapshot?.recent_work || []}
+          nextMove={nextMove} nextPending={nextPending} recent={workspace.snapshot?.recent_work || []}
           onNext={takeNextMove} onEditGoal={editGoal} onFeature={item => void featureClip(item)}
           onAsk={showGuidance} onBrowse={() => setProfileOpen(true)} onProgress={() => setView('progress')} />
       </div>

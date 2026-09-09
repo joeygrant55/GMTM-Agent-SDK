@@ -501,12 +501,20 @@ const work = (async () => {
     await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));
     check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The saved career goal and featured work fit the phone width');
     await page.screenshot({path:path.join(output,'phone-career-saved.png'),fullPage:true});
+    await page.getByRole('button',{name:'Create my summary',exact:true}).click();
+    check((await editor.inputValue()).includes('Explore college flag football')&&(await editor.inputValue()).includes('https://gmtm.com/film/703')
+      &&!(await editor.inputValue()).startsWith('Hello ')&&!await page.getByLabel('Intended use (optional)',{exact:true}).isVisible(),
+      'One phone Home action opens an editable summary with the saved goal and chosen public footage, without another form or invented recipient');
+    check((await readSaved()).draft===null,'Preparing the first summary does not save it automatically');
+    await page.reload();await showcase.waitFor();await showcase.getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
     await page.setViewportSize({width:1487,height:1058});
     await saveGoal('Use my profile to explore a flag football opportunity.','Coach Fixture','This fall');
     let saved=await readSaved();check(saved.goal.text==='Use my profile to explore a flag football opportunity.'&&saved.goal.destination==='Coach Fixture'&&saved.goal.timeframe==='This fall','Goal text, chosen recipient and timeframe persist in the isolated Agent store');
     check(await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible(),'A named recipient changes the adaptive next move to an introduction');
     await page.getByRole('button',{name:'Prepare introduction',exact:true}).click();
-    check(await page.getByLabel('Who is this for?',{exact:true}).inputValue()==='Coach Fixture'&&await editor.count()===0,'The proposed introduction uses the actual recipient and does not generate itself');
+    check((await editor.inputValue()).startsWith('Hello Coach Fixture,')&&(await editor.inputValue()).includes('Use my profile to explore a flag football opportunity.')
+      &&(await editor.inputValue()).split('https://gmtm.com/film/703').length===2&&!await page.getByLabel('Who is this for?',{exact:true}).isVisible(),
+      'One desktop Home action prepares the editable introduction with the supplied recipient and one featured link, with details collapsed');
     await page.reload();await showcase.waitFor();await showcase.getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
     check(await showcase.getByText('Use my profile to explore a flag football opportunity.',{exact:true}).isVisible()&&await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible(),'A genuine document reload restores saved goal and featured footage without creating a draft');
     await nav.getByRole('button',{name:'Opportunities',exact:true}).click();await page.getByRole('heading',{name:'Opportunities not reviewed yet.',exact:true}).waitFor();

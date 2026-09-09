@@ -25,6 +25,11 @@ SOURCES = (
 
 
 def package(root: Path, output: Path) -> dict:
+    return _package_sources(root, output, sources=SOURCES, kind="candidate_source_context")
+
+
+def _package_sources(root: Path, output: Path, *, sources: tuple[str, ...], kind: str) -> dict:
+    """Shared tar writer; only fixed, separately selected entry modules call it."""
     root = root.resolve(strict=True)
     if not output.is_absolute() or output.suffix != ".tar":
         raise ValueError("Use an absolute new .tar path outside the checkout")
@@ -37,7 +42,7 @@ def package(root: Path, output: Path) -> dict:
     if not output.parent.is_dir():
         raise ValueError("Create the artifact directory before packaging")
     payloads = {}
-    for name in SOURCES:
+    for name in sources:
         source = root / name
         if any(part.is_symlink() for part in (source, *source.parents) if part != root.parent):
             raise ValueError("Candidate source paths cannot be symlinks")
@@ -45,7 +50,7 @@ def package(root: Path, output: Path) -> dict:
             raise ValueError("Candidate source must be a regular file inside the checkout")
         payloads[name] = source.read_bytes()
     report = {
-        "kind": "candidate_source_context", "built": False, "deployed": False,
+        "kind": kind, "built": False, "deployed": False,
         "files": {name: {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)} for name, data in payloads.items()},
         "limits": "Source packaging only; no container engine, Linux installation or image digest has been verified.",
     }

@@ -4,11 +4,21 @@ This is the first implementation of the September 8 profile-value direction. It 
 
 ## Career home update — September 9
 
+The [first-output contract](profile-first-output-contract-2026-09-09.md) removes the repeated preparation form from Home. With a saved goal, **Create my summary** or **Prepare introduction** immediately opens the first editable draft, using that intent, selected current evidence and an eligible saved featured reference. A blank recipient produces a summary. Pending materials settle before first preparation; a completed source outage may still produce text from available profile facts and intent. Existing drafts always resume unchanged. Edit details/Rebuild, Copy and Save draft remain explicit; this action does not call a model, send, copy or persist text.
+
 The [career-home contract](athlete-career-home-design-2026-09-09.md) now governs the entry screen and saved behavior. The athlete sees their current source footage, chosen goal and one adaptive action. Home, Portfolio, Opportunities and Progress are focused views in the same route. Portfolio opens the existing details sheet; Opportunities explicitly remains unreviewed; Progress records saved work only.
 
 `GET/PATCH /api/athlete/workspace` adds private Agent persistence. Save goal, feature selection and Save draft are explicit. Save conflicts offer the current saved version without silently replacing local text. Reload restores the goal, feature reference and draft; ordinary source outages preserve authored work. Account/link changes clear old content, and matching server-derived owner scopes are required before showing saved work beside source evidence or an answer.
 
 The application still needs an explicitly prepared `athlete_workspaces` table in its intended Agent database. Review `backend/prepare_athlete_workspace.py --help`; default invocation only prints a plan. Apply requires the existing exact expected host/database guards and the current task's authority for that target. Never point this command at GMTM. Offline fixtures verify transactions with synthetic storage; they do not prove current live Agent schema availability. An unavailable workspace table produces a visible saved-work error instead of startup DDL.
+
+### Separate profile source package
+
+`backend/scripts/package_profile_candidate.py --output /absolute/new/artifact/profile-candidate.tar` creates an exclusive source archive and adjacent manifest in an already-created directory outside this checkout. It reads a fixed allowlist; it never installs, builds or deploys. The profile recipe is `Dockerfile.profile-candidate` with its exact companion ignore file. Its fixed `backend/start_profile_candidate.py` launches only `profile_candidate_app:app`, with one worker, no access logs, no proxy headers and no inherited Uvicorn override settings. The existing combine packager/launcher and production manifests keep their defaults.
+
+The archive contains the profile runtime plus shared imports, including the separate Agent workspace route. It excludes schema preparation commands, tests, environment files and the legacy main entry. Shared combine modules are import dependencies, not exposed profile routes. The frontend must separately be built with `NEXT_PUBLIC_APP_SURFACE=profile` and the explicit intended backend origin. No frontend build or source archive containing synthetic test configuration is a deployable release.
+
+Before release, still verify a clean Linux dependency installation and immutable image, identify the exact paired frontend/backend targets, prepare the Agent workspace table under scoped authority, complete the real-account journey and review rollback. Packaging/import tests establish code closure and route boundaries; they do not establish live authentication, database availability or athlete usefulness.
 
 The historical behavior below describes earlier checkpoints. In particular, references to page-local drafts and clearing them on refresh are superseded by this update. The debrief's disabled default, finite provider allowance, canonical GMTM read-only boundary, and separate release/live-acceptance limits remain.
 
