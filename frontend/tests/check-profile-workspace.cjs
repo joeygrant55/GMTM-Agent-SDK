@@ -160,40 +160,59 @@ const work = (async()=>{
     const check=(condition,name)=>{assert(condition,name);checks.push(name)};
     const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const reset=async(mode={body:profile()},identity={isLoaded:true,user:{id:'athlete-a'}},strict=false,materialMode={body:materials()})=>{await page.goto(origin);await page.evaluate(({mode,identity,strict,materialMode})=>{window.__mode=mode;window.__materialsMode=materialMode;window.__setIdentity(identity);window.__mount(strict)},{mode,identity,strict,materialMode});await settle()};
-    const openComposer=async()=>{const summary=page.locator('summary').filter({hasText:'Prepare text yourself'});if(!(await summary.evaluate(el=>el.parentElement.open)))await summary.click()};
-    const ready=async(open=true)=>{await page.getByRole('heading',{name:'What your profile records',exact:true}).waitFor();if(open)await openComposer()};
+    const profileDialog=()=>page.getByRole('dialog',{name:'Your profile',exact:true});
+    const openProfile=async()=>{if(await profileDialog().isVisible())return;const choose=page.getByRole('button',{name:/^Choose profile details/});await (await choose.isVisible()?choose:page.getByRole('button',{name:'View profile',exact:true})).click();await profileDialog().waitFor()};
+    const closeProfile=async()=>{if(await profileDialog().isVisible())await profileDialog().getByRole('button',{name:'Done',exact:true}).click()};
+    const openComposer=async()=>{await closeProfile();if(await page.getByRole('button',{name:'Back to SPARQ',exact:true}).isVisible())return;const resume=page.getByRole('button',{name:'Return to your draft',exact:true});await (await resume.isVisible()?resume:page.getByRole('button',{name:'Write an introduction',exact:true})).click();if(await page.getByLabel('Your text — ready to edit',{exact:true}).count()===0)await page.getByLabel('Profile summary',{exact:true}).check()};
+    const openGuidance=async()=>{await closeProfile();const back=page.getByRole('button',{name:'Back to SPARQ',exact:true});if(await back.isVisible())await back.click()};
+    const editDetails=async()=>{await openComposer();const edit=page.getByRole('button',{name:'Edit details',exact:true});if(await edit.isVisible())await edit.click()};
+    const ready=async(open=true)=>{await page.getByRole('button',{name:'View profile',exact:true}).waitFor();if(open)await openComposer()};
+    const selectEvidence=async(index=0,checked=true)=>{await openProfile();await page.getByRole('checkbox').nth(index).setChecked(checked);await closeProfile()};
+    const refreshProfile=async()=>{await openProfile();await profileDialog().getByRole('button',{name:'Refresh profile',exact:true}).click()};
     const setMode=async mode=>page.evaluate(mode=>{window.__mode=mode},mode);
     const setMaterialsMode=async mode=>page.evaluate(mode=>{window.__materialsMode=mode},mode);
     const switchAccount=async id=>{await page.evaluate(id=>window.__setIdentity({isLoaded:true,user:id?{id}:null}),id);await settle()};
     const release=async mode=>{await page.evaluate(mode=>window.__release(mode),mode);await settle()};
     const releaseMaterials=async mode=>{await page.evaluate(mode=>window.__release(mode,'/api/athlete/materials'),mode);await settle()};
     const goal=()=>page.getByLabel('What are you working toward?',{exact:true});
+    const fillGoal=async value=>{await editDetails();await goal().fill(value)};
     const draft=()=>page.getByLabel('Your text — ready to edit',{exact:true});
-    const prepare=()=>page.getByRole('button',{name:'Prepare my text',exact:true}).click();
+    const prepare=async()=>{await editDetails();await page.getByRole('button',{name:'Prepare my text',exact:true}).click()};
+    const rebuild=async()=>{await editDetails();await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click()};
 
-    await reset();await ready();
+    await reset();await ready(false);
+    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&await page.getByRole('checkbox').count()===0&&!await goal().isVisible()&&!await profileDialog().isVisible(),'The first screen prioritizes guidance and hides evidence cards, materials and composer');
     check(await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible(),'Ready profile displays the current source identity');
+    await openProfile();
+    check(await profileDialog().isVisible()&&await profileDialog().getByRole('heading',{name:'Your profile',exact:true}).isVisible(),'View profile opens the athlete evidence in its named native dialog');
+    await page.keyboard.press('Escape');await settle();
+    check(!await profileDialog().isVisible()&&await page.getByRole('button',{name:'View profile',exact:true}).evaluate(el=>document.activeElement===el),'Escape closes the profile dialog and returns focus to its trigger');
+    await openProfile();
     check(await page.getByRole('checkbox').count()===2&&await page.locator('input[type=checkbox]:checked').count()===0,'Only real returned evidence appears and selection is explicit');
     check(await page.getByText('3.12 seconds',{exact:true}).isVisible()&&await page.getByText(/Recorded GMTM metric · Aug 20, 2026/).count()===2,'Results retain exact value, unit, source and date');
-    check(await page.getByText('Two recorded results',{exact:true}).isVisible()&&await page.getByText('Based on: 20-yard dash, Three-cone drill',{exact:true}).isVisible(),'Backend observations retain evidence attribution');
+    await profileDialog().locator('summary').filter({hasText:'Sources & limitations'}).click();
+    check(await profileDialog().getByText('These records have a source and a date. They do not establish selection.',{exact:true}).isVisible(),'Profile source checks retain the supported observation detail behind an explicit disclosure');
+    await closeProfile();await page.getByRole('button',{name:'Write an introduction',exact:true}).click();
+    check(await page.getByLabel('Introduction',{exact:true}).isChecked()&&await page.getByLabel('Who is this for?',{exact:true}).isVisible()&&await page.getByRole('button',{name:'Back to SPARQ',exact:true}).isVisible(),'Manual introduction opens its dedicated recipient-and-goal view');
+    await page.getByLabel('Profile summary',{exact:true}).check();
     check(await page.getByRole('button',{name:'Prepare my text',exact:true}).isDisabled(),'A real stated goal is required before output preparation');
     check(await page.evaluate(()=>window.__requests.length===2&&window.__requests.map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&window.__requests.every(r=>r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.method==='GET')),'Only the two authenticated no-store evidence GETs run, without caller athlete IDs');
-    check(await page.getByRole('navigation').count()===0&&await page.getByRole('textbox').count()===3&&await page.getByRole('heading',{name:'Combine help'}).count()===0,'Shell has no task navigation, chat panel or additional workspace request');
+    check(await page.getByRole('navigation').count()===0&&await page.getByRole('textbox').count()===2&&await page.getByRole('heading',{name:'Combine help'}).count()===0,'Dedicated composer exposes only its two initial fields without task navigation or another request');
 
-    await page.getByRole('checkbox').first().check();await goal().fill('Prepare for a specific adult team trial');await page.getByLabel('Intended use (optional)',{exact:true}).fill('My trial application');await prepare();
+    await selectEvidence(0);await fillGoal('Prepare for a specific adult team trial');await page.getByLabel('Intended use (optional)',{exact:true}).fill('My trial application');await prepare();
     let output=await draft().inputValue();
     check(output.includes('Alex Fixture')&&output.includes('20-yard dash: 3.12 seconds')&&!output.includes('Three-cone drill'),'Prepared text uses the athlete and selected evidence only');
     check(output.includes('Recorded GMTM metric')&&output.includes('Aug 20, 2026')&&output.includes('Measurement verification is unconfirmed'),'Copied-ready evidence retains provenance and uncertainty');
     check(output.includes('My trial application')&&output.includes('Prepare for a specific adult team trial')&&!output.includes('https://'),'Summary reflects the real goal/use without inventing a public profile link');
     await draft().fill('My exact edited introduction.\nSecond line <literal> & punctuation.');await page.getByRole('button',{name:'Copy text',exact:true}).click();await page.getByText('Copied to clipboard. Nothing has been sent.',{exact:true}).waitFor();
     check(await page.evaluate(()=>window.__clipboard.at(-1))==='My exact edited introduction.\nSecond line <literal> & punctuation.','Copy sends the exact current edited plain text to the clipboard');
-    await page.getByRole('checkbox').nth(1).check();
+    await selectEvidence(1);
     check(await page.getByText(/Your selections changed/).isVisible()&&(await draft().inputValue()).startsWith('My exact edited'),'Selection changes do not silently replace athlete edits');
-    await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    await rebuild();
     check((await draft().inputValue()).includes('Three-cone drill: 7.34 seconds'),'Explicit rebuild picks up the changed selection');
-    await page.getByLabel('Introduction',{exact:true}).check();
+    await editDetails();await page.getByLabel('Introduction',{exact:true}).check();
     check(await page.getByLabel('Who is this for?',{exact:true}).inputValue()===''&&await page.getByRole('button',{name:'Rebuild from these details'}).isDisabled(),'Introduction requires an explicitly provided recipient, not the earlier intended-use text');
-    await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await page.getByRole('button',{name:'Rebuild from these details'}).click();
+    await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await rebuild();
     check((await draft().inputValue()).startsWith('Hello Coach Fixture,')&&!(await draft().inputValue()).includes('guaranteed'),'Introduction names only the recipient supplied by the athlete');
     check(await page.evaluate(()=>window.__requests.length===2&&window.__requests.map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&localStorage.length===0&&sessionStorage.length===0),'Selection, preparation, editing and copying add no API calls beyond the two initial reads and persist no browser storage');
 
@@ -204,9 +223,9 @@ const work = (async()=>{
     await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined})});await page.getByRole('button',{name:'Copy text',exact:true}).click();await page.getByText(/Clipboard access is unavailable/).waitFor();
     check(await page.getByText(/Clipboard access is unavailable/).isVisible(),'Unavailable clipboard API gets the same honest manual fallback');
 
-    await reset();await ready();await goal().fill('An actual goal');await prepare();await page.evaluate(()=>{window.__clipboardMode='pending'});await page.getByRole('button',{name:'Copy text',exact:true}).click();await draft().fill('A newer edited version');await page.evaluate(()=>window.__copyPending.shift()());await settle();
+    await reset();await ready();await fillGoal('An actual goal');await prepare();await page.evaluate(()=>{window.__clipboardMode='pending'});await page.getByRole('button',{name:'Copy text',exact:true}).click();await draft().fill('A newer edited version');await page.evaluate(()=>window.__copyPending.shift()());await settle();
     check(await page.getByText('Copied to clipboard. Nothing has been sent.',{exact:true}).count()===0&&(await draft().inputValue())==='A newer edited version','Late clipboard completion cannot claim that a newly edited version was copied');
-    await setMode({pending:true});await page.getByRole('button',{name:'Refresh profile',exact:true}).click();await settle();
+    await setMode({pending:true});await refreshProfile();await settle();
     check(await draft().count()===0&&await page.getByRole('button',{name:'Copy text',exact:true}).count()===0,'Starting a source refresh immediately removes the old draft and copy action');
     await release({body:profile()});await ready();
     await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();
@@ -229,23 +248,24 @@ const work = (async()=>{
     }
     await setMode({body:profile('Recovered Fixture')});await page.getByRole('button',{name:'Try again',exact:true}).click();await ready();
     check(await page.getByRole('heading',{name:'Recovered Fixture',exact:true}).isVisible()&&await page.getByRole('alert').count()===0,'Retry replaces unavailable state with a confirmed source read');
-    await goal().fill('Preserve until refreshed');await prepare();await setMode({status:409,body:{}});await page.getByRole('button',{name:'Refresh profile'}).click();await page.getByRole('alert').waitFor();
+    await fillGoal('Preserve until refreshed');await prepare();await setMode({status:409,body:{}});await refreshProfile();await page.getByRole('alert').waitFor();
     check(await draft().count()===0&&await page.getByText('Recovered Fixture',{exact:true}).count()===0,'A denied refresh removes formerly visible evidence and draft');
 
     await reset({body:emptyState('unlinked')});
     check(await page.getByRole('heading',{name:'Bring your GMTM profile with you.',exact:true}).isVisible()&&await page.getByRole('link',{name:'Check connection',exact:true}).getAttribute('href')==='/connect'&&await goal().count()===0,'Unlinked state offers existing connection recovery without fabricated athlete data');
     await reset({body:emptyState('source_unavailable')});
     check(await page.getByText('We could not read your source profile. This does not mean your results are missing.',{exact:true}).isVisible()&&await goal().count()===0,'Source unavailable is different from an empty metric list');
-    const noMetrics={...profile(),evidence:[],observations:[]};await reset({body:noMetrics});await ready();await goal().fill('Prepare my profile for a real application');await prepare();
-    check(await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible()&&await page.getByRole('checkbox').count()===0&&!(await draft().inputValue()).includes('Selected results')&&(await draft().inputValue()).includes('Flag football'),'A valid profile without numeric results still produces factual identity/goal text');
-    const nullFields={...noMetrics,athlete:{name:null,sport:null,position:null,school:null,city:null,state:null,graduation_year:null}};await reset({body:nullFields});await ready();await goal().fill('Understand my next step');await prepare();
+    const noMetrics={...profile(),evidence:[],observations:[]};await reset({body:noMetrics});await ready();await fillGoal('Prepare my profile for a real application');await prepare();
+    await openProfile();
+    check(await profileDialog().getByText('No numeric performance results were returned with this profile.',{exact:true}).isVisible()&&await page.getByRole('checkbox').count()===0&&!(await draft().inputValue()).includes('Selected results')&&(await draft().inputValue()).includes('Flag football'),'A valid profile without numeric results still produces factual identity/goal text');
+    const nullFields={...noMetrics,athlete:{name:null,sport:null,position:null,school:null,city:null,state:null,graduation_year:null}};await reset({body:nullFields});await ready();await fillGoal('Understand my next step');await prepare();
     check((await draft().inputValue())==='Athlete profile\n\nMy goal: Understand my next step','Nullable source fields do not become invented identity, metrics or eligibility claims');
 
     const badPayloads=[{...profile(),athlete:null},{...emptyState('unlinked'),athlete:athlete('PRIVATE INVALID OWNER')},{...profile(),evidence:[{...result('m1','Dash',3.12),verification:'verified'}]},{...profile(),observations:[{title:'Unsupported',detail:'Wrong evidence',evidence_ids:['other-athlete']}]},{...profile(),evidence:[result('m1','Dash',3.12),result('m1','Duplicate',4)]},{...profile(),fetched_at:'invalid-date'},{...profile(),athlete:{...athlete('Fixture'),'school':'x'.repeat(161)}},{...profile(),evidence:Array.from({length:21},(_,i)=>result('m'+i,'Dash',3))},{...profile(),fetched_at:'2026-09-08T17:00:00'},{...profile(),evidence:[{...result('m1','Dash',3),recorded_at:'2026-02-30T23:30:00'}]}];
     for (const body of badPayloads) {await reset({body});await page.getByRole('alert').waitFor();check(await goal().count()===0&&await page.getByText('PRIVATE INVALID OWNER',{exact:true}).count()===0,'Malformed/contradictory source fails closed: '+badPayloads.indexOf(body))}
     for (const length of [161,300,301]) {
       const body=profile();body.evidence[0].event_name='E'.repeat(length);await reset({body});
-      if(length<=300){await ready();await page.getByRole('checkbox').first().check();await goal().fill('Use my actual event evidence');await prepare();check((await draft().inputValue()).includes('E'.repeat(length)),'Valid backend event name length '+length+' stays available in the profile and draft')}
+      if(length<=300){await ready();await selectEvidence(0);await fillGoal('Use my actual event evidence');await prepare();check((await draft().inputValue()).includes('E'.repeat(length)),'Valid backend event name length '+length+' stays available in the profile and draft')}
       else {await page.getByRole('alert').waitFor();check(await goal().count()===0,'Event names exceeding the backend 300-character bound fail closed')}
     }
     for (const mode of [{badJSON:true},{reject:true}]) {await reset(mode);await page.getByRole('alert').waitFor();check(await page.getByRole('checkbox').count()===0,'Malformed JSON/network failure never invents empty or sample results')}
@@ -260,15 +280,16 @@ const work = (async()=>{
     await reset({body:profile()},{isLoaded:true,user:{id:'athlete-a'}},true);await ready();
     check(await page.getByRole('alert').count()===0&&await page.evaluate(()=>window.__requests.some(r=>r.signal.aborted)),'StrictMode cleanup cannot overwrite its fresh read with an abort error');
 
-    const hostile='<img src=x onerror="window.__xss=1">';const escaped=profile(hostile);escaped.evidence[0].label=hostile;escaped.observations[0].detail=hostile;await reset({body:escaped});await ready();await page.getByRole('checkbox').first().check();await goal().fill(hostile);await prepare();
+    const hostile='<img src=x onerror="window.__xss=1">';const escaped=profile(hostile);escaped.evidence[0].label=hostile;escaped.observations[0].detail=hostile;await reset({body:escaped});await ready();await selectEvidence(0);await fillGoal(hostile);await prepare();
     check(await page.locator('img,iframe').count()===0&&await page.evaluate(()=>window.__xss===undefined)&&(await draft().inputValue()).includes(hostile),'Source and athlete-provided HTML stay escaped text in presentation and output');
     const exact=await page.evaluate(()=>window.__helpers.evidenceValue({value:0.00000000003,unit:'seconds'}));check(exact==='3e-11 seconds','Numeric presentation does not round a small recorded measurement into zero');
     const many=profile();many.evidence=Array.from({length:20},(_,i)=>result('m'+i,'Recorded test '+(i+1),i+1));many.observations=[];
-    await reset({body:many});await ready();
-    check(await page.getByRole('checkbox').count()===3,'A full profile initially shows only three results so the useful action remains near the evidence');
+    await reset({body:many});await ready();await openProfile();
+    check(await page.getByRole('checkbox').count()===3,'The profile dialog initially shows only three results before explicit expansion');
     await page.getByRole('button',{name:'Show all 20 results',exact:true}).click();
     check(await page.getByRole('checkbox').count()===20,'Every returned result remains available through explicit expansion');
-    await page.getByRole('checkbox').last().check();await page.getByRole('button',{name:'Show fewer results',exact:true}).click();await goal().fill('My real goal');await prepare();
+    await page.getByRole('checkbox').last().check();await page.getByRole('button',{name:'Show fewer results',exact:true}).click();await fillGoal('My real goal');await prepare();
+    await openProfile();
     check(await page.getByRole('checkbox').count()===3&&(await draft().inputValue()).includes('Recorded test 20: 20 seconds'),'Collapsing the list preserves the athlete selection in the prepared text');
     await page.getByRole('button',{name:'Show all 20 results',exact:true}).click();
     check(await page.getByRole('checkbox').last().isChecked(),'Re-expansion restores the selected result control');
@@ -276,48 +297,53 @@ const work = (async()=>{
     const dates=await page.evaluate(()=>['2026-08-01T23:30:00','2026-08-01','2026-08-01T23:30:00-04:00'].map(value=>window.__helpers.evidenceDate(value)));
     check(dates[0]==='Aug 1, 2026'&&dates[1]==='Aug 1, 2026','Naive and date-only source timestamps retain their calendar date in a non-UTC browser');
     check(dates[2]==='Aug 2, 2026','Explicit-offset timestamps normalize to the stated UTC display date');
-    const naiveProfile=profile();naiveProfile.evidence[0].recorded_at='2026-08-01T23:30:00';await reset({body:naiveProfile});await ready();await page.getByRole('checkbox').first().check();await goal().fill('An actual goal');await prepare();
+    const naiveProfile=profile();naiveProfile.evidence[0].recorded_at='2026-08-01T23:30:00';await reset({body:naiveProfile});await ready();await selectEvidence(0);await fillGoal('An actual goal');await prepare();
+    await openProfile();
     check((await draft().inputValue()).includes('Aug 1, 2026')&&await page.getByText(/Recorded GMTM metric · Aug 1, 2026/).isVisible(),'The actual rendered record and prepared draft both preserve the naive source date');
 
     const materialRegion=()=>page.getByRole('region',{name:'Your submitted results and footage',exact:true});
     const richMaterials=materials([materialResult(),materialFilm(),materialResult('private-result',{title:'Private submitted result',can_include:false}),materialFilm('processing-film',{title:'Processing footage',availability:'processing',can_include:false,source_url:null})]);
-    await reset({body:profile()},undefined,false,{body:richMaterials});await ready();
+    await reset({body:profile()},undefined,false,{body:richMaterials});await ready(false);
+    check(!await materialRegion().isVisible()&&await page.getByRole('checkbox').count()===0,'Rich material collections stay off the initial guidance screen');
+    await openComposer();await openProfile();
     await materialRegion().getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
-    check(await page.evaluate(()=>!!(document.getElementById('profile-output-title').compareDocumentPosition(document.getElementById('profile-materials-title'))&Node.DOCUMENT_POSITION_FOLLOWING))&&await page.getByRole('link',{name:'Explore submitted results and footage (4)',exact:true}).getAttribute('href')==='#profile-materials-title','Composer precedes the material list in phone reading order with a direct evidence jump');
+    check(await profileDialog().getByRole('region',{name:'Your submitted results and footage',exact:true}).isVisible(),'Choose profile details opens the same dialog with submitted results and footage');
     check(await materialRegion().getByRole('article').count()===3&&await materialRegion().getByRole('checkbox').count()===2,'Three materials appear initially and private records have no include control');
     check(await materialRegion().getByText(/Submitted: Aug 21, 2026/).count()===2&&await materialRegion().getByText(/Published: Aug 22, 2026/).count()===1,'Submission and publication dates are explicitly distinguished from measurement dates');
     const filmLink=materialRegion().getByRole('link',{name:/View footage on GMTM: Game footage/});
     check(await filmLink.getAttribute('href')==='https://gmtm.com/film/12'&&await filmLink.getAttribute('target')==='_blank'&&await filmLink.getAttribute('rel')==='noopener noreferrer','Footage offers only its explicit generated GMTM page link');
     check(await page.locator('img,video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__requests.length===2),'Viewing material records loads no media, preview, provider or extra endpoint');
     await materialRegion().getByRole('checkbox',{name:/Include Submitted sprint/}).check();await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).check();
-    await page.locator('summary').filter({hasText:'Prepare text yourself'}).click();const returnToTools=materialRegion().getByRole('link',{name:'Back to guidance and text tools',exact:true});await returnToTools.click();
-    check(await returnToTools.getAttribute('href')==='#profile-debrief-title'&&await page.evaluate(()=>location.hash==='#profile-debrief-title')&&await page.getByRole('heading',{name:'What comes next for you?',exact:true}).isVisible()&&!await goal().isVisible(),'Materials return link reaches the visible guidance panel when the manual composer is closed');
-    await openComposer();await goal().fill('Prepare evidence for my next real application');await prepare();
+    await page.keyboard.press('Escape');await settle();
+    check(!await profileDialog().isVisible()&&await page.getByRole('button',{name:/^Choose profile details/}).evaluate(el=>document.activeElement===el),'Closing profile details restores focus to the composer trigger');
+    await openGuidance();
+    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&!await goal().isVisible()&&await page.evaluate(()=>window.__requests.length===2),'Back to SPARQ returns to guidance without source or model calls');
+    await openComposer();await fillGoal('Prepare evidence for my next real application');await prepare();
     const materialDraft=await draft().inputValue();
     check(materialDraft.includes('Submitted sprint: 4.8 seconds')&&materialDraft.includes('Fixture combine · Sprint exercise; Submitted: Aug 21, 2026')&&materialDraft.includes('https://gmtm.com/film/12 (Playback not checked.)')&&!materialDraft.includes('Private submitted result'),'Selected public results and film references keep source, date and uncertainty; private material never enters the draft');
-    await draft().fill('My own edited text');await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).uncheck();
+    await draft().fill('My own edited text');await openProfile();await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).uncheck();await closeProfile();
     check((await draft().inputValue())==='My own edited text'&&await page.getByText(/Your selections changed/).isVisible(),'Changing material selection marks an edited draft stale without replacing it');
-    await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    await rebuild();
     check((await draft().inputValue()).includes('Submitted sprint')&&!(await draft().inputValue()).includes('/film/12'),'Only explicit rebuild applies the changed material selection');
-    await materialRegion().getByRole('button',{name:'Show all 4 materials',exact:true}).click();
+    await openProfile();await materialRegion().getByRole('button',{name:'Show all 4 materials',exact:true}).click();
     check(await materialRegion().getByRole('article').count()===4&&await materialRegion().getByText('Processing not confirmed in GMTM. View only; this record will not be included in your text.',{exact:true}).isVisible(),'Expanded processing footage is visible as source context and cannot enter text');
     await materialRegion().getByRole('button',{name:'Show fewer materials',exact:true}).click();
     check(await materialRegion().getByRole('checkbox',{name:/Include Submitted sprint/}).isChecked(),'Collapsing materials preserves selected public evidence');
-    await page.getByLabel('Introduction',{exact:true}).check();await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Example');await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    await editDetails();await page.getByLabel('Introduction',{exact:true}).check();await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Example');await rebuild();
     const introduction=await draft().inputValue();
     check(introduction.startsWith('Hello Coach Example,')&&introduction.indexOf('Additional evidence')<introduction.indexOf('Thank you for your time.')&&introduction.endsWith('Alex Fixture'),'Material facts are inserted before the existing introduction closing');
-    await setMaterialsMode({body:materials()});await page.getByRole('button',{name:'Refresh profile',exact:true}).click();await ready();
+    await setMaterialsMode({body:materials()});await refreshProfile();await ready();await openProfile();
     check(await draft().count()===0&&await materialRegion().getByRole('checkbox').count()===0&&await page.locator('input[type=checkbox]:checked').count()===0,'Main refresh clears material records, selections and the draft before the new source view');
 
     for(const materialMode of [{status:503,body:{detail:'PRIVATE MATERIAL ERROR'}},{body:materials([],'source_unavailable')},{reject:true},{badJSON:true}]){
-      await reset({body:profile()},undefined,false,materialMode);await ready();await materialRegion().getByRole('alert').waitFor();await goal().fill('Use my available profile measurements');await page.getByRole('checkbox').first().check();await prepare();
+      await reset({body:profile()},undefined,false,materialMode);await ready();await openProfile();await materialRegion().getByRole('alert').waitFor();await fillGoal('Use my available profile measurements');await selectEvidence(0);await prepare();
       check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible()&&await page.getByText('PRIVATE MATERIAL ERROR',{exact:false}).count()===0,'Failed materials read preserves usable base profile and composer: '+JSON.stringify(Object.keys(materialMode)));
     }
-    await setMaterialsMode({body:richMaterials});await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('checkbox').first().waitFor();
+    await setMaterialsMode({body:richMaterials});await openProfile();await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('checkbox').first().waitFor();
     check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&await materialRegion().getByRole('alert').count()===0,'Materials retry restores source cards without erasing an existing base-evidence draft');
-    await reset({body:profile()},undefined,false,{body:materials()});await ready();
+    await reset({body:profile()},undefined,false,{body:materials()});await ready();await openProfile();
     check(await materialRegion().getByText(/No supported submissions or footage were returned in this view/).isVisible()&&await materialRegion().getByRole('alert').count()===0,'An empty material view is distinct from source failure and does not claim the overall profile is empty');
-    await reset({body:profile()},undefined,false,{body:materials([],'unlinked')});await ready();
+    await reset({body:profile()},undefined,false,{body:materials([],'unlinked')});await ready();await openProfile();
     check(await materialRegion().getByText(/Your connection could not be confirmed for these materials/).isVisible()&&await materialRegion().getByRole('checkbox').count()===0,'Unconfirmed material ownership displays no source records while retaining the independently read base profile');
 
     const malformedMaterials=[
@@ -336,19 +362,19 @@ const work = (async()=>{
       materials(Array.from({length:11},(_,i)=>materialFilm('f'+i))),
     ];
     for(const [index,body] of malformedMaterials.entries()){
-      await reset({body:profile()},undefined,false,{body});await ready();await materialRegion().getByRole('alert').waitFor();
-      check(await materialRegion().getByRole('checkbox').count()===0&&await materialRegion().getByRole('link').count()===0&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible(),'Unsafe or contradictory material response is withheld without erasing base evidence: '+index);
+      await reset({body:profile()},undefined,false,{body});await ready();await openProfile();await materialRegion().getByRole('alert').waitFor();
+      check(await materialRegion().getByRole('checkbox').count()===0&&await materialRegion().getByRole('link').count()===0&&await profileDialog().getByText('Alex Fixture',{exact:true}).isVisible(),'Unsafe or contradictory material response is withheld without erasing base evidence: '+index);
     }
     const hostileMaterial=materialResult('hostile',{title:'<img src=x onerror="window.__materialXss=1">'});
-    await reset({body:profile()},undefined,false,{body:materials([hostileMaterial])});await ready();await materialRegion().getByRole('checkbox').first().check();await goal().fill('A genuine use for my recorded evidence');await prepare();
+    await reset({body:profile()},undefined,false,{body:materials([hostileMaterial])});await ready();await openProfile();await materialRegion().getByRole('checkbox').first().check();await fillGoal('A genuine use for my recorded evidence');await prepare();
     check(await page.locator('img,iframe,video').count()===0&&await page.evaluate(()=>window.__materialXss===undefined)&&(await draft().inputValue()).includes(hostileMaterial.title),'Material labels render and copy as escaped plain text without media or code execution');
 
-    await reset({body:profile()},undefined,false,{pending:true});await ready();await goal().fill('Continue while materials load');await prepare();await page.evaluate(()=>window.__advance(30000));await settle();await materialRegion().getByRole('alert').waitFor();
+    await reset({body:profile()},undefined,false,{pending:true});await ready();await fillGoal('Continue while materials load');await prepare();await page.evaluate(()=>window.__advance(30000));await settle();await openProfile();await materialRegion().getByRole('alert').waitFor();
     check((await draft().inputValue()).includes('Continue while materials load')&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/materials').signal.aborted),'Materials timeout aborts only its request and keeps the base-evidence draft usable');
     await setMaterialsMode({body:materials([materialFilm('new-film',{title:'Latest footage'})])});await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('heading',{name:'Latest footage',exact:true}).waitFor();await releaseMaterials({body:materials([materialFilm('old-film',{title:'LATE OLD FOOTAGE'})])});
     check(await materialRegion().getByRole('heading',{name:'Latest footage',exact:true}).isVisible()&&await page.getByText('LATE OLD FOOTAGE',{exact:true}).count()===0,'Timed-out materials cannot overwrite a newer successful retry');
     for(const mode of [{pending:true},{bodyPending:true,body:richMaterials}]){
-      await reset({body:profile()},undefined,false,mode);await ready();await setMaterialsMode({body:materials([materialFilm('new-account-film',{title:'New account footage'})])});await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();await releaseMaterials({body:materials([materialFilm('old-account-film',{title:'PRIVATE OLD FOOTAGE'})])});
+      await reset({body:profile()},undefined,false,mode);await ready();await setMaterialsMode({body:materials([materialFilm('new-account-film',{title:'New account footage'})])});await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();await openProfile();await releaseMaterials({body:materials([materialFilm('old-account-film',{title:'PRIVATE OLD FOOTAGE'})])});
       check(await materialRegion().getByRole('heading',{name:'New account footage',exact:true}).isVisible()&&await page.getByText('PRIVATE OLD FOOTAGE',{exact:true}).count()===0&&await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/materials').at(-1).authorization==='Bearer fixture-athlete-b'),'Account switch aborts stale material '+(mode.pending?'response':'body')+' and reads with the new credential');
     }
     await reset({body:profile()},undefined,false,{pending:true});await ready();await switchAccount(null);await releaseMaterials({body:richMaterials});
@@ -357,52 +383,67 @@ const work = (async()=>{
     check(await page.locator('#root').innerHTML()===''&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/materials').signal.aborted&&window.__timers.size===0),'Unmount cancels the materials read and clears its timer');
 
     const question=()=>page.getByLabel('What would you like to figure out?',{exact:true});
-    const track=()=>page.getByLabel('Your focus',{exact:true});
-    const ask=()=>page.getByRole('button',{name:'Ask SPARQ',exact:true}).click();
+    const editQuestion=async()=>{await openGuidance();const edit=page.getByRole('button',{name:'Edit question',exact:true});if(await edit.isVisible())await edit.click()};
+    const fillQuestion=async value=>{await editQuestion();await question().fill(value)};
+    const chooseTrack=async value=>{await editQuestion();await page.getByRole('radio',{name:{profile:'Understand my profile',national_team:'USA Football (adult)',outreach:'Introduce myself'}[value],exact:true}).click()};
+    const ask=async()=>{await editQuestion();await page.getByRole('button',{name:'Ask SPARQ',exact:true}).click()};
     const answerRegion=()=>page.locator('[aria-label="SPARQ answer"]');
     const setDebriefMode=mode=>page.evaluate(mode=>{window.__debriefMode=mode},mode);
     const releaseDebrief=async mode=>{await page.evaluate(mode=>window.__release(mode,'/api/athlete/debrief'),mode);await settle()};
     const answerReady=()=>answerRegion().getByText(debrief().answer.text,{exact:false}).waitFor();
     const answerAction=()=>page.getByRole('button',{name:'Prepare my profile summary',exact:true});
     await reset();await ready(false);
-    check(await page.getByRole('heading',{name:'What comes next for you?',exact:true}).isVisible()&&await question().isVisible()&&!(await goal().isVisible())&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled(),'The primary panel asks a real question; manual preparation starts in a secondary disclosure');
-    await question().fill('   ');await track().selectOption('national_team');await track().selectOption('profile');
-    check(await page.evaluate(()=>window.__requests.length===2)&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled()&&await question().getAttribute('maxlength')==='1000','Typing and changing focus never call a model; a nonempty bounded question is required');
-    await question().fill('  '+debriefQuestion+'  ');await setDebriefMode({bodyPending:true,body:debrief()});await ask();await settle();
+    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&await question().isVisible()&&!(await goal().isVisible())&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled(),'The primary panel asks a real question; manual preparation opens a separate view');
+    check(await page.getByRole('group',{name:'Your focus',exact:true}).getByRole('radio').count()===3&&await page.getByRole('combobox').count()===0,'Three focus chips replace the select control');
+    await chooseTrack('national_team');const nationalExample=await question().inputValue();await chooseTrack('outreach');const outreachExample=await question().inputValue();await chooseTrack('profile');
+    check(nationalExample.length>0&&outreachExample.length>0&&nationalExample!==outreachExample&&(await question().inputValue()).length>0&&await page.evaluate(()=>window.__requests.length===2),'Each focus chip prefills a relevant question without making a request');
+    await fillQuestion('   ');
+    check(await page.evaluate(()=>window.__requests.length===2)&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled()&&await question().getAttribute('maxlength')==='1000','Typing does not call a model; a nonempty bounded question is required');
+    await fillQuestion('  '+debriefQuestion+'  ');await setDebriefMode({bodyPending:true,body:debrief()});await ask();await settle();
     check(await page.evaluate(()=>{const r=window.__requests.at(-1);return r.path==='/api/athlete/debrief'&&r.method==='POST'&&r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.contentType==='application/json'&&JSON.stringify(JSON.parse(r.body))===JSON.stringify({track:'profile',question:'What can my evidence help me do?'})}),'Explicit Ask sends only the trimmed question and track using the signed-in no-store transport');
     check(await answerRegion().count()===0&&await page.getByRole('button',{name:'Asking SPARQ…',exact:true}).isDisabled(),'No partial response renders while the complete JSON body is pending');
-    await page.locator('#debrief-question').evaluate(el=>el.form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await question().fill('A changed question');await settle();
+    await page.locator('#debrief-question').evaluate(el=>el.form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await fillQuestion('A changed question');await settle();
     check(await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/debrief').length===1),'A second submit cannot overlap the active debrief request');
     await releaseDebrief({body:debrief()});await answerReady();
     check(await page.getByText(/Previous answer —/).isVisible()&&await answerAction().isDisabled(),'An answer arriving after question edits is marked previous and cannot trigger the old action');
-    await question().fill(debriefQuestion);await track().selectOption('outreach');
+    await fillQuestion(debriefQuestion);await chooseTrack('outreach');await fillQuestion(debriefQuestion);
     check(await page.getByText(/Previous answer —/).isVisible()&&await answerAction().isDisabled(),'Changing only the focus also marks the displayed answer stale');
-    await track().selectOption('profile');await page.getByRole('button',{name:'Show sources for the answer',exact:true}).click();
-    check(await answerRegion().getByText('20-yard dash: 3.12 seconds; measurement verification is unconfirmed.',{exact:true}).isVisible()&&await answerRegion().getByText('What remains unknown',{exact:true}).isVisible(),'Answer citations open their resolved source details and retain explicit unknowns');
-    await page.getByRole('checkbox').nth(1).check();await answerAction().click();
-    check(await goal().isVisible()&&(await goal().inputValue())===debriefQuestion&&await draft().count()===0&&!await page.getByRole('checkbox').first().isChecked()&&await page.getByRole('checkbox').nth(1).isChecked(),'Local action opens the composer and may fill an empty goal; it neither prepares a draft nor selects the model-cited fact');
-    await prepare();await draft().fill('MY EXACT EDITED DRAFT');await goal().fill('My existing goal');await track().selectOption('outreach');await setDebriefMode({body:debrief(debriefQuestion,'outreach','prepare_introduction')});await ask();await answerReady();
+    await chooseTrack('profile');await fillQuestion(debriefQuestion);await page.getByRole('button',{name:'Show sources for the answer',exact:true}).click();
+    check(await answerRegion().getByText('20-yard dash: 3.12 seconds; measurement verification is unconfirmed.',{exact:true}).isVisible()&&await answerRegion().locator('[aria-label="What remains unknown"]').getByText(debrief().unknowns[0].text,{exact:false}).isVisible(),'Answer citations open their resolved source details and retain explicit unknowns');
+    await selectEvidence(1);await answerAction().click();
+    check(await goal().isVisible()&&(await goal().inputValue())===debriefQuestion&&await draft().count()===0&&!await page.locator('input[type=checkbox]').first().isChecked()&&await page.locator('input[type=checkbox]').nth(1).isChecked(),'Local action opens the composer and may fill an empty goal; it neither prepares a draft nor selects the model-cited fact');
+    await prepare();await draft().fill('MY EXACT EDITED DRAFT');
+    check(!await goal().isVisible()&&await draft().isVisible()&&await page.getByRole('button',{name:'Edit details',exact:true}).isVisible(),'Prepared output becomes the primary composer view with editing fields behind Edit details');
+    await openGuidance();
+    check(await answerRegion().isVisible()&&!await draft().isVisible()&&await page.evaluate(()=>window.__requests.length===3),'Back to SPARQ preserves the answer and makes no automatic model call');
+    await openComposer();
+    check((await draft().inputValue())==='MY EXACT EDITED DRAFT'&&await page.locator('input[type=checkbox]').nth(1).isChecked()&&await page.evaluate(()=>window.__requests.length===3),'Return to your draft retains exact edits and evidence selections without another request');
+    await fillGoal('My existing goal');await chooseTrack('outreach');await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief(debriefQuestion,'outreach','prepare_introduction')});await ask();await answerReady();
     await page.getByRole('button',{name:'Prepare an introduction',exact:true}).click();
+    await editDetails();
     check((await draft().inputValue())==='MY EXACT EDITED DRAFT'&&(await goal().inputValue())==='My existing goal'&&await page.getByLabel('Who is this for?',{exact:true}).inputValue()===''&&await page.getByRole('button',{name:'Rebuild from these details',exact:true}).isDisabled(),'Introduction action preserves exact edits and the existing goal, requiring a real recipient before explicit rebuild');
-    await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+    await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await rebuild();
     check((await draft().inputValue()).startsWith('Hello Coach Fixture,')&&(await draft().inputValue()).includes('Three-cone drill')&&!(await draft().inputValue()).includes('20-yard dash'),'Only explicit rebuild applies the action format, recipient and athlete-selected facts');
     const keptDraft=await draft().inputValue();await setDebriefMode({status:502,body:{detail:'PRIVATE PROVIDER DETAIL'}});await ask();await page.getByRole('alert').waitFor();
     check(await answerRegion().isVisible()&&await page.getByText(/Previous answer —/).isVisible()&&(await draft().inputValue())===keptDraft&&await page.getByText('PRIVATE PROVIDER DETAIL',{exact:false}).count()===0&&await page.getByRole('button',{name:'Prepare an introduction',exact:true}).isDisabled(),'A failed retry preserves the old answer and exact draft, identifies the earlier answer, and withholds provider detail');
 
     for(const [status,code,expected] of [[401,null,'Please sign in again before asking SPARQ.'],[409,null,'Your profile connection could not be confirmed'],[429,null,'SPARQ is at its request limit'],[503,null,'SPARQ is unavailable right now'],[503,'pathway_sources_expired','USA Football sources need a fresh review.']]){
-      await reset();await ready(false);await question().fill(debriefQuestion);await setDebriefMode({status,body:{detail:'PRIVATE ERROR DETAIL',...(code?{code}:{})}});await ask();await page.getByRole('alert').waitFor();
+      await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({status,body:{detail:'PRIVATE ERROR DETAIL',...(code?{code}:{})}});await ask();await page.getByRole('alert').waitFor();
       check((await page.getByRole('alert').innerText()).includes(expected)&&await answerRegion().count()===0&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible()&&await page.getByText('PRIVATE ERROR DETAIL',{exact:false}).count()===0,'Debrief failure '+(code||status)+' provides safe distinct recovery while retaining the profile');
     }
-    await openComposer();await goal().fill('My manual next step');await prepare();
+    await openComposer();await fillGoal('My manual next step');await prepare();
     check((await draft().inputValue()).includes('My manual next step'),'Manual preparation remains useful when AI or official sources are unavailable');
 
-    await reset();await ready(false);await question().fill(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();
+    await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();await settle();
+    check(!await question().isVisible()&&await page.getByRole('button',{name:'Edit question',exact:true}).isVisible()&&await answerRegion().getByRole('heading',{name:debriefQuestion,exact:true}).evaluate(el=>document.activeElement===el),'A completed answer replaces the form and receives focus on the athlete’s actual question');
+    await editQuestion();await settle();
+    check(await question().isVisible()&&(await question().inputValue())===debriefQuestion&&await question().evaluate(el=>document.activeElement===el)&&await page.evaluate(()=>window.__requests.length===3),'Edit question restores its exact text and focuses the input without requesting another answer');
     await setDebriefMode({pending:true});await ask();await settle();await page.evaluate(()=>window.__advance(60000));await settle();await page.getByRole('alert').waitFor();
     check((await page.getByRole('alert').innerText()).includes('took too long')&&await answerRegion().isVisible()&&await page.getByText(/Previous answer —/).isVisible()&&await page.evaluate(()=>window.__requests.at(-1).signal.aborted&&window.__timers.size===0),'Debrief timeout aborts its request, clears its timer and preserves a clearly previous answer');
     const newer={...debrief(),answer:{text:'A fresh successful answer.',refs:['f1']}};await setDebriefMode({body:newer});await ask();await answerRegion().getByText('A fresh successful answer.',{exact:false}).waitFor();await releaseDebrief({body:debrief()});
     check(await answerRegion().getByText('A fresh successful answer.',{exact:false}).isVisible()&&await page.getByText(/Previous answer —/).count()===0,'Late timed-out debrief cannot overwrite a later successful answer');
     for(const mode of [{bodyPending:true,body:debrief()},{status:503,bodyPending:true,body:{detail:'Fixture'}}]){
-      await reset();await ready(false);await question().fill(debriefQuestion);await setDebriefMode(mode);await ask();await settle();await page.evaluate(()=>window.__advance(60000));await settle();await page.getByRole('alert').waitFor();await releaseDebrief({body:debrief()});
+      await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode(mode);await ask();await settle();await page.evaluate(()=>window.__advance(60000));await settle();await page.getByRole('alert').waitFor();await releaseDebrief({body:debrief()});
       check(await answerRegion().count()===0&&await page.evaluate(()=>window.__requests.at(-1).signal.aborted&&window.__timers.size===0),'The same deadline covers a pending '+(mode.status?'error':'successful')+' response body without late text leakage');
     }
 
@@ -432,35 +473,35 @@ const work = (async()=>{
     const parseFailures=await page.evaluate(bodies=>bodies.map(body=>{try{window.__debriefHelpers.readAthleteDebrief(body,{track:'profile',question:'What can my evidence help me do?'});return false}catch{return true}}),malformedDebriefs);
     for(const [index,rejected] of parseFailures.entries())check(rejected,'Complete debrief parser rejects invalid structure, scope, references or destinations: '+index);
     check(await page.evaluate(body=>Array.from({length:32},(_,code)=>{const candidate=structuredClone(body);candidate.answer.text='Before'+String.fromCharCode(code)+'after';try{window.__debriefHelpers.readAthleteDebrief(candidate,{track:'profile',question:body.question});return code===9||code===10}catch{return code!==9&&code!==10}}).every(Boolean),debrief()),'Generated paragraphs permit newline and tab but reject every other ASCII control character');
-    await reset();await ready(false);await question().fill(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();
+    await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();
     for(const mode of [{body:malformedDebriefs[6]},{badJSON:true},{reject:true}]){
       await setDebriefMode(mode);await ask();await page.getByRole('alert').waitFor();
       check(await answerRegion().isVisible()&&await page.getByText(/Previous answer —/).isVisible()&&await page.getByText('UNVALIDATED ANSWER',{exact:false}).count()===0,'Rejected payload, JSON or transport failure preserves only the previous validated answer: '+JSON.stringify(Object.keys(mode)));
     }
     for(const mode of [{pending:true},{bodyPending:true,body:debrief()}]){
-      await reset();await ready();await goal().fill('Private old goal');await prepare();await question().fill(debriefQuestion);await setDebriefMode(mode);await ask();await settle();await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready(false);await releaseDebrief({body:debrief()});
+      await reset();await ready();await fillGoal('Private old goal');await prepare();await fillQuestion(debriefQuestion);await setDebriefMode(mode);await ask();await settle();await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready(false);await releaseDebrief({body:debrief()});
       check((await question().inputValue())===''&&await answerRegion().count()===0&&await draft().count()===0&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/debrief').signal.aborted&&window.__timers.size===0),'Account switch clears question, answer and draft and rejects late debrief '+(mode.pending?'response':'body'));
     }
-    await question().fill(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();
+    await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();
     check(await page.evaluate(()=>window.__requests.at(-1).authorization==='Bearer fixture-athlete-b'),'A new account submits its own debrief with its own credential');
-    await setDebriefMode({pending:true});await ask();await settle();await page.getByRole('button',{name:'Refresh profile',exact:true}).click();await ready(false);await releaseDebrief({body:debrief()});
+    await setDebriefMode({pending:true});await ask();await settle();await refreshProfile();await ready(false);await releaseDebrief({body:debrief()});
     check(await answerRegion().count()===0&&(await question().inputValue())===''&&await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/debrief').at(-1).signal.aborted),'Profile refresh aborts and clears private debrief without an automatic replacement request');
-    await reset({body:profile()},undefined,false,{status:503,body:{detail:'Fixture unavailable'}});await ready();await goal().fill('Keep my manual draft');await prepare();await question().fill(debriefQuestion);await setDebriefMode({pending:true});await ask();await settle();await setMaterialsMode({body:materials()});await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await settle();await releaseDebrief({body:debrief()});
+    await reset({body:profile()},undefined,false,{status:503,body:{detail:'Fixture unavailable'}});await ready();await fillGoal('Keep my manual draft');await prepare();await fillQuestion(debriefQuestion);await setDebriefMode({pending:true});await ask();await settle();await setMaterialsMode({body:materials()});await openProfile();await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await settle();await closeProfile();await releaseDebrief({body:debrief()});
     check(await answerRegion().count()===0&&(await question().inputValue())===''&&(await draft().inputValue()).includes('Keep my manual draft')&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/debrief').signal.aborted),'Materials retry clears and aborts debrief source context while preserving the independent manual draft');
     for(const leaving of ['logout','unmount']){
-      await reset();await ready(false);await question().fill(debriefQuestion);await setDebriefMode({pending:true});await ask();await settle();if(leaving==='logout')await switchAccount(null);else{await page.evaluate(()=>window.__unmount());await settle()}await releaseDebrief({body:debrief()});
+      await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({pending:true});await ask();await settle();if(leaving==='logout')await switchAccount(null);else{await page.evaluate(()=>window.__unmount());await settle()}await releaseDebrief({body:debrief()});
       check(await answerRegion().count()===0&&await question().count()===0&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/debrief').signal.aborted&&window.__timers.size===0),'Debrief '+leaving+' aborts private work, clears the timer and ignores late responses');
     }
     for(const action of ['usaf_support','usaf_development']){
-      await reset();await ready(false);await track().selectOption('national_team');await question().fill(debriefQuestion);const body=debrief(debriefQuestion,'national_team',action);await setDebriefMode({body});await ask();await answerReady();const link=page.getByRole('link',{name:body.next_action.label,exact:true});
+      await reset();await ready(false);await chooseTrack('national_team');await fillQuestion(debriefQuestion);const body=debrief(debriefQuestion,'national_team',action);await setDebriefMode({body});await ask();await answerReady();const link=page.getByRole('link',{name:body.next_action.label,exact:true});
       check(await link.getAttribute('href')===body.next_action.href&&await link.getAttribute('target')==='_blank'&&await link.getAttribute('rel')==='noopener noreferrer'&&await page.evaluate(()=>window.__requests.length===3),'Official '+action+' action is the exact reviewed plain anchor, with no automatic source/media request');
-      await page.getByRole('button',{name:'Show sources for the next step',exact:true}).click();
+      await answerRegion().locator('summary').filter({hasText:'Why this answer?'}).click();await page.getByRole('button',{name:'Show sources for the next step',exact:true}).click();
       check(await answerRegion().getByText('Source reviewed Sep 8, 2026.',{exact:true}).isVisible(),'Official action retains its reviewed source and date: '+action);
       const badOfficial=structuredClone(body);badOfficial.next_action.href+='?unapproved=1';const wrongRef=structuredClone(body);wrongRef.references.at(-1).href='https://example.invalid';
       check(await page.evaluate(({badOfficial,wrongRef})=>[badOfficial,wrongRef].every(body=>{try{window.__debriefHelpers.readAthleteDebrief(body,{track:'national_team',question:'What can my evidence help me do?'});return false}catch{return true}}),{badOfficial,wrongRef}),'Official action and reference URL mismatches fail closed: '+action);
-      await question().fill('A revised question');check(await page.getByRole('link',{name:body.next_action.label,exact:true}).count()===0,'A stale answer cannot present its earlier external action as current: '+action);
+      await fillQuestion('A revised question');check(await page.getByRole('link',{name:body.next_action.label,exact:true}).count()===0,'A stale answer cannot present its earlier external action as current: '+action);
     }
-    const literal='<img src=x onerror="window.__debriefXss=1">';await reset();await ready(false);await question().fill(literal);const escapedAnswer={...debrief(literal),answer:{text:literal,refs:['f1']}};await setDebriefMode({body:escapedAnswer});await ask();await answerRegion().waitFor();
+    const literal='<img src=x onerror="window.__debriefXss=1">';await reset();await ready(false);await fillQuestion(literal);const escapedAnswer={...debrief(literal),answer:{text:literal,refs:['f1']}};await setDebriefMode({body:escapedAnswer});await ask();await answerRegion().waitFor();
     check(await answerRegion().getByText(literal,{exact:false}).count()>0&&await page.locator('img,iframe,video,audio').count()===0&&await page.evaluate(()=>window.__debriefXss===undefined&&localStorage.length===0&&sessionStorage.length===0),'Athlete and generated text render escaped without media, code execution or persisted conversation');
     check(await page.evaluate(body=>{body.references[0].href='https://gmtm.com/film/12';try{return !!window.__debriefHelpers.readAthleteDebrief(body,{track:'profile',question:body.question})}catch{return false}},debrief('Can I use https://gmtm.com in my introduction?')),'A question may contain a URL as quoted input; evidence links still require the canonical server-resolved film form');
     check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside the intercepted fixture assets');

@@ -2,6 +2,14 @@
 
 Updated: 2026-09-08. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Focused athlete interface implemented — September 8, 2026
+
+Joey's design correction is now implemented: one question surface, an on-demand profile sheet, a concise answer state with one primary action, and a dedicated editor. Intent starters fill an editable question without calling AI. Opening records and switching between answer/editor preserve selections and edits. Unknowns remain visible; supporting explanations and sources open on demand. The initial 390x844 phone capture has **53 visible words**, with Ask SPARQ fully in its first viewport. See the [design handoff](../../.sammy/handoffs/2026-09-08-focused-athlete-design.md), [contract](profile-focus-design-contract-2026-09-08.md) and updated [runbook](profile-workspace-runbook-2026-09-08.md).
+
+**198 component checks, 86 actual-app checks plus five safety assertions, and the final actual Next production compile/typecheck/start pass.** Final source hashes match; all owned verification groups and ports closed. Desktop/phone source and visual reviews found no blocking issue. These runs use synthetic identity/data/answers. No backend or provider behavior changed, and no real-model quality or real-account acceptance is claimed.
+
+**Next:** review the simplified interaction, then test advice quality under the separately pending eight-case synthetic allowance. Joey has not answered that allowance question. The earlier debrief remains disabled by default; persistence, durable quotas and release packaging remain open. No live DB read, provider call, infrastructure change, outreach, push or deployment occurred. This is a local checkpoint; its exact hash is recorded outside Git in sibling `sparq-focus-design-2026-09-08/commit-receipt.json`.
+
 ## Question-based athlete debrief implemented — September 8, 2026
 
 The private profile surface now has an explicit Ask SPARQ question/focus panel, a buffered cited answer and one server-defined next action. An action opens the existing editable summary/introduction tools without replacing an athlete's edits or selecting evidence for them. The server reads the current strictly linked owner, supplies at most 24 minimized public facts, and uses a separate finite model ledger. No film contents or server-derived identity/private material enter the provider context. Adult USA Football guidance uses reviewed, expiring sources; profile understanding and outreach preparation remain separate focuses. See the [debrief handoff](../../.sammy/handoffs/2026-09-08-profile-debrief.md), [contract](profile-debrief-contract-2026-09-08.md) and [runbook](profile-workspace-runbook-2026-09-08.md).

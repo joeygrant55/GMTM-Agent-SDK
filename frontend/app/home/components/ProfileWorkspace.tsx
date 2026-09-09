@@ -11,7 +11,8 @@ import AthleteDebriefPanel from './AthleteDebriefPanel'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 const secondary = `inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-white/40 disabled:cursor-wait disabled:opacity-50 ${focus}`
-const field = `mt-2 block w-full min-w-0 rounded-xl border border-white/15 bg-black/20 px-4 py-3 text-sm leading-relaxed text-white placeholder:text-gray-400 focus:border-sparq-lime focus:outline-none`
+const field = `mt-2 block w-full min-w-0 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-white placeholder:text-gray-400 focus:border-sparq-lime focus:outline-none`
+const primary = `inline-flex min-h-12 items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-sm font-bold text-sparq-charcoal transition-colors hover:bg-sparq-lime-light disabled:cursor-not-allowed disabled:opacity-40 ${focus}`
 
 export default function ProfileWorkspace() {
   const { user, isLoaded } = useUser()
@@ -83,7 +84,7 @@ function ProfileSession() {
   }, [refresh])
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+    <div className="mx-auto max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
       {loading && !profile && !error && <div role="status" className="py-16"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your private profile</p><h1 className="mt-4 text-3xl font-bold">Bringing your evidence together…</h1><p className="mt-3 text-gray-400">Reading the details already in your GMTM profile.</p></div>}
       {error && <section role="alert" className="max-w-xl rounded-2xl border border-white/15 p-6 sm:p-8"><h1 className="text-2xl font-bold">{error.title}</h1><p className="mt-3 leading-relaxed text-gray-300">{error.detail}</p><div className="mt-6 flex flex-wrap gap-3"><button type="button" disabled={loading} onClick={() => void refresh()} className={secondary}>{loading ? 'Loading…' : 'Try again'}</button><Link href="/connect" className={secondary}>Check connection</Link>{error.title === 'Please sign in again.' && <Link href="/sign-in" className={secondary}>Sign in</Link>}</div></section>}
       {!error && profile?.state === 'unlinked' && <section className="max-w-xl py-8"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your private profile</p><h1 className="mt-4 text-3xl font-bold">Bring your GMTM profile with you.</h1><p className="mt-4 leading-relaxed text-gray-300">Your account does not have a confirmed athlete connection yet. Use your organizer’s secure invitation, or check an existing connection.</p><Link href="/connect" className={`${secondary} mt-6`}>Check connection</Link></section>}
@@ -107,16 +108,34 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
   const [copyStatus, setCopyStatus] = useState('')
   const [copying, setCopying] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(true)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [debriefVersion, setDebriefVersion] = useState(0)
+  const sheet = useRef<HTMLDialogElement>(null)
+  const composerHeading = useRef<HTMLHeadingElement>(null)
+  const writeButton = useRef<HTMLButtonElement>(null)
   const draftInput = useRef<HTMLTextAreaElement>(null)
   const lifetime = useRef(false)
   const draftRevision = useRef(0)
   useEffect(() => { lifetime.current = true; return () => { lifetime.current = false } }, [])
   const changed = () => { if (draft !== null) setInputsChanged(true); setCopyStatus('') }
+  useEffect(() => {
+    const dialog = sheet.current
+    if (!dialog || !profileOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.showModal()
+    return () => { dialog.close(); document.body.style.overflow = previousOverflow }
+  }, [profileOpen])
   const openComposer = (nextKind: ProfileDraftKind, question: string) => {
     setComposerOpen(true)
-    if (kind !== nextKind) { setKind(nextKind); setDestination(''); changed() }
+    if (kind !== nextKind) { setKind(nextKind); setDestination(''); setDetailsOpen(true); changed() }
     if (!goal.trim() && question.length <= 600) { setGoal(question); changed() }
+    requestAnimationFrame(() => { if (lifetime.current) composerHeading.current?.focus() })
+  }
+  const backToSPARQ = () => {
+    setComposerOpen(false)
+    requestAnimationFrame(() => { if (lifetime.current) writeButton.current?.focus() })
   }
   const prepare = () => {
     const includedMaterials = materials.snapshot?.state === 'ready'
@@ -124,6 +143,7 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
     setDraft(addMaterialsToDraft(prepareProfileDraft(profile, selected, goal, destination, kind), includedMaterials, kind))
     draftRevision.current += 1
     setInputsChanged(false)
+    setDetailsOpen(false)
     setCopyStatus('')
     requestAnimationFrame(() => { if (lifetime.current) draftInput.current?.focus() })
   }
@@ -142,47 +162,80 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
   }
   const identity = [athlete.sport, athlete.position, athlete.school, athlete.graduation_year === null ? null : `Class of ${athlete.graduation_year}`].filter(Boolean)
 
+  const selectedCount = selected.length + selectedMaterials.length
+  const profileContext = [athlete.sport, athlete.position].filter(Boolean).join(' · ')
+
   return (
     <>
-      <header className="mb-10 flex flex-wrap items-start justify-between gap-5 border-b border-white/10 pb-8">
-        <div className="min-w-0 max-w-2xl"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-sparq-lime">Your experience, ready to use</p><h1 className="mt-4 break-words text-4xl font-bold tracking-tight sm:text-5xl">{athlete.name || 'Your athlete profile'}</h1>{identity.length > 0 && <p className="mt-4 break-words text-sm leading-relaxed text-gray-300">{identity.join(' · ')}</p>}{(athlete.city || athlete.state) && <p className="mt-1 text-sm text-gray-400">{[athlete.city, athlete.state].filter(Boolean).join(', ')}</p>}</div>
-        <button type="button" disabled={refreshing} onClick={onRefresh} className={secondary}>{refreshing ? 'Refreshing…' : 'Refresh profile'}</button>
+      <header className="flex min-w-0 items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="break-words text-base font-semibold tracking-tight">{athlete.name || 'Your athlete profile'}</h1>
+          {profileContext && <p className="mt-1 break-words text-xs text-gray-400">{profileContext}</p>}
+        </div>
+        <button type="button" aria-haspopup="dialog" onClick={() => setProfileOpen(true)} className={`${secondary} shrink-0 rounded-full`}>View profile</button>
       </header>
 
-      <div className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:grid-rows-[min-content_1fr] lg:gap-12">
-        <section aria-labelledby="profile-evidence-title" className="min-w-0">
-          <h2 id="profile-evidence-title" className="text-2xl font-semibold tracking-tight">What your profile records</h2>
-          <p className="mt-3 text-sm leading-relaxed text-gray-400">{profile.evidence.length ? 'Choose results for your summary or introduction. Each keeps its source and date.' : 'Your profile details are available. No numeric performance results were returned with this profile.'}</p>
-          {profile.evidence.length > 0 ? <fieldset className="mt-6"><legend className="sr-only">Evidence to include</legend><div className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02]">{(showAllResults ? profile.evidence : profile.evidence.slice(0, 3)).map(item => <label key={item.id} className="flex cursor-pointer items-start gap-4 p-4 sm:p-5"><input type="checkbox" checked={selected.includes(item.id)} onChange={event => { setSelected(value => event.target.checked ? [...value, item.id] : value.filter(id => id !== item.id)); changed() }} className={`mt-1 h-5 w-5 shrink-0 accent-sparq-lime ${focus}`} /><span className="min-w-0 flex-1"><span className="block break-words text-sm font-medium text-gray-300">{item.label}</span><span className="mt-1 block break-words text-2xl font-semibold tabular-nums">{evidenceValue(item)}</span><span className="mt-2 block break-words text-xs leading-relaxed text-gray-400">{item.source_label} · {evidenceDate(item.recorded_at)}{item.event_name ? ` · ${item.event_name}` : ''}</span></span><span className="sr-only">Include {item.label}</span></label>)}</div>{profile.evidence.length > 3 && <button type="button" aria-expanded={showAllResults} onClick={() => setShowAllResults(value => !value)} className={`${secondary} mt-3`}>{showAllResults ? 'Show fewer results' : `Show all ${profile.evidence.length} results`}</button>}<p className="mt-3 text-xs leading-relaxed text-gray-400">Recorded results; measurement verification is unconfirmed.</p></fieldset> : <div className="mt-6 rounded-2xl border border-dashed border-white/20 p-6"><p className="text-sm leading-relaxed text-gray-300">You can still prepare a summary from your profile and goal. We won’t fill in results or infer measurements from uploads.</p></div>}
-
-          {profile.observations.length > 0 && <div className="mt-8 space-y-5">{profile.observations.map((observation, index) => <article key={index}><h3 className="text-sm font-semibold">{observation.title}</h3><p className="mt-2 text-sm leading-relaxed text-gray-300">{observation.detail}</p>{observation.evidence_ids.length > 0 && <p className="mt-2 text-xs leading-relaxed text-gray-400">Based on: {observation.evidence_ids.map(id => profile.evidence.find(item => item.id === id)?.label).join(', ')}</p>}</article>)}</div>}
-          <details className="mt-7 border-t border-white/10 pt-2"><summary className={`min-h-11 cursor-pointer py-3 text-sm text-gray-400 ${focus}`}>Sources &amp; limitations</summary><p className="text-xs leading-relaxed text-gray-400">Profile read {evidenceDate(profile.fetched_at)}. Recorded results do not confirm eligibility, selection or a coach’s interest.</p>{profile.limitations.length > 0 && <ul className="mt-3 list-disc space-y-2 pl-4 text-xs leading-relaxed text-gray-400">{profile.limitations.map((limit, index) => <li key={index}>{limit}</li>)}</ul>}<a href="https://gmtm.com" className={`mt-3 inline-flex min-h-11 items-center text-sm text-gray-300 underline underline-offset-4 ${focus}`}>Open GMTM for your profile and submissions</a></details>
-          <a href="#profile-materials-title" className={`mt-4 inline-flex min-h-11 items-center text-sm text-sparq-lime underline underline-offset-4 ${focus}`}>Explore submitted results and footage{materials.snapshot?.state === 'ready' && materials.snapshot.items.length > 0 ? ` (${materials.snapshot.items.length})` : ''}</a>
-        </section>
-
-        <section aria-label="Profile guidance and text" className="min-w-0 rounded-2xl border border-white/15 bg-sparq-charcoal-light p-5 sm:p-7 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start">
+      <div className="mx-auto w-full max-w-3xl pb-12 pt-12 sm:pt-20">
+        <div hidden={composerOpen}>
           <AthleteDebriefPanel key={debriefVersion} onPrepare={openComposer} />
-          <details open={composerOpen} onToggle={event => setComposerOpen(event.currentTarget.open)} className="mt-7 border-t border-white/10 pt-2">
-          <summary className={`min-h-11 cursor-pointer py-3 text-sm font-semibold text-gray-300 ${focus}`}>Prepare text yourself</summary>
-          <h2 id="profile-output-title" className="mt-3 text-xl font-semibold tracking-tight">Put your profile to work.</h2><p className="mt-3 text-sm leading-relaxed text-gray-400">Prepare a factual summary from the facts you choose. Make it yours before copying.</p>
-          <form className="mt-6" onSubmit={event => { event.preventDefault(); prepare() }}>
-            <label htmlFor="profile-goal" className="text-sm font-medium">What are you working toward?</label><textarea id="profile-goal" value={goal} onChange={event => { setGoal(event.target.value); changed() }} maxLength={600} rows={2} required className={field} placeholder="Your next goal, in your own words" />
-            <fieldset className="mt-5"><legend className="sr-only">Output format</legend><div className="flex flex-wrap gap-4">{(['summary', 'introduction'] as const).map(value => <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm"><input type="radio" name="profile-output-format" value={value} checked={kind === value} onChange={() => { setKind(value); setDestination(''); changed() }} className={`h-4 w-4 accent-sparq-lime ${focus}`} />{value === 'summary' ? 'Profile summary' : 'Introduction'}</label>)}</div></fieldset>
-            <label htmlFor="profile-destination" className="mt-3 block text-sm font-medium">{kind === 'introduction' ? 'Who is this for?' : 'Intended use (optional)'}</label><input id="profile-destination" value={destination} onChange={event => { setDestination(event.target.value); changed() }} maxLength={200} required={kind === 'introduction'} className={field} placeholder={kind === 'introduction' ? 'A real recipient you already have in mind' : 'Where you plan to use this summary'} />
-            <p className="mt-3 text-xs leading-relaxed text-gray-400">{selected.length ? `${selected.length} recorded ${selected.length === 1 ? 'result' : 'results'} selected.` : selectedMaterials.length ? 'No profile measurements selected.' : 'No results selected; your summary will use profile details and your goal.'}{selectedMaterials.length > 0 && ` ${selectedMaterials.length} submitted or footage ${selectedMaterials.length === 1 ? 'record' : 'records'} selected.`}{kind === 'introduction' ? ' This does not find or contact a recipient.' : ''}</p>
-            <button type="submit" disabled={!goal.trim() || (kind === 'introduction' && !destination.trim())} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-5 py-3 text-sm font-bold text-sparq-charcoal transition-colors hover:bg-sparq-lime-light disabled:cursor-not-allowed disabled:opacity-40 ${focus}`}>{draft === null ? 'Prepare my text' : 'Rebuild from these details'}</button>
+          <div className="mt-8 border-t border-white/10 pt-4 sm:mt-10">
+            <button ref={writeButton} type="button" onClick={() => openComposer(draft === null ? 'introduction' : kind, '')} className={`min-h-11 text-sm text-gray-400 transition-colors hover:text-white ${focus}`}>{draft === null ? 'Write an introduction' : 'Return to your draft'}</button>
+          </div>
+        </div>
+
+        <section hidden={!composerOpen} aria-labelledby="profile-output-title">
+          <button type="button" onClick={backToSPARQ} className={`mb-6 min-h-11 text-sm text-gray-400 hover:text-white ${focus}`}>Back to SPARQ</button>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sparq-lime">{kind === 'introduction' ? 'Your introduction' : 'Your profile summary'}</p>
+          <h2 ref={composerHeading} tabIndex={-1} id="profile-output-title" className="mt-3 text-3xl font-semibold tracking-[-0.035em] outline-none sm:text-5xl">{draft === null ? 'Make the first move.' : 'Make it yours.'}</h2>
+          <p className="mt-3 text-sm leading-relaxed text-gray-400">{draft === null ? 'Choose your details. Add your goal. Find your words.' : 'Edit your text, then copy it when you’re ready.'}</p>
+          <div className="my-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-white/10 py-3">
+            <button type="button" aria-haspopup="dialog" onClick={() => setProfileOpen(true)} className={`inline-flex min-h-11 items-center gap-3 text-sm text-gray-200 ${focus}`}>Choose profile details<span className="rounded-full bg-white/10 px-2.5 py-1 text-xs tabular-nums" aria-label={`${selectedCount} selected`}>{selectedCount}</span></button>
+            {draft !== null && <button type="button" aria-expanded={detailsOpen} aria-controls="profile-draft-details" onClick={() => setDetailsOpen(value => !value)} className={`min-h-11 text-sm text-gray-400 hover:text-white ${focus}`}>{detailsOpen ? 'Hide details' : 'Edit details'}</button>}
+          </div>
+          <form id="profile-draft-details" hidden={!detailsOpen} onSubmit={event => { event.preventDefault(); prepare() }}>
+            <fieldset><legend className="sr-only">Output format</legend><div className="flex flex-wrap gap-2">{(['summary', 'introduction'] as const).map(value => <label key={value} className="cursor-pointer"><input type="radio" name="profile-output-format" value={value} checked={kind === value} onChange={() => { setKind(value); setDestination(''); changed() }} className="peer sr-only" /><span className="inline-flex min-h-11 items-center rounded-full border border-white/15 px-4 text-sm text-gray-400 transition-colors peer-checked:border-white/40 peer-checked:bg-white/[0.06] peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-sparq-lime">{value === 'summary' ? 'Profile summary' : 'Introduction'}</span></label>)}</div></fieldset>
+            <label htmlFor="profile-goal" className="mt-6 block text-sm font-medium">What are you working toward?</label><textarea id="profile-goal" value={goal} onChange={event => { setGoal(event.target.value); changed() }} maxLength={600} rows={2} required className={field} placeholder="Your next goal, in your own words" />
+            <label htmlFor="profile-destination" className="mt-5 block text-sm font-medium">{kind === 'introduction' ? 'Who is this for?' : 'Intended use (optional)'}</label><input id="profile-destination" value={destination} onChange={event => { setDestination(event.target.value); changed() }} maxLength={200} required={kind === 'introduction'} className={field} placeholder={kind === 'introduction' ? 'A coach or organization you have in mind' : 'Where you plan to use this summary'} />
+            <p className="mt-3 text-xs leading-relaxed text-gray-400">{selectedCount ? `${selectedCount} selected ${selectedCount === 1 ? 'record' : 'records'}, plus your profile and goal.` : 'Using your profile and goal. Add recorded results above if you want.'}</p>
+            {draft !== null && <p className="mt-3 text-xs text-amber-200">Rebuilding replaces your edits.</p>}
+            <button type="submit" disabled={!goal.trim() || (kind === 'introduction' && !destination.trim())} className={`${primary} my-6 w-full sm:w-auto`}>{draft === null ? 'Prepare my text' : 'Rebuild from these details'}</button>
           </form>
 
-          {draft !== null && <div className="mt-7 border-t border-white/10 pt-6"><label htmlFor="profile-draft" className="text-sm font-semibold">Your text — ready to edit</label><p className="mt-2 text-xs leading-relaxed text-gray-400">Assembled from your selected facts and words. Review the details before using them. Rebuilding replaces your edits.</p>{inputsChanged && <p role="status" className="mt-3 text-xs text-amber-200">Your selections changed. Rebuild to include them, or keep editing this version.</p>}<textarea id="profile-draft" ref={draftInput} value={draft} onChange={event => { setDraft(event.target.value); draftRevision.current += 1; setCopyStatus('') }} rows={12} className={`${field} resize-y`} /><div className="mt-4 flex flex-wrap gap-3"><button type="button" disabled={copying || !draft.trim()} onClick={() => void copy()} className={secondary}>{copying ? 'Copying…' : 'Copy text'}</button><button type="button" onClick={() => { draftInput.current?.focus(); draftInput.current?.select(); setCopyStatus('Text selected. Use your device’s copy command.') }} className={secondary}>Select all text</button></div><p role="status" aria-live="polite" className="mt-3 text-xs leading-relaxed text-gray-300">{copyStatus}</p></div>}
-          <p className="mt-6 text-xs leading-relaxed text-gray-400">Your draft stays on this page. Nothing is sent or published to a coach. Refreshing or leaving clears your draft.</p>
-          </details>
+          {draft !== null && <div>
+            <label htmlFor="profile-draft" className="sr-only">Your text — ready to edit</label>
+            {inputsChanged && <p role="status" className="mb-3 text-xs leading-relaxed text-amber-200">Your selections changed. Rebuild to include them, or keep editing this version.</p>}
+            <textarea id="profile-draft" ref={draftInput} value={draft} onChange={event => { setDraft(event.target.value); draftRevision.current += 1; setCopyStatus('') }} rows={12} className={`${field} resize-y p-5 leading-7 sm:p-6`} />
+            <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" disabled={copying || !draft.trim()} onClick={() => void copy()} className={primary}>{copying ? 'Copying…' : 'Copy text'}</button><button type="button" onClick={() => { draftInput.current?.focus(); draftInput.current?.select(); setCopyStatus('Text selected. Use your device’s copy command.') }} className={`min-h-11 px-3 text-sm text-gray-400 hover:text-white ${focus}`}>Select all text</button></div>
+            <p role="status" aria-live="polite" className="mt-3 text-xs leading-relaxed text-gray-300">{copyStatus}</p>
+          </div>}
+          <p className="mt-6 text-xs leading-relaxed text-gray-400">Nothing is sent. Copy your draft before refreshing or leaving.</p>
         </section>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+      </div>
+
+      <dialog ref={sheet} aria-labelledby="profile-sheet-title" onCancel={() => setProfileOpen(false)} onClose={() => setProfileOpen(false)} className="fixed inset-y-0 left-auto right-0 m-0 ml-auto h-[100dvh] max-h-none w-full max-w-[540px] border-0 bg-sparq-charcoal-light p-0 text-white backdrop:bg-black/70">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-white/10 bg-sparq-charcoal-light px-5 py-4 sm:px-8">
+          <h2 id="profile-sheet-title" className="text-lg font-semibold">Your profile</h2>
+          <button type="button" autoFocus onClick={() => setProfileOpen(false)} className={secondary}>Done</button>
+        </div>
+        <div className="px-5 py-6 sm:px-8">
+          <p className="break-words text-2xl font-semibold tracking-tight">{athlete.name || 'Your athlete profile'}</p>
+          {identity.length > 0 && <p className="mt-2 break-words text-sm leading-relaxed text-gray-300">{identity.join(' · ')}</p>}
+          {(athlete.city || athlete.state) && <p className="mt-1 text-sm text-gray-400">{[athlete.city, athlete.state].filter(Boolean).join(', ')}</p>}
+          <section aria-labelledby="profile-evidence-title" className="mt-8">
+            <h3 id="profile-evidence-title" className="text-lg font-semibold">What your profile records</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-400">{profile.evidence.length ? 'Select details to include in your text.' : 'No numeric performance results were returned with this profile.'}</p>
+            {profile.evidence.length > 0 && <fieldset className="mt-4"><legend className="sr-only">Evidence to include</legend><div className="divide-y divide-white/10">{(showAllResults ? profile.evidence : profile.evidence.slice(0, 3)).map(item => <label key={item.id} className="flex cursor-pointer items-start gap-4 py-5"><input type="checkbox" checked={selected.includes(item.id)} onChange={event => { setSelected(value => event.target.checked ? [...value, item.id] : value.filter(id => id !== item.id)); changed() }} className={`mt-1 h-5 w-5 shrink-0 accent-sparq-lime ${focus}`} /><span className="min-w-0 flex-1"><span className="block break-words text-sm font-medium text-gray-300">{item.label}</span><span className="mt-1 block break-words text-2xl font-semibold tabular-nums">{evidenceValue(item)}</span><span className="mt-2 block break-words text-xs leading-relaxed text-gray-400">{item.source_label} · {evidenceDate(item.recorded_at)}{item.event_name ? ` · ${item.event_name}` : ''}</span></span><span className="sr-only">Include {item.label}</span></label>)}</div>{profile.evidence.length > 3 && <button type="button" aria-expanded={showAllResults} onClick={() => setShowAllResults(value => !value)} className={`${secondary} mt-3`}>{showAllResults ? 'Show fewer results' : `Show all ${profile.evidence.length} results`}</button>}<p className="mt-3 text-xs leading-relaxed text-gray-400">Recorded results; measurement verification is unconfirmed.</p></fieldset>}
+            <details className="my-5"><summary className={`min-h-11 cursor-pointer py-3 text-sm text-gray-400 ${focus}`}>Sources &amp; limitations</summary><p className="text-xs leading-relaxed text-gray-400">Profile read {evidenceDate(profile.fetched_at)}. Recorded results do not confirm eligibility, selection or a coach’s interest.</p>{profile.observations.map((observation, index) => <p key={index} className="mt-3 text-xs leading-relaxed text-gray-400">{observation.detail}</p>)}{profile.limitations.length > 0 && <ul className="mt-3 list-disc space-y-2 pl-4 text-xs leading-relaxed text-gray-400">{profile.limitations.map((limit, index) => <li key={index}>{limit}</li>)}</ul>}<a href="https://gmtm.com" className={`mt-3 inline-flex min-h-11 items-center text-sm text-gray-300 underline underline-offset-4 ${focus}`}>Open GMTM for your profile and submissions</a></details>
+          </section>
           <ProfileMaterialsPanel snapshot={materials.snapshot} loading={materials.loading} error={materials.error} selected={selectedMaterials}
             onToggle={(item, checked) => { setSelectedMaterials(value => checked ? [...value, item.id] : value.filter(id => id !== item.id)); changed() }}
             onRetry={() => { setSelectedMaterials([]); setDebriefVersion(value => value + 1); void materials.reload() }} />
+          <div className="mt-8 border-t border-white/10 pt-6">
+            <p className="mb-3 text-xs leading-relaxed text-gray-400">Refreshing clears your answer, selections and draft.</p>
+            <button type="button" disabled={refreshing} onClick={onRefresh} className={secondary}>{refreshing ? 'Refreshing…' : 'Refresh profile'}</button>
+          </div>
         </div>
-      </div>
+      </dialog>
     </>
   )
 }
