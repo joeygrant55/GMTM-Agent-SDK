@@ -2,6 +2,14 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Real-account persistence prerequisite confirmed — September 9, 2026
+
+Current Railway access and the exact SPARQ backend/MySQL service binding work. A bounded metadata-only read confirmed that live `athlete_profiles` has `user_id` and `clerk_id`, but **no `id` column**. The new workspace implementation expects that surrogate identifier. Inspection stopped at this prerequisite; **the presence and compatibility of `athlete_workspaces` remain unknown**. Creating that table alone would not resolve the mismatch.
+
+Added an explicit read-only schema-check mode and a fixed, source-pinned Railway wrapper with private receipts and redacted diagnostics. **133 focused offline tests pass** and independent review cleared the final read. The final live check reserved three metadata SELECTs, rolled back and closed its connection; its owned child group is dead. No athlete rows, GMTM access or live schema/data changes occurred. See the [readiness handoff](../../.sammy/handoffs/2026-09-09-real-account-schema-readiness.md) for the failed-attempt history and exact evidence.
+
+**Next:** reconcile saved-work ownership with the existing link schema, preserving forward/reverse ownership checks and link-change isolation. Establish the actual key contract before choosing a compatibility implementation or migration; do not weaken the checks or apply the broad Agent schema command. Then prepare a fresh owner-2 browser acceptance run for real footage, goal, useful output and exact save/reload. The previous synthetic preview has expired with confirmed process/port cleanup. No real-account acceptance, push or deployment is claimed.
+
 ## First useful output and separate profile package — September 9, 2026
 
 Home's **Create my summary / Prepare introduction** now immediately prepares an editable draft from the saved intent and chosen eligible work, without a second form submission. Existing edits, including an empty draft, are preserved. Pending sources settle before first preparation; a blank recipient produces a summary. Copy, Save and Rebuild remain explicit; no provider or automatic save is added.

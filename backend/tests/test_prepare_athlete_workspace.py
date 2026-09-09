@@ -20,6 +20,7 @@ class FakeDB:
         self.indexes = {"athlete_profiles": [("PRIMARY", 0, "id"), ("user_id", 0, "user_id"), ("idx_clerk", 1, "clerk_id")],
                         "athlete_workspaces": [("PRIMARY", 0, "clerk_id")]}
         self.fail_at, self.close_error, self.settings = None, None, None
+        self.readonly, self.rollbacks, self.rollback_error = False, 0, None
 
     def cursor(self): return self
     def __enter__(self): return self
@@ -28,7 +29,10 @@ class FakeDB:
         self.queries.append((sql, params))
         if self.fail_at and self.fail_at in sql:
             raise RuntimeError("SECRET PASSWORD SQL")
-        if sql == "SELECT DATABASE() AS database_name":
+        if sql == "START TRANSACTION READ ONLY":
+            self.readonly = True
+            self.rows = []
+        elif sql == "SELECT DATABASE() AS database_name":
             self.rows = [{"database_name": self.database}]
         elif "information_schema.TABLES" in sql:
             self.rows = [self.tables[params[1]]] if params[1] in self.tables else []
@@ -38,11 +42,16 @@ class FakeDB:
             self.rows = [{"name": name, "non_unique": unique, "column_name": column} for name, unique, column in self.indexes[params[1]]]
         else:
             assert sql == schema.CREATE_SQL
+            assert not self.readonly
             self.created = True
             self.tables["athlete_workspaces"] = {"kind": "BASE TABLE", "engine": "InnoDB"}
             self.rows = []
     def fetchone(self): return deepcopy(self.rows[0]) if self.rows else None
     def fetchall(self): return deepcopy(self.rows)
+    def rollback(self):
+        self.rollbacks += 1
+        if self.rollback_error: raise self.rollback_error
+        self.readonly = False
     def close(self):
         self.closed = True
         if self.close_error: raise self.close_error
@@ -140,3 +149,174 @@ def test_close_failure_does_not_report_success_or_rollback_ddl():
     with pytest.raises(schema.PreparationError) as caught: run(db)
     assert caught.value.report["completed_statements"] == ["create_athlete_workspaces"]
     assert caught.value.report["stage"] == "close" and "SECRET" not in str(caught.value)
+
+
+def inspect(db, environ=None, **ack):
+    def connect(**settings):
+        db.settings = settings
+        return db
+    return schema.inspect_schema(environ=ENV if environ is None else environ, connector=connect, **(ack or ACK))
+
+
+@pytest.mark.parametrize("exists,readiness,selects", [(False, "requires_create", 5), (True, "ready", 8)])
+def test_inspection_reads_only_metadata_and_cleans_up_without_creating(exists, readiness, selects):
+    db = FakeDB()
+    if exists:
+        db.tables["athlete_workspaces"] = {"kind": "BASE TABLE", "engine": "InnoDB"}
+    result = inspect(db)
+    assert result == {"status": "schema_checked", "readiness": readiness,
+                      "workspace_contract_checked": exists, "select_attempts": selects,
+                      "statement_attempts": selects + 2, "connected": True,
+                      "read_only_transaction_started": True, "rollback_completed": True,
+                      "connection_closed": True, "ddl_attempts": 0}
+    assert db.queries[0] == ("START TRANSACTION READ ONLY", None)
+    assert len(db.queries) == selects + 1
+    assert all(sql == "SELECT DATABASE() AS database_name" or "FROM information_schema." in sql
+               for sql, _ in db.queries[1:])
+    assert all(params is None or params in ((db.database, "athlete_profiles"), (db.database, "athlete_workspaces"))
+               for _, params in db.queries)
+    assert db.closed and db.rollbacks == 1 and not db.created and not db.readonly
+
+
+@pytest.mark.parametrize("host", ["db2-dev.ckmlts6umure.us-east-1.rds.amazonaws.com", "x.rds.amazonaws.com", "pre-prod.example", "family-test.example"])
+def test_inspection_forbids_gmtm_and_rds_before_connecting(host):
+    db = FakeDB()
+    with pytest.raises(schema.PreparationError):
+        inspect(db, {**ENV, "AGENT_DB_HOST": host}, expected_host=host, expected_database=ENV["AGENT_DB_NAME"])
+    assert db.settings is None and not db.queries and not db.closed and db.rollbacks == 0
+
+
+@pytest.mark.parametrize("ack", [{"expected_host": "different.example", "expected_database": ENV["AGENT_DB_NAME"]},
+                                 {"expected_host": ENV["AGENT_DB_HOST"], "expected_database": "different"}])
+def test_inspection_requires_exact_target_acknowledgment(ack):
+    db = FakeDB()
+    with pytest.raises(schema.PreparationError): inspect(db, **ack)
+    assert db.settings is None and not db.queries
+
+
+def test_inspection_wrong_connected_database_rolls_back_before_other_metadata():
+    db = FakeDB()
+    db.database = "unexpected"
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    assert caught.value.report["reason"] == "connected_database_mismatch"
+    assert caught.value.report["select_attempts"] == 1
+    assert caught.value.report["statement_attempts"] == 3
+    assert db.closed and db.rollbacks == 1 and len(db.queries) == 2 and not db.created
+
+
+@pytest.mark.parametrize("defect", ["missing_link", "link_engine", "link_index", "workspace_engine", "workspace_columns", "workspace_index"])
+def test_inspection_incompatible_metadata_refuses_without_repair(defect):
+    db = FakeDB()
+    db.tables["athlete_workspaces"] = {"kind": "BASE TABLE", "engine": "InnoDB"}
+    if defect == "missing_link": del db.tables["athlete_profiles"]
+    elif defect == "link_engine": db.tables["athlete_profiles"]["engine"] = "MyISAM"
+    elif defect == "link_index": db.indexes["athlete_profiles"] = []
+    elif defect == "workspace_engine": db.tables["athlete_workspaces"]["engine"] = "MyISAM"
+    elif defect == "workspace_columns": db.columns["athlete_workspaces"]["clerk_id"] = ("varchar(255)", "NO")
+    else: db.indexes["athlete_workspaces"] = []
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    assert caught.value.report["status"] == "failed" and "readiness" not in caught.value.report
+    assert caught.value.report["rollback_completed"] and caught.value.report["connection_closed"]
+    assert db.rollbacks == 1 and db.closed and not db.created
+    assert not any(sql.startswith(("CREATE", "ALTER", "DROP", "INSERT", "UPDATE", "DELETE")) for sql, _ in db.queries)
+
+
+@pytest.mark.parametrize("stage", ["START TRANSACTION", "information_schema.COLUMNS"])
+def test_inspection_query_failures_are_counted_redacted_and_cleaned(stage):
+    db = FakeDB()
+    db.fail_at = stage
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    result = caught.value.report
+    assert result["statement_attempts"] == len(db.queries) + 1
+    assert result["select_attempts"] == sum(sql.startswith("SELECT") for sql, _ in db.queries)
+    assert "SECRET" not in json.dumps(result)
+    assert result["rollback_completed"] and result["connection_closed"] and db.rollbacks == 1
+
+
+@pytest.mark.parametrize("failures", [(False, True, False), (False, False, True), (True, True, True)])
+def test_inspection_cleanup_failures_never_report_ready_or_expose_details(failures):
+    query_error, rollback_error, close_error = failures
+    db = FakeDB()
+    if query_error: db.fail_at = "information_schema.COLUMNS"
+    if rollback_error: db.rollback_error = RuntimeError("SECRET ROLLBACK")
+    if close_error: db.close_error = RuntimeError("SECRET CLOSE")
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    result = caught.value.report
+    assert result["status"] == "failed" and "readiness" not in result and "SECRET" not in json.dumps(result)
+    assert result["rollback_completed"] == (not rollback_error)
+    assert result["connection_closed"] == (not close_error)
+    assert db.rollbacks == 1 and db.closed  # close was attempted even if rollback failed.
+    if query_error:
+        assert result["stage"] == "athlete_link_preflight"
+        assert result["rollback_error"]["type"] == "RuntimeError"
+        assert result["close_error"]["type"] == "RuntimeError"
+
+
+def test_inspection_rejects_data_queries_before_driver_access(monkeypatch):
+    db = FakeDB()
+    monkeypatch.setattr(schema, "_prerequisite", lambda cursor, database: cursor.execute("SELECT * FROM athlete_profiles"))
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    assert caught.value.report["reason"] == "inspection_metadata_query_required"
+    assert len(db.queries) == 2 and db.rollbacks == 1 and db.closed
+
+
+def test_inspection_rejects_other_metadata_targets_before_driver_access(monkeypatch):
+    db = FakeDB()
+    monkeypatch.setattr(schema, "_prerequisite", lambda cursor, database: schema._table(cursor, "other_database", "athlete_profiles"))
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    assert caught.value.report["reason"] == "inspection_metadata_query_required"
+    assert len(db.queries) == 2 and db.rollbacks == 1 and db.closed
+
+
+def test_inspection_connection_failure_has_no_success_flags_or_details():
+    def unavailable(**settings):
+        raise RuntimeError("SECRET HOST PASSWORD")
+    with pytest.raises(schema.PreparationError) as caught:
+        schema.inspect_schema(environ=ENV, connector=unavailable, **ACK)
+    result = caught.value.report
+    assert result["stage"] == "connect" and result["select_attempts"] == result["statement_attempts"] == 0
+    assert not any(result[key] for key in ("connected", "read_only_transaction_started", "rollback_completed", "connection_closed"))
+    assert "SECRET" not in json.dumps(result) and "readiness" not in result
+
+
+def test_inspection_caps_metadata_queries_before_driver_access(monkeypatch):
+    db = FakeDB()
+    db.tables["athlete_workspaces"] = {"kind": "BASE TABLE", "engine": "InnoDB"}
+    def excessive(cursor, database):
+        for _ in range(9): cursor.execute("SELECT DATABASE() AS database_name")
+    monkeypatch.setattr(schema, "_workspace", excessive)
+    with pytest.raises(schema.PreparationError) as caught: inspect(db)
+    assert caught.value.report["reason"] == "inspection_query_budget_exhausted"
+    assert caught.value.report["select_attempts"] == 8 and caught.value.report["statement_attempts"] == 10
+    assert len(db.queries) == 9 and db.rollbacks == 1 and db.closed
+
+
+def test_check_cli_uses_metadata_inspection_not_apply(capsys):
+    db = FakeDB()
+    args = ["--check", "--expected-host", ACK["expected_host"], "--expected-database", ACK["expected_database"]]
+    assert schema.main(args, environ=ENV, connector=lambda **_: db) == 0
+    assert json.loads(capsys.readouterr().out)["readiness"] == "requires_create"
+    assert db.closed and not db.created
+
+
+def test_check_and_apply_are_mutually_exclusive_before_configuration(capsys):
+    class NoReads(dict):
+        def get(self, *_): raise AssertionError("No configuration")
+    with pytest.raises(SystemExit) as caught:
+        schema.main(["--check", "--apply"], environ=NoReads(), connector=lambda **_: (_ for _ in ()).throw(AssertionError("No connect")))
+    assert caught.value.code == 2
+
+
+@pytest.mark.parametrize("missing", ["id", "user_id", "clerk_id"])
+def test_inspection_identifies_only_known_missing_columns_without_raw_metadata(missing):
+    db = FakeDB()
+    db.columns["athlete_profiles"].pop(missing)
+    db.columns["athlete_profiles"]["PRIVATE_SCHEMA_CANARY"] = ("varchar(100)", "YES")
+    with pytest.raises(schema.PreparationError) as caught:
+        inspect(db)
+    report = caught.value.report
+    assert report["reason"] == "existing_athlete_link_columns_required"
+    assert report["required_link_columns"] == {name: name != missing for name in ("id", "user_id", "clerk_id")}
+    assert report["select_attempts"] == 3 and report["statement_attempts"] == 5
+    assert db.rollbacks == 1 and db.closed and not db.created
+    assert "PRIVATE_SCHEMA_CANARY" not in json.dumps(report)
