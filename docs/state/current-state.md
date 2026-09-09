@@ -2,15 +2,17 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
-## Real-profile acceptance runner ready; sign-in pending — September 9, 2026
+## Real-profile save/reload verified; footage previews need repair — September 9, 2026
 
 Implemented the finite owner-2 acceptance wrapper and offline-first launcher. The current profile app runs behind actual Clerk signature/issuer/authorized-party checks, exact route/SQL ownership boundaries, a private initial-workspace receipt and at most three save attempts. Claims, debrief/providers and GMTM writes are excluded. The parent owns both local process groups and a 15-minute deadline; configuration is retrieved only for explicit launch and stays in memory.
 
 **42 focused tests pass.** The extracted 176-file snapshot imported 24 actual source modules with matching hashes and served the profile health route offline without database connections. Independent source review found no remaining launch blocker. This evidence covers the test setup, not real-profile usefulness or persistence.
 
-At 18:25 UTC, the fresh preview at `http://localhost:52872/home/inbox` had reached the email-code sign-in for Joey. The private ledger still recorded zero personal requests, database connections and save attempts. The session expires at approximately 18:34:27 UTC; the parent writes its final cleanup/source receipt automatically. **Do not treat the preview as authenticated, acceptance as passed or cleanup as confirmed.** Joey has been asked to complete the sign-in in the visible tab; the existing signed-in browser session can then be used for the actual goal → optional featured footage → edited draft → save/reload test. See the [handoff](../../.sammy/handoffs/2026-09-09-owner-profile-acceptance.md).
+Joey completed the fresh email sign-in. Actual Clerk authentication and the unique user-2 link passed; his real profile/film records loaded and the workspace was initially empty. Codex saved a goal, featured the existing Shuttle film reference and saved an explicitly edited summary. After a full browser reload, the exact edited draft, goal and featured reference returned. **Real persistence acceptance passed.** Both film cards displayed `Preview unavailable`; poster loading and video playback have not passed. See the [handoff](../../.sammy/handoffs/2026-09-09-owner-profile-acceptance.md).
 
-The earlier migration is complete and must not be repeated. No application deployment, GMTM write, provider request, outreach or real athlete workspace save occurred as of this checkpoint.
+Final ledger: 9 personal requests, 61 SELECTs, 24 connections opened/closed, exactly 3 PATCH attempts/acknowledged commits, no denials/errors. Only Joey's private Agent workspace changed. At 18:31 UTC, the finite parent stopped; both owned groups were dead, ports 52872/52873 had no listeners and final source hashes were unchanged. The old preview is no longer running. The earlier migration is complete and must not be repeated. No deployment, GMTM write, provider request or outreach occurred.
+
+**Next:** distinguish missing normalized thumbnail values from actual image/CORS load failures, repair the observed preview issue, then ask Joey to judge usefulness/voice. Preserve the saved goal/draft; the three-save allowance is exhausted and must not be silently reset. No claim of working video playback, coach interest or full product acceptance is made.
 
 ## Live Agent workspace upgrade completed — September 9, 2026
 

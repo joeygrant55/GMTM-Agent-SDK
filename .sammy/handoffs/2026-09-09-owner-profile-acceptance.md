@@ -1,9 +1,25 @@
-# Owner-profile acceptance: implementation and sign-in checkpoint
+# Owner-profile acceptance: real persistence passed, previews unresolved
 
-Date: 2026-09-09, 18:25 UTC. Owner: existing Codex SPARQ lane.
+Date: 2026-09-09, final reconciliation 18:31 UTC. Owner: existing Codex SPARQ lane.
 Checkout: `work/sparq-agent-review`; branch `codex/athlete-home-first-value`.
 Starting HEAD: `2e1fa430f9f6f27dece47e09858ef937841d574e`.
 Remote: `https://github.com/joeygrant55/GMTM-Agent-SDK.git`.
+
+## Final outcome (supersedes the sign-in checkpoint below)
+
+Joey completed sign-in while Codex was writing the initial checkpoint. Actual Clerk JWT verification and exact owner-2 link passed. Evidence/materials and an empty version-0 workspace loaded. Codex used exactly three saves: a goal about turning the existing GMTM profile/footage into a useful coach introduction; the already eligible Shuttle film reference; and an explicitly edited private summary. No preexisting authored content was overwritten.
+
+After a full browser reload, Home showed the same goal and featured Shuttle reference and offered **Continue my draft**. Opening it returned the exact edited draft (including punctuation/newlines), with **Saved. You can come back to this draft.** confirmed. The draft remains private in Joey's Agent workspace. Codex did not copy/send it externally.
+
+**Persistence passed; media presentation did not.** Shuttle and the other eligible footage card displayed **Preview unavailable**. A displayed film record is not evidence of playable video. Source review narrows the poster issue to either a null normalized thumbnail or an image load failure; the component removes its img after onError. Do not infer URLs from film IDs, fabricate thumbnails or claim a CORS cause without observing the image response. `FilmPreview` uses `crossOrigin="anonymous"`; if a valid image URL exists, its response/CORS policy is a concrete diagnostic to inspect. Actual athletic relevance/voice/usefulness still needs Joey's feedback.
+
+Final ledger: 9 personal requests, 61 SELECT reservations, 24 connections opened and closed, 3 PATCH attempts, 3 commit attempts/acknowledgements, no denials/errors, zero provider calls/GMTM writes. The initial private workspace receipt is retained outside Git. Browser confirmation is recorded in `browser-acceptance.json` without the authored draft text.
+
+The parent was explicitly stopped through its own STOP file. Exit 0; both owned process groups dead, ports 52872 and 52873 had no listeners, final source hashes unchanged. `supervisor.json` and `cleanup-verification.json` record this. The visible old page is no longer backed by running services. No cleanup should remove Joey's saved workspace.
+
+Implementation checkpoint commit: `3741fcb4511ffa72b8eefcc08e17030cde1a5e78`; later documentation reconciliation has its own commit. Durable safe receipts: sibling `work/sparq-owner-profile-acceptance-2026-09-09/`. Private before-state stays only under the private temporary run directory. No push or deployment.
+
+**Next:** repair the observed film-preview issue using actual null/URL/request evidence. Preserve the saved work. This run's three-save limit is exhausted; no silent restart/reset for additional writes. The continued full-media/value acceptance is separate from the verified real persistence flow.
 
 ## User request and completion contract
 
@@ -25,7 +41,7 @@ Observed: **42 passed**, one existing Starlette/AnyIO deprecation warning, exit 
 Frozen run directory (outside Git, private): `/private/tmp/sparq-profile-real-2026-09-09-01/`.
 176 source files; extracted import/startup check matched 24 actual source imports, health returned `profile_candidate`, zero offline database connections. The first ad hoc import collector failed after health because it treated `__main__.__file__ = <stdin>` as a real source file. The collector was corrected to skip that non-file; both offline ledgers remain. This was a verifier failure, not a backend startup failure.
 
-## Live checkpoint and exact continuation
+## Historical live checkpoint and acceptance sequence
 
 Explicit launch used the frozen source and existing configuration; no cloud configuration was changed. Frontend `http://localhost:52872`, backend `http://127.0.0.1:52873`. Parent exec session 14605. `ready.json` records expiry, approximately **18:34:27 UTC**. `processes.json` identifies only the two owned process groups. Do not revive older preview ports or ledgers.
 
@@ -44,4 +60,4 @@ If the session has already expired, inspect and reconcile its ledger/cleanup fir
 
 ## Git and release
 
-This batch adds four implementation/test files plus this handoff/current-state update. Local commit identity is recorded after committing in the sibling receipt directory. No push, application deployment, new database schema change or production GMTM modification is part of this batch. Actual account acceptance remains pending sign-in.
+This batch adds four implementation/test files plus this handoff/current-state update. Local commit identities are recorded in the sibling receipt directory. No push, application deployment, new database schema change or production GMTM modification is part of this batch. The final outcome at the top supersedes the historical sign-in checkpoint.
