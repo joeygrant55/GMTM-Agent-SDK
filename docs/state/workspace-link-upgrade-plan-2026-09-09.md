@@ -1,6 +1,6 @@
 # Agent saved-work schema upgrade
 
-Prepared locally; not applied. This is the concrete database change needed before Joey's saved-work acceptance test. It follows the [compatibility contract](workspace-link-compatibility-contract-2026-09-09.md).
+**Applied and verified on September 9 with Joey's explicit approval.** Both operations completed, followed by a separate read-only compatibility check returning ready. See the [execution handoff](../../.sammy/handoffs/2026-09-09-workspace-upgrade-applied.md). The plan and starting fingerprint below are the reviewed pre-migration record; do not rerun it as if that starting schema still exists. It follows the [compatibility contract](workspace-link-compatibility-contract-2026-09-09.md).
 
 ## Verified target and starting shape
 

@@ -2,6 +2,14 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Live Agent workspace upgrade completed — September 9, 2026
+
+Joey explicitly approved the two reviewed Railway changes. The unchanged `e3ce497` migration completed `add_link_id` and `create_athlete_workspaces`, with exact metadata observations before/between/after, no uncertain outcome and a closed DDL connection. The final schema fingerprint is `c6534e3586416b6262c0220c63b31c9e89b5fae0ddf319ca212883a027a07aaa`. Existing legacy columns, primary key and Clerk index matched the expected preserved structure.
+
+A separate fresh read-only application compatibility check returned **ready / workspace_contract_checked=true**: eight SELECT/ten statement reservations, zero DDL, rollback/close confirmed. Both owned child groups are dead; sources matched before/after. See the [execution handoff](../../.sammy/handoffs/2026-09-09-workspace-upgrade-applied.md) for durable receipts and authorization. The prior 274-test source was unchanged; no redundant offline suite was rerun.
+
+**Next:** the [real-account acceptance setup](profile-real-account-acceptance-2026-09-09.md): current profile app, actual Clerk, uniquely linked user 2, real footage and three explicit saves at most, then exact draft reload. This runner is specified, not implemented or started. The schema blocker is resolved; actual JWT/media/save/reload acceptance remains unverified. No application deployment, provider call, GMTM access or athlete-authored content write occurred in this execution.
+
 ## Saved-work compatibility prepared — September 9, 2026
 
 The complete read-only Railway inventory confirmed MySQL 9.4.0, legacy `PRIMARY(user_id)`, nullable `VARCHAR(100)` Clerk linkage, mutable `updated_at`, no link-row ID, and **no `athlete_workspaces` table**. Metadata estimates three link rows, not an exact row count. The earlier unknown workspace state below is superseded.
