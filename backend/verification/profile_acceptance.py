@@ -45,15 +45,16 @@ def _raw_connect(settings):
 
 
 class Ledger:
-    def __init__(self, run_dir):
+    def __init__(self, run_dir, *, read_only=False):
         path = Path(run_dir)
         if (not path.is_absolute() or ".." in path.parts or any(p.is_symlink() for p in (path, *path.parents))
                 or not path.is_dir() or any((p / ".git").exists() for p in (path, *path.parents))
                 or stat.S_IMODE(path.stat().st_mode) != 0o700 or path.stat().st_uid != os.getuid()):
             raise ValueError("Acceptance directory must be private and outside Git")
         self.path, self.lock = path, RLock()
+        self.caps = {**CAPS, "patch_attempts": 0 if read_only else CAPS["patch_attempts"]}
         self.fd = os.open(path / "acceptance-ledger.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        self.data = {"status": "prepared", "athlete_id": 2, "caps": CAPS, "attempts": dict.fromkeys(CAPS, 0),
+        self.data = {"status": "prepared", "athlete_id": 2, "caps": dict(self.caps), "attempts": dict.fromkeys(self.caps, 0),
                      "connections_opened": 0, "connections_closed": 0, "commits_attempted": 0,
                      "commits_acknowledged": 0, "denials": {}, "outcomes": {}, "before_state_saved": False,
                      "errors": {}, "writes_closed": False, "provider_calls": 0, "gmtm_writes": 0}
@@ -78,7 +79,7 @@ class Ledger:
 
     def reserve(self, key):
         with self.lock:
-            if self.closed or self.data["attempts"][key] >= CAPS[key]: self.deny("budget_" + key, 429)
+            if self.closed or self.data["attempts"][key] >= self.caps[key]: self.deny("budget_" + key, 429)
             self.data["attempts"][key] += 1
             self.flush()
 
@@ -269,7 +270,8 @@ def _settings(settings, prefix):
     return dict(settings)
 
 
-def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, backend_host, run_dir):
+def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, backend_host, run_dir, read_only: bool = False):
+    if type(read_only) is not bool: raise ValueError("Acceptance read_only must be a boolean")
     config = candidate_app.validate_configuration(os.environ)
     if (os.environ.get("CLERK_ISSUER") != ISSUER or config.origins != (frontend_origin,)
             or not re.fullmatch(r"http://localhost:[0-9]{1,5}", frontend_origin)
@@ -280,7 +282,7 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
     agent_settings, gmtm_settings = _settings(agent_settings, "AGENT_DB_"), _settings(gmtm_settings, "DB_")
     if not re.fullmatch(r"[a-z0-9-]+\.proxy\.rlwy\.net", agent_settings["host"]): raise ValueError("Existing Agent proxy required")
     sources = {**reviewed_query_specs("profile"), **reviewed_query_specs("materials")}
-    ledger = Ledger(run_dir)
+    ledger = Ledger(run_dir, read_only=read_only)
     inner = candidate_app.create_app(surface="profile")
     patches = []
 
@@ -316,6 +318,7 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
                     setattr(module, name, lambda kind=kind: connection(kind))
 
     def route(path, method):
+        if read_only and method == "PATCH": return None
         if path == "/health" and method == "GET": return "health"
         if path in ("/api/athlete/evidence", "/api/athlete/materials") and method == "GET": return path.rsplit("/", 1)[1]
         if path == "/api/athlete/workspace" and method in ("GET", "PATCH"): return "workspace_" + method.lower()

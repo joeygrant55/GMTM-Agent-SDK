@@ -2,6 +2,14 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Real footage previews repaired; opportunity research is next — September 9, 2026
+
+Both public film posters now load in Joey's actual signed-in profile, including after a full reload. GMTM stores these older posters under the literal `users/undefined/uploads/<UUID>.<raster>` namespace, which the SPARQ backend and frontend rejected. The repair accepts that exact legacy shape while retaining existing film ownership/public-source checks, exact CDN host restrictions, anonymous image requests and no referrer. No SQL, GMTM record or video playback behavior changed.
+
+**274 materials/reader tests, 49 acceptance/launcher tests, 327 component checks and 120 complete-app checks plus five safety assertions pass.** Independent source review found no actionable issue. A fresh actual-account read-only run verified both decoded posters, the existing version-3 workspace, saved goal/featured reference and unchanged saved draft. Its ledger closed with six personal GETs, 40 SELECTs, 16 connections opened/closed and zero PATCH attempts, commits, errors, denials, providers or GMTM writes. Both owned groups are dead, ports 54552/54553 are closed and source hashes stayed unchanged. The displayed browser page may remain cached; this finite preview is stopped. See the [repair handoff](../../.sammy/handoffs/2026-09-09-footage-preview-repair.md).
+
+**Next:** implement [Find my next opportunity](athlete-opportunity-research-2026-09-09.md): a compact, owner-scoped shortlist of current programs/pathways, relevant public contacts and in-person opportunities, with a grounded reason, published requirements, fresh source evidence and one useful action. Begin with a small reviewed source set and connect selected options to the existing introduction composer without overwriting drafts. This is a written implementation contract; live opportunity discovery/recommendations are not implemented. The previous three-save allowance remains exhausted. No push, deployment, external outreach or provider request occurred.
+
 ## Real-profile save/reload verified; footage previews need repair — September 9, 2026
 
 Implemented the finite owner-2 acceptance wrapper and offline-first launcher. The current profile app runs behind actual Clerk signature/issuer/authorized-party checks, exact route/SQL ownership boundaries, a private initial-workspace receipt and at most three save attempts. Claims, debrief/providers and GMTM writes are excluded. The parent owns both local process groups and a 15-minute deadline; configuration is retrieved only for explicit launch and stays in memory.

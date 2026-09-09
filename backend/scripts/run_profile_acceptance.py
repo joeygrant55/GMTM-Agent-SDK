@@ -173,7 +173,7 @@ def free_port(host):
         return sock.getsockname()[1]
 
 
-def environments(config, clerk, frontend_port, backend_port, directory):
+def environments(config, clerk, frontend_port, backend_port, directory, *, read_only=False):
     origin = f"http://localhost:{frontend_port}"
     host = f"127.0.0.1:{backend_port}"
     base = {"HOME": "/Users/joey", "PATH": str(NODE.parent) + ":/usr/bin:/bin",
@@ -184,7 +184,8 @@ def environments(config, clerk, frontend_port, backend_port, directory):
                "SHARE_TOKEN_SECRET": secrets.token_urlsafe(32),
                "COMBINE_HELP_TEST_MODE": "1", "COMBINE_HELP_MAX_MODEL_CALLS": "1",
                "COMBINE_HELP_MAX_CONCURRENT_CALLS": "1", "PROFILE_DEBRIEF_ENABLED": "false",
-               "ACCEPTANCE_RUN_DIR": str(directory), "ACCEPTANCE_BACKEND_HOST": host}
+               "ACCEPTANCE_RUN_DIR": str(directory), "ACCEPTANCE_BACKEND_HOST": host,
+               "ACCEPTANCE_READ_ONLY": "1" if read_only else "0"}
     frontend = {**base, **clerk, "NEXT_PUBLIC_APP_SURFACE": "profile",
                 "NEXT_PUBLIC_BACKEND_URL": "http://" + host, "NEXT_TELEMETRY_DISABLED": "1",
                 "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in", "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/sign-up",
@@ -201,17 +202,17 @@ def settings(prefix):
                                ('password','PASSWORD'),('database','NAME')]}
 app = create_acceptance_app(agent_settings=settings('AGENT_DB_'),gmtm_settings=settings('DB_'),
     frontend_origin=os.environ['ALLOWED_ORIGINS'],backend_host=os.environ['ACCEPTANCE_BACKEND_HOST'],
-    run_dir=os.environ['ACCEPTANCE_RUN_DIR'])
+    run_dir=os.environ['ACCEPTANCE_RUN_DIR'],read_only=os.environ['ACCEPTANCE_READ_ONLY']=='1')
 uvicorn.run(app,host='127.0.0.1',port=int(os.environ['ACCEPTANCE_BACKEND_HOST'].split(':')[1]),
             workers=1,access_log=False,log_level='critical',proxy_headers=False)
 """
 
 
-def launch(directory, seconds):
+def launch(directory, seconds, *, read_only=False):
     verify(directory)
     if not 60 <= seconds <= 900:
         raise owner.Blocked("duration_outside_60_to_900_seconds")
-    write_new(directory / "launch-reserved.json", {"single_use": True, "seconds": seconds})
+    write_new(directory / "launch-reserved.json", {"single_use": True, "seconds": seconds, "read_only": read_only})
     children = []
     interrupted = False
     status = "configuration"
@@ -230,7 +231,7 @@ def launch(directory, seconds):
         frontend_port, backend_port = free_port("127.0.0.1"), free_port("127.0.0.1")
         if frontend_port == backend_port:
             raise owner.Blocked("ports_collided")
-        backend_env, frontend_env = environments(config, clerk, frontend_port, backend_port, directory)
+        backend_env, frontend_env = environments(config, clerk, frontend_port, backend_port, directory, read_only=read_only)
         deadline = time.monotonic() + seconds
         for name, command, env, cwd in (
             ("backend", [str(owner.PYTHON), "-c", CHILD], backend_env, directory / "source/backend"),
@@ -265,7 +266,7 @@ def launch(directory, seconds):
                         receipt = {"url": f"http://localhost:{frontend_port}/home/inbox",
                                    "frontend_port": frontend_port, "backend_port": backend_port,
                                    "expires_unix": time.time() + max(0, deadline-time.monotonic()),
-                                   "real_account_verified": False}
+                                   "real_account_verified": False, "read_only": read_only}
                         write_new(directory / "ready.json", receipt)
                         print(json.dumps(receipt), flush=True)
                 except Exception:
@@ -294,7 +295,7 @@ def launch(directory, seconds):
             source_unchanged = False
         write_new(directory / "supervisor.json", {"status": status, "children": cleanup,
                   "frontend_port": frontend_port, "backend_port": backend_port,
-                  "source_unchanged": source_unchanged})
+                  "source_unchanged": source_unchanged, "read_only": read_only})
         print(json.dumps({"status": status, "groups_dead": all(x["group_dead"] for x in cleanup.values())}), flush=True)
     return 0 if status in {"stopped_by_operator", "expired"} and all(x["group_dead"] for x in cleanup.values()) else 2
 
@@ -306,10 +307,11 @@ def main(argv=None):
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--launch", action="store_true")
     parser.add_argument("--seconds", default=600, type=int)
+    parser.add_argument("--read-only", action="store_true", help="Launch with zero workspace save allowance")
     args = parser.parse_args(argv)
     try:
         if args.launch:
-            return launch(args.run_dir, args.seconds)
+            return launch(args.run_dir, args.seconds, read_only=args.read_only)
         if args.check:
             verify(args.run_dir)
         else:

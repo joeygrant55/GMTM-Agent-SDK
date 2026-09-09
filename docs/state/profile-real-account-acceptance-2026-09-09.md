@@ -17,3 +17,9 @@ Use Joey's current uniquely linked GMTM user 2. Load real footage, save an actua
 - One finite parent supervises the frontend/backend; record owned process groups/ports and confirm cleanup. Run focused offline boundary tests before the actual session. No simultaneous heavy test lane.
 
 The real-account test remains part of the agreed product work. Current approval for the two schema changes is complete; this specification does not authorize other accounts, new provider/model allowance, account linking/reassignment, outreach or deployment.
+
+## Read-only follow-up verification
+
+The September 9 save/reload acceptance used all three saves. Preserve that completed ledger and the saved workspace. For subsequent media/display checks, prepare a fresh source snapshot with `backend/scripts/run_profile_acceptance.py --run-dir <new-private-directory>`, then launch it explicitly with `--launch --read-only --seconds 600`. Preparation is offline; configuration is retrieved only at launch and remains in memory. The read-only factory retains real authenticated GETs, rejects PATCH and PATCH preflight before authentication/database access, and sets the per-run PATCH cap to zero. This mode does not renew the save allowance.
+
+Record actual browser image loading separately from source/reference eligibility or playback. After checking the existing workspace and posters, create the run directory's `STOP` file and verify the final ledger, dead process groups, closed ports and unchanged source manifest. The [footage repair handoff](../../.sammy/handoffs/2026-09-09-footage-preview-repair.md) records the completed first read-only follow-up.

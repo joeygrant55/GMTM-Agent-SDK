@@ -22,7 +22,8 @@ const deps = '/Users/joey/GMTM-Agent-SDK/frontend/node_modules';
 const python = '/Users/joey/GMTM-Agent-SDK/backend/.venv/bin/python';
 const playwrightPath = '/Users/joey/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright';
 const sourceHashes = {}, checks = [], browserErrors = [], requests = [], blockedBrowser = [];
-const thumbnailURL = 'https://cdn.gmtm.com/videos/film/thumbnails/fixture-703.png';
+// Reproduce the legacy upload path that exists on real GMTM profiles.
+const thumbnailURL = 'https://cdn.gmtm.com/users/undefined/uploads/12345678-1234-5678-9abc-123456789abc.png';
 const thumbnailFixturePath = path.join(frontend, 'tests/fixtures/synthetic-footage.png');
 const thumbnailRequests = [];
 let thumbnailBytes = null, thumbnailFixtureSha256 = null, thumbnailMode = 'ready';

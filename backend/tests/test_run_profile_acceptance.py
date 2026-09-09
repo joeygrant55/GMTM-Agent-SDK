@@ -60,6 +60,15 @@ def test_child_environments_exclude_inherited_credentials(monkeypatch, tmp_path)
         assert "OPENAI_API_KEY" not in env and "ANTHROPIC_API_KEY" not in env
 
 
+def test_readonly_flag_reaches_child_and_is_reported(monkeypatch, tmp_path):
+    backend,_ = launch.environments({}, {}, 4567, 4568, tmp_path, read_only=True)
+    assert backend["ACCEPTANCE_READ_ONLY"] == "1"
+    calls=[]
+    monkeypatch.setattr(launch, "launch", lambda path, seconds, **kwargs: calls.append((path,seconds,kwargs)) or 0)
+    assert launch.main(["--run-dir",str(tmp_path),"--launch","--read-only"])==0
+    assert calls==[(tmp_path,600,{"read_only":True})]
+
+
 def test_default_never_launches_or_reads_configuration(monkeypatch, tmp_path, capsys):
     prepared = []
     monkeypatch.setattr(launch, "prepare", lambda path: prepared.append(path))

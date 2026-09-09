@@ -13,6 +13,7 @@ from auth import require_clerk_id
 
 OWNER = 7201
 CALLER = "clerk_material_owner"
+LEGACY_THUMBNAIL = "users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg"
 
 
 def event():
@@ -527,6 +528,8 @@ def test_stored_thumbnail_paths_normalize_only_supported_services_and_families()
         ("s3", "videos/events/1318/edited-thumbnails/sprint-1.jpg", "https://cdn.gmtm.com/videos/events/1318/edited-thumbnails/sprint-1.jpg"),
         ("gmtm", "users/7201/uploads/game.clip.jpeg", "https://cdn.gmtm.com/users/7201/uploads/game.clip.jpeg"),
         ("gmtm", "https://cdn.gmtm.com/videos/film/thumbnails/fixture.webp", "https://cdn.gmtm.com/videos/film/thumbnails/fixture.webp"),
+        ("gmtm", LEGACY_THUMBNAIL, "https://cdn.gmtm.com/" + LEGACY_THUMBNAIL),
+        ("s3", "https://cdn.gmtm.com/" + LEGACY_THUMBNAIL, "https://cdn.gmtm.com/" + LEGACY_THUMBNAIL),
         ("youtube", "vi/Abc_def-123/default.jpg", "https://i.ytimg.com/vi/Abc_def-123/default.jpg"),
         ("youtu", "https://i.ytimg.com/vi/Abc_def-123/hqdefault.jpg", "https://i.ytimg.com/vi/Abc_def-123/hqdefault.jpg"),
     ]
@@ -570,10 +573,11 @@ def test_thumbnail_normalizer_rejects_unsafe_or_unsupported_values_without_losin
     assert all(item["thumbnail_url"] is None for item in body["items"])
 
 
+@pytest.mark.parametrize("thumbnail", ["videos/film/thumbnails/private-marker.png", LEGACY_THUMBNAIL])
 @pytest.mark.parametrize("restriction", ["private", "network", "event", "in_person", "dead", "unknown_dead", "boolean_dead"])
-def test_thumbnail_is_absent_for_restricted_or_unknown_public_scope(source, restriction):
+def test_thumbnail_is_absent_for_restricted_or_unknown_public_scope(source, restriction, thumbnail):
     row = source[2].direct_films[0]
-    row.update(service="gmtm", thumbnail_uri="videos/film/thumbnails/private-marker.png")
+    row.update(service="gmtm", thumbnail_uri=thumbnail)
     if restriction == "private": row["visibility"] = 1
     elif restriction in ("network", "event"):
         row.update(film_event_id=1318, **event())
@@ -584,24 +588,48 @@ def test_thumbnail_is_absent_for_restricted_or_unknown_public_scope(source, rest
     else: row["dead_link"] = False
     item = next(item for item in fetch(source)[1]["items"] if item["id"] == "film-301")
     assert item["thumbnail_url"] is None and item["can_include"] is False
-    assert "private-marker" not in json.dumps(item)
+    assert thumbnail.rsplit("/", 1)[1] not in json.dumps(item)
 
 
-def test_thumbnail_projection_keeps_existing_owner_checks_and_all_three_query_paths(source):
+@pytest.mark.parametrize("thumbnail", ["videos/film/thumbnails/owned-frame.png", LEGACY_THUMBNAIL])
+def test_thumbnail_projection_keeps_existing_owner_checks_and_all_three_query_paths(source, thumbnail):
     db = source[2]
     for row in [*db.submitted_films, *db.direct_films, *db.career_films]:
-        row.update(service="gmtm", thumbnail_uri="videos/film/thumbnails/owned-frame.png", processed=None, dead_link=None)
+        row.update(service="gmtm", thumbnail_uri=thumbnail, processed=None, dead_link=None)
     items = fetch(source)[1]["items"]
     assert items[0]["thumbnail_url"] is None
-    assert all(item["thumbnail_url"] == "https://cdn.gmtm.com/videos/film/thumbnails/owned-frame.png" for item in items[1:])
+    assert all(item["thumbnail_url"] == "https://cdn.gmtm.com/" + thumbnail for item in items[1:])
     assert len(db.queries) == 4
 
 
-def test_safe_thumbnail_does_not_bypass_foreign_owner_reference(source):
-    source[2].direct_films[0].update(service="gmtm", thumbnail_uri="videos/film/thumbnails/owned-frame.png", career_user_id=999)
+@pytest.mark.parametrize("thumbnail", ["videos/film/thumbnails/owned-frame.png", LEGACY_THUMBNAIL])
+def test_safe_thumbnail_does_not_bypass_foreign_owner_reference(source, thumbnail):
+    source[2].direct_films[0].update(service="gmtm", thumbnail_uri=thumbnail, career_user_id=999)
     failed = fetch(source)[1]
     assert failed["state"] == "source_unavailable" and failed["items"] == []
-    assert "owned-frame" not in json.dumps(failed)
+    assert thumbnail.rsplit("/", 1)[1] not in json.dumps(failed)
+
+
+def test_legacy_undefined_namespace_requires_stored_canonical_uuid_raster_and_existing_service():
+    prefix = "users/undefined/uploads/"
+    name = LEGACY_THUMBNAIL.removeprefix(prefix)
+    hostile = [prefix + "arbitrary.jpg", prefix + "8243185.jpg", prefix + name.replace("-", ""),
+               prefix + name.replace("11111111", "GGGGGGGG"), prefix + name.replace(".jpg", ".preview.jpg"),
+               prefix + name.replace(".jpg", ".svg"), prefix + "../" + name,
+               LEGACY_THUMBNAIL.replace("undefined", "null"), LEGACY_THUMBNAIL.replace("undefined", "Undefined"),
+               LEGACY_THUMBNAIL + "?token=secret", LEGACY_THUMBNAIL + "#fragment",
+               LEGACY_THUMBNAIL.replace("undefined", "%75ndefined"),
+               "https://cdn.gmtm.com.attacker.invalid/" + LEGACY_THUMBNAIL,
+               "https://cdn.gmtm.com:443/" + LEGACY_THUMBNAIL]
+    for stored in hostile:
+        assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": stored}) is None
+    for service in ("youtube", "youtu", "vimeo", None):
+        assert api._thumbnail_url({"service": service, "thumbnail_uri": LEGACY_THUMBNAIL}) is None
+    for extension in ("jpg", "jpeg", "png", "webp", "JPG"):
+        stored = LEGACY_THUMBNAIL.removesuffix("jpg") + extension
+        assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": stored}) == "https://cdn.gmtm.com/" + stored
+    stored = LEGACY_THUMBNAIL.replace("11111111", "AAAAAAAA")
+    assert api._thumbnail_url({"service": "s3", "thumbnail_uri": stored}) == "https://cdn.gmtm.com/" + stored
 
 
 def test_thumbnail_bounds_apply_to_stored_key_and_normalized_url():

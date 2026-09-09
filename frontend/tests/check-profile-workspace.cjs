@@ -489,6 +489,8 @@ const work = (async()=>{
       'https://cdn.gmtm.com/videos/events/42/edited-thumbnails/fixture.jpg',
       'https://cdn.gmtm.com/users/2/uploads/fixture.jpeg',
       'https://cdn.gmtm.com/users/9007199254740991/uploads/fixture.webp',
+      'https://cdn.gmtm.com/users/undefined/uploads/12345678-1234-5678-9abc-123456789abc.jpg',
+      'https://cdn.gmtm.com/users/undefined/uploads/ABCDEF01-2345-6789-ABCD-EF0123456789.WEBP',
       'https://i.ytimg.com/vi/A1b2C3d4E_-/default.jpg'];
     const rejectedPosters=[
       ['control',posterURL+'\n'],['whitespace',' '+posterURL],['traversal','https://cdn.gmtm.com/videos/film/thumbnails/../fixture.png'],
@@ -501,6 +503,13 @@ const work = (async()=>{
       ['backslash',posterURL.replace('/fixture-12.png','\\fixture-12.png')],['empty filename','https://cdn.gmtm.com/videos/film/thumbnails/.png'],
       ['zero namespace ID','https://cdn.gmtm.com/users/0/uploads/fixture.png'],['unsafe namespace ID','https://cdn.gmtm.com/users/9007199254740992/uploads/fixture.png'],
       ['noncanonical namespace ID','https://cdn.gmtm.com/videos/events/01/edited-thumbnails/fixture.png'],
+      ['unrecognized legacy filename','https://cdn.gmtm.com/users/undefined/uploads/fixture.jpg'],
+      ['other missing namespace','https://cdn.gmtm.com/users/null/uploads/12345678-1234-5678-9abc-123456789abc.jpg'],
+      ['legacy namespace case','https://cdn.gmtm.com/users/Undefined/uploads/12345678-1234-5678-9abc-123456789abc.jpg'],
+      ['legacy encoded filename','https://cdn.gmtm.com/users/undefined/uploads/%31%32%33.jpg'],
+      ['legacy signed query','https://cdn.gmtm.com/users/undefined/uploads/12345678-1234-5678-9abc-123456789abc.jpg?token=private'],
+      ['legacy nested file','https://cdn.gmtm.com/users/undefined/uploads/nested/12345678-1234-5678-9abc-123456789abc.jpg'],
+      ['legacy vector','https://cdn.gmtm.com/users/undefined/uploads/12345678-1234-5678-9abc-123456789abc.svg'],
       ['short YouTube ID','https://i.ytimg.com/vi/short/default.jpg'],['long YouTube ID','https://i.ytimg.com/vi/A1b2C3d4E_-X/default.jpg'],
       ['other YouTube path','https://i.ytimg.com/vi_webp/A1b2C3d4E_-/default.webp'],['nonstring',42],['empty string','']];
     const posterParsing=await page.evaluate(({accepted,rejected,film,snapshot})=>{
@@ -518,7 +527,8 @@ const work = (async()=>{
     for(const [index,accepted] of posterParsing.acceptedResults.entries())check(accepted,'Stored poster parser accepts only a documented canonical image path: '+index);
     for(const [index,rejected] of posterParsing.rejectedResults.entries())check(rejected,'Stored poster parser and complete material parser reject '+rejectedPosters[index][0]);
     check(posterParsing.omitted&&posterParsing.explicitNull,'Older material responses without thumbnail_url remain valid and normalize to null');
-    const restrictedPosters=[{...publicPoster,can_include:false},{...publicPoster,can_include:false,availability:'unavailable',source_url:null},
+    const restrictedPosters=[{...publicPoster,can_include:false,thumbnail_url:'https://cdn.gmtm.com/users/undefined/uploads/12345678-1234-5678-9abc-123456789abc.jpg'},
+      {...publicPoster,can_include:false},{...publicPoster,can_include:false,availability:'unavailable',source_url:null},
       {...publicPoster,can_include:false,availability:'processing'},{...publicPoster,can_include:false,source_url:null},materialResult('r',{thumbnail_url:posterURL})];
     const restrictedParsing=await page.evaluate(({items,snapshot})=>items.map(item=>{
       try{window.__materialHelpers.readProfileMaterials({...snapshot,items:[item]});return false}catch{return true}

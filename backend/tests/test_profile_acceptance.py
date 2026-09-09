@@ -208,3 +208,41 @@ def test_cors_preflight_has_no_source_reads(setup):
         assert client.options("/api/athlete/workspace", headers=headers).status_code == 204
         assert client.options("/api/athlete/debrief", headers=headers).status_code == 403
     assert not setup.store.connections
+
+
+def test_read_only_keeps_owned_source_gets_and_rejects_patch_before_auth_or_db(setup):
+    assert setup.app.ledger.data["caps"]["patch_attempts"] == 3
+    setup.app.ledger.close()
+    run_dir = setup.run_dir.parent / "read-only"
+    run_dir.mkdir(mode=0o700)
+    app = acceptance.create_acceptance_app(**{**setup.kwargs, "run_dir": run_dir, "read_only": True})
+    with TestClient(app, base_url="http://" + HOST) as client:
+        assert client.patch("/api/athlete/workspace", headers={"Origin": ORIGIN}, json={}).status_code == 403
+        preflight = {"Origin": ORIGIN, "Access-Control-Request-Method": "PATCH"}
+        assert client.options("/api/athlete/workspace", headers=preflight).status_code == 403
+        assert not setup.store.connections
+        assert all(value == 0 for value in app.ledger.data["attempts"].values())
+        assert client.get("/api/profile/by-clerk/" + SUBJECT, headers=setup.headers()).json()["user_id"] == 2
+        for path in ("evidence", "materials", "workspace"):
+            response = client.get("/api/athlete/" + path, headers=setup.headers())
+            assert response.status_code == 200 and response.json()["state"] == "ready"
+        connections = len(setup.store.connections)
+        attempts = dict(app.ledger.data["attempts"])
+        assert client.patch("/api/athlete/workspace", headers=setup.headers(), json={}).status_code == 403
+        assert len(setup.store.connections) == connections and app.ledger.data["attempts"] == attempts
+    ledger = json.loads((run_dir / "acceptance-ledger.json").read_text())
+    assert ledger["caps"] == {**acceptance.CAPS, "patch_attempts": 0}
+    assert ledger["attempts"]["patch_attempts"] == ledger["commits_attempted"] == 0
+    assert ledger["attempts"]["personal_requests"] == 4
+    assert not setup.store.rows
+    assert setup.store.source_queries and all(params[0] == 2 for _, params in setup.store.source_queries)
+    assert acceptance.CAPS["patch_attempts"] == setup.app.ledger.data["caps"]["patch_attempts"] == 3
+
+
+@pytest.mark.parametrize("read_only", [None, 0, 1, "true", "false"])
+def test_read_only_requires_boolean_before_configuration_or_ledger_creation(setup, read_only, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "SECRET CANARY")
+    with pytest.raises(ValueError, match="Acceptance read_only must be a boolean"):
+        acceptance.create_acceptance_app(**setup.kwargs, read_only=read_only)
+    assert not setup.store.connections
+    setup.app.ledger.close()

@@ -30,8 +30,11 @@ const text = (value: unknown, max: number): value is string => typeof value === 
 export function isProfileThumbnail(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 2048 || /[^\x21-\x7e]|[\\%?#]/.test(value)) return false
   const cdn = /^https:\/\/cdn\.gmtm\.com\/(?:videos\/film\/thumbnails\/|videos\/events\/([1-9][0-9]*)\/edited-thumbnails\/|users\/([1-9][0-9]*)\/uploads\/)([^/]+)$/.exec(value)
+  // Older GMTM uploads really used this literal directory. It is a storage
+  // namespace, not an athlete identifier; the API still establishes ownership.
+  const legacyUpload = /^https:\/\/cdn\.gmtm\.com\/users\/undefined\/uploads\/([A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}\.[A-Za-z]+)$/.exec(value)
   const youtube = /^https:\/\/i\.ytimg\.com\/vi\/[A-Za-z0-9_-]{11}\/([^/]+)$/.exec(value)
-  const file = cdn?.[3] || youtube?.[1]
+  const file = cdn?.[3] || legacyUpload?.[1] || youtube?.[1]
   return !!file && /^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?:png|jpg|jpeg|webp)$/i.test(file)
     && (!cdn || [cdn[1], cdn[2]].every(id => !id || Number.isSafeInteger(Number(id))))
 }
