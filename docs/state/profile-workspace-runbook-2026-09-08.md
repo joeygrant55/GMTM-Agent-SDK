@@ -2,6 +2,16 @@
 
 This is the first implementation of the September 8 profile-value direction. It replaces the combine checklist in the explicitly selected `profile` surface with existing athlete facts and an editable, copyable output. The legacy and `combine` surfaces retain their separate behavior.
 
+## Career home update — September 9
+
+The [career-home contract](athlete-career-home-design-2026-09-09.md) now governs the entry screen and saved behavior. The athlete sees their current source footage, chosen goal and one adaptive action. Home, Portfolio, Opportunities and Progress are focused views in the same route. Portfolio opens the existing details sheet; Opportunities explicitly remains unreviewed; Progress records saved work only.
+
+`GET/PATCH /api/athlete/workspace` adds private Agent persistence. Save goal, feature selection and Save draft are explicit. Save conflicts offer the current saved version without silently replacing local text. Reload restores the goal, feature reference and draft; ordinary source outages preserve authored work. Account/link changes clear old content, and matching server-derived owner scopes are required before showing saved work beside source evidence or an answer.
+
+The application still needs an explicitly prepared `athlete_workspaces` table in its intended Agent database. Review `backend/prepare_athlete_workspace.py --help`; default invocation only prints a plan. Apply requires the existing exact expected host/database guards and the current task's authority for that target. Never point this command at GMTM. Offline fixtures verify transactions with synthetic storage; they do not prove current live Agent schema availability. An unavailable workspace table produces a visible saved-work error instead of startup DDL.
+
+The historical behavior below describes earlier checkpoints. In particular, references to page-local drafts and clearing them on refresh are superseded by this update. The debrief's disabled default, finite provider allowance, canonical GMTM read-only boundary, and separate release/live-acceptance limits remain.
+
 ## Configuration and data flow
 
 - Frontend: `NEXT_PUBLIC_APP_SURFACE=profile`, an explicit `NEXT_PUBLIC_BACKEND_URL`, and the existing Clerk settings.

@@ -23,6 +23,7 @@ from combine_api import _get_agent_db, _get_gmtm_db, _linked_athlete
 from combine_model import stream_answer
 from model_usage import MODELS, ModelCallLimitError, UsageLedger
 from profile_pathways import PathwayExpired, pathway_bundle
+from source_scope import owner_scope
 
 
 router = APIRouter(prefix="/api/athlete", tags=["Profile debrief"])
@@ -247,7 +248,8 @@ def load_profile_context(clerk_id, track):
                                    for action in actions.values()]}
     if len(json.dumps(context, ensure_ascii=False)) > MAX_CONTEXT_CHARS:
         raise ValueError("Debrief source context exceeds its bound")
-    return {"provider_context": context, "references": registry, "actions": actions, "fetched_at": fetched_at}
+    return {"provider_context": context, "references": registry, "actions": actions, "fetched_at": fetched_at,
+            "owner_scope": owner_scope(clerk_id, athlete_id)}
 
 
 _rate_lock = Lock()
@@ -326,6 +328,9 @@ def _unique_object(pairs):
 
 
 def _validated_response(raw, snapshot, body):
+    scope = snapshot.get("owner_scope")
+    if not isinstance(scope, str) or not re.fullmatch(r"[0-9a-f]{64}", scope):
+        raise ValueError("Owner source scope is unavailable")
     parsed = json.loads(raw, object_pairs_hook=_unique_object,
                         parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
     reply = ModelDebrief.model_validate(parsed)
@@ -343,7 +348,7 @@ def _validated_response(raw, snapshot, body):
             raise ValueError("Action source is unavailable")
         used.add(action["source_ref"])
     return {
-        "state": "ready", "track": body.track, "question": body.question,
+        "state": "ready", "track": body.track, "question": body.question, "owner_scope": scope,
         "answer": reply.answer.model_dump(), "insights": [item.model_dump() for item in reply.insights],
         "unknowns": [item.model_dump() for item in reply.unknowns],
         "next_action": {**{key: action[key] for key in ("id", "kind", "label", "href")},

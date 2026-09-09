@@ -1,6 +1,6 @@
 # Athlete career home design and first-build contract
 
-Date: 2026-09-09. Status: product direction accepted; three visual concepts displayed; visual selection pending. No application implementation in this design turn.
+Date: 2026-09-09. Status: Joey selected the portfolio-first layout with stronger athlete identity from the cinematic layout. The refined visual was shown before implementation. The first working slice is implemented locally; verification status belongs in current state and the implementation handoff.
 
 ## Product decision
 
@@ -10,7 +10,7 @@ The home should make existing work feel valuable and help the athlete use it tow
 
 ## Evidence and boundaries
 
-Current local application baseline is commit `5d54cd195d26a50b1dff24edde7b1145741add32` on `codex/athlete-home-first-value`. It already has bounded public-source footage previews, eligible film-reference selection, existing results, an editable introduction/summary and a gated debrief. Goals and drafts are not durably saved.
+The pre-build application baseline was commit `5d54cd195d26a50b1dff24edde7b1145741add32` on `codex/athlete-home-first-value`. It already had bounded public-source footage previews, eligible film-reference selection, existing results, an editable introduction/summary and a gated debrief. That baseline did not durably save goals and drafts; this slice adds explicit Agent storage, pending live schema preparation and acceptance.
 
 A public desktop inspection of [Blake Boswell's GMTM profile](https://gmtm.com/athletes/1392317/blake-boswell/feed) showed substantial footage across Feed/Media, six dated public stats, and an empty Career section. This was public-profile evidence, not signed-in owner acceptance, verified measurements, trend analysis, film analysis or scout outcomes. The design should make that existing material useful without asking athletes to reconstruct their combine.
 
@@ -30,11 +30,11 @@ Files, exact prompts, attached reference paths and SHA-256 hashes are retained o
 
 All concepts use fictional Ava Reed data and generated sports imagery, with a sample label. They preserve the existing black/lime SPARQ identity while varying hierarchy and composition. Generated durations, playback controls, saved states and navigation are design proposals, not evidence of current features. In implementation, omit unknown runtimes; offer playback only for a supported real media source; never use sample imagery as an athlete's fallback. A profile view or copied draft must never imply coach interest or outreach sent.
 
-The Product Design ideation workflow requires visual selection before implementation. The next selected choice must resolve to the displayed order above. Combining choices or selecting with refinements calls for a revised visual before code. Build in the existing owned SPARQ checkout; a design exploration does not authorize a new app, deployment or service.
+Joey selected the first layout with stronger personal identity from the third. A single refined ImageGen screen was shown before implementation; its exact source, prompt and hash are in sibling `sparq-career-home-build-2026-09-09/visual-target.json`. Build in the existing owned SPARQ checkout; a design exploration does not authorize a new app, deployment or service.
 
 ## First-build completion contract
 
-This is the proposed next implementation slice, to finalize after visual selection.
+This is the accepted implementation slice, finalized from Joey's selected visual. Existing adapters and the private composer remain the foundation.
 
 1. **Chosen goal:** one editable, persistent goal in the athlete's own words, with optional target recipient/program and timeframe. Do not infer eligibility, division or recruiting intent. Keep the goal visible outside its editor.
 2. **Featured work:** explicitly feature one eligible existing clip. Persist the source reference and revalidate ownership and availability on restore. Preserve truthful missing/broken-poster states. Featuring on the private home does not publish or change GMTM.
@@ -59,3 +59,12 @@ Run source, isolation and complete-journey checks proportionate to the change, u
 6. Later: reviewed opportunities and attributable outcomes, then a small willingness-to-pay experiment.
 
 Do not add a social feed, broad opportunity crawler, video analysis, automatic outreach or private scout data in this slice. Current pending application-model evaluation authorization, release packaging and real thumbnail acceptance remain separate. Fable's infrastructure/security and Audit's machine organization lanes are unchanged.
+
+## Implemented storage and association contract
+
+- `GET /api/athlete/workspace` returns a confirmed private workspace without creating a row. `PATCH` accepts `link_revision`, `expected_version` and only explicitly changed goal, featured source or draft fields. Null removes; omitted fields remain unchanged. No query or caller-selected athlete ID is accepted.
+- The Agent-only `athlete_workspaces` table uses an exact binary Clerk primary key, bound athlete link row and GMTM athlete, a bounded version, JSON payload and timestamps. Writes lock and recheck both ownership directions and version. No-op saves create no activity. Each successful change emits only its actual saved/removed event, bounded to 20.
+- `owner_scope` is a pure opaque comparison tag derived from the exact Clerk/GMTM pair. Evidence, materials, workspace and debrief responses carry their resolved scope; the career home refuses mismatched data before showing it together. It is not an authorization credential and never enters model context. `link_revision` additionally includes the link row so stale mutations fail after recreation/relink.
+- Featuring validates an existing eligible public film through the current source projection, then rechecks the owner under the Agent write lock. Goal/draft saves and saved-draft recovery need no GMTM read. Restoring a featured reference never establishes current availability without current matching source evidence.
+- Source refresh revalidates saved-state scope and preserves local authored buffers. Save failures and conflicts preserve text; fetching a competing version opens an explicit comparison rather than replacing edits. An uncertain timed-out save must be reconciled before another write.
+- `backend/prepare_athlete_workspace.py` is a separate default-dry-run, one-table preparation command using the existing exact Agent target guards. No schema is applied at startup and none was applied to a live database in this build.

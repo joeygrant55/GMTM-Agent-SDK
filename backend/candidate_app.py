@@ -163,8 +163,9 @@ async def require_candidate_clerk_id(request: Request, authorization: str | None
 
 class CandidateBoundaryMiddleware:
     """Fail closed before source handlers, then apply framework CORS policy."""
-    def __init__(self, app):
+    def __init__(self, app, surface="combine"):
         self.app = app
+        self.methods = ["GET", "POST", "PATCH"] if surface == "profile" else ["GET", "POST"]
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -181,7 +182,7 @@ class CandidateBoundaryMiddleware:
         # This is a request-local wrapper around the existing ASGI pipeline, not
         # a retained call_next closure or a mutation of application middleware.
         cors = CORSMiddleware(self.app, allow_origins=list(config.origins),
-                              allow_credentials=True, allow_methods=["GET", "POST"],
+                              allow_credentials=True, allow_methods=self.methods,
                               allow_headers=["Authorization", "Content-Type"])
         await cors(scope, receive, send)
 
@@ -197,10 +198,13 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from athlete_evidence import current_athlete_evidence
         from athlete_materials import current_athlete_materials
         from profile_debrief import current_profile_debrief, validate_configuration as debrief_configuration
+        from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         routes = (
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
             ("GET", "/api/athlete/materials", current_athlete_materials),
             ("POST", "/api/athlete/debrief", current_profile_debrief),
+            ("GET", "/api/athlete/workspace", current_athlete_workspace),
+            ("PATCH", "/api/athlete/workspace", update_athlete_workspace),
             *BUSINESS_ROUTES[2:],
         )
         title = "SPARQ Profile Candidate"
@@ -249,7 +253,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         # No token-bearing request paths or raw driver/provider exception text.
         return JSONResponse({"detail": "Combine service is temporarily unavailable."}, status_code=500)
 
-    application.add_middleware(CandidateBoundaryMiddleware)
+    application.add_middleware(CandidateBoundaryMiddleware, surface=surface)
 
     if surface == "profile":
         @application.middleware("http")

@@ -98,6 +98,7 @@ def test_real_source_helpers_minimize_context_and_resolve_only_used_references(s
     response = client.post("/api/athlete/debrief", json=BODY)
     assert response.status_code == 200, response.text
     result = response.json()
+    assert result["owner_scope"] == api.owner_scope(CALLER, ATHLETE)
     assert response.headers["cache-control"] == "private, no-store"
     assert response.headers["vary"] == "Authorization"
     assert opened == ["agent", "source"]
@@ -106,6 +107,7 @@ def test_real_source_helpers_minimize_context_and_resolve_only_used_references(s
     assert source.cursors_open == source.cursors_closed
     assert len(calls) == 1
     sent = calls[0]["system"]
+    assert result["owner_scope"] not in sent and "owner_scope" not in sent
     for secret in (CALLER, str(ATHLETE), "Alex", "Sample High School", "Tampa", "PRIVATE_EMAIL", "PUBLIC_TITLE_KEEP_LOCAL",
                    "PRIVATE_FILM_OMIT", "PREVIEW_MUST_STAY_LOCAL", "thumbnail", "Sample combine", "https://", "GMTM profile measurement"):
         assert secret not in sent

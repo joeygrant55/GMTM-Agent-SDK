@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from auth import require_clerk_id
 from combine_api import _get_agent_db, _get_gmtm_db, _linked_athlete
+from source_scope import owner_scope
 
 
 router = APIRouter(prefix="/api/athlete", tags=["Athlete evidence"])
@@ -234,11 +235,12 @@ def _measurement(row):
     return item
 
 
-def _response(state, *, athlete=None, evidence=None, observations=None, limitations=None, status=200):
+def _response(state, *, athlete=None, evidence=None, observations=None, limitations=None, status=200, scope=None):
     return JSONResponse({
         "state": state, "athlete": athlete, "evidence": evidence or [],
         "observations": observations or [], "limitations": limitations or [],
         "fetched_at": datetime.now(timezone.utc).isoformat(),
+        **({"owner_scope": scope} if scope is not None else {}),
     }, status_code=status, headers=PRIVATE_HEADERS)
 
 
@@ -248,6 +250,7 @@ def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(re
     if request.query_params:
         return JSONResponse({"detail": "This endpoint does not accept query parameters."},
                             status_code=400, headers=PRIVATE_HEADERS)
+    scope = None
     try:
         agent = _get_agent_db()
         try:
@@ -256,6 +259,7 @@ def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(re
             agent.close()
         if athlete_id is None:
             return _response("unlinked", limitations=["Connect your GMTM athlete profile to view its recorded evidence."])
+        scope = owner_scope(caller_clerk_id, athlete_id)
         source = _get_gmtm_db()
         try:
             athlete = _identity(source, athlete_id)
@@ -266,7 +270,7 @@ def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(re
         return JSONResponse({"detail": error.detail}, status_code=error.status_code, headers=PRIVATE_HEADERS)
     except Exception:
         # Do not emit database errors, identifiers or partially read identity.
-        return _response("source_unavailable", limitations=[
+        return _response("source_unavailable", scope=scope, limitations=[
             "Profile evidence could not be loaded. This does not mean your profile has no evidence. Try again later."
         ])
 
@@ -277,7 +281,7 @@ def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(re
             omitted = True
             continue
         if item["id"] in seen:
-            return _response("source_unavailable", limitations=["Conflicting measurement records could not be loaded."])
+            return _response("source_unavailable", scope=scope, limitations=["Conflicting measurement records could not be loaded."])
         seen.add(item["id"])
         evidence.append(item)
     limited = len(rows) > MAX_SOURCE_MEASUREMENTS or len(evidence) > MAX_EVIDENCE
@@ -304,4 +308,4 @@ def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(re
         })
     else:
         limitations.append("No supported shareable recorded measurements were returned in this view. Other profile evidence may still exist.")
-    return _response("ready", athlete=athlete, evidence=evidence, observations=observations, limitations=limitations)
+    return _response("ready", scope=scope, athlete=athlete, evidence=evidence, observations=observations, limitations=limitations)

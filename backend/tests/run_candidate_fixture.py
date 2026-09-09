@@ -159,6 +159,7 @@ def main():
     source = {"profiles": [], "claims": [], "events": [deepcopy(item["event"]) for item in PUBLIC["events"]],
               "tasks": definition_rows(1317) + definition_rows(1318), "submissions": [], "queries": [], "connections": []}
     workspace_fail = {"enabled": False}
+    career_store = None
 
     class AgentDB:
         """Only recovery reads and creation-only workspace writes are accepted."""
@@ -247,6 +248,13 @@ def main():
     if surface == "profile":
         import athlete_evidence
         import athlete_materials
+        import athlete_workspace
+        from backend.tests.workspace_fixture_store import WorkspaceStore
+
+        career_store = WorkspaceStore(mutex=mutex, link_reader=lambda: [
+            {"id": uid + 1000, "user_id": uid, "clerk_id": clerk}
+            for uid, clerk in claims["athlete_profiles"].items()])
+        athlete_workspace._get_agent_db = career_store.connect
 
         class EvidenceAgentDB(AgentDB):
             """Use the shared claim link, but permit only the two owner reads."""
@@ -354,6 +362,7 @@ def main():
 
         athlete_materials._get_agent_db = EvidenceAgentDB
         athlete_materials._get_gmtm_db = MaterialsDB
+        athlete_workspace._get_gmtm_db = MaterialsDB
 
         import profile_debrief
 
@@ -419,6 +428,11 @@ def main():
             if workspace:
                 workspaces[CALLER] = {"id": 501, "clerk_id": CALLER, "name": "Ava Fixture", "enrichment_complete": 0}
             workspace_fail["enabled"] = workspace_failure
+            if career_store is not None:
+                career_store.rows.clear()
+                career_store.failures.clear()
+                if workspace_failure:
+                    career_store.failures["connect"] = RuntimeError("Synthetic optional saved-work failure")
             submit(submitted)
     def submit(submitted):
         if type(submitted) is not int or submitted not in (0, 1):
@@ -451,6 +465,7 @@ def main():
                 if surface == "combine" else {
                     "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/{clerk_id}",
                     "/api/athlete/debrief",
+                    "/api/athlete/workspace",
                     "/api/claims/{token}", "/api/claims/{token}/redeem",
                 })
     assert set(app.openapi()["paths"]) == expected
@@ -474,6 +489,13 @@ def main():
                 reset(**{key: value for key, value in command.items() if key not in ("id", "op")})
             elif operation == "submit" and set(command) == {"id", "op", "submitted"}:
                 submit(command["submitted"])
+            elif operation == "saved_workspace_failure" and set(command) == {"id", "op", "enabled"}:
+                if career_store is None or type(command["enabled"]) is not bool:
+                    raise ValueError("Invalid saved workspace fixture control")
+                with mutex:
+                    career_store.failures.clear()
+                    if command["enabled"]:
+                        career_store.failures["connect"] = RuntimeError("Synthetic optional saved-work failure")
             elif operation == "stop" and set(command) == {"id", "op"}:
                 server.should_exit = True
             else:
@@ -511,7 +533,7 @@ def main():
         exit_status = "failed"
         raise
     finally:
-        all_connections = claims["connections"] + source["connections"] + shared_connections
+        all_connections = claims["connections"] + source["connections"] + shared_connections + (career_store.connections if career_store else [])
         report = {
             "kind": "synthetic_actual_candidate_asgi", "status": exit_status, "surface": surface,
             "requests_by_route_template": dict(requests), "fixture_commands": dict(commands),
@@ -521,13 +543,15 @@ def main():
                                                if surface == "profile" and profile_debrief._ledger_state else 0),
             "all_synthetic_connections_closed": all(db.closed for db in all_connections),
             "fixture_connection_count": len(all_connections),
+            "synthetic_workspace_commits": sum(db.commits for db in career_store.connections) if career_store else 0,
             "live_clerk_verified": False, "live_database_verified": False,
             "real_gmtm_submission_verified": False, "production_changed": False,
             "limits": "Loopback transport, locally signed JWT/JWKS, fake database interfaces and provider output; no live integration claim.",
             "source_hashes": {name: hashlib.sha256((backend/name).read_bytes()).hexdigest() for name in (
                 "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
                 "combine_help_api.py", "tests/run_candidate_fixture.py",
-                *(("athlete_evidence.py", "athlete_materials.py", "profile_debrief.py", "profile_pathways.py", "combine_model.py") if surface == "profile" else ()))},
+                *(("athlete_evidence.py", "athlete_materials.py", "profile_debrief.py", "profile_pathways.py", "combine_model.py",
+                   "athlete_workspace.py", "source_scope.py", "tests/workspace_fixture_store.py") if surface == "profile" else ()))},
         }
         descriptor = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as handle:

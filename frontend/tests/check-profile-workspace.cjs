@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -94,14 +94,40 @@ window.__identity={isLoaded:true,user:{id:'athlete-a'}};window.__listeners=new S
 window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(fn=>fn())};
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
 window.Clerk={session:{getToken:async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null}};
-window.__requests=[];window.__pending=[];window.__mode={};window.__materialsMode={};window.__debriefMode={status:503,body:{detail:'Fixture disabled'}};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
+window.__requests=[];window.__sourceRequests=()=>window.__requests.filter(r=>r.path!=='/api/athlete/workspace');window.__pending=[];window.__mode={};window.__materialsMode={};window.__workspaceMode=null;window.__workspaceStore={};window.__workspaceRevision='a'.repeat(64);window.__debriefMode={status:503,body:{detail:'Fixture disabled'}};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
 Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__clipboard.push(text);if(window.__clipboardMode==='failure')throw Error('Fixture clipboard denial');if(window.__clipboardMode==='pending')return new Promise(resolve=>window.__copyPending.push(resolve))}}});
 window.__now=1000000;window.__timers=new Map();let timerId=0;
 window.setTimeout=(fn,ms=0,...args)=>{const id=++timerId;window.__timers.set(id,{at:window.__now+ms,fn:()=>fn(...args)});return id};
 window.clearTimeout=id=>window.__timers.delete(id);
 window.__advance=async ms=>{const end=window.__now+ms;for(const[id,t]of [...window.__timers]){if(t.at<=end){window.__timers.delete(id);t.fn();for(let n=0;n<15;n++)await Promise.resolve()}}window.__now=end};
 function reply(mode={},request){if(mode.reject)throw Error('Fixture network failure');const response=new Response(mode.badJSON?'malformed-json':JSON.stringify(mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});if(mode.bodyPending)response.json=()=>new Promise(resolve=>window.__pending.push({stage:'body',resolve,request}));return response}
-window.fetch=async(input,init={})=>{const u=new URL(String(input),location.origin);const isDebrief=u.pathname==='/api/athlete/debrief';if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief'].includes(u.pathname)||u.search||(init.method||'GET')!==(isDebrief?'POST':'GET'))throw Error('Unexpected endpoint '+u);const headers=new Headers(init.headers);const request={path:u.pathname,method:init.method||'GET',signal:init.signal,authorization:headers.get('Authorization'),contentType:headers.get('Content-Type'),body:init.body,cache:init.cache};window.__requests.push(request);const mode=isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;if(mode.pending)return new Promise(resolve=>window.__pending.push({stage:'response',resolve,request}));return reply(mode,request)};
+window.__emptyWorkspace=()=>({state:'ready',owner_scope:window.__identity.user?.id==='athlete-b'?'c'.repeat(64):'b'.repeat(64),link_revision:window.__identity.user?.id==='athlete-b'?'b'.repeat(64):window.__workspaceRevision,version:0,goal:null,featured_source_id:null,draft:null,recent_work:[],updated_at:null});
+window.fetch=async(input,init={})=>{
+ const u=new URL(String(input),location.origin),isDebrief=u.pathname==='/api/athlete/debrief',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
+ if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief','/api/athlete/workspace'].includes(u.pathname)||u.search||!(isWorkspace?['GET','PATCH'].includes(method):method===(isDebrief?'POST':'GET')))throw Error('Unexpected endpoint '+u);
+ const headers=new Headers(init.headers),request={path:u.pathname,method,signal:init.signal,authorization:headers.get('Authorization'),contentType:headers.get('Content-Type'),body:init.body,cache:init.cache};window.__requests.push(request);
+ let mode=isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;
+ if(isWorkspace){
+   const actor=window.__identity.user?.id;if(!actor)return reply({status:401,body:{detail:'Fixture signed out'}},request);
+   if(window.__workspaceMode?.[method]||window.__workspaceMode?.status||window.__workspaceMode?.body||window.__workspaceMode?.pending||window.__workspaceMode?.reject||window.__workspaceMode?.badJSON)mode=window.__workspaceMode[method]||window.__workspaceMode;
+   else{
+     const saved=window.__workspaceStore[actor]||window.__emptyWorkspace();
+     if(method==='PATCH'){
+       const body=JSON.parse(init.body);
+       if(body.link_revision!==saved.link_revision)mode={status:409,body:{detail:'Fixture link changed',code:'workspace_link_changed'}};
+       else if(body.expected_version!==saved.version)mode={status:409,body:{detail:'Fixture version conflict',code:'workspace_conflict'}};
+       else{
+         if(Object.keys(body).some(k=>!['link_revision','expected_version','changes'].includes(k))||!body.changes||Object.keys(body.changes).some(k=>!['goal','featured_source_id','draft'].includes(k)))throw Error('Unexpected workspace mutation');
+         const at='2026-09-09T12:00:00Z',version=saved.version+1;
+         const activity=Object.entries(body.changes).filter(([key,value])=>JSON.stringify(saved[key])!==JSON.stringify(value)).map(([key,value])=>{const kind=({goal:'goal',featured_source_id:'featured',draft:'draft'})[key]+(value===null?'_removed':'_saved');return{id:String(version)+':'+kind,kind,at}});
+         const next=activity.length?{...saved,...body.changes,version,updated_at:at,recent_work:[...activity,...saved.recent_work].slice(0,20)}:saved;
+         window.__workspaceStore[actor]=next;mode={body:next};
+       }
+     }else mode={body:saved};
+   }
+ }
+ if(mode.pending)return new Promise((resolve,reject)=>{window.__pending.push({stage:'response',resolve,request});if(isWorkspace)init.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true})});return reply(mode,request);
+};
 window.__release=(mode={},path)=>{const index=path?window.__pending.findIndex(p=>p.request?.path===path):0;const pending=index>=0?window.__pending.splice(index,1)[0]:null;if(!pending)throw Error('No pending read');pending.resolve(pending.stage==='body'?mode.body:reply(mode,pending.request))};
 const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefined?{key}:{})});
 function load(id,from=''){
@@ -115,6 +141,7 @@ function load(id,from=''){
 window.__helpers=load('app/home/components/profileEvidence');
 window.__materialHelpers=load('app/home/components/profileMaterials');
 window.__debriefHelpers=load('app/home/components/athleteDebrief');
+window.__workspaceHelpers=load('app/home/components/careerWorkspace');
 const root=ReactDOM.createRoot(document.getElementById('root'));
 window.__mount=(strict=false)=>{const app=React.createElement(load('app/home/components/ProfileWorkspaceShell').default,null,React.createElement(load('app/home/components/ProfileWorkspace').default));root.render(strict?React.createElement(React.StrictMode,null,app):app)};
 window.__unmount=()=>root.render(null);
@@ -133,15 +160,15 @@ const assets = {
 };
 const athlete = name => ({ name, sport: 'Flag football', position: 'Receiver', school: 'Fixture School', city: 'Fixture City', state: 'FL', graduation_year: null });
 const result = (id, label, value) => ({ id, label, value, unit: 'seconds', recorded_at: '2026-08-20T00:00:00Z', source_label: 'Recorded GMTM metric', verification: 'unconfirmed', event_name: 'Fixture Adult Combine' });
-const profile = (name='Alex Fixture') => ({ state: 'ready', athlete: athlete(name), evidence: [result('m1','20-yard dash',3.12),result('m2','Three-cone drill',7.34)], observations: [{ title: 'Two recorded results', detail: 'These records have a source and a date. They do not establish selection.', evidence_ids:['m1','m2'] }], limitations: ['Verification has not been confirmed.'], fetched_at:'2026-09-08T17:00:00Z' });
-const emptyState = state => ({ state, athlete:null, evidence:[], observations:[], limitations:[], fetched_at:'2026-09-08T17:00:00Z' });
+const profile = (name='Alex Fixture') => ({ state: 'ready', owner_scope:'b'.repeat(64), athlete: athlete(name), evidence: [result('m1','20-yard dash',3.12),result('m2','Three-cone drill',7.34)], observations: [{ title: 'Two recorded results', detail: 'These records have a source and a date. They do not establish selection.', evidence_ids:['m1','m2'] }], limitations: ['Verification has not been confirmed.'], fetched_at:'2026-09-08T17:00:00Z' });
+const emptyState = state => ({ state, ...(state==='source_unavailable'?{owner_scope:'b'.repeat(64)}:{}), athlete:null, evidence:[], observations:[], limitations:[], fetched_at:'2026-09-08T17:00:00Z' });
 const materialResult = (id='submission-1', extra={}) => ({id,kind:'submitted_result',title:'Submitted sprint',source_label:'Fixture combine · Sprint exercise',recorded_at:'2026-08-21T12:00:00',date_label:'Submitted',result:{value:4.8,unit:'seconds'},source_url:null,can_include:true,availability:'recorded',...extra});
 const materialFilm = (id='film-12', extra={}) => ({id,kind:'footage',title:'Game footage',source_label:'GMTM footage record',recorded_at:'2026-08-22',date_label:'Published',result:null,source_url:'https://gmtm.com/film/12',can_include:true,availability:'unchecked',...extra});
-const materials = (items=[],state='ready') => ({state,items,limitations:['Only supported existing records are in this view.'],fetched_at:'2026-09-08T17:00:00Z'});
+const materials = (items=[],state='ready') => ({state,...(state!=='unlinked'?{owner_scope:'b'.repeat(64)}:{}),items,limitations:['Only supported existing records are in this view.'],fetched_at:'2026-09-08T17:00:00Z'});
 const debriefQuestion = 'What can my evidence help me do?';
 const debrief = (question=debriefQuestion,track='profile',action='prepare_summary') => {
   const official = {usaf_support:{id:'o2',href:'https://www.usafootball.com/contact-us',label:'Check the official support route'},usaf_development:{id:'o3',href:'https://usafootball.com/resources/app',label:'Explore USA Football development resources'}}[action];
-  return {state:'ready',track,question,answer:{text:'Your recorded result can help you make a factual introduction.',refs:['f1']},insights:[{text:'The recorded dash has a source and a date.',refs:['f1']}],unknowns:[{text:'This evidence does not confirm a selection decision.',refs:['coverage']}],next_action:{id:action,kind:official?'open_source':action,label:official?official.label:action==='prepare_summary'?'Prepare my profile summary':'Prepare an introduction',href:official?official.href:null,reason:{text:official?'Use the official published route to learn more.':'Prepare text for a recipient or use you already know.',refs:[official?official.id:'f1']}},references:[{id:'f1',kind:'evidence',label:'Recorded dash',detail:'20-yard dash: 3.12 seconds; measurement verification is unconfirmed.',href:null,checked_at:null},{id:'coverage',kind:'coverage',label:'Coverage of this view',detail:'Selection and eligibility have not been established.',href:null,checked_at:null},...(official?[{id:official.id,kind:'official',label:'Official USA Football source',detail:'A reviewed published source; not a promise of review or selection.',href:official.href,checked_at:'2026-09-08T22:51:00Z'}]:[])],fetched_at:'2026-09-08T23:00:00Z'};
+  return {state:'ready',owner_scope:'b'.repeat(64),track,question,answer:{text:'Your recorded result can help you make a factual introduction.',refs:['f1']},insights:[{text:'The recorded dash has a source and a date.',refs:['f1']}],unknowns:[{text:'This evidence does not confirm a selection decision.',refs:['coverage']}],next_action:{id:action,kind:official?'open_source':action,label:official?official.label:action==='prepare_summary'?'Prepare my profile summary':'Prepare an introduction',href:official?official.href:null,reason:{text:official?'Use the official published route to learn more.':'Prepare text for a recipient or use you already know.',refs:[official?official.id:'f1']}},references:[{id:'f1',kind:'evidence',label:'Recorded dash',detail:'20-yard dash: 3.12 seconds; measurement verification is unconfirmed.',href:null,checked_at:null},{id:'coverage',kind:'coverage',label:'Coverage of this view',detail:'Selection and eligibility have not been established.',href:null,checked_at:null},...(official?[{id:official.id,kind:'official',label:'Official USA Football source',detail:'A reviewed published source; not a promise of review or selection.',href:official.href,checked_at:'2026-09-08T22:51:00Z'}]:[])],fetched_at:'2026-09-08T23:00:00Z'};
 };
 const checks=[], errors=[], denied=[];
 const work = (async()=>{
@@ -174,30 +201,34 @@ const work = (async()=>{
     });
     const check=(condition,name)=>{assert(condition,name);checks.push(name)};
     const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    const reset=async(mode={body:profile()},identity={isLoaded:true,user:{id:'athlete-a'}},strict=false,materialMode={body:materials()})=>{await page.goto(origin);await page.evaluate(({mode,identity,strict,materialMode})=>{window.__mode=mode;window.__materialsMode=materialMode;window.__setIdentity(identity);window.__mount(strict)},{mode,identity,strict,materialMode});await settle()};
+    const reset=async(mode={body:profile()},identity={isLoaded:true,user:{id:'athlete-a'}},strict=false,materialMode={body:materials()},workspaceFixture=null,workspaceMode=null)=>{await page.goto(origin);await page.evaluate(({mode,identity,strict,materialMode,workspaceFixture,workspaceMode})=>{if(identity.user?.id==='athlete-b'){for(const entry of [mode,materialMode])if(entry.body?.owner_scope==='b'.repeat(64))entry.body={...entry.body,owner_scope:'c'.repeat(64)}}window.__mode=mode;window.__materialsMode=materialMode;window.__workspaceMode=workspaceMode;window.__setIdentity(identity);if(workspaceFixture)window.__workspaceStore[identity.user?.id||'athlete-a']=workspaceFixture;window.__mount(strict)},{mode,identity,strict,materialMode,workspaceFixture,workspaceMode});await settle()};
     const profileDialog=()=>page.getByRole('dialog',{name:'Your profile',exact:true});
-    const openProfile=async()=>{if(await profileDialog().isVisible())return;const choose=page.getByRole('button',{name:/^Choose profile details/});await (await choose.isVisible()?choose:page.getByRole('button',{name:'View profile',exact:true})).click();await profileDialog().waitFor()};
+    const openProfile=async()=>{if(await profileDialog().isVisible())return;const choose=page.getByRole('button',{name:/^Choose profile details/}),view=page.getByRole('button',{name:'View profile',exact:true});await (await choose.isVisible()?choose:await view.isVisible()?view:page.getByRole('button',{name:'Browse portfolio',exact:true})).click();await profileDialog().waitFor()};
     const closeProfile=async()=>{if(await profileDialog().isVisible())await profileDialog().getByRole('button',{name:'Done',exact:true}).click()};
-    const openComposer=async()=>{await closeProfile();if(await page.getByRole('button',{name:'Back to SPARQ',exact:true}).isVisible())return;const resume=page.getByRole('button',{name:'Return to your draft',exact:true});await (await resume.isVisible()?resume:page.getByRole('button',{name:'Write an introduction',exact:true})).click();if(await page.getByLabel('Your text — ready to edit',{exact:true}).count()===0)await page.getByLabel('Profile summary',{exact:true}).check()};
-    const openGuidance=async()=>{await closeProfile();const back=page.getByRole('button',{name:'Back to SPARQ',exact:true});if(await back.isVisible())await back.click();const ask=page.getByRole('button',{name:'Ask about my profile',exact:true});if(await ask.isVisible())await ask.click()};
-    const openOverview=async()=>{await closeProfile();const back=page.getByRole('button',{name:'Back to SPARQ',exact:true});if(await back.isVisible())await back.click();const content=page.getByRole('button',{name:'Back to your content',exact:true});if(await content.isVisible())await content.click()};
+    const homeNavigation=()=>page.getByRole('navigation',{name:'Athlete workspace',exact:true}).getByRole('button',{name:'Home',exact:true});
+    const openOverview=async()=>{await closeProfile();await homeNavigation().click();await page.getByRole('region',{name:'Your athlete content',exact:true}).waitFor()};
+    const openGuidance=async()=>{await closeProfile();await openOverview();await page.getByRole('button',{name:'Ask SPARQ',exact:true}).click()};
+    const openComposer=async()=>{await closeProfile();if(await page.getByRole('button',{name:'Back to SPARQ',exact:true}).isVisible())return;await openGuidance();const resume=page.getByRole('button',{name:'Return to your draft',exact:true});await(await resume.isVisible()?resume:page.getByRole('button',{name:'Write an introduction',exact:true})).click();if(await page.getByLabel('Your text — ready to edit',{exact:true}).count()===0)await page.getByLabel('Profile summary',{exact:true}).check()};
     const editDetails=async()=>{await openComposer();const edit=page.getByRole('button',{name:'Edit details',exact:true});if(await edit.isVisible())await edit.click()};
-    const ready=async(open=true)=>{await page.getByRole('button',{name:'View profile',exact:true}).waitFor();if(open)await openComposer();else await openGuidance()};
+    const ready=async(open=true)=>{await page.getByRole('region',{name:'Your athlete content',exact:true}).waitFor();if(open)await openComposer();else await openGuidance()};
     const selectEvidence=async(index=0,checked=true)=>{await openProfile();await page.getByRole('checkbox').nth(index).setChecked(checked);await closeProfile()};
     const refreshProfile=async()=>{await openProfile();await profileDialog().getByRole('button',{name:'Refresh profile',exact:true}).click()};
     const setMode=async mode=>page.evaluate(mode=>{window.__mode=mode},mode);
     const setMaterialsMode=async mode=>page.evaluate(mode=>{window.__materialsMode=mode},mode);
-    const switchAccount=async id=>{await page.evaluate(id=>window.__setIdentity({isLoaded:true,user:id?{id}:null}),id);await settle()};
+    const switchAccount=async id=>{await page.evaluate(id=>{
+      if(id)for(const key of ['__mode','__materialsMode']){const mode=window[key];if(mode.body?.owner_scope)window[key]={...mode,body:{...mode.body,owner_scope:id==='athlete-b'?'c'.repeat(64):'b'.repeat(64)}};}
+      window.__setIdentity({isLoaded:true,user:id?{id}:null});
+    },id);await settle()};
     const release=async mode=>{await page.evaluate(mode=>window.__release(mode),mode);await settle()};
     const releaseMaterials=async mode=>{await page.evaluate(mode=>window.__release(mode,'/api/athlete/materials'),mode);await settle()};
-    const goal=()=>page.getByLabel('What are you working toward?',{exact:true});
+    const goal=()=>page.locator('#profile-draft-details').getByLabel('What are you working toward?',{exact:true});
     const fillGoal=async value=>{await editDetails();await goal().fill(value)};
     const draft=()=>page.getByLabel('Your text — ready to edit',{exact:true});
     const prepare=async()=>{await editDetails();await page.getByRole('button',{name:'Prepare my text',exact:true}).click()};
     const rebuild=async()=>{await editDetails();await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click()};
 
     const overview=()=>page.getByRole('region',{name:'Your athlete content',exact:true});
-    const overviewReady=async()=>{await page.getByRole('button',{name:'View profile',exact:true}).waitFor();await overview().waitFor()};
+    const overviewReady=async()=>{await overview().waitFor()};
     const publicPoster=materialFilm('film-12',{thumbnail_url:posterURL});
     const secondClip=materialFilm('film-13',{title:'Second clip',source_url:'https://gmtm.com/film/13'});
     const privateClip=materialFilm('film-14',{title:'Private poster record',source_url:'https://gmtm.com/film/14',can_include:false,thumbnail_url:null});
@@ -206,10 +237,10 @@ const work = (async()=>{
     await reset({body:profile()},undefined,false,{body:overviewMaterials});await overviewReady();
     await page.waitForFunction(src=>Array.from(document.images).some(img=>img.src===src&&img.complete&&img.naturalWidth===1),posterURL);
     const poster=overview().getByRole('img',{name:'Thumbnail for Game footage',exact:true});
-    check(await overview().getByRole('heading',{name:'Your work. Your next move.',exact:true}).isVisible()
-      &&await overview().getByRole('heading',{name:'Game footage',exact:true}).isVisible()
+    check(await overview().getByRole('heading',{name:'Your footage',exact:true}).isVisible()
+      &&await overview().getByText('Game footage',{exact:true}).isVisible()
       &&!await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&!await goal().isVisible(),
-      'The default overview shows the athlete’s own returned clip while guidance and writing stay on demand');
+      'The career home starts with existing footage, chosen-goal context and one next move; questions and writing stay on demand');
     check(await poster.count()===1&&await poster.getAttribute('src')===posterURL
       &&await poster.getAttribute('crossorigin')==='anonymous'&&await poster.getAttribute('referrerpolicy')==='no-referrer'
       &&posterRequests.at(-1).hasCookie===false&&posterRequests.at(-1).hasAuthorization===false&&posterRequests.at(-1).hasReferrer===false,
@@ -218,84 +249,216 @@ const work = (async()=>{
     check(await resultOverview.getByRole('article').count()===2&&await resultOverview.getByText('Recorded',{exact:true}).isVisible()
       &&await resultOverview.getByText('Submitted',{exact:true}).isVisible()&&await resultOverview.getByRole('heading',{name:'20-yard dash',exact:true}).isVisible()
       &&await resultOverview.getByRole('heading',{name:'Submitted sprint',exact:true}).isVisible(),
-      'The overview keeps one recorded and one submitted result with their distinct source types');
-    check(await overview().getByRole('button',{name:'Previous clip',exact:true}).isDisabled()
-      &&!await overview().getByRole('button',{name:'Next clip',exact:true}).isDisabled()
+      'The career home keeps one recorded and one submitted result with their distinct source types');
+    check(await overview().getByRole('button',{name:'Feature Second clip',exact:true}).isVisible()
       &&await overview().getByText('Private poster record',{exact:true}).count()===0&&await overview().getByText('Unavailable poster record',{exact:true}).count()===0,
-      'Clip browsing includes eligible public footage only and starts at the first endpoint');
-    check(await page.locator('video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__requests.length===2),
-      'The poster adds no playback, embedding, extra source read or automatic debrief');
+      'Only currently eligible public clips can be chosen for the private home');
+    check(await page.locator('video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__sourceRequests().length===2
+      &&window.__requests.filter(r=>r.path==='/api/athlete/workspace').length===1&&window.__requests.every(r=>r.method==='GET')),
+      'Initial load has exactly two source reads and one owned-workspace read, with no playback, write or automatic debrief');
+    check(await page.getByRole('button',{name:'Set my goal',exact:true}).isVisible()
+      &&await page.getByText('Your saved work will appear here.',{exact:true}).isVisible(), 'A first visit asks for the athlete’s goal and does not invent activity or opportunity outcomes');
     await openGuidance();await page.getByLabel('What would you like to figure out?',{exact:true}).fill('Help me use the content I already have.');
     await openOverview();await settle();
-    check(await overview().isVisible()&&await page.getByRole('button',{name:'Ask about my profile',exact:true}).evaluate(el=>document.activeElement===el)
-      &&await page.evaluate(()=>window.__requests.length===2), 'Returning from guidance restores the content trigger without a source or model call');
-    await overview().getByRole('button',{name:'Next clip',exact:true}).click();
-    check(await overview().getByRole('heading',{name:'Second clip',exact:true}).isVisible()
-      &&await overview().getByRole('button',{name:'Next clip',exact:true}).isDisabled()&&await overview().getByRole('img').count()===0
-      &&await overview().getByText('Preview unavailable',{exact:true}).isVisible(),
-      'A clip without a stored poster keeps its real title and action with an honest fallback');
-    check(await overview().getByRole('link',{name:'View on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/13',
-      'Changing clips changes only the canonical existing GMTM page destination');
-    await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).click();
-    check(await page.getByLabel('Introduction',{exact:true}).isChecked()&&await page.locator('[aria-label="Selected footage"]').getByText('Second clip',{exact:true}).isVisible()
-      &&await draft().count()===0&&await page.evaluate(()=>window.__requests.length===2),
-      'Using a clip selects its public reference and opens an introduction without generating or sending text');
-    await goal().fill('Introduce my existing game footage.');await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await page.getByRole('button',{name:'Prepare my text',exact:true}).click();
-    const clipDraft=await draft().inputValue();
-    check((clipDraft.match(/https:\/\/gmtm\.com\/film\/13/g)||[]).length===1&&!clipDraft.includes(posterURL)&&!clipDraft.includes('thumbnail_url'),
-      'A factual introduction includes the selected canonical page once and never includes its thumbnail URL');
-    await openOverview();await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).click();
-    check(await draft().inputValue()===clipDraft&&await page.getByText(/Your selections changed/).count()===0
-      &&await page.evaluate(()=>window.__requests.length===2),
-      'Using the already selected clip in the same introduction preserves the exact draft without a false stale warning or another request');
-    await draft().fill('KEEP MY EXACT CLIP DRAFT');await openOverview();
-    check(await overview().getByRole('heading',{name:'Second clip',exact:true}).isVisible(), 'Returning from the composer preserves the chosen clip');
-    await overview().getByRole('button',{name:'Previous clip',exact:true}).click();
-    await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).click();
-    check(await draft().inputValue()==='KEEP MY EXACT CLIP DRAFT'&&await page.getByText(/Your selections changed/).isVisible(),
-      'Using another clip preserves exact existing edits until explicit rebuild');
-    await openProfile();
-    check(await profileDialog().getByRole('checkbox',{name:/Include Game footage/}).isChecked()
-      &&await profileDialog().getByRole('checkbox',{name:/Include Second clip/}).isChecked(), 'Hero selection and profile-sheet selection use the same footage state');
-    await rebuild();
-    const rebuiltClips=await draft().inputValue();
-    check((rebuiltClips.match(/https:\/\/gmtm\.com\/film\/12/g)||[]).length===1&&(rebuiltClips.match(/https:\/\/gmtm\.com\/film\/13/g)||[]).length===1&&!rebuiltClips.includes(posterURL),
-      'Only explicit rebuild incorporates both selected public clips without duplicated links or poster metadata');
+    check(await overview().isVisible()&&await homeNavigation().getAttribute('aria-current')==='page'
+      &&await page.evaluate(()=>window.__sourceRequests().length===2), 'Home navigation restores existing content without a source or model call');
+    await overview().getByRole('button',{name:'Feature Second clip',exact:true}).click();
+    await overview().getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
+    check(await overview().getByText('Featured',{exact:true}).isVisible()
+      &&await overview().getByRole('link',{name:'Open on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/13',
+      'Explicit feature selection changes the private home only after a confirmed save and keeps the canonical page destination');
+    check(await page.evaluate(()=>{const r=window.__requests.at(-1),b=JSON.parse(r.body);return r.path==='/api/athlete/workspace'&&r.method==='PATCH'&&r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.contentType==='application/json'&&b.link_revision==='a'.repeat(64)&&b.expected_version===0&&JSON.stringify(b.changes)===JSON.stringify({featured_source_id:'film-13'})}),
+      'Featuring saves only the selected source reference with the current link revision and version');
     await openGuidance();
     check(await page.getByLabel('What would you like to figure out?',{exact:true}).inputValue()==='Help me use the content I already have.'
-      &&await page.evaluate(()=>window.__requests.length===2), 'Overview and composer navigation retain the athlete’s typed question without asking AI');
+      &&await page.evaluate(()=>window.__sourceRequests().length===2), 'Changing the featured reference preserves the typed question without calling AI');
     await setMode({body:profile('Blair Fixture')});await setMaterialsMode({body:materials([materialFilm('film-21',{title:'New athlete clip',source_url:'https://gmtm.com/film/21'})])});await switchAccount('athlete-b');await overviewReady();
-    check(await overview().getByRole('heading',{name:'New athlete clip',exact:true}).isVisible()&&await page.getByText('Game footage',{exact:true}).count()===0
+    check(await overview().getByText('New athlete clip',{exact:true}).isVisible()&&await page.getByText('Game footage',{exact:true}).count()===0
       &&await page.getByText('Second clip',{exact:true}).count()===0&&await draft().count()===0&&await page.locator(`img[src="${posterURL}"]`).count()===0,
-      'Account change removes the old clip, poster, selection context and draft before displaying new content');
+      'Account change removes the old clip, poster, featured context and draft before displaying new content');
     await openProfile();check(await profileDialog().getByRole('checkbox').evaluateAll(inputs=>inputs.every(input=>!input.checked)), 'The new account starts with no inherited evidence or footage selection');
 
     const imageAttemptsBeforeFailure=posterRequests.length;posterMode='broken';
     await reset({body:profile()},undefined,false,{body:materials([publicPoster])});await overviewReady();await overview().getByText('Preview unavailable',{exact:true}).waitFor();
-    check(await overview().getByRole('img').count()===0&&await overview().getByRole('heading',{name:'Game footage',exact:true}).isVisible()
-      &&await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).isEnabled()
-      &&await overview().getByRole('link',{name:'View on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/12'
-      &&posterRequests.length===imageAttemptsBeforeFailure+1&&await page.evaluate(()=>window.__requests.length===2),
-      'A failed image becomes an honest fallback without replacing the clip, retrying media, refreshing sources or calling AI');
+    check(await overview().getByRole('img').count()===0&&await overview().getByText('Game footage',{exact:true}).isVisible()
+      &&await overview().getByRole('button',{name:'Feature this footage',exact:true}).isEnabled()
+      &&await overview().getByRole('link',{name:'Open on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/12'
+      &&posterRequests.length===imageAttemptsBeforeFailure+1&&await page.evaluate(()=>window.__sourceRequests().length===2),
+      'A failed image retains the actual title, canonical page and explicit feature action without media retry, source reload or AI');
     posterMode='loaded';
     const imageAttemptsBeforeRestricted=posterRequests.length;
     await reset({body:profile()},undefined,false,{body:materials([privateClip,deadClip])});await overviewReady();
     check(await overview().getByText('No shareable footage in this view.',{exact:true}).isVisible()
-      &&await overview().getByRole('img').count()===0&&await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).count()===0
-      &&posterRequests.length===imageAttemptsBeforeRestricted, 'Private and unavailable footage never produce a showcase poster or public-use action');
+      &&await overview().getByRole('img').count()===0&&await overview().getByRole('button',{name:'Feature this footage',exact:true}).count()===0
+      &&posterRequests.length===imageAttemptsBeforeRestricted, 'Private and unavailable footage never produce a poster or featuring action');
     await reset({body:profile()},undefined,false,{pending:true});await overviewReady();
     check(await overview().getByText('Loading your footage…',{exact:true}).isVisible()
       &&await overview().locator('[aria-label="Recorded and submitted results"]').getByRole('article').count()===2
-      &&await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).count()===0,
-      'Pending footage keeps the returned base measurements visible without inventing a clip action');
+      &&await overview().getByRole('button',{name:'Feature this footage',exact:true}).count()===0,
+      'Pending footage keeps returned base measurements visible without inventing a clip action');
     await releaseMaterials({body:materials([secondClip])});
-    check(await overview().getByRole('heading',{name:'Second clip',exact:true}).isVisible()&&await page.evaluate(()=>window.__requests.length===2),
-      'A completed materials read fills the existing overview without another source request');
+    check(await overview().getByText('Second clip',{exact:true}).isVisible()&&await page.evaluate(()=>window.__sourceRequests().length===2),
+      'A completed materials read fills the current home without another source request');
     await reset({body:profile()},undefined,false,{status:503,body:{detail:'PRIVATE FIXTURE DETAIL'}});await overviewReady();
     check(await overview().getByText('Your footage could not be loaded.',{exact:true}).isVisible()
       &&await overview().locator('[aria-label="Recorded and submitted results"]').getByRole('article').count()===2
       &&await overview().getByRole('img').count()===0&&await page.getByText('PRIVATE FIXTURE DETAIL',{exact:false}).count()===0,
-      'A source failure is distinct from an empty profile and preserves usable base measurements without private error text');
+      'A source failure is distinct from an empty profile and preserves base measurements without private error text');
+
+    const workspaceState=(extra={})=>({state:'ready',owner_scope:'b'.repeat(64),link_revision:'a'.repeat(64),version:0,goal:null,featured_source_id:null,draft:null,recent_work:[],updated_at:null,...extra});
+    const canonicalProfile={...profile(),evidence:[result('metric-1','20-yard dash',3.12),result('metric-2','Three-cone drill',7.34)],observations:[]};
+    const canonicalMaterials=materials([materialResult('submission-1-0123456789abcdef'),publicPoster]);
+    const goalDialog=()=>page.getByRole('dialog',{name:'Your next goal',exact:true});
+    const reviewDialog=()=>page.getByRole('dialog',{name:'Your saved version',exact:true});
+    const openGoal=async()=>{await openOverview();await page.getByRole('button',{name:/^(Set a goal|Edit goal)$/}).click();await goalDialog().waitFor()};
+    const saveGoal=async(text,destination='',timeframe='')=>{await openGoal();await goalDialog().getByLabel('What are you working toward?',{exact:true}).fill(text);await goalDialog().getByLabel('Recipient or program (optional)',{exact:true}).fill(destination);await goalDialog().getByLabel('Timeframe (optional)',{exact:true}).fill(timeframe);await goalDialog().getByRole('button',{name:'Save goal',exact:true}).click();await goalDialog().waitFor({state:'hidden'});await settle()};
+    const saveDraft=async()=>{await page.getByRole('button',{name:'Save draft',exact:true}).click();await settle()};
+    const remount=async()=>{await page.evaluate(()=>window.__unmount());await settle();await page.evaluate(()=>window.__mount());await settle()};
+    const setWorkspaceMode=async mode=>page.evaluate(mode=>{window.__workspaceMode=mode},mode);
+    const currentWorkspace=()=>page.evaluate(()=>window.__workspaceStore[window.__identity.user.id]);
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials});await overviewReady();
+    await saveGoal('Explore a team opportunity using my existing work','Coach Fixture','This fall');
+    check(await overview().getByText('Explore a team opportunity using my existing work',{exact:true}).isVisible()
+      &&await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible(), 'A saved goal with a supplied recipient produces a relevant introduction next move');
+    let saved=await currentWorkspace();
+    check(saved.version===1&&saved.goal.destination==='Coach Fixture'&&saved.goal.timeframe==='This fall'&&saved.recent_work[0].kind==='goal_saved', 'Saving a goal stores only authored goal fields and one real save activity');
+    await page.getByRole('button',{name:'Prepare introduction',exact:true}).click();
+    check(await page.getByLabel('Introduction',{exact:true}).isChecked()&&await page.getByLabel('Who is this for?',{exact:true}).inputValue()==='Coach Fixture'
+      &&await draft().count()===0, 'The adaptive action fills the athlete’s actual goal and recipient without generating text');
+    await selectEvidence(0);await openProfile();await profileDialog().getByRole('checkbox',{name:/Include Game footage/}).check();await closeProfile();await prepare();
+    const exactSavedText='My exact saved introduction.\nLiteral <tags> & punctuation.';
+    await draft().fill(exactSavedText);await saveDraft();saved=await currentWorkspace();
+    check(saved.draft.text===exactSavedText&&saved.draft.selected_evidence_ids.join(',')==='metric-1'&&saved.draft.selected_material_ids.join(',')==='film-12'
+      &&saved.draft.kind==='introduction'&&saved.recent_work[0].kind==='draft_saved', 'Explicit draft save persists exact edited text, format, authored inputs and canonical selected references');
+    const writesAfterSave=await page.evaluate(()=>window.__requests.filter(r=>r.method==='PATCH').length);
+    await draft().fill('UNSAVED LOCAL TEXT');await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='UNSAVED LOCAL TEXT'&&await page.evaluate(()=>window.__requests.filter(r=>r.method==='PATCH').length)===writesAfterSave,
+      'Navigation keeps an unsaved buffer without silently saving, copying or calling a model');
+    await remount();await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()===exactSavedText, 'A new component session restores the last confirmed saved draft, not unsaved browser state');
+    await draft().fill('LOCAL EDIT SURVIVES GOAL CHANGE');await saveGoal('Understand the value of my completed profile','','Next month');
+    await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='LOCAL EDIT SURVIVES GOAL CHANGE'&&(await currentWorkspace()).draft.text===exactSavedText,
+      'Changing the career goal preserves both the local edited draft and the separately saved draft');
+    // A competing save is held in the synthetic server, not injected into the UI.
+    await page.evaluate(()=>{const actor=window.__identity.user.id,saved=window.__workspaceStore[actor];window.__workspaceStore[actor]={...saved,version:saved.version+1,draft:{...saved.draft,text:'REMOTE SAVED VERSION'}}});
+    await saveDraft();await page.getByText('Your saved work changed in another window.',{exact:true}).waitFor();
+    check(await draft().inputValue()==='LOCAL EDIT SURVIVES GOAL CHANGE'&&await page.getByRole('button',{name:'Save draft',exact:true}).isDisabled(), 'A version conflict preserves the local text and blocks another write until the saved version is reviewed');
+    await page.getByRole('button',{name:'Review saved version',exact:true}).click();await reviewDialog().waitFor();
+    check(await reviewDialog().getByText('REMOTE SAVED VERSION',{exact:true}).isVisible(), 'Conflict review reads the newer saved draft without replacing the current buffer');
+    await reviewDialog().getByRole('button',{name:'Keep my edits',exact:true}).click();
+    check(await draft().inputValue()==='LOCAL EDIT SURVIVES GOAL CHANGE', 'Keep my edits closes comparison without adopting remote text');
+    await saveDraft();check((await currentWorkspace()).draft.text==='LOCAL EDIT SURVIVES GOAL CHANGE', 'An explicit save after review uses the refreshed version and persists the retained local edits');
+    await draft().fill('LOCAL BEFORE ADOPTING SAVED');
+    await page.evaluate(()=>{const actor=window.__identity.user.id,saved=window.__workspaceStore[actor];window.__workspaceStore[actor]={...saved,version:saved.version+1,draft:{...saved.draft,text:'EXPLICITLY ADOPT THIS SAVED TEXT'}}});
+    await saveDraft();await page.getByRole('button',{name:'Review saved version',exact:true}).click();await reviewDialog().waitFor();await reviewDialog().getByRole('button',{name:'Use saved draft',exact:true}).click();
+    check(await draft().inputValue()==='EXPLICITLY ADOPT THIS SAVED TEXT', 'Only Use saved draft explicitly replaces the local buffer with the reviewed server version');
+    await draft().fill('RECOVERABLE SAVE FAILURE');await setWorkspaceMode({PATCH:{status:503,body:{detail:'PRIVATE STORAGE DETAIL',code:'workspace_unavailable'}}});await saveDraft();
+    await page.getByText('Your save could not be confirmed. Your edits are still here.',{exact:true}).waitFor();
+    check(await draft().inputValue()==='RECOVERABLE SAVE FAILURE'&&await page.getByText('PRIVATE STORAGE DETAIL',{exact:false}).count()===0, 'Storage failure preserves exact edits and exposes a safe actionable error only');
+    await setWorkspaceMode(null);await page.getByRole('button',{name:'Review saved version',exact:true}).click();await reviewDialog().waitFor();await reviewDialog().getByRole('button',{name:'Keep my edits',exact:true}).click();await saveDraft();
+    check((await currentWorkspace()).draft.text==='RECOVERABLE SAVE FAILURE', 'Read-before-retry recovers a failed save without overwriting the retained edits');
+    await openOverview();await overview().getByRole('button',{name:'Feature this footage',exact:true}).click();await overview().getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
+    await setMaterialsMode({body:materials()});await refreshProfile();await overviewReady();
+    check(await overview().getByText('No shareable footage in this view.',{exact:true}).isVisible()&&await overview().getByText('Featured',{exact:true}).count()===0
+      &&await overview().getByRole('img').count()===0&&(await currentWorkspace()).featured_source_id==='film-12', 'A saved reference absent from current eligible source data never restores a stale poster or featured claim');
+    await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='RECOVERABLE SAVE FAILURE', 'A source refresh preserves the authored draft while stale source references stay unavailable');
+    await setMode({status:503,body:{detail:'PRIVATE GMTM OUTAGE'}});await refreshProfile();await page.getByRole('heading',{name:'Your saved draft is here.',exact:true}).waitFor();
+    const recoveryDraft=page.getByLabel('Your saved text',{exact:true});
+    check(await recoveryDraft.inputValue()==='RECOVERABLE SAVE FAILURE'&&await page.getByText('The evidence in this draft has not been refreshed.',{exact:false}).isVisible(), 'Unavailable GMTM evidence restores the saved editor with an explicit source-freshness limitation');
+    await recoveryDraft.fill('SAVED WITHOUT GMTM');await saveDraft();
+    check((await currentWorkspace()).draft.text==='SAVED WITHOUT GMTM', 'Authored draft saving stays available independently of failed GMTM source reads');
+    await setMode({body:canonicalProfile});await page.getByRole('button',{name:'Try again',exact:true}).click();await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='SAVED WITHOUT GMTM', 'Recovered source data leaves the saved edited text intact');
+    await page.getByRole('button',{name:'Remove saved draft',exact:true}).click();await settle();
+    check((await currentWorkspace()).draft===null&&(await currentWorkspace()).recent_work[0].kind==='draft_removed', 'Explicit removal clears the saved draft and records only the actual removal');
+    await remount();await overviewReady();
+    check(await page.getByRole('button',{name:'Continue my draft',exact:true}).count()===0, 'A removed draft is not restored in the next session');
+    await openGoal();await goalDialog().getByRole('button',{name:'Remove goal',exact:true}).click();await goalDialog().waitFor({state:'hidden'});
+    check((await currentWorkspace()).goal===null&&await page.getByRole('button',{name:'Set my goal',exact:true}).isVisible(), 'Removing the saved goal restores an honest intent-first next move');
+    check(await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/debrief').length===0&&localStorage.length===0&&sessionStorage.length===0), 'Saved workspace operations call no model and persist no authored data in browser storage');
+
+    const savedOwner=workspaceState({version:1,goal:{text:'PRIVATE OWNER GOAL',destination:null,timeframe:null},draft:{kind:'summary',text:'PRIVATE OWNER DRAFT',goal:'Own goal',destination:'',selected_evidence_ids:['metric-1'],selected_material_ids:[],inputs_changed:false},updated_at:'2026-09-09T12:00:00Z'});
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},savedOwner);await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    await draft().fill('PRIVATE OWNER UNSAVED EDIT');await setWorkspaceMode({PATCH:{status:409,body:{detail:'PRIVATE LINK DETAIL',code:'workspace_link_changed'}}});await saveDraft();await settle();
+    check(await draft().count()===0&&await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0&&await page.getByText('PRIVATE OWNER DRAFT',{exact:true}).count()===0,
+      'A changed athlete-link revision clears private saved fields and the authored editor buffer');
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},savedOwner);await overviewReady();
+    await setMode({body:profile('Blair Fixture')});await setMaterialsMode({body:materials()});await switchAccount('athlete-b');await overviewReady();
+    check(await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0&&await draft().count()===0
+      &&await homeNavigation().getAttribute('aria-current')==='page'
+      &&await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/workspace').at(-1).authorization==='Bearer fixture-athlete-b'), 'A new signed-in account gets its own workspace credential and no inherited goal, draft or navigation state');
+    // Late workspace reads and mutations must not restore another account’s data.
+    for(const method of ['GET','PATCH']){
+      await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},savedOwner);await overviewReady();
+      if(method==='PATCH'){await page.getByRole('button',{name:'Continue my draft',exact:true}).click();await draft().fill('PRIVATE PENDING SAVE');await setWorkspaceMode({PATCH:{pending:true}});await saveDraft()}
+      else {await page.evaluate(()=>window.__unmount());await settle();await setWorkspaceMode({GET:{pending:true}});await page.evaluate(()=>window.__mount());await settle()}
+      await setWorkspaceMode(null);await setMode({body:profile('Blair Fixture')});await setMaterialsMode({body:materials()});await switchAccount('athlete-b');await overviewReady();
+      await page.evaluate(body=>window.__release({body},'/api/athlete/workspace'),savedOwner);await settle();
+      check(await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0&&await draft().count()===0
+        &&await page.evaluate(method=>window.__requests.find(r=>r.path==='/api/athlete/workspace'&&r.method===method&&r.signal.aborted)!==undefined,method), 'Late workspace '+method+' completion cannot populate the next account');
+    }
+
+    const invalidWorkspaces=[
+      ['missing scope',({...savedOwner,owner_scope:undefined})],['invalid link revision',({...savedOwner,link_revision:'not-a-link'})],
+      ['out-of-range version',({...savedOwner,version:2147483648})],['unsafe featured id',({...savedOwner,featured_source_id:'film-9007199254740992'})],
+      ['oversized goal',({...savedOwner,goal:{text:'x'.repeat(601),destination:null,timeframe:null}})],
+      ['oversized draft',({...savedOwner,draft:{...savedOwner.draft,text:'x'.repeat(20001)}})],
+      ['arbitrary source id',({...savedOwner,draft:{...savedOwner.draft,selected_evidence_ids:['other-athlete']}})],
+      ['duplicate source id',({...savedOwner,draft:{...savedOwner.draft,selected_evidence_ids:['metric-1','metric-1']}})],
+      ['malformed submission id',({...savedOwner,draft:{...savedOwner.draft,selected_material_ids:['submission-1-private-contact']}})],
+      ['nonboolean change flag',({...savedOwner,draft:{...savedOwner.draft,inputs_changed:'false'}})],
+      ['calendar overflow',({...savedOwner,updated_at:'2026-02-30T00:00:00Z'})],
+      ['unreviewed activity kind',({...savedOwner,recent_work:[{id:'1:invitation_received',kind:'invitation_received',at:'2026-09-09T12:00:00Z'}]})],
+      ['mismatched event identity',({...savedOwner,recent_work:[{id:'1:goal_removed',kind:'goal_saved',at:'2026-09-09T12:00:00Z'}]})],
+      ['future activity version',({...savedOwner,recent_work:[{id:'2:goal_saved',kind:'goal_saved',at:'2026-09-09T12:00:00Z'}]})],
+    ];
+    const invalidSavedResults=await page.evaluate(values=>values.map(([,body])=>{try{window.__workspaceHelpers.readCareerWorkspace(body);return false}catch{return true}}),invalidWorkspaces);
+    for(const [index,rejected]of invalidSavedResults.entries())check(rejected,'Saved workspace restore parser rejects '+invalidWorkspaces[index][0]);
+    check(await page.evaluate(body=>{try{return window.__workspaceHelpers.readCareerWorkspace(body).draft.selected_material_ids.length===2}catch{return false}},
+      {...savedOwner,featured_source_id:'film-9007199254740991',draft:{...savedOwner.draft,selected_evidence_ids:['metric-9007199254740991'],selected_material_ids:['film-12','submission-1-0123456789abcdef']},recent_work:[{id:'1:draft_saved',kind:'draft_saved',at:'2026-09-09T12:00:00Z'}]}),
+      'Restore accepts supported maximum-safe source IDs and exact canonical submission references');
+    for(const source of ['evidence','materials']){
+      const mismatchedProfile=source==='evidence'?{...canonicalProfile,athlete:athlete('OTHER LINK ATHLETE'),owner_scope:'d'.repeat(64)}:canonicalProfile;
+      const mismatchedMaterials=source==='materials'?materials([materialFilm('film-99',{title:'OTHER LINK FILM',source_url:'https://gmtm.com/film/99'})]):canonicalMaterials;
+      if(source==='materials')mismatchedMaterials.owner_scope='d'.repeat(64);
+      await reset({body:mismatchedProfile},undefined,false,{body:mismatchedMaterials},savedOwner);
+      await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+      check(await draft().count()===0&&!await overview().isVisible()&&await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0
+        &&await page.getByText('OTHER LINK ATHLETE',{exact:true}).count()===0&&await page.getByText('OTHER LINK FILM',{exact:true}).count()===0,
+        'Same-account '+source+' scope mismatch cannot combine another athlete’s evidence with existing saved work');
+    }
+    // An uncertain save is held until a fresh read; a late completion cannot revive stale text.
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},savedOwner);await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();await draft().fill('TIMEOUT LOCAL TEXT');await setWorkspaceMode({PATCH:{pending:true}});await saveDraft();await page.evaluate(()=>window.__advance(30000));await settle();
+    check(await draft().inputValue()==='TIMEOUT LOCAL TEXT'&&await page.getByRole('button',{name:'Save draft',exact:true}).isDisabled()
+      &&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/workspace'&&r.method==='PATCH').signal.aborted), 'A timed-out save aborts, retains exact text and blocks automatic retry');
+    await setWorkspaceMode(null);await page.getByRole('button',{name:'Review saved version',exact:true}).click();await reviewDialog().waitFor();await reviewDialog().getByRole('button',{name:'Keep my edits',exact:true}).click();
+    await page.evaluate(body=>window.__release({body},'/api/athlete/workspace'),savedOwner);await settle();
+    check(await draft().inputValue()==='TIMEOUT LOCAL TEXT', 'A late timed-out save response cannot replace the newer retained editor state');
+
+    for(const status of [401,403,409]){
+      await reset({body:canonicalProfile},undefined,false,{status,body:{detail:'PRIVATE MATERIAL AUTH FAILURE'}},savedOwner);
+      await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+      check(await draft().count()===0&&!await overview().isVisible()&&await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0&&await page.getByText('PRIVATE MATERIAL AUTH FAILURE',{exact:false}).count()===0,
+        'Materials HTTP '+status+' invalidates saved-state association without exposing source errors');
+    }
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},savedOwner);await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();await draft().fill('OLD LINK LOCAL BUFFER');
+    await setMode({body:{...canonicalProfile,athlete:athlete('NEW LINK ATHLETE'),owner_scope:'d'.repeat(64)}});await refreshProfile();
+    await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+    check(await draft().count()===0&&await page.getByText('NEW LINK ATHLETE',{exact:true}).count()===0&&await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0,
+      'A same-account source refresh cannot pair a relinked athlete with the old saved state or edited draft');
+
+    for(const kind of ['mismatched','unlinked']){
+      const unavailableWorkspace={GET:{status:503,body:{detail:'PRIVATE WORKSPACE OUTAGE',code:'workspace_unavailable'}}};
+      const otherMaterials=kind==='unlinked'?materials([],'unlinked'):{...materials([materialFilm('film-12',{title:'OTHER LINK FILM',thumbnail_url:posterURL})]),owner_scope:'d'.repeat(64)};
+      const imageAttempts=posterRequests.length;
+      await reset({body:canonicalProfile},undefined,false,{body:otherMaterials},null,unavailableWorkspace);
+      await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+      check(!await overview().isVisible()&&await page.getByText('OTHER LINK FILM',{exact:true}).count()===0&&await draft().count()===0
+        &&posterRequests.length===imageAttempts&&await page.evaluate(()=>window.__requests.every(r=>r.method==='GET')),
+        'Unavailable saved storage cannot bypass '+kind+' materials ownership checks or fetch another scope’s poster');
+    }
 
     const acceptedPosters=[posterURL,
       'https://cdn.gmtm.com/videos/events/42/edited-thumbnails/fixture.jpg',
@@ -344,8 +507,8 @@ const work = (async()=>{
 
     await reset();await ready(false);
     check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&await page.getByRole('checkbox').count()===0&&!await goal().isVisible()&&!await profileDialog().isVisible(),'The explicit guidance view hides evidence cards, materials and composer');
-    check(await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible(),'Ready profile displays the current source identity');
     await openProfile();
+    check(await profileDialog().getByText('Alex Fixture',{exact:true}).isVisible(),'Ready profile exposes the current source identity in its portfolio');
     check(await profileDialog().isVisible()&&await profileDialog().getByRole('heading',{name:'Your profile',exact:true}).isVisible(),'View profile opens the athlete evidence in its named native dialog');
     await page.keyboard.press('Escape');await settle();
     check(!await profileDialog().isVisible()&&await page.getByRole('button',{name:'View profile',exact:true}).evaluate(el=>document.activeElement===el),'Escape closes the profile dialog and returns focus to its trigger');
@@ -358,8 +521,8 @@ const work = (async()=>{
     check(await page.getByLabel('Introduction',{exact:true}).isChecked()&&await page.getByLabel('Who is this for?',{exact:true}).isVisible()&&await page.getByRole('button',{name:'Back to SPARQ',exact:true}).isVisible(),'Manual introduction opens its dedicated recipient-and-goal view');
     await page.getByLabel('Profile summary',{exact:true}).check();
     check(await page.getByRole('button',{name:'Prepare my text',exact:true}).isDisabled(),'A real stated goal is required before output preparation');
-    check(await page.evaluate(()=>window.__requests.length===2&&window.__requests.map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&window.__requests.every(r=>r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.method==='GET')),'Only the two authenticated no-store evidence GETs run, without caller athlete IDs');
-    check(await page.getByRole('navigation').count()===0&&await page.getByRole('textbox').count()===2&&await page.getByRole('heading',{name:'Combine help'}).count()===0,'Dedicated composer exposes only its two initial fields without task navigation or another request');
+    check(await page.evaluate(()=>window.__sourceRequests().length===2&&window.__sourceRequests().map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&window.__sourceRequests().every(r=>r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.method==='GET')),'Only the two authenticated no-store evidence GETs run, without caller athlete IDs');
+    check(await page.getByRole('navigation',{name:'Athlete workspace',exact:true}).getByRole('button').count()===4&&await page.getByRole('textbox').count()===2&&await page.getByRole('heading',{name:'Combine help'}).count()===0,'Dedicated composer exposes its two initial fields within the private career navigation without another request');
 
     await selectEvidence(0);await fillGoal('Prepare for a specific adult team trial');await page.getByLabel('Intended use (optional)',{exact:true}).fill('My trial application');await prepare();
     let output=await draft().inputValue();
@@ -376,7 +539,7 @@ const work = (async()=>{
     check(await page.getByLabel('Who is this for?',{exact:true}).inputValue()===''&&await page.getByRole('button',{name:'Rebuild from these details'}).isDisabled(),'Introduction requires an explicitly provided recipient, not the earlier intended-use text');
     await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await rebuild();
     check((await draft().inputValue()).startsWith('Hello Coach Fixture,')&&!(await draft().inputValue()).includes('guaranteed'),'Introduction names only the recipient supplied by the athlete');
-    check(await page.evaluate(()=>window.__requests.length===2&&window.__requests.map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&localStorage.length===0&&sessionStorage.length===0),'Selection, preparation, editing and copying add no API calls beyond the two initial reads and persist no browser storage');
+    check(await page.evaluate(()=>window.__sourceRequests().length===2&&window.__sourceRequests().map(r=>r.path).join(',')==='/api/athlete/evidence,/api/athlete/materials'&&localStorage.length===0&&sessionStorage.length===0),'Selection, preparation, editing and copying add no API calls beyond the two initial reads and persist no browser storage');
 
     await page.evaluate(()=>{window.__clipboardMode='failure'});await page.getByRole('button',{name:'Copy text',exact:true}).click();await page.getByText(/Clipboard access is unavailable/).waitFor();
     check(await page.getByText('Copied to clipboard. Nothing has been sent.',{exact:true}).count()===0,'Clipboard denial never reports copy success');
@@ -388,29 +551,29 @@ const work = (async()=>{
     await reset();await ready();await fillGoal('An actual goal');await prepare();await page.evaluate(()=>{window.__clipboardMode='pending'});await page.getByRole('button',{name:'Copy text',exact:true}).click();await draft().fill('A newer edited version');await page.evaluate(()=>window.__copyPending.shift()());await settle();
     check(await page.getByText('Copied to clipboard. Nothing has been sent.',{exact:true}).count()===0&&(await draft().inputValue())==='A newer edited version','Late clipboard completion cannot claim that a newly edited version was copied');
     await setMode({pending:true});await refreshProfile();await settle();
-    check(await draft().count()===0&&await page.getByRole('button',{name:'Copy text',exact:true}).count()===0,'Starting a source refresh immediately removes the old draft and copy action');
+    check(await draft().count()===0&&await page.getByRole('button',{name:'Copy text',exact:true}).count()===0,'Starting a source refresh temporarily withholds the editor and copy action while its authored buffer survives');
     await release({body:profile()});await ready();
     await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();
     check(await draft().count()===0&&(await goal().inputValue())===''&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).count()===0,'Account switch immediately removes the old identity, goal and draft');
-    check(await page.evaluate(()=>window.__requests.at(-1).authorization)==='Bearer fixture-athlete-b','New account loads with its own credential');
+    check(await page.evaluate(()=>window.__sourceRequests().at(-1).authorization)==='Bearer fixture-athlete-b','New account loads with its own credential');
 
     for (const pendingMode of [{pending:true},{bodyPending:true,body:profile()}]) {
       await reset(pendingMode);await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();await release({body:profile('PRIVATE OLD ATHLETE')});
-      check(await page.getByRole('heading',{name:'Blair Fixture',exact:true}).isVisible()&&await page.getByText('PRIVATE OLD ATHLETE',{exact:true}).count()===0&&await page.evaluate(()=>window.__requests[0].signal.aborted),'Late '+(pendingMode.pending?'response':'body')+' cannot enter the new account');
+      await openProfile();check(await profileDialog().getByText('Blair Fixture',{exact:true}).isVisible()&&await page.getByText('PRIVATE OLD ATHLETE',{exact:true}).count()===0&&await page.evaluate(()=>window.__sourceRequests()[0].signal.aborted),'Late '+(pendingMode.pending?'response':'body')+' cannot enter the new account');
     }
     await reset({pending:true});await switchAccount(null);await release({body:profile('PRIVATE LOGGED OUT ATHLETE')});
     check(await page.getByRole('heading',{name:'Your profile is private.',exact:true}).isVisible()&&await page.getByText('PRIVATE LOGGED OUT ATHLETE',{exact:true}).count()===0,'Logout cancels the read and hides private profile evidence');
     await reset({body:profile()},{isLoaded:false,user:null});
-    check(await page.getByText('Loading your account…',{exact:true}).isVisible()&&await page.evaluate(()=>window.__requests.length)===0,'No profile fetch occurs before Clerk account readiness');
+    check(await page.getByText('Loading your account…',{exact:true}).isVisible()&&await page.evaluate(()=>window.__sourceRequests().length)===0,'No profile fetch occurs before Clerk account readiness');
 
     for (const [status,title] of [[401,'Please sign in again.'],[403,'This profile is not available to this account.'],[409,'Your profile connection needs review.'],[503,'Your profile is temporarily unavailable.']]) {
       await reset({status,body:{detail:'PRIVATE SERVER DETAIL'}});
       await page.getByRole('heading',{name:title,exact:true}).waitFor();
-      check(await page.getByRole('alert').isVisible()&&await draft().count()===0&&await page.getByText('PRIVATE SERVER DETAIL',{exact:false}).count()===0,'HTTP '+status+' has distinct safe recovery without source-detail leakage or fallback data');
+      check(await page.getByRole('alert').filter({has:page.getByRole('heading',{name:title,exact:true})}).isVisible()&&await draft().count()===0&&await page.getByText('PRIVATE SERVER DETAIL',{exact:false}).count()===0,'HTTP '+status+' has distinct safe recovery without source-detail leakage or fallback data');
     }
     await setMode({body:profile('Recovered Fixture')});await page.getByRole('button',{name:'Try again',exact:true}).click();await ready();
-    check(await page.getByRole('heading',{name:'Recovered Fixture',exact:true}).isVisible()&&await page.getByRole('alert').count()===0,'Retry replaces unavailable state with a confirmed source read');
-    await fillGoal('Preserve until refreshed');await prepare();await setMode({status:409,body:{}});await refreshProfile();await page.getByRole('alert').waitFor();
+    await openProfile();check(await profileDialog().getByText('Recovered Fixture',{exact:true}).isVisible()&&await page.getByRole('alert').count()===0,'Retry replaces unavailable state with a confirmed source read');await closeProfile();
+    await fillGoal('Preserve until refreshed');await prepare();await setMode({status:409,body:{}});await refreshProfile();await page.getByRole('heading',{name:'Your profile connection needs review.',exact:true}).waitFor();
     check(await draft().count()===0&&await page.getByText('Recovered Fixture',{exact:true}).count()===0,'A denied refresh removes formerly visible evidence and draft');
 
     await reset({body:emptyState('unlinked')});
@@ -433,14 +596,14 @@ const work = (async()=>{
     for (const mode of [{badJSON:true},{reject:true}]) {await reset(mode);await page.getByRole('alert').waitFor();check(await page.getByRole('checkbox').count()===0,'Malformed JSON/network failure never invents empty or sample results')}
 
     await reset({pending:true});await page.evaluate(()=>window.__advance(30000));await settle();await page.getByRole('heading',{name:'Your profile took too long to load.',exact:true}).waitFor();
-    check(await page.evaluate(()=>window.__requests[0].signal.aborted&&window.__timers.size===0),'A hung request times out, aborts and leaves a retryable visible state');
+    check(await page.evaluate(()=>window.__sourceRequests()[0].signal.aborted&&window.__timers.size===0),'A hung request times out, aborts and leaves a retryable visible state');
     await setMode({body:profile('Latest Fixture')});await page.getByRole('button',{name:'Try again',exact:true}).click();await ready();await release({body:profile('LATE EXPIRED PROFILE')});
-    check(await page.getByRole('heading',{name:'Latest Fixture',exact:true}).isVisible()&&await page.getByText('LATE EXPIRED PROFILE',{exact:true}).count()===0,'Timed-out response cannot replace a later successful retry');
+    await openProfile();check(await profileDialog().getByText('Latest Fixture',{exact:true}).isVisible()&&await page.getByText('LATE EXPIRED PROFILE',{exact:true}).count()===0,'Timed-out response cannot replace a later successful retry');
     await reset({pending:true});await page.evaluate(()=>window.__unmount());await settle();
-    check(await page.evaluate(()=>window.__requests[0].signal.aborted&&window.__timers.size===0),'Unmount aborts its read and clears its timer');await release({body:profile()});
+    check(await page.evaluate(()=>window.__sourceRequests()[0].signal.aborted&&window.__timers.size===0),'Unmount aborts its read and clears its timer');await release({body:profile()});
     check(await page.locator('#root').innerHTML()==='','Unmounted late response cannot repopulate the page');
     await reset({body:profile()},{isLoaded:true,user:{id:'athlete-a'}},true);await ready();
-    check(await page.getByRole('alert').count()===0&&await page.evaluate(()=>window.__requests.some(r=>r.signal.aborted)),'StrictMode cleanup cannot overwrite its fresh read with an abort error');
+    check(await page.getByRole('alert').count()===0&&await page.evaluate(()=>window.__sourceRequests().some(r=>r.signal.aborted)),'StrictMode cleanup cannot overwrite its fresh read with an abort error');
 
     const hostile='<img src=x onerror="window.__xss=1">';const escaped=profile(hostile);escaped.evidence[0].label=hostile;escaped.observations[0].detail=hostile;await reset({body:escaped});await ready();await selectEvidence(0);await fillGoal(hostile);await prepare();
     check(await page.locator('img,iframe').count()===0&&await page.evaluate(()=>window.__xss===undefined)&&(await draft().inputValue()).includes(hostile),'Source and athlete-provided HTML stay escaped text in presentation and output');
@@ -474,12 +637,12 @@ const work = (async()=>{
     check(await materialRegion().getByText(/Submitted: Aug 21, 2026/).count()===2&&await materialRegion().getByText(/Published: Aug 22, 2026/).count()===1,'Submission and publication dates are explicitly distinguished from measurement dates');
     const filmLink=materialRegion().getByRole('link',{name:/View footage on GMTM: Game footage/});
     check(await filmLink.getAttribute('href')==='https://gmtm.com/film/12'&&await filmLink.getAttribute('target')==='_blank'&&await filmLink.getAttribute('rel')==='noopener noreferrer','Footage offers only its explicit generated GMTM page link');
-    check(await page.locator('img,video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__requests.length===2),'Viewing material records loads no media, preview, provider or extra endpoint');
+    check(await page.locator('img,video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__sourceRequests().length===2),'Viewing material records loads no media, preview, provider or extra endpoint');
     await materialRegion().getByRole('checkbox',{name:/Include Submitted sprint/}).check();await materialRegion().getByRole('checkbox',{name:/Include Game footage/}).check();
     await page.keyboard.press('Escape');await settle();
     check(!await profileDialog().isVisible()&&await page.getByRole('button',{name:/^Choose profile details/}).evaluate(el=>document.activeElement===el),'Closing profile details restores focus to the composer trigger');
     await openGuidance();
-    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&!await goal().isVisible()&&await page.evaluate(()=>window.__requests.length===2),'Back to SPARQ returns to guidance without source or model calls');
+    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&!await goal().isVisible()&&await page.evaluate(()=>window.__sourceRequests().length===2),'Back to SPARQ returns to guidance without source or model calls');
     await openComposer();await fillGoal('Prepare evidence for my next real application');await prepare();
     const materialDraft=await draft().inputValue();
     check(materialDraft.includes('Submitted sprint: 4.8 seconds')&&materialDraft.includes('Fixture combine · Sprint exercise; Submitted: Aug 21, 2026')&&materialDraft.includes('https://gmtm.com/film/12 (Playback not checked.)')&&!materialDraft.includes('Private submitted result'),'Selected public results and film references keep source, date and uncertainty; private material never enters the draft');
@@ -495,18 +658,18 @@ const work = (async()=>{
     const introduction=await draft().inputValue();
     check(introduction.startsWith('Hello Coach Example,')&&introduction.indexOf('Additional evidence')<introduction.indexOf('Thank you for your time.')&&introduction.endsWith('Alex Fixture'),'Material facts are inserted before the existing introduction closing');
     await setMaterialsMode({body:materials()});await refreshProfile();await ready();await openProfile();
-    check(await draft().count()===0&&await materialRegion().getByRole('checkbox').count()===0&&await page.locator('input[type=checkbox]:checked').count()===0,'Main refresh clears material records, selections and the draft before the new source view');
+    check((await draft().inputValue()).startsWith('Hello Coach Example,')&&await materialRegion().getByRole('checkbox').count()===0&&await page.getByText(/Some selected sources are unavailable/).count()>0,'Main refresh replaces source records while preserving the authored draft and identifying stale selections');
 
     for(const materialMode of [{status:503,body:{detail:'PRIVATE MATERIAL ERROR'}},{body:materials([],'source_unavailable')},{reject:true},{badJSON:true}]){
       await reset({body:profile()},undefined,false,materialMode);await ready();await openProfile();await materialRegion().getByRole('alert').waitFor();await fillGoal('Use my available profile measurements');await selectEvidence(0);await prepare();
-      check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible()&&await page.getByText('PRIVATE MATERIAL ERROR',{exact:false}).count()===0,'Failed materials read preserves usable base profile and composer: '+JSON.stringify(Object.keys(materialMode)));
+      check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&(await draft().inputValue()).includes('Alex Fixture')&&await page.getByText('PRIVATE MATERIAL ERROR',{exact:false}).count()===0,'Failed materials read preserves usable base profile and composer: '+JSON.stringify(Object.keys(materialMode)));
     }
     await setMaterialsMode({body:richMaterials});await openProfile();await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('checkbox').first().waitFor();
     check((await draft().inputValue()).includes('20-yard dash: 3.12 seconds')&&await materialRegion().getByRole('alert').count()===0,'Materials retry restores source cards without erasing an existing base-evidence draft');
     await reset({body:profile()},undefined,false,{body:materials()});await ready();await openProfile();
     check(await materialRegion().getByText(/No supported submissions or footage were returned in this view/).isVisible()&&await materialRegion().getByRole('alert').count()===0,'An empty material view is distinct from source failure and does not claim the overall profile is empty');
-    await reset({body:profile()},undefined,false,{body:materials([],'unlinked')});await ready();await openProfile();
-    check(await materialRegion().getByText(/Your connection could not be confirmed for these materials/).isVisible()&&await materialRegion().getByRole('checkbox').count()===0,'Unconfirmed material ownership displays no source records while retaining the independently read base profile');
+    await reset({body:profile()},undefined,false,{body:materials([],'unlinked')});await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+    check(await materialRegion().count()===0&&await draft().count()===0,'Unconfirmed material ownership blocks saved-state and evidence mixing until the connection is reviewed');
 
     const malformedMaterials=[
       materials([materialFilm('film-1',{source_url:'https://cdn.example.invalid/raw.mp4'})]),
@@ -532,17 +695,17 @@ const work = (async()=>{
     check(await page.locator('img,iframe,video').count()===0&&await page.evaluate(()=>window.__materialXss===undefined)&&(await draft().inputValue()).includes(hostileMaterial.title),'Material labels render and copy as escaped plain text without media or code execution');
 
     await reset({body:profile()},undefined,false,{pending:true});await ready();await fillGoal('Continue while materials load');await prepare();await page.evaluate(()=>window.__advance(30000));await settle();await openProfile();await materialRegion().getByRole('alert').waitFor();
-    check((await draft().inputValue()).includes('Continue while materials load')&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/materials').signal.aborted),'Materials timeout aborts only its request and keeps the base-evidence draft usable');
+    check((await draft().inputValue()).includes('Continue while materials load')&&await page.evaluate(()=>window.__sourceRequests().find(r=>r.path==='/api/athlete/materials').signal.aborted),'Materials timeout aborts only its request and keeps the base-evidence draft usable');
     await setMaterialsMode({body:materials([materialFilm('new-film',{title:'Latest footage'})])});await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await materialRegion().getByRole('heading',{name:'Latest footage',exact:true}).waitFor();await releaseMaterials({body:materials([materialFilm('old-film',{title:'LATE OLD FOOTAGE'})])});
     check(await materialRegion().getByRole('heading',{name:'Latest footage',exact:true}).isVisible()&&await page.getByText('LATE OLD FOOTAGE',{exact:true}).count()===0,'Timed-out materials cannot overwrite a newer successful retry');
     for(const mode of [{pending:true},{bodyPending:true,body:richMaterials}]){
       await reset({body:profile()},undefined,false,mode);await ready();await setMaterialsMode({body:materials([materialFilm('new-account-film',{title:'New account footage'})])});await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready();await openProfile();await releaseMaterials({body:materials([materialFilm('old-account-film',{title:'PRIVATE OLD FOOTAGE'})])});
-      check(await materialRegion().getByRole('heading',{name:'New account footage',exact:true}).isVisible()&&await page.getByText('PRIVATE OLD FOOTAGE',{exact:true}).count()===0&&await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/materials').at(-1).authorization==='Bearer fixture-athlete-b'),'Account switch aborts stale material '+(mode.pending?'response':'body')+' and reads with the new credential');
+      check(await materialRegion().getByRole('heading',{name:'New account footage',exact:true}).isVisible()&&await page.getByText('PRIVATE OLD FOOTAGE',{exact:true}).count()===0&&await page.evaluate(()=>window.__sourceRequests().filter(r=>r.path==='/api/athlete/materials').at(-1).authorization==='Bearer fixture-athlete-b'),'Account switch aborts stale material '+(mode.pending?'response':'body')+' and reads with the new credential');
     }
     await reset({body:profile()},undefined,false,{pending:true});await ready();await switchAccount(null);await releaseMaterials({body:richMaterials});
     check(await materialRegion().count()===0&&await page.getByText('Game footage',{exact:true}).count()===0&&await page.evaluate(()=>window.__timers.size===0),'Logout removes materials and late responses cannot reintroduce private records');
     await reset({body:profile()},undefined,false,{pending:true});await ready();await page.evaluate(()=>window.__unmount());await settle();await releaseMaterials({body:richMaterials});
-    check(await page.locator('#root').innerHTML()===''&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/materials').signal.aborted&&window.__timers.size===0),'Unmount cancels the materials read and clears its timer');
+    check(await page.locator('#root').innerHTML()===''&&await page.evaluate(()=>window.__sourceRequests().find(r=>r.path==='/api/athlete/materials').signal.aborted&&window.__timers.size===0),'Unmount cancels the materials read and clears its timer');
 
     const question=()=>page.getByLabel('What would you like to figure out?',{exact:true});
     const editQuestion=async()=>{await openGuidance();const edit=page.getByRole('button',{name:'Edit question',exact:true});if(await edit.isVisible())await edit.click()};
@@ -550,22 +713,29 @@ const work = (async()=>{
     const chooseTrack=async value=>{await editQuestion();await page.getByRole('radio',{name:{profile:'Understand my profile',national_team:'USA Football (adult)',outreach:'Introduce myself'}[value],exact:true}).click()};
     const ask=async()=>{await editQuestion();await page.getByRole('button',{name:'Ask SPARQ',exact:true}).click()};
     const answerRegion=()=>page.locator('[aria-label="SPARQ answer"]');
-    const setDebriefMode=mode=>page.evaluate(mode=>{window.__debriefMode=mode},mode);
+    const setDebriefMode=mode=>page.evaluate(mode=>{if(window.__identity.user?.id==='athlete-b'&&mode.body?.owner_scope==='b'.repeat(64))mode={...mode,body:{...mode.body,owner_scope:'c'.repeat(64)}};window.__debriefMode=mode},mode);
     const releaseDebrief=async mode=>{await page.evaluate(mode=>window.__release(mode,'/api/athlete/debrief'),mode);await settle()};
     const answerReady=()=>answerRegion().getByText(debrief().answer.text,{exact:false}).waitFor();
     const answerAction=()=>page.getByRole('button',{name:'Prepare my profile summary',exact:true});
+    for(const responseScope of [undefined,'d'.repeat(64)]){
+      await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},savedOwner);await ready(false);await fillQuestion(debriefQuestion);
+      const wrongOwnerAnswer={...debrief(),owner_scope:responseScope};await setDebriefMode({body:wrongOwnerAnswer});await ask();
+      await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+      check(await answerRegion().count()===0&&await draft().count()===0&&await page.getByText('PRIVATE OWNER GOAL',{exact:true}).count()===0,
+        'A debrief with '+(responseScope?'another owner scope':'no owner scope')+' never combines its answer with the current saved athlete workspace');
+    }
     await reset();await ready(false);
     check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&await question().isVisible()&&!(await goal().isVisible())&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled(),'The primary panel asks a real question; manual preparation opens a separate view');
     check(await page.getByRole('group',{name:'Your focus',exact:true}).getByRole('radio').count()===3&&await page.getByRole('combobox').count()===0,'Three focus chips replace the select control');
     await chooseTrack('national_team');const nationalExample=await question().inputValue();await chooseTrack('outreach');const outreachExample=await question().inputValue();await chooseTrack('profile');
-    check(nationalExample.length>0&&outreachExample.length>0&&nationalExample!==outreachExample&&(await question().inputValue()).length>0&&await page.evaluate(()=>window.__requests.length===2),'Each focus chip prefills a relevant question without making a request');
+    check(nationalExample.length>0&&outreachExample.length>0&&nationalExample!==outreachExample&&(await question().inputValue()).length>0&&await page.evaluate(()=>window.__sourceRequests().length===2),'Each focus chip prefills a relevant question without making a request');
     await fillQuestion('   ');
-    check(await page.evaluate(()=>window.__requests.length===2)&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled()&&await question().getAttribute('maxlength')==='1000','Typing does not call a model; a nonempty bounded question is required');
+    check(await page.evaluate(()=>window.__sourceRequests().length===2)&&await page.getByRole('button',{name:'Ask SPARQ',exact:true}).isDisabled()&&await question().getAttribute('maxlength')==='1000','Typing does not call a model; a nonempty bounded question is required');
     await fillQuestion('  '+debriefQuestion+'  ');await setDebriefMode({bodyPending:true,body:debrief()});await ask();await settle();
-    check(await page.evaluate(()=>{const r=window.__requests.at(-1);return r.path==='/api/athlete/debrief'&&r.method==='POST'&&r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.contentType==='application/json'&&JSON.stringify(JSON.parse(r.body))===JSON.stringify({track:'profile',question:'What can my evidence help me do?'})}),'Explicit Ask sends only the trimmed question and track using the signed-in no-store transport');
+    check(await page.evaluate(()=>{const r=window.__sourceRequests().at(-1);return r.path==='/api/athlete/debrief'&&r.method==='POST'&&r.authorization==='Bearer fixture-athlete-a'&&r.cache==='no-store'&&r.contentType==='application/json'&&JSON.stringify(JSON.parse(r.body))===JSON.stringify({track:'profile',question:'What can my evidence help me do?'})}),'Explicit Ask sends only the trimmed question and track using the signed-in no-store transport');
     check(await answerRegion().count()===0&&await page.getByRole('button',{name:'Asking SPARQ…',exact:true}).isDisabled(),'No partial response renders while the complete JSON body is pending');
     await page.locator('#debrief-question').evaluate(el=>el.form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await fillQuestion('A changed question');await settle();
-    check(await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/debrief').length===1),'A second submit cannot overlap the active debrief request');
+    check(await page.evaluate(()=>window.__sourceRequests().filter(r=>r.path==='/api/athlete/debrief').length===1),'A second submit cannot overlap the active debrief request');
     await releaseDebrief({body:debrief()});await answerReady();
     check(await page.getByText(/Previous answer —/).isVisible()&&await answerAction().isDisabled(),'An answer arriving after question edits is marked previous and cannot trigger the old action');
     await fillQuestion(debriefQuestion);await chooseTrack('outreach');await fillQuestion(debriefQuestion);
@@ -577,9 +747,9 @@ const work = (async()=>{
     await prepare();await draft().fill('MY EXACT EDITED DRAFT');
     check(!await goal().isVisible()&&await draft().isVisible()&&await page.getByRole('button',{name:'Edit details',exact:true}).isVisible(),'Prepared output becomes the primary composer view with editing fields behind Edit details');
     await openGuidance();
-    check(await answerRegion().isVisible()&&!await draft().isVisible()&&await page.evaluate(()=>window.__requests.length===3),'Back to SPARQ preserves the answer and makes no automatic model call');
+    check(await answerRegion().isVisible()&&!await draft().isVisible()&&await page.evaluate(()=>window.__sourceRequests().length===3),'Back to SPARQ preserves the answer and makes no automatic model call');
     await openComposer();
-    check((await draft().inputValue())==='MY EXACT EDITED DRAFT'&&await page.locator('input[type=checkbox]').nth(1).isChecked()&&await page.evaluate(()=>window.__requests.length===3),'Return to your draft retains exact edits and evidence selections without another request');
+    check((await draft().inputValue())==='MY EXACT EDITED DRAFT'&&await page.locator('input[type=checkbox]').nth(1).isChecked()&&await page.evaluate(()=>window.__sourceRequests().length===3),'Return to your draft retains exact edits and evidence selections without another request');
     await fillGoal('My existing goal');await chooseTrack('outreach');await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief(debriefQuestion,'outreach','prepare_introduction')});await ask();await answerReady();
     await page.getByRole('button',{name:'Prepare an introduction',exact:true}).click();
     await editDetails();
@@ -589,9 +759,10 @@ const work = (async()=>{
     const keptDraft=await draft().inputValue();await setDebriefMode({status:502,body:{detail:'PRIVATE PROVIDER DETAIL'}});await ask();await page.getByRole('alert').waitFor();
     check(await answerRegion().isVisible()&&await page.getByText(/Previous answer —/).isVisible()&&(await draft().inputValue())===keptDraft&&await page.getByText('PRIVATE PROVIDER DETAIL',{exact:false}).count()===0&&await page.getByRole('button',{name:'Prepare an introduction',exact:true}).isDisabled(),'A failed retry preserves the old answer and exact draft, identifies the earlier answer, and withholds provider detail');
 
-    for(const [status,code,expected] of [[401,null,'Please sign in again before asking SPARQ.'],[409,null,'Your profile connection could not be confirmed'],[429,null,'SPARQ is at its request limit'],[503,null,'SPARQ is unavailable right now'],[503,'pathway_sources_expired','USA Football sources need a fresh review.']]){
+    for(const [status,code,expected] of [[401,null,'Please sign in again before asking SPARQ.'],[403,null,'Not authorized'],[409,null,'Your profile connection could not be confirmed'],[429,null,'SPARQ is at its request limit'],[503,null,'SPARQ is unavailable right now'],[503,'pathway_sources_expired','USA Football sources need a fresh review.']]){
       await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({status,body:{detail:'PRIVATE ERROR DETAIL',...(code?{code}:{})}});await ask();await page.getByRole('alert').waitFor();
-      check((await page.getByRole('alert').innerText()).includes(expected)&&await answerRegion().count()===0&&await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible()&&await page.getByText('PRIVATE ERROR DETAIL',{exact:false}).count()===0,'Debrief failure '+(code||status)+' provides safe distinct recovery while retaining the profile');
+      if([401,403,409].includes(status))check(await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).isVisible()&&await answerRegion().count()===0&&await draft().count()===0,'Debrief ownership failure '+status+' invalidates the private workspace instead of retaining stale scope');
+      else check((await page.getByRole('alert').innerText()).includes(expected)&&await answerRegion().count()===0&&await page.getByRole('button',{name:'View profile',exact:true}).isVisible()&&await page.getByText('PRIVATE ERROR DETAIL',{exact:false}).count()===0,'Debrief failure '+(code||status)+' provides safe distinct recovery while retaining the profile');
     }
     await openComposer();await fillGoal('My manual next step');await prepare();
     check((await draft().inputValue()).includes('My manual next step'),'Manual preparation remains useful when AI or official sources are unavailable');
@@ -599,19 +770,19 @@ const work = (async()=>{
     await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();await settle();
     check(!await question().isVisible()&&await page.getByRole('button',{name:'Edit question',exact:true}).isVisible()&&await answerRegion().getByRole('heading',{name:debriefQuestion,exact:true}).evaluate(el=>document.activeElement===el),'A completed answer replaces the form and receives focus on the athlete’s actual question');
     await openOverview();
-    check(await overview().isVisible()&&!await answerRegion().isVisible()&&await page.evaluate(()=>window.__requests.length===3),'Returning to content keeps the completed answer mounted privately without another request');
+    check(await overview().isVisible()&&!await answerRegion().isVisible()&&await page.evaluate(()=>window.__sourceRequests().length===3),'Returning to content keeps the completed answer mounted privately without another request');
     await openGuidance();
     check(await answerRegion().getByText(debrief().answer.text,{exact:false}).isVisible()&&!await question().isVisible()
-      &&await page.evaluate(()=>window.__requests.length===3),'Opening guidance again restores the same completed answer instead of asking the model again');
+      &&await page.evaluate(()=>window.__sourceRequests().length===3),'Opening guidance again restores the same completed answer instead of asking the model again');
     await editQuestion();await settle();
-    check(await question().isVisible()&&(await question().inputValue())===debriefQuestion&&await question().evaluate(el=>document.activeElement===el)&&await page.evaluate(()=>window.__requests.length===3),'Edit question restores its exact text and focuses the input without requesting another answer');
+    check(await question().isVisible()&&(await question().inputValue())===debriefQuestion&&await question().evaluate(el=>document.activeElement===el)&&await page.evaluate(()=>window.__sourceRequests().length===3),'Edit question restores its exact text and focuses the input without requesting another answer');
     await setDebriefMode({pending:true});await ask();await settle();await page.evaluate(()=>window.__advance(60000));await settle();await page.getByRole('alert').waitFor();
-    check((await page.getByRole('alert').innerText()).includes('took too long')&&await answerRegion().isVisible()&&await page.getByText(/Previous answer —/).isVisible()&&await page.evaluate(()=>window.__requests.at(-1).signal.aborted&&window.__timers.size===0),'Debrief timeout aborts its request, clears its timer and preserves a clearly previous answer');
+    check((await page.getByRole('alert').innerText()).includes('took too long')&&await answerRegion().isVisible()&&await page.getByText(/Previous answer —/).isVisible()&&await page.evaluate(()=>window.__sourceRequests().at(-1).signal.aborted&&window.__timers.size===0),'Debrief timeout aborts its request, clears its timer and preserves a clearly previous answer');
     const newer={...debrief(),answer:{text:'A fresh successful answer.',refs:['f1']}};await setDebriefMode({body:newer});await ask();await answerRegion().getByText('A fresh successful answer.',{exact:false}).waitFor();await releaseDebrief({body:debrief()});
     check(await answerRegion().getByText('A fresh successful answer.',{exact:false}).isVisible()&&await page.getByText(/Previous answer —/).count()===0,'Late timed-out debrief cannot overwrite a later successful answer');
     for(const mode of [{bodyPending:true,body:debrief()},{status:503,bodyPending:true,body:{detail:'Fixture'}}]){
       await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode(mode);await ask();await settle();await page.evaluate(()=>window.__advance(60000));await settle();await page.getByRole('alert').waitFor();await releaseDebrief({body:debrief()});
-      check(await answerRegion().count()===0&&await page.evaluate(()=>window.__requests.at(-1).signal.aborted&&window.__timers.size===0),'The same deadline covers a pending '+(mode.status?'error':'successful')+' response body without late text leakage');
+      check(await answerRegion().count()===0&&await page.evaluate(()=>window.__sourceRequests().at(-1).signal.aborted&&window.__timers.size===0),'The same deadline covers a pending '+(mode.status?'error':'successful')+' response body without late text leakage');
     }
 
     const malformedDebriefs=[
@@ -647,21 +818,21 @@ const work = (async()=>{
     }
     for(const mode of [{pending:true},{bodyPending:true,body:debrief()}]){
       await reset();await ready();await fillGoal('Private old goal');await prepare();await fillQuestion(debriefQuestion);await setDebriefMode(mode);await ask();await settle();await setMode({body:profile('Blair Fixture')});await switchAccount('athlete-b');await ready(false);await releaseDebrief({body:debrief()});
-      check((await question().inputValue())===''&&await answerRegion().count()===0&&await draft().count()===0&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/debrief').signal.aborted&&window.__timers.size===0),'Account switch clears question, answer and draft and rejects late debrief '+(mode.pending?'response':'body'));
+      check((await question().inputValue())===''&&await answerRegion().count()===0&&await draft().count()===0&&await page.evaluate(()=>window.__sourceRequests().find(r=>r.path==='/api/athlete/debrief').signal.aborted&&window.__timers.size===0),'Account switch clears question, answer and draft and rejects late debrief '+(mode.pending?'response':'body'));
     }
     await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();
-    check(await page.evaluate(()=>window.__requests.at(-1).authorization==='Bearer fixture-athlete-b'),'A new account submits its own debrief with its own credential');
+    check(await page.evaluate(()=>window.__sourceRequests().at(-1).authorization==='Bearer fixture-athlete-b'),'A new account submits its own debrief with its own credential');
     await setDebriefMode({pending:true});await ask();await settle();await refreshProfile();await ready(false);await releaseDebrief({body:debrief()});
-    check(await answerRegion().count()===0&&(await question().inputValue())===''&&await page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/debrief').at(-1).signal.aborted),'Profile refresh aborts and clears private debrief without an automatic replacement request');
+    check(await answerRegion().count()===0&&(await question().inputValue())===''&&await page.evaluate(()=>window.__sourceRequests().filter(r=>r.path==='/api/athlete/debrief').at(-1).signal.aborted),'Profile refresh aborts and clears private debrief without an automatic replacement request');
     await reset({body:profile()},undefined,false,{status:503,body:{detail:'Fixture unavailable'}});await ready();await fillGoal('Keep my manual draft');await prepare();await fillQuestion(debriefQuestion);await setDebriefMode({pending:true});await ask();await settle();await setMaterialsMode({body:materials()});await openProfile();await materialRegion().getByRole('button',{name:'Retry materials',exact:true}).click();await settle();await closeProfile();await releaseDebrief({body:debrief()});
-    check(await answerRegion().count()===0&&(await question().inputValue())===''&&(await draft().inputValue()).includes('Keep my manual draft')&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/debrief').signal.aborted),'Materials retry clears and aborts debrief source context while preserving the independent manual draft');
+    check(await answerRegion().count()===0&&(await question().inputValue())===''&&(await draft().inputValue()).includes('Keep my manual draft')&&await page.evaluate(()=>window.__sourceRequests().find(r=>r.path==='/api/athlete/debrief').signal.aborted),'Materials retry clears and aborts debrief source context while preserving the independent manual draft');
     for(const leaving of ['logout','unmount']){
       await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({pending:true});await ask();await settle();if(leaving==='logout')await switchAccount(null);else{await page.evaluate(()=>window.__unmount());await settle()}await releaseDebrief({body:debrief()});
-      check(await answerRegion().count()===0&&await question().count()===0&&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/debrief').signal.aborted&&window.__timers.size===0),'Debrief '+leaving+' aborts private work, clears the timer and ignores late responses');
+      check(await answerRegion().count()===0&&await question().count()===0&&await page.evaluate(()=>window.__sourceRequests().find(r=>r.path==='/api/athlete/debrief').signal.aborted&&window.__timers.size===0),'Debrief '+leaving+' aborts private work, clears the timer and ignores late responses');
     }
     for(const action of ['usaf_support','usaf_development']){
       await reset();await ready(false);await chooseTrack('national_team');await fillQuestion(debriefQuestion);const body=debrief(debriefQuestion,'national_team',action);await setDebriefMode({body});await ask();await answerReady();const link=page.getByRole('link',{name:body.next_action.label,exact:true});
-      check(await link.getAttribute('href')===body.next_action.href&&await link.getAttribute('target')==='_blank'&&await link.getAttribute('rel')==='noopener noreferrer'&&await page.evaluate(()=>window.__requests.length===3),'Official '+action+' action is the exact reviewed plain anchor, with no automatic source/media request');
+      check(await link.getAttribute('href')===body.next_action.href&&await link.getAttribute('target')==='_blank'&&await link.getAttribute('rel')==='noopener noreferrer'&&await page.evaluate(()=>window.__sourceRequests().length===3),'Official '+action+' action is the exact reviewed plain anchor, with no automatic source/media request');
       await answerRegion().locator('summary').filter({hasText:'Why this answer?'}).click();await page.getByRole('button',{name:'Show sources for the next step',exact:true}).click();
       check(await answerRegion().getByText('Source reviewed Sep 8, 2026.',{exact:true}).isVisible(),'Official action retains its reviewed source and date: '+action);
       const badOfficial=structuredClone(body);badOfficial.next_action.href+='?unapproved=1';const wrongRef=structuredClone(body);wrongRef.references.at(-1).href='https://example.invalid';

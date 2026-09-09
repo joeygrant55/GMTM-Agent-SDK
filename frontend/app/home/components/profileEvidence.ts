@@ -20,6 +20,7 @@ export interface ProfileEvidenceItem {
 }
 
 export interface ProfileEvidence {
+  owner_scope?: string | null
   state: 'ready' | 'unlinked' | 'source_unavailable'
   athlete: ProfileAthlete | null
   evidence: ProfileEvidenceItem[]
@@ -42,6 +43,7 @@ function date(value: unknown): value is string {
 export function readProfileEvidence(value: unknown): ProfileEvidence {
   const invalid = () => new Error('Your profile could not be confirmed. Please try again.')
   if (!record(value) || !['ready', 'unlinked', 'source_unavailable'].includes(String(value.state))
+    || !(value.owner_scope === undefined || value.owner_scope === null || typeof value.owner_scope === 'string' && /^[a-f0-9]{64}$/.test(value.owner_scope))
     || !date(value.fetched_at) || !/(?:Z|\+00:00)$/.test(value.fetched_at)
     || !Array.isArray(value.evidence) || value.evidence.length > 20 || !Array.isArray(value.observations) || value.observations.length > 20
     || !Array.isArray(value.limitations) || value.limitations.length > 20 || !value.limitations.every(item => text(item))) throw invalid()

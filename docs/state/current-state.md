@@ -2,11 +2,15 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
-## Athlete career home direction accepted — September 9, 2026
+## Athlete career home implemented locally — September 9, 2026
 
-Joey accepted the full private athlete home direction: featured work, a chosen goal, one adaptive next move and genuine continuity. Three visual concepts using fictional sample data are complete; **visual selection is pending and application code is unchanged** from the media checkpoint below. See the [design and proposed first-build contract](athlete-career-home-design-2026-09-09.md) and [handoff](../../.sammy/handoffs/2026-09-09-athlete-career-home-design.md).
+Joey selected the portfolio-first layout with stronger personal identity from the cinematic layout. A combined visual was shown before implementation. The working home now has source footage, a saved goal, one adaptive next action, explicit draft save/removal and recent saved work. Desktop retains the portfolio/goal split; mobile puts the next action immediately after the hero. See the [design and build contract](athlete-career-home-design-2026-09-09.md), [implementation handoff](../../.sammy/handoffs/2026-09-09-athlete-career-home.md) and [visual QA](../../design-qa.md).
 
-**Next:** select/refine the visual, then implement private saved goals, featured references and drafts in the Agent database, with deterministic next-move behavior and honest recent-work/opportunity states. GMTM remains the canonical read-only profile/combine source. Mockup playback, saved states and navigation do not establish implemented capabilities. No application-model allowance, live acceptance or release authority was changed.
+Private Agent persistence uses explicit owner-bound GET/PATCH operations, link/version checks, bounded actual save events and a separate guarded schema command. Matching opaque owner scopes connect evidence, materials, saved work and debrief responses; conflicting account/link data is withheld. Source outages preserve authored drafts, competing saves require review, and source refresh does not discard edits. GMTM remains canonical/read-only. The schema has not been applied to a live Agent database.
+
+**1,092 backend tests, 311 component checks, 103 policy checks, 118 complete-app checks plus five safety assertions, and the actual Next production compile/typecheck/start pass.** Final source hashes reconcile and owned verification groups/ports closed. Desktop/tablet/phone visual comparison resolved spacing, poster crop, main-action weight and mobile recent-work layout. Visual QA passed. A separately supervised, clearly labeled synthetic preview was inspected in the in-app browser, including goal/featured-footage save and reload; its current URL, evidence and finite lifetime belong in the handoff. It is the only preview process intentionally left running for user review.
+
+**Next:** get Joey's feedback on goal → useful output → return to saved work, then prepare a bounded real-account acceptance run and Agent-only schema preparation. Storage logic is implemented but no live workspace table was created. Real Clerk/MySQL acceptance, real-media loading, model quality, durable provider quotas and profile release packaging remain open. Opportunity review remains unimplemented and explicitly labeled. No application-model allowance, live acceptance or release authority was changed; no push, deployment, GMTM mutation or outreach occurred.
 
 ## Athlete media overview implemented — September 8, 2026
 

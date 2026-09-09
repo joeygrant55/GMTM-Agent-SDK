@@ -13,7 +13,7 @@ const intents: { track: DebriefTrack; label: string; question: string }[] = [
   { track: 'outreach', label: 'Introduce myself', question: 'How can I introduce myself to a coach using my profile?' },
 ]
 
-export default function AthleteDebriefPanel({ onPrepare }: { onPrepare: (kind: ProfileDraftKind, question: string) => void }) {
+export default function AthleteDebriefPanel({ onPrepare, expectedOwnerScope, onScopeMismatch }: { onPrepare: (kind: ProfileDraftKind, question: string) => void; expectedOwnerScope?: string; onScopeMismatch?: () => void }) {
   const [track, setTrack] = useState<DebriefTrack>('profile')
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<AthleteDebrief | null>(null)
@@ -66,11 +66,20 @@ export default function AthleteDebriefPanel({ onPrepare }: { onPrepare: (kind: P
           const body: unknown = await response.json()
           if (body && typeof body === 'object' && 'code' in body && typeof body.code === 'string') code = body.code
         } catch { /* HTTP status still provides a safe message for a non-JSON failure. */ }
-        if (mounted.current && !controller.signal.aborted) setError(debriefFailure(response.status, code))
+        if (mounted.current && !controller.signal.aborted) {
+          setError(debriefFailure(response.status, code))
+          if ([401, 403, 409].includes(response.status)) { setAnswer(null); onScopeMismatch?.() }
+        }
         return
       }
       const result = readAthleteDebrief(await response.json(), request)
       if (!mounted.current || controller.signal.aborted) return
+      if (expectedOwnerScope && result.owner_scope !== expectedOwnerScope) {
+        setAnswer(null)
+        setError('Your profile connection changed. Reload before asking again.')
+        onScopeMismatch?.()
+        return
+      }
       setAnswer(result)
       setSourcesOpen(false)
       setEditing(result.track !== currentInput.current.track || result.question !== currentInput.current.question)

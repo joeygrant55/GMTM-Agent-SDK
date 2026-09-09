@@ -171,6 +171,7 @@ def fetch(source):
 def test_actual_route_owner_projection_and_query_budget(source):
     response, body = fetch(source)
     assert response.status_code == 200 and body["state"] == "ready"
+    assert body["owner_scope"] == api.owner_scope(CALLER, OWNER)
     assert len(body["items"]) == 4
     result = body["items"][0]
     assert result["title"] == "40 Yard Dash"
@@ -200,7 +201,8 @@ def test_query_selectors_rejected_without_source_access(source, query):
 
 def test_unlinked_opens_no_gmtm_connection(source):
     source[1].links = []
-    assert fetch(source)[1]["state"] == "unlinked"
+    body = fetch(source)[1]
+    assert body["state"] == "unlinked" and "owner_scope" not in body
     assert source[3] == ["agent"] and source[1].close_count == 1
 
 
@@ -225,6 +227,7 @@ def test_source_failure_has_no_partial_material_and_closes(source, query_number)
     source[2].fail_at = query_number
     _, body = fetch(source)
     assert body["state"] == "source_unavailable" and body["items"] == []
+    assert body["owner_scope"] == api.owner_scope(CALLER, OWNER)
     assert "SECRET" not in json.dumps(body)
     assert source[2].close_count == 1 and source[2].opened == source[2].closed
 

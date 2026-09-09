@@ -9,6 +9,7 @@ export interface DebriefReference {
   checked_at: string | null
 }
 export interface AthleteDebrief {
+  owner_scope?: string
   state: 'ready'
   track: DebriefTrack
   question: string
@@ -53,7 +54,8 @@ function utc(value: unknown): value is string {
 // This checks provenance references, not whether the prose is a sound interpretation.
 export function readAthleteDebrief(value: unknown, request: { track: DebriefTrack; question: string }): AthleteDebrief {
   const invalid = () => new Error('SPARQ could not confirm that answer. Please try again.')
-  if (!exact(value, ['state', 'track', 'question', 'answer', 'insights', 'unknowns', 'next_action', 'references', 'fetched_at'])
+  if (!exact(value, ['state', 'track', 'question', 'answer', 'insights', 'unknowns', 'next_action', 'references', 'fetched_at', ...(object(value) && 'owner_scope' in value ? ['owner_scope'] : [])])
+    || !(value.owner_scope === undefined || typeof value.owner_scope === 'string' && /^[a-f0-9]{64}$/.test(value.owner_scope))
     || value.state !== 'ready' || value.track !== request.track || value.question !== request.question
     || !debriefTracks.some(track => track.value === value.track) || !text(value.question, 1000) || value.question !== value.question.trim()
     || !utc(value.fetched_at) || !Array.isArray(value.references) || value.references.length < 1 || value.references.length > 55

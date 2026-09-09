@@ -29,7 +29,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 REPO = BACKEND.parent
 CAPS = {"connections": 2, "selects": 6, "statements": 10}
 SOURCE_FILES = ("scripts/read_owner_profile_evidence.py", "athlete_evidence.py",
-                "combine_api.py", "combine_requirements.py", "auth.py")
+                "combine_api.py", "combine_requirements.py", "auth.py", "source_scope.py")
 SCOPES = {
     "profile": {"caps": CAPS, "module": "athlete_evidence", "files": SOURCE_FILES,
                 "receipt_scope": "designated_owner_profile_projection",
@@ -431,6 +431,12 @@ def read_projection(config, ledger, *, driver=None):
                 # checked against hard-coded user2 before adapter processing.
                 expected = ({"state", "items", "limitations", "fetched_at"} if scope == "materials"
                             else {"state", "athlete", "evidence", "observations", "limitations", "fetched_at"})
+                if "owner_scope" in body:
+                    if body["owner_scope"] != service.owner_scope(clerk, OWNER):
+                        raise Blocked("unexpected_owner_scope")
+                    expected.add("owner_scope")
+                elif body.get("state") == "ready":
+                    raise Blocked("missing_owner_scope")
                 if (set(body) != expected or not isinstance(body[spec["collection"]], list)
                         or len(body[spec["collection"]]) > spec["limit"]):
                     raise Blocked("unexpected_response_contract")

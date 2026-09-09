@@ -134,6 +134,7 @@ def test_actual_route_projects_only_owned_evidence_and_parameterizes_selects(sou
     response, body = payload(source)
     _, agent, gmtm, opened = source
     assert response.status_code == 200 and body["state"] == "ready"
+    assert body["owner_scope"] == api.owner_scope(CALLER, ATHLETE)
     assert body["athlete"] == dict(name="Alex Sample", sport="Flag Football", position="Receiver",
                                    school="Sample High School", city="Tampa", state="Florida", graduation_year=2027)
     assert body["evidence"] == [dict(id="metric-401", label="40-Yard Dash", value=4.75,
@@ -174,6 +175,7 @@ def test_unlinked_is_distinct_and_never_reads_gmtm(source):
     source[1].links = []
     response, body = payload(source)
     assert response.status_code == 200 and body["state"] == "unlinked"
+    assert "owner_scope" not in body
     assert body["athlete"] is None and body["evidence"] == body["observations"] == []
     assert source[3] == ["agent"] and source[1].close_count == 1
 
@@ -216,6 +218,7 @@ def test_query_failure_discards_partial_results_and_closes(source, database, fai
     source[database].fail_at = fail_at
     _, body = payload(source)
     assert body["state"] == "source_unavailable" and body["athlete"] is None
+    assert body.get("owner_scope") == (api.owner_scope(CALLER, ATHLETE) if database == 2 else None)
     assert body["evidence"] == body["observations"] == [] and "PRIVATE" not in json.dumps(body)
     for db in source[1:3]:
         assert db.cursors_open == db.cursors_closed

@@ -15,6 +15,7 @@ export interface ProfileMaterialItem {
 }
 
 export interface ProfileMaterialsSnapshot {
+  owner_scope?: string | null
   state: 'ready' | 'unlinked' | 'source_unavailable'
   items: ProfileMaterialItem[]
   limitations: string[]
@@ -46,6 +47,7 @@ function sourceDate(value: unknown): value is string {
 export function readProfileMaterials(value: unknown): ProfileMaterialsSnapshot {
   const invalid = () => new Error('These profile materials could not be confirmed.')
   if (!record(value) || !['ready', 'unlinked', 'source_unavailable'].includes(String(value.state))
+    || !(value.owner_scope === undefined || value.owner_scope === null || typeof value.owner_scope === 'string' && /^[a-f0-9]{64}$/.test(value.owner_scope))
     || !sourceDate(value.fetched_at) || !/(?:Z|\+00:00)$/.test(value.fetched_at)
     || !Array.isArray(value.items) || value.items.length > 30
     || !Array.isArray(value.limitations) || value.limitations.length > 20
@@ -82,7 +84,7 @@ export function readProfileMaterials(value: unknown): ProfileMaterialsSnapshot {
       source_url: item.source_url, thumbnail_url: thumbnail, can_include: item.can_include, availability: item.availability } as ProfileMaterialItem
   })
   if (results > 20 || footage > 10) throw invalid()
-  return { state: value.state as ProfileMaterialsSnapshot['state'], items,
+  return { state: value.state as ProfileMaterialsSnapshot['state'], owner_scope: value.owner_scope as string | null | undefined, items,
     limitations: [...value.limitations], fetched_at: value.fetched_at }
 }
 

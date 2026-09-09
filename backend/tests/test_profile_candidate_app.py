@@ -22,15 +22,17 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
         "/api/athlete/evidence": "get", "/api/profile/by-clerk/{clerk_id}": "get",
         "/api/athlete/materials": "get",
         "/api/athlete/debrief": "post",
+        "/api/athlete/workspace": ("get", "patch"),
         "/api/claims/{token}": "get", "/api/claims/{token}/redeem": "post",
         "/health": "get",
     }
     assert set(schema["paths"]) == set(expected)
-    assert all(set(schema["paths"][path]) == {method} for path, method in expected.items())
+    assert all(set(schema["paths"][path]) == (set(method) if isinstance(method, tuple) else {method}) for path, method in expected.items())
     # Choosing this app never widens the original manifest.
     assert "/api/athlete/evidence" not in candidate_app.create_app().openapi()["paths"]
     assert "/api/athlete/materials" not in candidate_app.create_app().openapi()["paths"]
     assert "/api/athlete/debrief" not in candidate_app.create_app().openapi()["paths"]
+    assert "/api/athlete/workspace" not in candidate_app.create_app().openapi()["paths"]
     with pytest.raises(ValueError):
         candidate_app.create_app(surface="unexpected")
 
@@ -64,6 +66,8 @@ def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, si
             debrief = client.post("/api/athlete/debrief", headers=headers,
                                   json={"track": "profile", "question": "What can I use?"})
             assert debrief.status_code == 401
+            assert client.get("/api/athlete/workspace", headers=headers).status_code == 401
+            assert client.patch("/api/athlete/workspace", headers=headers, json={}).status_code == 401
 
 
 def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, signed):
@@ -72,6 +76,8 @@ def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, s
             ("POST", "/api/athlete/evidence"), ("GET", "/api/athlete/evidence/"),
             ("POST", "/api/athlete/materials"), ("GET", "/api/athlete/materials/"),
             ("GET", "/api/athlete/debrief"), ("POST", "/api/athlete/debrief/"),
+            ("POST", "/api/athlete/workspace"), ("DELETE", "/api/athlete/workspace"),
+            ("GET", "/api/athlete/workspace/"), ("PATCH", "/api/athlete/workspace/"),
             ("GET", "/api/combine/current"), ("POST", "/api/combine/help"),
             ("POST", "/api/artifacts/draft-outreach"), ("POST", "/api/profile/connect"),
             ("GET", "/api/workspace/inbox/user"), ("GET", "/api/reports/public/token"),
@@ -87,6 +93,7 @@ def test_profile_configuration_drift_and_query_overrides_fail_closed(profile_app
         response = client.get("/api/athlete/evidence?user_id=2", headers=signed())
         assert response.status_code == 400
         assert client.get("/api/athlete/materials?user_id=2", headers=signed()).status_code == 400
+        assert client.get("/api/athlete/workspace?user_id=2", headers=signed()).status_code == 400
         monkeypatch.setenv("DB_USER", "unexpected")
         response = client.get("/api/athlete/evidence", headers=signed())
         assert response.status_code == 503
@@ -99,6 +106,18 @@ def test_profile_cors_preserves_origin_and_authorization_variance(profile_app):
         assert response.status_code == 401
         assert response.headers["access-control-allow-origin"] == ENV["ALLOWED_ORIGINS"]
         assert {"Origin", "Authorization"}.issubset(set(response.headers["vary"].split(", ")))
+
+
+def test_profile_workspace_patch_preflight_is_allowed_only_in_profile_surface(profile_app):
+    headers = {"Origin": ENV["ALLOWED_ORIGINS"], "Access-Control-Request-Method": "PATCH",
+               "Access-Control-Request-Headers": "authorization,content-type"}
+    with TestClient(profile_app) as client:
+        response = client.options("/api/athlete/workspace", headers=headers)
+        assert response.status_code == 200
+        assert "PATCH" in response.headers["access-control-allow-methods"]
+        assert client.options("/api/athlete/workspace", headers={**headers, "Origin": "https://foreign.example.invalid"}).status_code == 400
+    with TestClient(candidate_app.create_app()) as client:
+        assert client.options("/api/athlete/workspace", headers=headers).status_code == 400
 
 
 def test_profile_debrief_limits_are_required_and_runtime_drift_is_rejected(profile_app, signed, monkeypatch):

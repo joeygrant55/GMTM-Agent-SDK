@@ -336,7 +336,7 @@ const work = (async () => {
   assertRunning();
   browser = await chromium.connect({ wsEndpoint: browserServer.wsEndpoint(), timeout: 10000 });
   assertRunning();
-  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
+  const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], viewport: { width: 1487, height: 1058 }, serviceWorkers: 'block' });
   context.setDefaultTimeout(20000); context.setDefaultNavigationTimeout(30000);
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
@@ -431,87 +431,89 @@ const work = (async () => {
     const answerText = 'Your recorded result can anchor a factual profile summary. Timing conditions and comparison standards are not confirmed here.';
     const askedQuestion = 'How can I use my recorded results for a useful next step?';
     const profileDialog = page.getByRole('dialog', {name:'Your profile',exact:true});
+    const goalDialog = page.getByRole('dialog', {name:'Your next goal',exact:true});
+    const reviewDialog = page.getByRole('dialog', {name:'Your saved version',exact:true});
     const measurementGroup = profileDialog.getByRole('group', {name:'Evidence to include',exact:true});
     const materialsRegion = profileDialog.getByRole('region', {name:'Your submitted results and footage',exact:true});
     const showcase = page.getByRole('region', {name:'Your athlete content',exact:true});
     const poster = showcase.getByRole('img', {name:'Thumbnail for Fixture highlight reel',exact:true});
-    const useClip = page.getByRole('button', {name:'Use this in an introduction',exact:true});
     const editor = page.getByRole('textbox', {name:'Your text — ready to edit',exact:true});
+    const nav = page.getByRole('navigation', {name:'Athlete workspace',exact:true});
+    const workspaceURL = backOrigin + '/api/athlete/workspace';
+    const workspaceHeaders = {Authorization:'Bearer ' + fixtureReady.token};
     const debriefCalls = () => requests.filter(request => request.origin === 'backend' && request.path === '/api/athlete/debrief').length;
     const profileReads = () => requests.filter(request => request.origin === 'backend' && ['/api/athlete/evidence','/api/athlete/materials'].includes(request.path)).length;
-    const openProfile = async (name = 'View profile') => {
-      // The composer trigger also exposes its selected-record count.
-      await page.getByRole('button', {name:name === 'Choose profile details' ? /^Choose profile details/ : name,exact:true}).click();
+    const workspaceWrites = () => requests.filter(request => request.origin === 'backend' && request.path === '/api/athlete/workspace' && request.method === 'PATCH').length;
+    const readSaved = async () => { const response=await context.request.get(workspaceURL,{headers:workspaceHeaders});assert.equal(response.status(),200);return response.json(); };
+    const home = async () => { if(await profileDialog.isVisible())await profileDialog.getByRole('button',{name:'Done',exact:true}).click();await nav.getByRole('button',{name:'Home',exact:true}).click();await showcase.waitFor(); };
+    const openProfile = async (name = 'Browse portfolio') => {
+      const choose=page.getByRole('button',{name:/^Choose profile details/});
+      const view=page.getByRole('button',{name:'View profile',exact:true});
+      await(await choose.isVisible()?choose:await view.isVisible()?view:page.getByRole('button',{name:'Browse portfolio',exact:true})).click();
       await profileDialog.waitFor();
-      await profileDialog.getByRole('heading', {name:'Your profile',exact:true}).waitFor();
     };
-    const closeProfile = async () => {
-      await profileDialog.getByRole('button', {name:'Done',exact:true}).click();
-      await profileDialog.waitFor({state:'hidden'});
+    const closeProfile = async () => { await profileDialog.getByRole('button', {name:'Done',exact:true}).click();await profileDialog.waitFor({state:'hidden'}); };
+    const refreshProfile = async () => { await profileDialog.getByRole('button', {name:'Refresh profile',exact:true}).click();await profileDialog.waitFor({state:'hidden'});await showcase.waitFor(); };
+    const saveGoal = async (text,recipient='',timeframe='') => {
+      await home();await page.getByRole('button',{name:/^(Set a goal|Edit goal)$/}).click();await goalDialog.waitFor();
+      await goalDialog.getByLabel('What are you working toward?',{exact:true}).fill(text);
+      await goalDialog.getByLabel('Recipient or program (optional)',{exact:true}).fill(recipient);
+      await goalDialog.getByLabel('Timeframe (optional)',{exact:true}).fill(timeframe);
+      const response=page.waitForResponse(r=>r.url()===workspaceURL&&r.request().method()==='PATCH');
+      await goalDialog.getByRole('button',{name:'Save goal',exact:true}).click();assert.equal((await response).status(),200);await goalDialog.waitFor({state:'hidden'});
     };
-    const refreshProfile = async () => {
-      await profileDialog.getByRole('button', {name:'Refresh profile',exact:true}).click();
-      await profileDialog.waitFor({state:'hidden'});
-      await athleteHeading.waitFor();
-      await showcase.getByRole('heading', {name:'Your work. Your next move.',exact:true}).waitFor();
-    };
-    await athleteHeading.waitFor();
-    await poster.waitFor();
-    await page.waitForFunction(url => { const image = [...document.images].find(item => item.src === url); return image?.complete && image.naturalWidth > 0 && !image.classList.contains('opacity-0'); }, thumbnailURL);
-    check(await page.locator('#combine-workspace-main').count() === 0, 'Profile entry does not mount the combine checklist');
-    check(await showcase.getByRole('heading', {name:'Your work. Your next move.',exact:true}).isVisible()
-      && await showcase.getByRole('heading', {name:'Fixture highlight reel',exact:true}).isVisible(), 'Actual claimed profile opens with its source footage and next action');
-    check(await poster.evaluate(image => image.complete && image.naturalWidth > 0)
-      && await poster.getAttribute('src') === thumbnailURL, 'Source-backed poster loads the exact locally intercepted synthetic PNG');
-    check(await poster.getAttribute('crossorigin') === 'anonymous' && await poster.getAttribute('referrerpolicy') === 'no-referrer'
-      && thumbnailRequests.length > 0 && thumbnailRequests.every(request => !request.referrerPresent && !request.authorizationPresent && !request.cookiePresent), 'Poster request omits referrer, authorization and even the seeded CDN cookie');
-    check(await showcase.locator('[aria-label="Recorded and submitted results"] article').count() === 2
-      && await showcase.getByText('Recorded',{exact:true}).count() === 1 && await showcase.getByText('Submitted',{exact:true}).count() === 1, 'Overview presents only two existing results with distinct recorded and submitted labels');
-    check(await profileDialog.count() === 0 && await measurementGroup.count() === 0
-      && await materialsRegion.count() === 0 && await page.getByRole('textbox', {name:'What are you working toward?',exact:true}).count() === 0
-      && await editor.count() === 0 && await question.count() === 0, 'Initial overview keeps the long profile sheet, question form and composer controls out of the accessible view');
-    check(debriefCalls() === 0, 'Loading a profile does not automatically ask the model');
+    const saveDraft = async (expectedStatus=200) => {const response=page.waitForResponse(r=>r.url()===workspaceURL&&r.request().method()==='PATCH');await page.getByRole('button',{name:'Save draft',exact:true}).click();assert.equal((await response).status(),expectedStatus);};
+    const continueDraft = async () => {await home();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();await editor.waitFor();};
+    await athleteHeading.waitFor();await poster.waitFor();
+    await page.waitForFunction(url=>{const image=[...document.images].find(item=>item.src===url);return image?.complete&&image.naturalWidth>0&&!image.classList.contains('opacity-0')},thumbnailURL);
+    check(await page.locator('#combine-workspace-main').count()===0,'The private career home never mounts the combine checklist');
+    check(await showcase.getByRole('heading',{name:'Your footage',exact:true}).isVisible()&&await showcase.getByRole('heading',{name:'Fixture highlight reel',exact:true}).isVisible(),'Claimed profile opens with its real fixture footage and goal-driven next move');
+    check(await poster.evaluate(image=>image.complete&&image.naturalWidth>0)&&await poster.getAttribute('src')===thumbnailURL,'The stored poster loads the exact locally intercepted synthetic PNG');
+    check(await poster.getAttribute('crossorigin')==='anonymous'&&await poster.getAttribute('referrerpolicy')==='no-referrer'&&thumbnailRequests.every(r=>!r.referrerPresent&&!r.authorizationPresent&&!r.cookiePresent),'Poster requests omit referrer, authorization and even the seeded CDN cookie');
+    check(await showcase.locator('[aria-label="Recorded and submitted results"] article').count()===2&&await showcase.getByText('Recorded',{exact:true}).count()===1&&await showcase.getByText('Submitted',{exact:true}).count()===1,'The home presents only two real results with distinct recorded and submitted labels');
+    check(!await profileDialog.isVisible()&&await editor.count()===0&&await question.count()===0&&await page.getByRole('button',{name:'Set my goal',exact:true}).count()===1,'The first visit has one intent-first action and keeps detailed records, questions and writing on demand');
+    check(debriefCalls()===0&&workspaceWrites()===0,'Initial load performs neither model calls nor implicit workspace writes');
     await page.screenshot({path:path.join(output,'desktop-initial.png'),fullPage:true});
-    await page.setViewportSize({width:390,height:844});
-    await page.evaluate(() => window.scrollTo(0,0));
-    const initialUse = await useClip.boundingBox();
-    check(initialUse !== null && initialUse.y >= 0 && initialUse.y + initialUse.height <= 844, 'Initial phone view places the whole Use this in an introduction control within the first 844 pixels');
-    const initialWords = await page.evaluate(() => document.body.innerText.trim().split(/\s+/).filter(Boolean).length);
-    check(initialWords <= 100, `Initial phone screen limits visible copy to 100 words (${initialWords} observed)`);
-    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Initial phone view has no horizontal overflow');
+    await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The complete career home has no horizontal overflow on a 390-pixel phone');
+    const firstImage=await poster.boundingBox();check(firstImage&&firstImage.y>=0&&firstImage.y<844,'The phone first viewport contains the athlete’s own featured-work preview');
     await page.screenshot({path:path.join(output,'phone-initial.png'),fullPage:true});
-    const readsBeforeClip = profileReads(), imagesBeforeClip = thumbnailRequests.length;
-    await useClip.click();
-    check(await editor.count() === 0 && await page.getByRole('radio', {name:'Introduction',exact:true}).isChecked()
-      && await page.locator('[aria-label="Selected footage"]').getByText('Fixture highlight reel',{exact:true}).isVisible(), 'Explicit Use clip selects the public footage and opens an introduction without generating text');
-    await openProfile('Choose profile details');
-    check(await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).isChecked()
-      && !await measurementGroup.getByRole('checkbox').first().isChecked(), 'Use clip selects that public reference without selecting unrelated measurements');
-    await closeProfile();
-    await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
-    await showcase.waitFor();
-    check(profileReads() === readsBeforeClip && thumbnailRequests.length === imagesBeforeClip && debriefCalls() === 0, 'Clip-to-editor navigation preserves loaded media and makes no source reload or AI call');
-    await openProfile();
-    await materialsRegion.getByText('2 submitted results and 2 footage records in this view.', {exact:true}).waitFor();
-    check(await materialsRegion.locator('article').count() === 3, 'Profile sheet initially shows three actual ASGI material records');
-    check(await materialsRegion.getByRole('heading',{name:'Broad Jump',exact:true}).count() === 1
-      && await materialsRegion.getByRole('checkbox',{name:/Include Broad Jump/}).count() === 0, 'Restricted submission is private context without a draft checkbox');
-    check(!await page.getByText('synthetic-excluded-contact',{exact:true}).count(), 'Arbitrary submission contact text never enters the profile');
-    const footageLink = materialsRegion.getByRole('link',{name:/View footage on GMTM.*Fixture highlight reel/});
-    check(await footageLink.getAttribute('href') === 'https://gmtm.com/film/703'
-      && await footageLink.getAttribute('target') === '_blank', 'Legacy processed-zero footage exposes its canonical GMTM page link without a playback claim');
+    await openProfile();await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
+    check(await materialsRegion.getByRole('article').count()===3&&await materialsRegion.getByRole('checkbox',{name:/Include Broad Jump/}).count()===0,'The bounded profile sheet retains source items while private submitted results stay view-only');
+    check(await materialsRegion.getByRole('article').filter({has:page.getByRole('heading',{name:'Fixture highlight reel',exact:true})}).getByRole('link',{name:/View footage on GMTM/}).getAttribute('href')==='https://gmtm.com/film/703'&&await materialsRegion.getByText(/Playback has not been checked/).count()>0,'Legacy processed-zero footage retains its canonical page and unverified playback status');
+    check(!(await profileDialog.innerText()).includes('private-contact@example.invalid'),'Private structured contact fields never appear in the profile sheet');
     await page.screenshot({path:path.join(output,'phone-profile-sheet.png'),fullPage:true});
-    const readsBeforeSheetReopen = profileReads();
-    await page.keyboard.press('Escape');
-    await profileDialog.waitFor({state:'hidden'});
-    await page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'View profile');
-    check(true, 'Escape closes the native profile sheet and restores focus to View profile');
-    await page.setViewportSize({width:1440,height:1000});
-    await openProfile();
-    await page.screenshot({path:path.join(output,'desktop-profile-sheet.png'),fullPage:true});
-    await closeProfile();
-    check(profileReads() === readsBeforeSheetReopen && debriefCalls() === 0, 'Opening and closing the loaded profile sheet performs no reload or model request');
-    await page.getByRole('button', {name:'Ask about my profile',exact:true}).click();
+    await page.keyboard.press('Escape');await profileDialog.waitFor({state:'hidden'});
+    check(await page.getByRole('button',{name:'Browse portfolio',exact:true}).evaluate(el=>document.activeElement===el),'Escape closes the portfolio sheet and restores its actual trigger');
+    await page.setViewportSize({width:1487,height:1058});await openProfile();await page.screenshot({path:path.join(output,'desktop-profile-sheet.png'),fullPage:true});await closeProfile();
+    const featureResponse=page.waitForResponse(r=>r.url()===workspaceURL&&r.request().method()==='PATCH');await showcase.getByRole('button',{name:'Feature this footage',exact:true}).click();assert.equal((await featureResponse).status(),200);await showcase.getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
+    check((await readSaved()).featured_source_id==='film-703'&&await showcase.getByText('Featured',{exact:true}).isVisible(),'An explicit feature action saves the canonical source reference through the actual owner-scoped route');
+    await saveGoal('Explore college flag football');
+    await page.setViewportSize({width:1487,height:1058});await page.evaluate(()=>window.scrollTo(0,0));
+    check(await page.getByRole('button',{name:'Create my summary',exact:true}).isVisible()&&await editor.count()===0,'A saved open-ended goal offers a summary without inventing a recipient or draft');
+    await page.screenshot({path:path.join(output,'desktop-career-saved.png'),fullPage:true});
+    await page.screenshot({path:path.join(output,'desktop-career-saved-viewport.png'),fullPage:false});
+    await page.setViewportSize({width:903,height:804});await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:path.join(output,'tablet-career-saved.png'),fullPage:false});
+    const tabletAction=await page.getByRole('button',{name:'Create my summary',exact:true}).boundingBox();
+    check(tabletAction&&tabletAction.x>=0&&tabletAction.y>=0&&tabletAction.x+tabletAction.width<=903&&tabletAction.y+tabletAction.height<=804,'The saved career home keeps its complete primary next action inside the 903×804 tablet viewport');
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The saved career goal and featured work fit the 903-pixel tablet width');
+    await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The saved career goal and featured work fit the phone width');
+    await page.screenshot({path:path.join(output,'phone-career-saved.png'),fullPage:true});
+    await page.setViewportSize({width:1487,height:1058});
+    await saveGoal('Use my profile to explore a flag football opportunity.','Coach Fixture','This fall');
+    let saved=await readSaved();check(saved.goal.text==='Use my profile to explore a flag football opportunity.'&&saved.goal.destination==='Coach Fixture'&&saved.goal.timeframe==='This fall','Goal text, chosen recipient and timeframe persist in the isolated Agent store');
+    check(await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible(),'A named recipient changes the adaptive next move to an introduction');
+    await page.getByRole('button',{name:'Prepare introduction',exact:true}).click();
+    check(await page.getByLabel('Who is this for?',{exact:true}).inputValue()==='Coach Fixture'&&await editor.count()===0,'The proposed introduction uses the actual recipient and does not generate itself');
+    await page.reload();await showcase.waitFor();await showcase.getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
+    check(await showcase.getByText('Use my profile to explore a flag football opportunity.',{exact:true}).isVisible()&&await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible(),'A genuine document reload restores saved goal and featured footage without creating a draft');
+    await nav.getByRole('button',{name:'Opportunities',exact:true}).click();await page.getByRole('heading',{name:'Opportunities not reviewed yet.',exact:true}).waitFor();
+    check(await page.getByRole('link',{name:/apply|match|invitation/i}).count()===0,'The opportunities view is honest about its unreviewed state and invents no application destinations');
+    await nav.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('heading',{name:'Recent work',exact:true}).waitFor();
+    check(await page.locator('[aria-labelledby="career-progress"]').getByText('Goal saved',{exact:true}).count()===2&&await page.locator('[aria-labelledby="career-progress"]').getByText('Featured film chosen',{exact:true}).isVisible(),'Progress records actual saves without calling them athletic improvement or outreach');
+    await home();await page.getByRole('button',{name:'Ask SPARQ',exact:true}).click();
     await page.getByRole('heading', {name:'What’s your next move?',exact:true}).waitFor();
     check(await page.getByRole('group', {name:'Your focus',exact:true}).getByRole('radio').count() === 3, 'Explicit Ask about my profile opens the three accessible intent starters');
     for (const [focusName, starter] of [
@@ -538,7 +540,7 @@ const work = (async () => {
     await page.setViewportSize({width:390,height:844});
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Answered debrief phone layout has no horizontal overflow');
     await page.screenshot({path:path.join(output,'phone-debrief.png'),fullPage:true});
-    await page.setViewportSize({width:1440,height:1000});
+    await page.setViewportSize({width:1487,height:1058});
     const explanation = page.getByText('Why this answer?',{exact:true});
     await explanation.focus();
     await page.keyboard.press('Enter');
@@ -565,7 +567,7 @@ const work = (async () => {
     await materialsRegion.getByRole('checkbox',{name:/Include Vertical Jump from/}).check();
     await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).check();
     await closeProfile();
-    await page.getByLabel('What are you working toward?').fill('Prepare for my next flag football opportunity.');
+    await page.locator('#profile-draft-details').getByLabel('What are you working toward?').fill('Prepare for my next flag football opportunity.');
     await page.getByRole('button', {name:'Prepare my text',exact:true}).click();
     const generated = await editor.inputValue();
     check(generated.includes('Ava Fixture') && generated.includes('4.75 seconds') && generated.includes('Prepare for my next flag football opportunity.'), 'Actual GMTM-shaped fixture evidence and athlete goal feed the draft');
@@ -600,6 +602,9 @@ const work = (async () => {
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Dedicated editor phone layout has no horizontal overflow');
     await page.screenshot({path:path.join(output,'phone-editor.png'),fullPage:true});
     await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
+    await showcase.waitFor();
+    check(await editor.count()===0&&await page.getByRole('button',{name:'Continue my draft',exact:true}).isVisible(),'Back to SPARQ restores the private career home and keeps the draft available');
+    await page.getByRole('button',{name:'Ask SPARQ',exact:true}).click();
     await page.getByText(answerText).waitFor();
     check(await editor.count() === 0 && await page.getByRole('button', {name:'Return to your draft',exact:true}).isVisible(), 'Returning to SPARQ preserves the answer and hides editor controls');
     await page.getByRole('button', {name:'Return to your draft',exact:true}).click();
@@ -610,121 +615,106 @@ const work = (async () => {
       && !await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).isChecked(), 'Switching views preserves evidence selections');
     check(debriefCalls() === 1, 'Editing, copying, profile disclosure and view changes leave exactly one explicit debrief request');
     await closeProfile();
-    await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
-    await page.getByRole('button', {name:'Back to your content',exact:true}).click();
-    await useClip.click();
-    check(await editor.inputValue() === revised && await page.getByRole('radio', {name:'Introduction',exact:true}).isChecked()
-      && await page.getByLabel('Who is this for?',{exact:true}).inputValue() === ''
-      && await page.getByRole('button', {name:'Rebuild from these details',exact:true}).isDisabled(), 'Using a clip with an existing draft preserves exact edits and requires an explicit recipient before rebuilding');
-    await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');
-    await page.getByRole('button', {name:'Rebuild from these details',exact:true}).click();
-    check((await editor.inputValue()).startsWith('Hello Coach Fixture,') && (await editor.inputValue()).includes('https://gmtm.com/film/703')
-      && !(await editor.inputValue()).includes('I am available to discuss my next step.'), 'Only explicit rebuild changes the existing text into an introduction using the selected clip');
-    await openProfile('Choose profile details');
-    await refreshProfile();
-    check(await editor.count() === 0 && !await page.getByText(answerText).count(), 'Refresh clears the page-local draft and private debrief');
-    await openProfile();
-    await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
-    check(await materialsRegion.getByRole('checkbox').evaluateAll(inputs => inputs.every(input => !input.checked)), 'Refresh also clears all material selections');
-    await page.waitForFunction(url => { const image = [...document.images].find(item => item.src === url); return image?.complete && image.naturalWidth > 0; }, thumbnailURL);
-    const imageRequestsBeforeFailure = thumbnailRequests.length;
-    thumbnailMode = 'failed';
-    // A loaded image may remain in the current document's decoded-image cache
-    // across React remounts. A fresh document tests a genuine failed first load.
-    await page.reload();
-    await athleteHeading.waitFor();
-    await showcase.getByText('Preview unavailable',{exact:true}).waitFor();
-    const readsAfterImageFailure = profileReads();
-    check(await poster.count() === 0 && await useClip.isEnabled()
-      && await showcase.getByRole('heading', {name:'Fixture highlight reel',exact:true}).isVisible(), 'Failed thumbnail keeps an honest title fallback and an available clip action');
-    await page.screenshot({path:path.join(output,'phone-preview-unavailable.png'),fullPage:true});
-    await useClip.click();
-    check(await editor.count() === 0 && await page.locator('[aria-label="Selected footage"]').getByText('Fixture highlight reel',{exact:true}).isVisible(), 'The clip remains usable for an introduction when its image cannot load');
-    await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
-    await showcase.getByText('Preview unavailable',{exact:true}).waitFor();
-    check(profileReads() === readsAfterImageFailure && thumbnailRequests.length === imageRequestsBeforeFailure + 1
-      && thumbnailRequests.at(-1).response === 404 && debriefCalls() === 1, 'Image failure and fallback navigation cause no source retry, alternate image request or extra AI call');
-    thumbnailMode = 'ready';
-    await openProfile();
-    const materialsURL = backOrigin + '/api/athlete/materials';
-    const failedMaterials = route => route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Synthetic materials outage'})});
-    await page.route(materialsURL, failedMaterials);
+    await saveDraft();await page.getByText('Saved. You can come back to this draft.',{exact:true}).waitFor();
+    saved=await readSaved();
+    check(saved.draft.text===revised&&saved.draft.kind==='summary'&&saved.draft.selected_evidence_ids.length===1&&saved.draft.selected_material_ids.length===1,'Explicit Save draft stores the exact edited text and separately selected canonical source references');
+    await home();await page.screenshot({path:path.join(output,'phone-returning-home.png'),fullPage:true});
+    await page.reload();await showcase.waitFor();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();await editor.waitFor();
+    check(await editor.inputValue()===revised,'A real browser document reload restores the exact saved draft from the actual isolated Agent route');
+    const localAfterGoal='My local edited words survive changing the career goal.';
+    await editor.fill(localAfterGoal);await saveGoal('Compare the next opportunities that fit my work.','','Next month');await continueDraft();
+    check(await editor.inputValue()===localAfterGoal&&(await readSaved()).draft.text===revised,'Saving a new career goal preserves local edits and the last separately saved draft');
+    const beforeConflict=await readSaved();
+    const competing=await context.request.patch(workspaceURL,{headers:workspaceHeaders,data:{link_revision:beforeConflict.link_revision,expected_version:beforeConflict.version,changes:{draft:{...beforeConflict.draft,text:'A version saved in another window.'}}}});
+    assert.equal(competing.status(),200);
+    await saveDraft(409);await page.getByText('Your saved work changed in another window.',{exact:true}).waitFor();
+    check(await editor.inputValue()===localAfterGoal&&await page.getByRole('button',{name:'Save draft',exact:true}).isDisabled(),'A real optimistic-version conflict preserves edits and blocks an unreviewed overwrite');
+    await page.getByRole('button',{name:'Review saved version',exact:true}).click();await reviewDialog.waitFor();
+    check(await reviewDialog.getByText('A version saved in another window.',{exact:true}).isVisible(),'Conflict review fetches and displays the actual saved competing version');
+    await reviewDialog.getByRole('button',{name:'Keep my edits',exact:true}).click();
+    check(await editor.inputValue()===localAfterGoal,'Keeping local edits does not adopt the competing saved text');
+    await saveDraft();await page.getByText('Saved. You can come back to this draft.',{exact:true}).waitFor();
+    check((await readSaved()).draft.text===localAfterGoal,'Explicit save after review uses the current version and preserves the intended edited output');
+    const recoverableText='Exact text preserved through a storage failure.';await editor.fill(recoverableText);
+    await command('saved_workspace_failure',{enabled:true});
+    try {await saveDraft(503);await page.getByText('Your save could not be confirmed. Your edits are still here.',{exact:true}).waitFor();check(await editor.inputValue()===recoverableText,'An actual isolated storage failure preserves the current authored text');}
+    finally {await command('saved_workspace_failure',{enabled:false});}
+    await page.getByRole('button',{name:'Review saved version',exact:true}).click();await reviewDialog.waitFor();await reviewDialog.getByRole('button',{name:'Keep my edits',exact:true}).click();await saveDraft();
+    await page.getByText('Saved. You can come back to this draft.',{exact:true}).waitFor();
+    check((await readSaved()).draft.text===recoverableText,'Storage recovery re-reads before an explicit retry and saves the retained text');
+    const evidenceURL=backOrigin+'/api/athlete/evidence',materialsURL=backOrigin+'/api/athlete/materials';
+    const failedEvidence=route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'PRIVATE SYNTHETIC GMTM OUTAGE'})});
+    await page.route(evidenceURL,failedEvidence);
     try {
-      await refreshProfile();
-      await openProfile();
-      await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).waitFor();
-      check(await measurementGroup.getByRole('checkbox').count() === 1, 'Materials failure preserves usable profile evidence in the actual app');
-      await closeProfile();
-      await page.getByRole('button', {name:'Write an introduction',exact:true}).click();
-      check(await page.getByRole('radio', {name:'Introduction',exact:true}).isChecked(), 'Manual writing entry begins an introduction');
-      await page.getByRole('group', {name:'Output format',exact:true}).getByText('Profile summary',{exact:true}).click();
-      await page.getByLabel('What are you working toward?').fill('Keep working while footage is unavailable.');
-      await page.getByRole('button',{name:'Prepare my text',exact:true}).click();
-      check((await editor.inputValue()).includes('Keep working while footage is unavailable.'), 'An independent materials outage does not block the composer');
-    } finally { await page.unroute(materialsURL, failedMaterials); }
-    const draftBeforeRetry = await editor.inputValue();
-    await openProfile('Choose profile details');
-    await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).click();
-    await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
-    await closeProfile();
-    check(await editor.inputValue() === draftBeforeRetry, 'Successful materials retry preserves the existing edited draft');
-    // Exact local GET response overlay only, after the real ASGI-backed journey.
-    // This stresses presentation of the adapter's maximum 20 displayed results.
-    const evidenceURL = backOrigin + '/api/athlete/evidence';
-    const stressEvidence = async route => {
-      if (route.request().method() !== 'GET' || route.request().url() !== evidenceURL) return route.fallback();
-      const response = await route.fetch({ timeout: 10000 });
-      const body = await response.json();
-      assert.equal(body.state, 'ready'); assert(body.evidence.length > 0);
-      const first = body.evidence[0];
-      body.evidence = Array.from({ length: 20 }, (_, index) => ({ ...first, id: String(9001 + index), label: 'Fixture result ' + (index + 1), value: index === 19 ? 6.19 : 4.75 }));
-      body.observations = [];
-      return route.fulfill({ response, json: body });
-    };
-    await page.route(evidenceURL, stressEvidence);
+      await page.reload();await page.getByRole('heading',{name:'Your saved draft is here.',exact:true}).waitFor();
+      const recoveryEditor=page.getByLabel('Your saved text',{exact:true});
+      check(await recoveryEditor.inputValue()===recoverableText&&await page.getByText(/The evidence in this draft has not been refreshed/).isVisible(),'A failed initial GMTM read still restores the saved editor with an honest freshness limitation');
+      await recoveryEditor.fill('This draft remains editable while GMTM is unavailable.');await saveDraft();
+      check((await readSaved()).draft.text==='This draft remains editable while GMTM is unavailable.','Authored-state saving works independently of unavailable GMTM profile data');
+      check(await page.getByText('PRIVATE SYNTHETIC GMTM OUTAGE',{exact:false}).count()===0,'Source recovery does not expose raw failure details');
+    } finally {await page.unroute(evidenceURL,failedEvidence);}
+    await page.getByRole('button',{name:'Try again',exact:true}).click();await showcase.waitFor();await continueDraft();
+    check(await editor.inputValue()==='This draft remains editable while GMTM is unavailable.','Recovered profile evidence leaves the independently saved draft intact');
+    const exactAfterRecovery=await editor.inputValue();
+    await openProfile();await refreshProfile();await continueDraft();
+    check(await editor.inputValue()===exactAfterRecovery&&!await page.getByText(answerText).count(),'Profile refresh preserves authored text while clearing the old model answer');
+    await openProfile();await page.waitForFunction(url=>{const image=[...document.images].find(item=>item.src===url);return image?.complete&&image.naturalWidth>0},thumbnailURL);
+    const imageRequestsBeforeFailure=thumbnailRequests.length;thumbnailMode='failed';
+    await page.reload();await showcase.waitFor();await showcase.getByText('Preview unavailable',{exact:true}).waitFor();
+    const readsAfterImageFailure=profileReads();
+    check(await poster.count()===0&&await showcase.getByRole('heading',{name:'Fixture highlight reel',exact:true}).isVisible()&&await page.getByRole('button',{name:'Continue my draft',exact:true}).isEnabled(),'A failed thumbnail preserves its actual title and the useful draft continuation action');
+    await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,'phone-preview-unavailable.png'),fullPage:true});
+    await continueDraft();check(await editor.inputValue()===exactAfterRecovery,'Image failure does not alter the saved text');await home();
+    check(profileReads()===readsAfterImageFailure&&thumbnailRequests.length===imageRequestsBeforeFailure+1&&thumbnailRequests.at(-1).response===404&&debriefCalls()===1,'Image fallback and navigation trigger no source retry, alternate image request or extra AI call');
+    thumbnailMode='ready';
+    await openProfile();
+    const removeFeatureResponse=page.waitForResponse(r=>r.url()===workspaceURL&&r.request().method()==='PATCH');await profileDialog.getByRole('button',{name:'Remove featured footage',exact:true}).click();assert.equal((await removeFeatureResponse).status(),200);await closeProfile();
+    check((await readSaved()).featured_source_id===null&&await showcase.getByText('Featured',{exact:true}).count()===0,'Explicit removal clears the featured reference without deleting canonical GMTM footage');
+    await page.reload();await showcase.waitFor();
+    check(await showcase.getByRole('heading',{name:'Your footage',exact:true}).isVisible()&&await showcase.getByRole('link',{name:'Open on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/703','Removed featured state stays removed on reload while the original owned footage remains browsable');
+    const featureAgain=page.waitForResponse(r=>r.url()===workspaceURL&&r.request().method()==='PATCH');await showcase.getByRole('button',{name:'Feature this footage',exact:true}).click();assert.equal((await featureAgain).status(),200);
+    const noFootage=async route=>{const response=await route.fetch({timeout:10000}),body=await response.json();body.items=body.items.filter(item=>item.kind!=='footage');return route.fulfill({response,json:body})};
+    await page.route(materialsURL,noFootage);
     try {
-      await openProfile('Choose profile details');
-      await refreshProfile();
-      await openProfile();
-      await profileDialog.getByRole('button', {name:'Show all 20 results',exact:true}).waitFor();
-      check(await measurementGroup.getByRole('checkbox').count() === 3, 'Twenty-result phone profile sheet initially presents three results');
-      await profileDialog.getByRole('button', {name:'Show all 20 results',exact:true}).click();
-      check(await measurementGroup.getByRole('checkbox').count() === 20, 'Phone athlete can expand all twenty results');
-      await measurementGroup.getByRole('checkbox').last().check();
-      await profileDialog.getByRole('button', {name:'Show fewer results',exact:true}).click();
-      check(await measurementGroup.getByRole('checkbox').count() === 3, 'Phone athlete can collapse the result list again');
-      await closeProfile();
-      await page.evaluate(() => window.scrollTo(0,0));
-      const stressUse = await useClip.boundingBox();
-      check(stressUse !== null && stressUse.y >= 0 && stressUse.y + stressUse.height <= 844, 'Twenty-result profile keeps the clip introduction action in the first phone viewport with the sheet closed');
-      check(await measurementGroup.count() === 0, 'Closed twenty-result sheet keeps its controls out of the active view');
-      check(await showcase.locator('[aria-label="Recorded and submitted results"] article').count() === 2, 'Twenty stored results do not expand the overview beyond two labeled results');
-      await page.getByRole('button', {name:'Write an introduction',exact:true}).click();
-      await page.getByRole('group', {name:'Output format',exact:true}).getByText('Profile summary',{exact:true}).click();
-      await page.getByLabel('What are you working toward?').fill('Use my selected result for a next opportunity.');
-      await page.getByRole('button', {name:'Prepare my text',exact:true}).click();
-      const stressDraft = await editor.inputValue();
-      check(stressDraft.includes('Fixture result 20') && stressDraft.includes('6.19 seconds') && !stressDraft.includes('Fixture result 1:'), 'Selected result remains in the actual draft after closing the collapsed profile sheet');
-      await page.screenshot({path:path.join(output,'phone-twenty-results-collapsed.png'),fullPage:true});
-    } finally { await page.unroute(evidenceURL, stressEvidence); }
-    await page.goto(frontOrigin + '/connect');
-    await page.waitForURL(url => url.pathname === '/home/inbox');
-    await athleteHeading.waitFor();
-    await showcase.waitFor();
-    check(true,'Profile connection recovery returns to the athlete content overview');
-    check(!requests.some(request => request.origin === 'backend' && request.path.startsWith('/api/combine/')), 'Profile journey calls no combine status or help endpoint');
-    const deniedHelp = await context.request.post(backOrigin + '/api/combine/help');
-    check(deniedHelp.status() === 404,'Profile ASGI does not expose model-backed combine help');
-    await cookie(false); await page.reload();
-    await page.waitForURL(url => url.pathname === '/sign-in');
-    check(frontOrigins.has(new URL(page.url()).origin), 'Signed-out redirect remains on the exact owned frontend port');
-    await page.getByRole('heading', {name:'Fixture sign in',exact:true}).waitFor();
-    check(await editor.count() === 0 && await showcase.count() === 0 && await poster.count() === 0,'Signed-out profile no longer displays athlete draft or media');
-    check(thumbnailRequests.length > 0 && thumbnailRequests.every(request => request.url === thumbnailURL && request.method === 'GET'
-      && request.resourceType === 'image' && !request.referrerPresent && !request.authorizationPresent && !request.cookiePresent), 'Every thumbnail request uses the single exact intercepted URL without cross-origin identity headers');
-    check(sha(fs.readFileSync(thumbnailFixturePath)) === thumbnailFixtureSha256, 'The synthetic footage image bytes remain unchanged during the journey');
+      await openProfile();await refreshProfile();await showcase.getByText('No shareable footage in this view.',{exact:true}).waitFor();
+      check(await poster.count()===0&&await showcase.getByText('Featured',{exact:true}).count()===0&&(await readSaved()).featured_source_id==='film-703','A saved reference missing from fresh authorized materials never fabricates a featured poster or source claim');
+      await continueDraft();check(await editor.inputValue()===exactAfterRecovery,'Losing a source item does not silently replace authored words');
+    } finally {await page.unroute(materialsURL,noFootage);}
+    const failedMaterials=route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'PRIVATE MATERIAL OUTAGE'})});
+    await page.route(materialsURL,failedMaterials);
+    try {
+      await openProfile();await refreshProfile();await openProfile();await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).waitFor();
+      check(await measurementGroup.getByRole('checkbox').count()===1,'Materials failure preserves the independently returned base profile measurement');await closeProfile();await continueDraft();
+      check(await editor.inputValue()===exactAfterRecovery,'A material-source failure leaves the saved editor intact');
+    } finally {await page.unroute(materialsURL,failedMaterials);}
+    await openProfile();await materialsRegion.getByRole('button',{name:'Retry materials',exact:true}).click();await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();await closeProfile();
+    check(await editor.inputValue()===exactAfterRecovery,'Retrying available materials does not replace the existing authored draft');
+    // Exact local GET overlay only: stress the real rendered adapter limit without changing the Agent store.
+    const stressEvidence=async route=>{if(route.request().method()!=='GET'||route.request().url()!==evidenceURL)return route.fallback();const response=await route.fetch({timeout:10000}),body=await response.json();assert.equal(body.state,'ready');const first=body.evidence[0];body.evidence=Array.from({length:20},(_,i)=>({...first,id:'metric-'+(9001+i),label:'Fixture result '+(i+1),value:i===19?6.19:4.75}));body.observations=[];return route.fulfill({response,json:body})};
+    await page.route(evidenceURL,stressEvidence);
+    try {
+      await openProfile();await refreshProfile();await openProfile();await profileDialog.getByRole('button',{name:'Show all 20 results',exact:true}).waitFor();
+      check(await measurementGroup.getByRole('checkbox').count()===3,'The phone portfolio initially shows three results even at the maximum source size');
+      await profileDialog.getByRole('button',{name:'Show all 20 results',exact:true}).click();check(await measurementGroup.getByRole('checkbox').count()===20,'Every one of the twenty returned results remains reachable');
+      await measurementGroup.getByRole('checkbox').last().check();await profileDialog.getByRole('button',{name:'Show fewer results',exact:true}).click();await closeProfile();
+      check(await showcase.locator('[aria-label="Recorded and submitted results"] article').count()===2&&!await profileDialog.isVisible(),'Collapsing the portfolio keeps the home bounded to two labeled results');
+      await continueDraft();await page.getByRole('button',{name:'Edit details',exact:true}).click();await page.getByRole('group',{name:'Output format',exact:true}).getByText('Profile summary',{exact:true}).click();await page.locator('#profile-draft-details').getByLabel('What are you working toward?',{exact:true}).fill('Use my selected result for a next opportunity.');await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click();
+      const stressDraft=await editor.inputValue();check(stressDraft.includes('Fixture result 20')&&stressDraft.includes('6.19 seconds')&&!stressDraft.includes('Fixture result 1:'),'Explicit rebuild uses the selected twentieth result after the expanded sheet is closed');
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The populated editor retains a usable phone width');await page.screenshot({path:path.join(output,'phone-twenty-results-collapsed.png'),fullPage:true});
+    } finally {await page.unroute(evidenceURL,stressEvidence);}
+    check(debriefCalls()===1,'Saving, reloading, conflicts, retry, featuring and source recovery leave exactly one explicit model request');
+    await page.goto(frontOrigin+'/connect');await page.waitForURL(url=>url.pathname==='/home/inbox');await showcase.waitFor();
+    check(await page.getByRole('button',{name:'Continue my draft',exact:true}).isVisible(),'Connection recovery returns to the private home with its confirmed saved draft');
+    check(!requests.some(r=>r.origin==='backend'&&r.path.startsWith('/api/combine/')),'The career journey calls no combine status or help endpoint');
+    const deniedHelp=await context.request.post(backOrigin+'/api/combine/help');check(deniedHelp.status()===404,'Profile ASGI does not expose model-backed combine help');
+    await cookie(false);await page.reload();await page.waitForURL(url=>url.pathname==='/sign-in');
+    check(frontOrigins.has(new URL(page.url()).origin),'Signed-out redirect remains on the exact owned frontend port');await page.getByRole('heading',{name:'Fixture sign in',exact:true}).waitFor();
+    check(await editor.count()===0&&await showcase.count()===0&&await poster.count()===0&&await page.getByText('Compare the next opportunities that fit my work.',{exact:true}).count()===0,'Sign-out removes the private draft, career goal and source media');
+    check(thumbnailRequests.length>0&&thumbnailRequests.every(r=>r.url===thumbnailURL&&r.method==='GET'&&r.resourceType==='image'&&!r.referrerPresent&&!r.authorizationPresent&&!r.cookiePresent),'Every thumbnail request uses only the exact intercepted fixture URL without cross-origin identity headers');
+    check(sha(fs.readFileSync(thumbnailFixturePath))===thumbnailFixtureSha256,'The synthetic footage image bytes remain unchanged during the journey');
+
   }
-  check(!requests.some(request => request.origin === 'backend' && /workspace|artifacts|badges|search|agent\//.test(request.path)), 'Focused browser never calls legacy workspace/artifact/badge/search/agent APIs');
+  check(!requests.some(request => request.origin === 'backend' && request.path !== '/api/athlete/workspace' && /workspace|artifacts|badges|search|agent\//.test(request.path)), 'Focused browser uses only its owner-scoped saved workspace and never calls legacy workspace/artifact/badge/search/agent APIs');
   check(blockedBrowser.every(request => ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].includes(request.origin)), 'Browser blocks external font assets and attempts no service origin');
   check(browserErrors.length === 0, 'No browser runtime errors');
   for (const [file, hash] of Object.entries(sourceHashes)) assert(sha(fs.readFileSync(path.join(frontend, file))) === hash, 'Source changed during harness: ' + file);
@@ -761,13 +751,13 @@ Promise.race([work, interrupted]).catch(error => { result = { status: 'failed', 
       assert.deepEqual(receipt.forbidden_attempts, {}, 'Backend attempted a forbidden operation');
       assert.equal(receipt.real_provider_attempts, 0, 'Backend attempted a real provider');
       assert.equal(receipt.real_debrief_provider_attempts, 0, 'Debrief attempted a real provider');
-      if (surface === 'profile') assert.equal(receipt.synthetic_debrief_calls, 1, 'Expected exactly one explicit synthetic debrief call');
+      if (surface === 'profile') { assert.equal(receipt.synthetic_debrief_calls, 1, 'Expected exactly one explicit synthetic debrief call'); if(result.status==='passed') assert(receipt.synthetic_workspace_commits>0,'No authored workspace commit was exercised'); }
       assert.equal(receipt.all_synthetic_connections_closed, true, 'Synthetic connections leaked');
       assert.equal(receipt.status, 'stopped', 'Backend did not stop normally');
       if (result.status === 'passed') {
         assert.equal(receipt.synthetic_help_calls, surface === 'combine' ? 1 : 0, 'Unexpected synthetic help calls for surface');
         assert(receipt.fixture_connection_count > 0, 'No synthetic SQL work observed');
-        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence','GET /api/athlete/materials','POST /api/athlete/debrief'];
+        const surfaceRoutes = surface === 'combine' ? ['GET /api/combine/current', 'POST /api/combine/help'] : ['GET /api/athlete/evidence','GET /api/athlete/materials','GET /api/athlete/workspace','PATCH /api/athlete/workspace','POST /api/athlete/debrief'];
         for (const route of [...surfaceRoutes, 'GET /api/profile/by-clerk/{clerk_id}', 'GET /api/claims/{token}', 'POST /api/claims/{token}/redeem']) assert(receipt.requests_by_route_template[route] > 0, 'Actual backend route was not exercised: ' + route);
       }
       assert.deepEqual(backendHashes(), backendSourceHashes, 'Backend source changed during harness');

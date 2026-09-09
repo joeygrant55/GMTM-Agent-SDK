@@ -11,6 +11,7 @@ import json
 import math
 import re
 from urllib.parse import urlsplit
+from source_scope import owner_scope
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -432,9 +433,10 @@ def _film_item(row, path):
     }
 
 
-def _response(state, items=None, limitations=None):
+def _response(state, items=None, limitations=None, scope=None):
     return JSONResponse({"state": state, "items": items or [], "limitations": limitations or [],
-                         "fetched_at": datetime.now(timezone.utc).isoformat()}, headers=PRIVATE_HEADERS)
+                         "fetched_at": datetime.now(timezone.utc).isoformat(),
+                         **({"owner_scope": scope} if scope is not None else {})}, headers=PRIVATE_HEADERS)
 
 
 def _project(submissions, films, athlete_id):
@@ -493,6 +495,7 @@ def current_athlete_materials(request: Request, caller_clerk_id: str = Depends(r
     if request.query_params:
         return JSONResponse({"detail": "This endpoint does not accept query parameters."},
                             status_code=400, headers=PRIVATE_HEADERS)
+    scope = None
     try:
         agent = _get_agent_db()
         try:
@@ -501,6 +504,7 @@ def current_athlete_materials(request: Request, caller_clerk_id: str = Depends(r
             agent.close()
         if athlete_id is None:
             return _response("unlinked", limitations=["Connect your GMTM athlete profile to view its existing material."])
+        scope = owner_scope(caller_clerk_id, athlete_id)
         source = _get_gmtm_db()
         try:
             submissions = _submission_rows(source, athlete_id)
@@ -510,10 +514,10 @@ def current_athlete_materials(request: Request, caller_clerk_id: str = Depends(r
         finally:
             source.close()
         items, limitations = _project(submissions, films, athlete_id)
-        return _response("ready", items, limitations)
+        return _response("ready", items, limitations, scope=scope)
     except HTTPException as error:
         return JSONResponse({"detail": error.detail}, status_code=error.status_code, headers=PRIVATE_HEADERS)
     except Exception:
-        return _response("source_unavailable", limitations=[
+        return _response("source_unavailable", scope=scope, limitations=[
             "Existing material could not be loaded. This does not mean your profile has no submissions or footage. Try again later."
         ])

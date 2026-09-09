@@ -11,13 +11,14 @@ export function useProfileMaterials() {
   const [snapshot, setSnapshot] = useState<ProfileMaterialsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [scopeInvalid, setScopeInvalid] = useState(false)
   const active = useRef<AbortController | null>(null)
   const mounted = useRef(false)
   const reload = useCallback(async () => {
     if (!mounted.current || active.current) return
     const controller = new AbortController()
     active.current = controller
-    setLoading(true); setError(false); setSnapshot(null)
+    setLoading(true); setError(false); setScopeInvalid(false); setSnapshot(null)
     const timer = window.setTimeout(() => {
       controller.abort()
       if (mounted.current && active.current === controller) {
@@ -28,7 +29,10 @@ export function useProfileMaterials() {
     try {
       const response = await apiFetch('/api/athlete/materials', { signal: controller.signal, cache: 'no-store' })
       if (!mounted.current || controller.signal.aborted) return
-      if (!response.ok) throw new Error('Materials unavailable')
+      if (!response.ok) {
+        if ([401, 403, 409].includes(response.status)) setScopeInvalid(true)
+        throw new Error('Materials unavailable')
+      }
       const data = readProfileMaterials(await response.json())
       if (!mounted.current || controller.signal.aborted) return
       setSnapshot(data)
@@ -43,7 +47,7 @@ export function useProfileMaterials() {
     mounted.current = true; void reload()
     return () => { mounted.current = false; active.current?.abort(); active.current = null }
   }, [reload])
-  return { snapshot, loading, error, reload }
+  return { snapshot, loading, error, scopeInvalid, reload }
 }
 
 export default function ProfileMaterialsPanel({ snapshot, loading, error, selected, onToggle, onRetry }: {
