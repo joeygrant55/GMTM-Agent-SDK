@@ -2,6 +2,12 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Actual SPARQ logo — September 9, 2026
+
+Joey supplied the official transparent wordmark. The active athlete header and shared sign-in, sign-up, profile connection and claim screens now use that exact PNG through a shared component, rendered white on charcoal with its original aspect ratio. It replaces the typed header and square image treatment. The exact public asset is allowlisted; no route or backend scope was broadened. See the [logo handoff](../../.sammy/handoffs/2026-09-09-actual-sparq-logo.md) for verification and commit status.
+
+Fresh verification passes 103 policy checks, 118 actual-app checks plus five safety assertions, and the real Next production build/start. All 133 frontend source hashes match both runs; their owned groups/ports closed. Desktop/phone and in-app header/sign-in visual checks passed. The maintained component harness was syntax-checked only. The handoff identifies the refreshed, finite synthetic preview; live account and release acceptance remain separate.
+
 ## Athlete career home implemented locally — September 9, 2026
 
 Joey selected the portfolio-first layout with stronger personal identity from the cinematic layout. A combined visual was shown before implementation. The working home now has source footage, a saved goal, one adaptive next action, explicit draft save/removal and recent saved work. Desktop retains the portfolio/goal split; mobile puts the next action immediately after the hero. See the [design and build contract](athlete-career-home-design-2026-09-09.md), [implementation handoff](../../.sammy/handoffs/2026-09-09-athlete-career-home.md) and [visual QA](../../design-qa.md).

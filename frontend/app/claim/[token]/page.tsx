@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { apiFetch } from '@/app/_lib/api'
+import SparqLogo from '@/components/SparqLogo'
 
 // Public claim landing (spec 2b). Server-fetches GET /api/claims/{token}; that call is
 // what stamps `opened_at`, the funnel's "opened" signal.
@@ -37,7 +38,7 @@ export default async function ClaimPage({ params }: { params: { token: string } 
     return (
       <div className="min-h-screen bg-sparq-charcoal flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
-          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
+          <SparqLogo className="mx-auto mb-6 w-[168px]" />
           <h1 className="text-2xl font-bold text-white mb-3">
             {unavailable ? 'We could not check this invitation' : expired ? 'This link has expired' : 'This link is not valid'}
           </h1>
@@ -62,7 +63,7 @@ export default async function ClaimPage({ params }: { params: { token: string } 
   return (
     <div className="min-h-screen bg-sparq-charcoal flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
-        <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
+        <SparqLogo className="mx-auto mb-6 w-[168px]" />
         <h1 className="text-3xl font-bold text-white mb-3">
           Hey {claim.first_name}, connect your profile for {claim.event_name}.
         </h1>

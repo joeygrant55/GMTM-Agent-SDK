@@ -8,6 +8,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
 import { isRestrictedSurface } from '@/lib/backend-config.cjs'
+import SparqLogo from '@/components/SparqLogo'
 
 type Phase = 'working' | 'done' | 'conflict' | 'expired' | 'invalid' | 'error'
 
@@ -101,7 +102,7 @@ function ClaimRedemption({ clerkId, token, getToken, signInHref }: {
         {busy ? (
           <div className="w-8 h-8 border-2 border-sparq-lime border-t-transparent rounded-full animate-spin mx-auto mb-6" />
         ) : (
-          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
+          <SparqLogo className="mx-auto mb-6 w-[168px]" />
         )}
         <h1 className="text-2xl font-bold text-white mb-3">{title}</h1>
         <p className="text-gray-400 mb-8">{body}</p>

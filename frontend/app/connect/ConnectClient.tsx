@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/app/_lib/api'
 import { ProfileConnectionError, readProfileConnectionResponse } from '@/app/_lib/profileConnection'
+import SparqLogo from '@/components/SparqLogo'
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -194,7 +195,7 @@ function ConnectSession({ clerkId, destination, connectPath }: { clerkId: string
       <div className="max-w-lg w-full">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src="/sparq-logo.jpg" alt="SPARQ" className="w-14 h-14 rounded-2xl mx-auto mb-6" />
+          <SparqLogo className="mx-auto mb-6 w-[168px]" />
           <h1 className="text-3xl font-bold text-white">Connect Your Profile</h1>
           <p className="text-gray-400 mt-2">
             Use your secure combine invitation to link a new profile, or check an existing connection below.

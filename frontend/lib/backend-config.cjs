@@ -40,7 +40,7 @@ function resolveAPIRequest(input, origin, surface, method = 'GET') {
 function candidatePagePolicy(pathname, method) {
   // No generic filename exemption: dynamic legacy paths can have static suffixes.
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) return 'deny'
-  if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/favicon.ico'].includes(pathname)) return 'asset'
+  if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico'].includes(pathname)) return 'asset'
   if (pathname === '/') return 'home'
   if (['/home', '/home/inbox', '/connect'].includes(pathname)) return 'page'
   if (/^\/sign-(?:in|up)(?:\/[A-Za-z0-9_-]+)*$/.test(pathname)) return 'page'

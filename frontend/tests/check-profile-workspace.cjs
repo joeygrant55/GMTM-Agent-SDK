@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -157,7 +157,9 @@ const assets = {
   '/react.js': fs.readFileSync(path.join(deps, 'react/umd/react.development.js'), 'utf8'),
   '/react-dom.js': fs.readFileSync(path.join(deps, 'react-dom/umd/react-dom.development.js'), 'utf8'),
   '/app.js': bundle,
+  '/sparq-wordmark.png': fs.readFileSync(path.join(frontend, 'public/sparq-wordmark.png')),
 };
+sourceHashes['public/sparq-wordmark.png'] = crypto.createHash('sha256').update(assets['/sparq-wordmark.png']).digest('hex');
 const athlete = name => ({ name, sport: 'Flag football', position: 'Receiver', school: 'Fixture School', city: 'Fixture City', state: 'FL', graduation_year: null });
 const result = (id, label, value) => ({ id, label, value, unit: 'seconds', recorded_at: '2026-08-20T00:00:00Z', source_label: 'Recorded GMTM metric', verification: 'unconfirmed', event_name: 'Fixture Adult Combine' });
 const profile = (name='Alex Fixture') => ({ state: 'ready', owner_scope:'b'.repeat(64), athlete: athlete(name), evidence: [result('m1','20-yard dash',3.12),result('m2','Three-cone drill',7.34)], observations: [{ title: 'Two recorded results', detail: 'These records have a source and a date. They do not establish selection.', evidence_ids:['m1','m2'] }], limitations: ['Verification has not been confirmed.'], fetched_at:'2026-09-08T17:00:00Z' });
@@ -197,7 +199,7 @@ const work = (async()=>{
         return route.fulfill({status:200,contentType:'image/png',headers:{'access-control-allow-origin':origin},body:posterMode==='loaded'?posterPNG:Buffer.from('not an image')});
       }
       if(u.origin!==origin||!(u.pathname in assets)){denied.push(u.origin+u.pathname);return route.abort()}
-      return route.fulfill({status:200,contentType:u.pathname.endsWith('.js')?'application/javascript':'text/html',body:assets[u.pathname]});
+      return route.fulfill({status:200,contentType:u.pathname.endsWith('.js')?'application/javascript':u.pathname.endsWith('.png')?'image/png':'text/html',body:assets[u.pathname]});
     });
     const check=(condition,name)=>{assert(condition,name);checks.push(name)};
     const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));

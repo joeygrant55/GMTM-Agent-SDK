@@ -65,3 +65,11 @@ The corrected final preview (`../sparq-career-home-build-2026-09-09/preview-03/r
 The tab is retained as a user deliverable. It is a finite local session with synthetic identity, SQL and model answers; its saves disappear when the supervised fixture closes. The production workspace implementation has not been applied to real accounts. No live athlete, database, model-quality or release acceptance is implied.
 
 No actionable P0/P1/P2 visual finding remains. Follow-up is limited to the P3/live-media/type observations above and separate real-account acceptance.
+
+## Official SPARQ logo correction — September 9, 2026
+
+Joey supplied the actual transparent 3266 × 547 wordmark after accepting the career-home direction. It supersedes the generated concept's typed brand treatment. The original file is copied byte-for-byte; CSS inversion displays its black artwork in white. The shared component preserves its natural aspect ratio with explicit intrinsic dimensions and an accessible SPARQ label. No logo generation, crop, stretch, opaque backing or rounded square treatment remains on the active header and shared account/connection screens.
+
+The original and `../sparq-logo-2026-09-09/app/desktop-career-saved-viewport.png` and `phone-career-saved.png` were opened together for visual comparison. Header sizing is 128 pixels on desktop and 112 on phone. The 903 × 804 in-app preview additionally confirmed clean header spacing and the shared 168-pixel sign-in wordmark. The existing profile composition and primary action remain clear. The synthetic connected account redirects from Connect to Home as expected; this is not live authentication acceptance.
+
+Fresh policy, actual-app and production checks passed, with all 133 frontend source hashes reconciled and owned verification groups/ports closed. Details are in the [logo handoff](.sammy/handoffs/2026-09-09-actual-sparq-logo.md). The finite preview04 was returned to Home and retained for review. No new actionable visual finding; existing live-media/font acceptance limits above remain.

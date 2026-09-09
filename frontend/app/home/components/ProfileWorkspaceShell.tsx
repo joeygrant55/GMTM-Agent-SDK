@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useState } from 'react'
 import { UserButton, useUser } from '@clerk/nextjs'
+import SparqLogo from '@/components/SparqLogo'
 
 export type CareerView = 'home' | 'portfolio' | 'opportunities' | 'progress'
 
@@ -30,7 +31,7 @@ function CareerShell({ children }: { children: React.ReactNode }) {
       <a href="#profile-main" className="sr-only z-50 rounded-lg bg-sparq-lime p-3 text-sparq-charcoal focus:not-sr-only focus:absolute focus:left-4 focus:top-4">Skip to profile</a>
       <header className="border-b border-white/10">
         <div className="mx-auto flex min-h-[72px] max-w-[1424px] flex-wrap items-center justify-between gap-x-5 px-6 lg:px-10">
-          <Link href="/home" onClick={event => { event.preventDefault(); setView('home') }} aria-label="SPARQ home" className="inline-flex min-h-16 items-center text-3xl font-black tracking-[-0.06em] text-sparq-lime focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">SPARQ</Link>
+          <Link href="/home" onClick={event => { event.preventDefault(); setView('home') }} aria-label="SPARQ home" className="inline-flex min-h-16 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime"><SparqLogo className="w-28 sm:w-32" /></Link>
           <nav aria-label="Athlete workspace" className="order-3 flex w-full justify-between gap-2 overflow-x-auto sm:order-none sm:mr-auto sm:ml-10 sm:w-auto sm:justify-start sm:gap-6 lg:ml-24 lg:gap-8">
             {navigationItems.map(item => <button key={item.view} type="button" onClick={() => setView(item.view)} aria-current={view === item.view ? 'page' : undefined} className={`inline-flex min-h-12 shrink-0 items-center border-b-[3px] px-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-sparq-lime sm:min-h-[72px] sm:px-2 sm:text-sm ${view === item.view ? 'border-sparq-lime text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>{item.label}</button>)}
           </nav>
