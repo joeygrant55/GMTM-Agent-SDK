@@ -1,6 +1,12 @@
 # SPARQ Agent current work
 
-Updated: 2026-09-08. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+
+## Athlete career home direction accepted — September 9, 2026
+
+Joey accepted the full private athlete home direction: featured work, a chosen goal, one adaptive next move and genuine continuity. Three visual concepts using fictional sample data are complete; **visual selection is pending and application code is unchanged** from the media checkpoint below. See the [design and proposed first-build contract](athlete-career-home-design-2026-09-09.md) and [handoff](../../.sammy/handoffs/2026-09-09-athlete-career-home-design.md).
+
+**Next:** select/refine the visual, then implement private saved goals, featured references and drafts in the Agent database, with deterministic next-move behavior and honest recent-work/opportunity states. GMTM remains the canonical read-only profile/combine source. Mockup playback, saved states and navigation do not establish implemented capabilities. No application-model allowance, live acceptance or release authority was changed.
 
 ## Athlete media overview implemented — September 8, 2026
 
