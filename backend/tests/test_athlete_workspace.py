@@ -141,6 +141,19 @@ def test_other_account_gets_empty_state_not_previous_draft(store):
     assert api.read_workspace("second_owner")["draft"] is None
 
 
+def test_nullable_legacy_link_cannot_expose_or_modify_previous_saved_work(store):
+    save(draft=DRAFT)
+    previous = deepcopy(store.rows)
+    store.links[0]["clerk_id"] = None
+    store.queries.clear()
+    with pytest.raises(api.WorkspaceError, match="workspace_unlinked"):
+        api.read_workspace(CALLER)
+    with pytest.raises(api.WorkspaceError, match="workspace_unlinked"):
+        save(1, draft=None)
+    assert store.rows == previous
+    assert not any("athlete_workspaces" in query for query, _ in store.queries)
+
+
 def test_version_conflict_preserves_exact_winner_and_leaks_no_draft(client, store):
     first = save(draft=DRAFT)
     response = client.patch("/api/athlete/workspace", json=request(0, draft={**DRAFT, "text": "LOSER"}))

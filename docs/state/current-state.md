@@ -2,6 +2,16 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Saved-work compatibility prepared — September 9, 2026
+
+The complete read-only Railway inventory confirmed MySQL 9.4.0, legacy `PRIMARY(user_id)`, nullable `VARCHAR(100)` Clerk linkage, mutable `updated_at`, no link-row ID, and **no `athlete_workspaces` table**. Metadata estimates three link rows, not an exact row count. The earlier unknown workspace state below is superseded.
+
+Local preparation now accepts that legacy primary key and Clerk shape while retaining exact unique link/athlete IDs and all runtime ownership checks. A dedicated migration and finite Railway launcher are prepared for one additive unique auto-increment `id` and the separate saved-work table. They require reviewed source/schema fingerprints and the exact existing Agent service binding, reject other schema shapes, preserve partial outcomes and never retry DDL automatically. Default invocation is offline. See the [exact upgrade plan](workspace-link-upgrade-plan-2026-09-09.md) and [compatibility handoff](../../.sammy/handoffs/2026-09-09-workspace-link-compatibility.md) for final checks and limits.
+
+**274 focused tests pass; independent source review found no blocker.** The real read-only inventory completed with seven SELECT/nine driver-statement reservations, rollback/close and owned group cleanup. No real DDL rehearsal or athlete save/reload has run. Exact local source and commit provenance are recorded in the handoff's sibling artifact directory.
+
+**Next:** obtain the concrete live Agent schema decision, apply/reinspect the two changes within that scope, then run Joey's actual goal → introduction → explicit save/reload journey. No migration, deployment, real-account save or provider call occurred. The old synthetic preview remains stopped. Deployed mapping-writer provenance remains a release check; the row ID detects delete/recreate, not an in-place A-to-B-to-A owner change.
+
 ## Real-account persistence prerequisite confirmed — September 9, 2026
 
 Current Railway access and the exact SPARQ backend/MySQL service binding work. A bounded metadata-only read confirmed that live `athlete_profiles` has `user_id` and `clerk_id`, but **no `id` column**. The new workspace implementation expects that surrogate identifier. Inspection stopped at this prerequisite; **the presence and compatibility of `athlete_workspaces` remain unknown**. Creating that table alone would not resolve the mismatch.

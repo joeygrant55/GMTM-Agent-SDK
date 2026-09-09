@@ -3,9 +3,24 @@ from copy import deepcopy
 import json
 
 import pytest
+import pymysql
 
 import prepare_athlete_workspace as schema
 from backend.tests.test_prepare_agent_schema import ENV, ACK
+
+
+def test_inventory_queries_format_with_real_pymysql_without_connecting():
+    connection = pymysql.Connection(defer_connect=True)
+    connection.server_status = 0
+    try:
+        with connection.cursor() as cursor:
+            for sql in schema._INVENTORY_SELECTS:
+                rendered = cursor.mogrify(sql, None if sql == schema._INVENTORY_TARGET else ("railway", "athlete_profiles"))
+                assert isinstance(rendered, str)
+                if sql == schema._INVENTORY_COLUMNS:
+                    assert "LIKE '%DEFAULT_GENERATED%'" in rendered
+    finally:
+        connection.close()
 
 
 class FakeDB:
@@ -116,7 +131,7 @@ def test_incompatible_preexisting_schema_is_not_repaired(defect):
     if defect == "missing": db.tables.clear()
     elif defect == "engine": db.tables["athlete_profiles"]["engine"] = "MyISAM"
     elif defect == "identity": db.columns["athlete_profiles"]["user_id"] = ("varchar(255)", "NO")
-    elif defect == "subject": db.columns["athlete_profiles"]["clerk_id"] = ("varchar(255)", "YES")
+    elif defect == "subject": db.columns["athlete_profiles"]["clerk_id"] = ("text", "YES")
     elif defect == "unique_user": db.indexes["athlete_profiles"] = [("PRIMARY", 0, "id"), ("idx_clerk", 1, "clerk_id")]
     elif defect == "clerk_index": db.indexes["athlete_profiles"] = [("PRIMARY", 0, "id"), ("user_id", 0, "user_id")]
     else:
@@ -320,3 +335,103 @@ def test_inspection_identifies_only_known_missing_columns_without_raw_metadata(m
     assert report["select_attempts"] == 3 and report["statement_attempts"] == 5
     assert db.rollbacks == 1 and db.closed and not db.created
     assert "PRIVATE_SCHEMA_CANARY" not in json.dumps(report)
+
+
+class InventoryDB(FakeDB):
+    def __init__(self):
+        super().__init__()
+        self.columns["athlete_profiles"].pop("id")
+        self.columns["athlete_profiles"]["created_at"] = ("timestamp(6)", "NO")
+        self.indexes["athlete_profiles"] = [("PRIMARY", 0, "user_id"), ("idx_clerk", 1, "clerk_id")]
+        self.server_version = "8.4.6"
+
+    def execute(self, sql, params=None):
+        if sql not in schema._INVENTORY_SELECTS:
+            return super().execute(sql, params)
+        self.queries.append((sql, params))
+        if self.fail_at and self.fail_at in sql:
+            raise RuntimeError("SECRET INVENTORY ERROR")
+        if sql == schema._INVENTORY_TARGET:
+            self.rows = [{"database_name": self.database, "server_version": self.server_version}]
+        elif sql == schema._INVENTORY_TABLE:
+            self.rows = [{**self.tables[params[1]], "row_count_estimate": 7, "data_bytes_estimate": 16384,
+                          "index_bytes_estimate": 16384}] if params[1] in self.tables else []
+        elif params[1] not in self.tables:
+            self.rows = []
+        elif sql == schema._INVENTORY_COLUMNS:
+            self.rows = [{"ordinal": i, "name": key, "kind": kind, "nullable": nullable,
+                          "collation": "utf8mb4_0900_ai_ci" if key == "clerk_id" else None,
+                          "default_class": "current_timestamp" if key == "created_at" else "null_or_unspecified",
+                          "extra": "DEFAULT_GENERATED" if key == "created_at" else ""}
+                         for i, (key, (kind, nullable)) in enumerate(self.columns[params[1]].items(), 1)]
+        else:
+            sequence = {}
+            self.rows = []
+            for name, non_unique, column in self.indexes[params[1]]:
+                sequence[name] = sequence.get(name, 0) + 1
+                self.rows.append({"name": name, "non_unique": non_unique, "column_name": column,
+                                  "sequence": sequence[name], "prefix_length": None, "ordering": "A", "kind": "BTREE"})
+
+
+def inventory(db=None):
+    db = db or InventoryDB()
+    return schema.inventory_schema(environ=ENV, connector=lambda **_: db, **ACK)
+
+
+@pytest.mark.parametrize("workspace_exists", [False, True])
+def test_inventory_collects_both_tables_without_requiring_link_id(workspace_exists):
+    db = InventoryDB()
+    if workspace_exists: db.tables["athlete_workspaces"] = {"kind": "BASE TABLE", "engine": "InnoDB"}
+    value = inventory(db)
+    assert value["status"] == "schema_inventory" and value["server_version"] == "8.4.6"
+    assert value["select_attempts"] == 7 and value["statement_attempts"] == 9 and value["ddl_attempts"] == 0
+    assert value["tables"]["athlete_workspaces"]["exists"] is workspace_exists
+    columns = value["tables"]["athlete_profiles"]["columns"]
+    assert [row["name"] for row in columns] == ["user_id", "clerk_id", "created_at"]
+    assert columns[-1]["kind"] == "timestamp(6)" and columns[-1]["default_class"] == "current_timestamp"
+    assert columns[1]["collation"] == "utf8mb4_0900_ai_ci"
+    assert value["tables"]["athlete_profiles"]["row_count_estimate"] == 7
+    assert len(db.queries) == 8 and db.queries[0][0] == "START TRANSACTION READ ONLY"
+    assert all(sql in schema._INVENTORY_SELECTS for sql, _ in db.queries[1:])
+    assert db.rollbacks == 1 and db.closed and not db.created
+
+
+@pytest.mark.parametrize("defect", ["wrong_database", "bad_version", "query", "rollback", "close", "overflow"])
+def test_inventory_failures_are_redacted_and_cleanup_is_attempted(defect):
+    db = InventoryDB()
+    if defect == "wrong_database": db.database = "other"
+    elif defect == "bad_version": db.server_version = "SECRET VERSION"
+    elif defect == "query": db.fail_at = "information_schema.COLUMNS"
+    elif defect == "rollback": db.rollback_error = RuntimeError("SECRET ROLLBACK")
+    elif defect == "close": db.close_error = RuntimeError("SECRET CLOSE")
+    else:
+        db.columns["athlete_profiles"] = {f"c{i}": ("int", "NO") for i in range(65)}
+    with pytest.raises(schema.PreparationError) as caught: inventory(db)
+    assert "SECRET" not in str(caught.value) and db.closed and db.rollbacks == 1
+    assert not db.created and len(db.queries) <= 8
+
+
+@pytest.mark.parametrize("field,bad", [("kind", "enum('SECRET DEFAULT')"), ("default_class", "SECRET DEFAULT"),
+                                      ("extra", "SECRET EXTRA"), ("collation", "bad collation"), ("ordinal", True)])
+def test_inventory_schema_validator_rejects_unbounded_column_values(field, bad):
+    value = inventory()
+    value["tables"]["athlete_profiles"]["columns"][0][field] = bad
+    with pytest.raises(schema.PreparationError): schema.validate_inventory_response(value)
+
+
+@pytest.mark.parametrize("field,bad", [("prefix_length", -1), ("sequence", 2), ("non_unique", True),
+                                      ("ordering", "SECRET"), ("column_name", "missing_column")])
+def test_inventory_schema_validator_rejects_invalid_index_evidence(field, bad):
+    value = inventory()
+    value["tables"]["athlete_profiles"]["indexes"][0][field] = bad
+    with pytest.raises(schema.PreparationError): schema.validate_inventory_response(value)
+
+
+def test_inventory_cli_and_exclusive_modes(capsys):
+    db = InventoryDB()
+    args = ["--inventory", "--expected-host", ACK["expected_host"], "--expected-database", ACK["expected_database"]]
+    assert schema.main(args, environ=ENV, connector=lambda **_: db) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "schema_inventory"
+    for second in ("--check", "--apply"):
+        with pytest.raises(SystemExit) as caught: schema.main(["--inventory", second], environ={})
+        assert caught.value.code == 2

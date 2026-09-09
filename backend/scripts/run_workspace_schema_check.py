@@ -2,6 +2,7 @@
 
 Default fetches Railway configuration into memory only. --check invokes a fixed
 metadata reader in a finite isolated child. No DDL, athlete rows or GMTM access.
+--inventory independently describes both exact tables, even if incompatible.
 This wrapper cannot apply schema; all output is metadata or redacted status.
 """
 from __future__ import annotations
@@ -21,6 +22,8 @@ else:
     import run_owner_profile_read as owner
 
 BACKEND = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND))
+from prepare_athlete_workspace import validate_inventory_response
 SOURCE_PATHS = (Path(__file__), Path(owner.__file__), BACKEND / "prepare_athlete_workspace.py", BACKEND / "prepare_agent_schema.py")
 CHILD = """import runpy,sys
 sys.path.insert(0,sys.argv.pop(1))
@@ -74,17 +77,17 @@ def checked_response(value):
     return value
 
 
-def failure_summary(value):
+def failure_summary(value, *, inventory=False):
     # Never retain arbitrary child keys, driver messages or exception class names.
     if not isinstance(value, dict) or value.get("status") != "failed":
         raise owner.Blocked("schema_check_response_invalid")
     stages = {"validation", "connect", "start_readonly_transaction", "target_preflight", "athlete_link_preflight",
-              "existing_workspace_preflight", "rollback", "close"}
+              "existing_workspace_preflight", "metadata_inventory", "rollback", "close"}
     reasons = {"connected_database_mismatch", "existing_athlete_link_table_required", "existing_athlete_link_columns_required",
                "existing_athlete_link_identity_types_required", "existing_athlete_link_subject_type_required",
                "existing_athlete_link_indexes_required", "transactional_base_table_required", "column_metadata_invalid",
                "index_metadata_invalid", "workspace_table_missing_after_apply", "workspace_column_contract_mismatch",
-               "workspace_index_contract_mismatch", "inspection_metadata_query_required", "inspection_query_budget_exhausted"}
+               "workspace_index_contract_mismatch", "inspection_metadata_query_required", "inspection_query_budget_exhausted", "inventory_metadata_invalid"}
     safe = {"stage": value["stage"] if value.get("stage") in stages else "unknown"}
     if value.get("reason") in reasons:
         safe["reason"] = value["reason"]
@@ -94,7 +97,7 @@ def failure_summary(value):
     for key in ("connected", "read_only_transaction_started", "rollback_completed", "connection_closed"):
         if type(value.get(key)) is bool:
             safe[key] = value[key]
-    for key, cap in (("select_attempts", 8), ("statement_attempts", 10), ("ddl_attempts", 0)):
+    for key, cap in (("select_attempts", 7 if inventory else 8), ("statement_attempts", 9 if inventory else 10), ("ddl_attempts", 0)):
         if type(value.get(key)) is int and 0 <= value[key] <= cap:
             safe[key] = value[key]
     error = value.get("error")
@@ -103,19 +106,29 @@ def failure_summary(value):
     return safe
 
 
+def checked_inventory_response(value):
+    try:
+        return validate_inventory_response(value)
+    except Exception:
+        raise owner.Blocked("schema_inventory_response_invalid") from None
+
+
 def main(argv=None, *, runner=owner.run_bounded):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--check", action="store_true")
+    modes.add_argument("--inventory", action="store_true")
     parser.add_argument("--source-digest")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
+    execute = args.check or args.inventory
     directory = None
     report = {"status": "incomplete", "schema_applied": False, "athlete_rows_read": False,
               "gmtm_accessed": False, "database_child_started": False}
     try:
         hashes, digest = source_state()
         report.update(source_hashes_before=hashes, source_digest=digest)
-        if args.check:
+        if execute:
             if not args.output or args.source_digest != digest:
                 raise owner.Blocked("reviewed_source_and_exclusive_output_required")
             directory = owner.output_path(str(args.output), must_be_new=True)
@@ -127,7 +140,7 @@ def main(argv=None, *, runner=owner.run_bounded):
             "project": owner.PROJECT, "environment": owner.ENVIRONMENT, "service": owner.MYSQL_SERVICE,
             "host": config["AGENT_DB_HOST"], "port": int(config["AGENT_DB_PORT"]), "database": config["AGENT_DB_NAME"],
         })
-        if not args.check:
+        if not execute:
             print(json.dumps({"status": "configuration_preflight", "agent_service_binding_verified": True,
                               "source_digest": digest, "database_child_started": False}))
             return 0
@@ -135,17 +148,17 @@ def main(argv=None, *, runner=owner.run_bounded):
             raise owner.Blocked("source_changed_before_check")
         report["database_child_started"] = True
         command = [str(owner.PYTHON), "-I", "-B", "-c", CHILD, str(BACKEND),
-                   str(BACKEND / "prepare_athlete_workspace.py"), "--check",
+                   str(BACKEND / "prepare_athlete_workspace.py"), "--inventory" if args.inventory else "--check",
                    "--expected-host", config["AGENT_DB_HOST"], "--expected-database", config["AGENT_DB_NAME"]]
         result = runner(command, {**config, "PATH": owner.SAFE_PATH, "PYTHONDONTWRITEBYTECODE": "1"}, owner.READER_TIMEOUT)
         report["child"] = {"returncode": result.returncode, "timed_out": result.timed_out,
                            "group_dead": result.group_dead, "output_limit": result.output_limit,
                            "interrupted": result.interrupted, "cleanup_signals": list(result.cleanup_signals)}
         if result.returncode == 1 and result.group_dead and not (result.timed_out or result.interrupted or result.output_limit):
-            report["schema_failure"] = failure_summary(json.loads(result.stdout))
+            report["schema_failure"] = failure_summary(json.loads(result.stdout), inventory=args.inventory)
             raise owner.Blocked("metadata_check_failed")
         owner.require_process(result)
-        report["schema"] = checked_response(json.loads(result.stdout))
+        report["inventory" if args.inventory else "schema"] = (checked_inventory_response if args.inventory else checked_response)(json.loads(result.stdout))
         report["source_hashes_after"] = source_state()[0]
         if report["source_hashes_after"] != hashes:
             raise owner.Blocked("source_changed_during_check")
@@ -156,7 +169,7 @@ def main(argv=None, *, runner=owner.run_bounded):
         report.update(status="blocked", reason="schema_check_failed")
     if directory is not None:
         write_receipt(directory, report)
-    print(json.dumps({key: report[key] for key in ("status", "reason", "schema", "schema_failure", "schema_applied", "athlete_rows_read", "gmtm_accessed") if key in report}))
+    print(json.dumps({key: report[key] for key in ("status", "reason", "schema", "inventory", "schema_failure", "schema_applied", "athlete_rows_read", "gmtm_accessed") if key in report}))
     return 0 if report["status"] == "observed" else 1
 
 
