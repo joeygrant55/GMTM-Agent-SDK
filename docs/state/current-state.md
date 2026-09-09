@@ -2,6 +2,16 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Real-profile acceptance runner ready; sign-in pending — September 9, 2026
+
+Implemented the finite owner-2 acceptance wrapper and offline-first launcher. The current profile app runs behind actual Clerk signature/issuer/authorized-party checks, exact route/SQL ownership boundaries, a private initial-workspace receipt and at most three save attempts. Claims, debrief/providers and GMTM writes are excluded. The parent owns both local process groups and a 15-minute deadline; configuration is retrieved only for explicit launch and stays in memory.
+
+**42 focused tests pass.** The extracted 176-file snapshot imported 24 actual source modules with matching hashes and served the profile health route offline without database connections. Independent source review found no remaining launch blocker. This evidence covers the test setup, not real-profile usefulness or persistence.
+
+At 18:25 UTC, the fresh preview at `http://localhost:52872/home/inbox` had reached the email-code sign-in for Joey. The private ledger still recorded zero personal requests, database connections and save attempts. The session expires at approximately 18:34:27 UTC; the parent writes its final cleanup/source receipt automatically. **Do not treat the preview as authenticated, acceptance as passed or cleanup as confirmed.** Joey has been asked to complete the sign-in in the visible tab; the existing signed-in browser session can then be used for the actual goal → optional featured footage → edited draft → save/reload test. See the [handoff](../../.sammy/handoffs/2026-09-09-owner-profile-acceptance.md).
+
+The earlier migration is complete and must not be repeated. No application deployment, GMTM write, provider request, outreach or real athlete workspace save occurred as of this checkpoint.
+
 ## Live Agent workspace upgrade completed — September 9, 2026
 
 Joey explicitly approved the two reviewed Railway changes. The unchanged `e3ce497` migration completed `add_link_id` and `create_athlete_workspaces`, with exact metadata observations before/between/after, no uncertain outcome and a closed DDL connection. The final schema fingerprint is `c6534e3586416b6262c0220c63b31c9e89b5fae0ddf319ca212883a027a07aaa`. Existing legacy columns, primary key and Clerk index matched the expected preserved structure.
