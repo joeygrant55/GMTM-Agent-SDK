@@ -1,7 +1,7 @@
 """Bounded owner-only submission results and footage; no media/provider access.
 
 Submission answers are self-reports, not verified tests. Source visibility and
-processing flags constrain draft inclusion; they never establish selection or
+link flags constrain draft inclusion; they never establish selection or
 successful playback. Importing this module performs no I/O or schema work.
 """
 from datetime import datetime, timezone
@@ -9,6 +9,8 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import math
+import re
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -24,6 +26,12 @@ MAX_PAYLOAD_BYTES = 65536
 MAX_QUESTIONS = 40
 MAX_RESULTS = 20
 MAX_FILMS = 10
+MAX_THUMBNAIL_BYTES = 2048
+_RASTER_FILE = r"[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?i:jpg|jpeg|png|webp)"
+_CDN_THUMBNAIL_PATH = re.compile(
+    rf"(?:videos/film/thumbnails/|videos/events/([1-9][0-9]{{0,15}})/edited-thumbnails/"
+    rf"|users/([1-9][0-9]{{0,15}})/uploads/){_RASTER_FILE}\Z")
+_YOUTUBE_THUMBNAIL_PATH = re.compile(rf"vi/[A-Za-z0-9_-]{{11}}/{_RASTER_FILE}\Z")
 _TIME_FORMATS = {"ss.00", "time (ss.00)", "mm:ss", "time (mm:ss)",
                  "mm:ss.00", "time (mm:ss.00)", "hh:mm:ss", "time (hh:mm:ss)", "time"}
 
@@ -97,6 +105,8 @@ def _submitted_film_rows(db, athlete_id):
             SELECT s.user_id AS user_id, f.film_id, f.user_id AS direct_user_id, f.career_id,
                    f.task_submission_id, f.title, f.published_on, f.visibility,
                    f.approved, f.suggested_by, f.suggested_by_org_id,
+                   f.service,
+                   CASE WHEN OCTET_LENGTH(f.thumbnail_uri) <= 2048 THEN f.thumbnail_uri ELSE NULL END AS thumbnail_uri,
                    f.processed, f.dead_link, f.challenge_id, f.event_id AS film_event_id,
                    f.in_person_event_id, c.career_id AS joined_career_id,
                    c.user_id AS career_user_id, c.visibility AS career_visibility,
@@ -128,6 +138,8 @@ def _direct_film_rows(db, athlete_id):
             SELECT f.user_id AS user_id, f.film_id, f.user_id AS direct_user_id, f.career_id,
                    f.task_submission_id, f.title, f.published_on, f.visibility,
                    f.approved, f.suggested_by, f.suggested_by_org_id,
+                   f.service,
+                   CASE WHEN OCTET_LENGTH(f.thumbnail_uri) <= 2048 THEN f.thumbnail_uri ELSE NULL END AS thumbnail_uri,
                    f.processed, f.dead_link, f.challenge_id, f.event_id AS film_event_id,
                    f.in_person_event_id, c.career_id AS joined_career_id,
                    c.user_id AS career_user_id, c.visibility AS career_visibility,
@@ -155,6 +167,8 @@ def _career_film_rows(db, athlete_id):
             SELECT c.user_id AS user_id, f.film_id, f.user_id AS direct_user_id, f.career_id,
                    f.task_submission_id, f.title, f.published_on, f.visibility,
                    f.approved, f.suggested_by, f.suggested_by_org_id,
+                   f.service,
+                   CASE WHEN OCTET_LENGTH(f.thumbnail_uri) <= 2048 THEN f.thumbnail_uri ELSE NULL END AS thumbnail_uri,
                    f.processed, f.dead_link, f.challenge_id, f.event_id AS film_event_id,
                    f.in_person_event_id, c.career_id AS joined_career_id,
                    c.user_id AS career_user_id, c.visibility AS career_visibility,
@@ -290,7 +304,7 @@ def _submission_items(row):
             "kind": "submitted_result", "title": title,
             "source_label": _source_label(row, "Your GMTM submission"),
             "recorded_at": _recorded_at(row.get("created_on")), "date_label": "Submitted",
-            "result": numeric, "source_url": None,
+            "result": numeric, "source_url": None, "thumbnail_url": None,
             "can_include": (_flag(row.get("visibility"), 2)
                             and _flag(row.get("task_visibility"), 2) and _public_event(row)),
             "availability": "recorded",
@@ -352,6 +366,41 @@ def _absent_event(value):
     return value is None or _flag(value, 0)
 
 
+def _thumbnail_url(row):
+    """Normalize a stored raster key without fetching or inventing a thumbnail.
+
+    Source families: GMTM generate-thumbnail/index.js:66 and legacy
+    thumbnail-extractor/index.js:57-58; film.resolver.js:438-458,1547 supplies
+    service hosts and YouTube's vi path. The eleven-character video ID and
+    raster/ASCII restrictions deliberately omit other legacy formats.
+    """
+    service, raw = row.get("service"), row.get("thumbnail_uri")
+    if (service not in ("gmtm", "s3", "youtube", "youtu") or not isinstance(raw, str)
+            or not 0 < len(raw) <= MAX_THUMBNAIL_BYTES or not raw.isascii()
+            or any(ord(char) < 33 or ord(char) > 126 for char in raw)
+            or any(char in raw for char in ("?", "#", "%", "\\"))):
+        return None
+    host = "cdn.gmtm.com" if service in ("gmtm", "s3") else "i.ytimg.com"
+    if raw.startswith("https://"):
+        try:
+            parsed = urlsplit(raw)
+        except ValueError:
+            return None
+        if parsed.netloc != host or parsed.query or parsed.fragment:
+            return None
+        path = parsed.path[1:] if parsed.path.startswith("/") else ""
+    else:
+        path = raw
+    matcher = _CDN_THUMBNAIL_PATH if host == "cdn.gmtm.com" else _YOUTUBE_THUMBNAIL_PATH
+    match = matcher.fullmatch(path)
+    if not match:
+        return None
+    if host == "cdn.gmtm.com" and any(value is not None and not _positive(int(value)) for value in match.groups()):
+        return None
+    canonical = f"https://{host}/{path}"
+    return canonical if len(canonical) <= MAX_THUMBNAIL_BYTES else None
+
+
 def _film_item(row, path):
     event_id = row.get("event_id") if path == "submission" else row.get("film_event_id")
     event_known = _absent_event(event_id) or _same_id(event_id, row.get("joined_event_id"))
@@ -367,6 +416,7 @@ def _film_item(row, path):
     # same film as processed=1. This flag cannot establish an active processing
     # state or playback. Inclusion adds only a public canonical page reference.
     link_not_marked_dead = row.get("dead_link") is None or _flag(row.get("dead_link"), 0)
+    can_include = bool(public and link_not_marked_dead)
     return {
         "id": f"film-{row['film_id']}", "kind": "footage",
         "title": _text(row.get("title"), 160) or "Untitled footage",
@@ -376,7 +426,8 @@ def _film_item(row, path):
         "recorded_at": _recorded_at(row.get("published_on")), "date_label": "Published",
         "result": None,
         "source_url": None if unavailable else f"https://gmtm.com/film/{row['film_id']}",
-        "can_include": bool(public and link_not_marked_dead),
+        "can_include": can_include,
+        "thumbnail_url": _thumbnail_url(row) if can_include else None,
         "availability": "unavailable" if unavailable else "unchecked",
     }
 

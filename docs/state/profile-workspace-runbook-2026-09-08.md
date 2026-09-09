@@ -26,7 +26,9 @@ Synthetic provider responses verify the flow, not AI quality. The separate [qual
 
 ## Athlete behavior
 
-The page loads only the signed-in athlete's evidence and leads with one question. View profile opens a native modal sheet with identity, measurements and materials. The first three records in each collection appear there; the athlete can expand the complete bounded lists and select eligible records. Done or Escape returns to the initiating control. Opening or closing the sheet changes no sources, selections, drafts or model requests. See the [focused design contract](profile-focus-design-contract-2026-09-08.md).
+The page loads only the signed-in athlete's evidence and now leads with their eligible footage, its stored thumbnail when available, and up to two recorded/submitted results. Previous and Next browse the returned public clips in source order; this is not a ranking. Use this in an introduction selects that clip's canonical GMTM page reference and opens preparation without generating or replacing text. Missing/broken previews retain the title and useful action. See the [media design contract](profile-media-design-contract-2026-09-08.md), which supersedes the question-only initial screen.
+
+Ask about my profile opens the focused question surface. Back to your content restores the overview; the answer and draft stay page-local and intact. View profile opens a native modal sheet with identity, measurements and materials. The first three records in each collection appear there; the athlete can expand the complete bounded lists and select eligible records. Done or Escape returns to the initiating control. Opening or closing the sheet changes no sources, selections, drafts or model requests.
 
 Write an introduction, or a local answer action, opens the composer. A goal is required; an introduction also requires the athlete to name an actual recipient. Choose profile details reopens the same sheet. After preparing text, its inputs collapse behind Edit details and copying becomes the primary action. Back to SPARQ and Return to your draft preserve both answer and edited text.
 
@@ -34,7 +36,9 @@ Preparing text is deterministic and local. It uses the selected facts, source/da
 
 An empty measurement response means this adapter returned no supported numeric results. It does not mean the GMTM profile has no film, historical submissions or other evidence. A failed source read has a distinct recovery state and produces no fallback facts.
 
-The [materials extension](athlete-materials-contract-2026-09-08.md) independently loads up to 20 numeric submission results and 10 footage records. It uses original submission snapshots, explicit units and source dates, and generates existing GMTM film-page links without requesting media. Three records appear initially inside the profile sheet, with expansion. The same sheet fills the phone viewport. Only eligible, selected public-source material enters text; restricted owner material stays view-only. A materials failure has its own retry and leaves profile measurements and the existing draft usable. Main refresh/account changes clear both collections and page-local output.
+The [materials extension](athlete-materials-contract-2026-09-08.md) independently loads up to 20 numeric submission results and 10 footage records. It uses original submission snapshots, explicit units and source dates. Three records appear initially inside the profile sheet, with expansion. The same sheet fills the phone viewport. Only eligible, selected public-source material enters text; restricted owner material stays view-only. A materials failure has its own retry and leaves profile measurements and the existing draft usable. Main refresh/account changes clear both collections and page-local output.
+
+The visual extension reads stored service/thumbnail fields within the same three bounded owner film queries. Only eligible public footage can receive a thumbnail URL. Exact known GMTM CDN/YouTube HTTPS namespaces and raster filenames are validated on both server and client. The browser requests the admitted image without referrer or cross-origin credentials; the backend never fetches or proxies it. Errors show Preview unavailable without another host, model call or source retry. Existing payloads without thumbnail_url remain compatible. Film contents, titles and thumbnail/page URLs remain excluded from the server-assembled AI context. Current real-CDN availability/CORS and owner thumbnail coverage still need a separate signed-in acceptance run.
 
 ## Verification and remaining acceptance
 
@@ -45,7 +49,7 @@ SPARQ_BUILD_SURFACE=profile ... node frontend/tests/check-production-build.cjs
 SPARQ_CANDIDATE_SURFACE=profile ... node frontend/tests/check-candidate-app.cjs
 ```
 
-Each requires a new absolute artifact directory outside this checkout. The production check uses real Clerk packages and synthetic configuration. The complete app fixture uses actual Next/ASGI with synthetic Clerk identity and SQL records. Run one heavy job at a time, under a finite external supervisor; inspect the receipt's owned-process and port cleanup before starting another.
+Each requires a new absolute artifact directory outside this checkout. The production check uses real Clerk packages and synthetic configuration. The complete app fixture uses actual Next/ASGI with synthetic Clerk identity and SQL records. Its sample sports image is AI-generated test media, served only through exact local browser interception; it is never a product fallback or evidence of a real athlete's footage. Run one heavy job at a time, under a finite external supervisor; inspect the receipt's owned-process and port cleanup before starting another.
 
 The separate [owner-profile read contract](owner-profile-read-contract-2026-09-08.md) covers the designated user-2 projection with exact source/configuration review. It is not a browser/JWT acceptance test. Never place its private output in Git or send it to a provider under an earlier combine-help allowance.
 

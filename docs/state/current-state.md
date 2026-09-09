@@ -2,6 +2,16 @@
 
 Updated: 2026-09-08. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Athlete media overview implemented — September 8, 2026
+
+Joey's latest correction now leads the private profile surface with the athlete's existing footage: a stored poster and title, up to two recorded/submitted results, and **Use this in an introduction**. Athletes can browse eligible clips, select a public film reference for their text, and open questions or deeper records on demand. Missing/broken previews retain a truthful fallback and usable action. Edited drafts survive view changes; selecting the same clip again does not falsely mark them changed. This supersedes the question-only starting screen below. See the [media handoff](../../.sammy/handoffs/2026-09-08-athlete-media-overview.md), [contract](profile-media-design-contract-2026-09-08.md), [source map](athlete-materials-source-map-2026-09-08.md) and [runbook](profile-workspace-runbook-2026-09-08.md).
+
+The three existing bounded film queries now also read stored service/thumbnail fields. Exact known CDN/YouTube paths are normalized only after owner/public-source checks. The browser omits referrers and cross-origin credentials; no thumbnail metadata enters AI context or draft text. Older payloads without thumbnails remain compatible. No media is fetched by the server.
+
+**998 backend tests, 262 component checks, 100 complete-app checks plus five safety assertions, and the final actual Next production compile/typecheck/start pass.** Final source hashes match; all owned test groups and ports closed. Independent source and desktop/phone visual reviews found no blocker. The initial phone capture contains 89 visible words and places the introduction action within the first viewport. Test identity/data/answers are synthetic; the sports photo is an AI-generated local test fixture, never a product fallback.
+
+**Next:** review the media-first interaction, then establish current signed-in thumbnail availability and athlete usefulness. Live CDN/CORS behavior and real-model quality remain unverified; the separate eight-case synthetic application-model allowance remains unanswered. Debrief defaults to disabled. Persistence, durable quotas and profile release packaging remain open. No live DB read, application-provider call, infrastructure change, outreach, push or deployment occurred. This is a local checkpoint; its exact hash is recorded outside Git in sibling `sparq-media-design-2026-09-08/commit-receipt.json`.
+
 ## Focused athlete interface implemented — September 8, 2026
 
 Joey's design correction is now implemented: one question surface, an on-demand profile sheet, a concise answer state with one primary action, and a dedicated editor. Intent starters fill an editable question without calling AI. Opening records and switching between answer/editor preserve selections and edits. Unknowns remain visible; supporting explanations and sources open on demand. The initial 390x844 phone capture has **53 visible words**, with Ask SPARQ fully in its first viewport. See the [design handoff](../../.sammy/handoffs/2026-09-08-focused-athlete-design.md), [contract](profile-focus-design-contract-2026-09-08.md) and updated [runbook](profile-workspace-runbook-2026-09-08.md).

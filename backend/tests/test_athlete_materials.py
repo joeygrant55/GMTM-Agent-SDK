@@ -107,7 +107,10 @@ class Cursor:
                 self.rows = self.db.career_films
             else:
                 raise AssertionError("Unexpected query")
-            for forbidden in ("f.*", "video_uri", "thumbnail", "description", "f.uri", "event_answers"):
+            if "FROM film f" in sql:
+                assert "f.service," in sql
+                assert "CASE WHEN OCTET_LENGTH(f.thumbnail_uri) <= 2048 THEN f.thumbnail_uri ELSE NULL END AS thumbnail_uri" in sql
+            for forbidden in ("f.*", "video_uri", "description", "f.uri", "event_answers"):
                 assert forbidden not in sql
         if self.db.fail_at == len(self.db.queries):
             raise RuntimeError("SECRET SQL HOST PASSWORD EMAIL")
@@ -176,6 +179,7 @@ def test_actual_route_owner_projection_and_query_budget(source):
     assert result["recorded_at"] == "2026-09-01T12:00:00"
     assert result["date_label"] == "Submitted" and result["source_url"] is None
     assert all(item["can_include"] for item in body["items"])
+    assert all(item["thumbnail_url"] is None for item in body["items"])
     for item in body["items"][1:]:
         assert item["source_url"] == f"https://gmtm.com/film/{item['id'][5:]}"
         assert item["availability"] == "unchecked" and item["result"] is None
@@ -512,3 +516,94 @@ def test_explicit_dead_link_flag_always_overrides_legacy_processing_value(source
     item = next(item for item in fetch(source)[1]["items"] if item["id"] == "film-301")
     assert item["availability"] == "unavailable" and item["source_url"] is None
     assert item["can_include"] is False
+
+
+def test_stored_thumbnail_paths_normalize_only_supported_services_and_families():
+    cases = [
+        ("gmtm", "videos/film/thumbnails/fixture-frame.png", "https://cdn.gmtm.com/videos/film/thumbnails/fixture-frame.png"),
+        ("s3", "videos/events/1318/edited-thumbnails/sprint-1.jpg", "https://cdn.gmtm.com/videos/events/1318/edited-thumbnails/sprint-1.jpg"),
+        ("gmtm", "users/7201/uploads/game.clip.jpeg", "https://cdn.gmtm.com/users/7201/uploads/game.clip.jpeg"),
+        ("gmtm", "https://cdn.gmtm.com/videos/film/thumbnails/fixture.webp", "https://cdn.gmtm.com/videos/film/thumbnails/fixture.webp"),
+        ("youtube", "vi/Abc_def-123/default.jpg", "https://i.ytimg.com/vi/Abc_def-123/default.jpg"),
+        ("youtu", "https://i.ytimg.com/vi/Abc_def-123/hqdefault.jpg", "https://i.ytimg.com/vi/Abc_def-123/hqdefault.jpg"),
+    ]
+    for service, stored, expected in cases:
+        item = api._film_item(film(service=service, thumbnail_uri=stored, processed=0), "direct")
+        assert item["thumbnail_url"] == expected
+        assert item["source_url"] == "https://gmtm.com/film/301"
+        assert item["can_include"] is True and item["availability"] == "unchecked"
+
+
+def test_thumbnail_normalizer_rejects_unsafe_or_unsupported_values_without_losing_film_metadata(source):
+    safe = "videos/film/thumbnails/frame.png"
+    hostile = [
+        None, "", 123, {}, safe + "?", safe + "#", safe + "?token=secret", safe + "#fragment",
+        "https://cdn.gmtm.com/" + safe + "?", "https://cdn.gmtm.com/" + safe + "#",
+        "https://cdn.gmtm.com.attacker.invalid/" + safe,
+        "https://attacker.invalid/cdn.gmtm.com/" + safe,
+        "https://user:pass@cdn.gmtm.com/" + safe, "https://cdn.gmtm.com:443/" + safe,
+        "http://cdn.gmtm.com/" + safe, "//cdn.gmtm.com/" + safe, "/" + safe,
+        "https://i.ytimg.com/vi/Abc_def-123/default.jpg", "data:image/png;base64,AAAA", "javascript:alert(1)",
+        safe.replace("frame", "../frame"), safe.replace("frame", "./frame"), safe.replace("frame", "%2e%2e/frame"),
+        safe.replace("thumbnails/", "thumbnails%2fframe/"), safe.replace("thumbnails/", "thumbnails%5cframe/"),
+        safe.replace("/frame", "//frame"), safe.replace("/", "\\"), " " + safe, safe + "\n", safe + "\x00",
+        safe.replace("frame", "fráme"), safe.replace("frame", "frame name"), safe.replace(".png", ".svg"),
+        safe.replace(".png", ".mp4"), safe.replace(".png", ".gif"), "arbitrary/folder/frame.png",
+        "videos/events/0/edited-thumbnails/frame.png", "videos/events/001/edited-thumbnails/frame.png",
+        "users/9007199254740992/uploads/frame.png", "users/abc/uploads/frame.png",
+        "videos/film/thumbnails/" + "a" * 2048 + ".png",
+    ]
+    for value in hostile:
+        item = api._film_item(film(service="gmtm", thumbnail_uri=value), "direct")
+        assert item["thumbnail_url"] is None, value
+        assert item["can_include"] is True and item["source_url"] == "https://gmtm.com/film/301"
+    for service in (None, "", "hudl", "yt", "vimeo", "GMTM", "gmtm "):
+        assert api._thumbnail_url({"service": service, "thumbnail_uri": safe}) is None
+    for value in ("vi/short/default.jpg", "vi/Abc_def-123/../default.jpg", "vi_webp/Abc_def-123/default.webp", safe):
+        assert api._thumbnail_url({"service": "youtube", "thumbnail_uri": value}) is None
+    source[2].direct_films[0].update(service="gmtm", thumbnail_uri="https://attacker.invalid/private.png")
+    body = fetch(source)[1]
+    assert body["state"] == "ready" and len(body["items"]) == 4
+    assert all(item["thumbnail_url"] is None for item in body["items"])
+
+
+@pytest.mark.parametrize("restriction", ["private", "network", "event", "in_person", "dead", "unknown_dead", "boolean_dead"])
+def test_thumbnail_is_absent_for_restricted_or_unknown_public_scope(source, restriction):
+    row = source[2].direct_films[0]
+    row.update(service="gmtm", thumbnail_uri="videos/film/thumbnails/private-marker.png")
+    if restriction == "private": row["visibility"] = 1
+    elif restriction in ("network", "event"):
+        row.update(film_event_id=1318, **event())
+        row["event_networks_only" if restriction == "network" else "event_visibility"] = 1
+    elif restriction == "in_person": row["in_person_event_id"] = 51
+    elif restriction == "dead": row["dead_link"] = 1
+    elif restriction == "unknown_dead": row["dead_link"] = "0"
+    else: row["dead_link"] = False
+    item = next(item for item in fetch(source)[1]["items"] if item["id"] == "film-301")
+    assert item["thumbnail_url"] is None and item["can_include"] is False
+    assert "private-marker" not in json.dumps(item)
+
+
+def test_thumbnail_projection_keeps_existing_owner_checks_and_all_three_query_paths(source):
+    db = source[2]
+    for row in [*db.submitted_films, *db.direct_films, *db.career_films]:
+        row.update(service="gmtm", thumbnail_uri="videos/film/thumbnails/owned-frame.png", processed=None, dead_link=None)
+    items = fetch(source)[1]["items"]
+    assert items[0]["thumbnail_url"] is None
+    assert all(item["thumbnail_url"] == "https://cdn.gmtm.com/videos/film/thumbnails/owned-frame.png" for item in items[1:])
+    assert len(db.queries) == 4
+
+
+def test_safe_thumbnail_does_not_bypass_foreign_owner_reference(source):
+    source[2].direct_films[0].update(service="gmtm", thumbnail_uri="videos/film/thumbnails/owned-frame.png", career_user_id=999)
+    failed = fetch(source)[1]
+    assert failed["state"] == "source_unavailable" and failed["items"] == []
+    assert "owned-frame" not in json.dumps(failed)
+
+
+def test_thumbnail_bounds_apply_to_stored_key_and_normalized_url():
+    prefix = "videos/film/thumbnails/"
+    at_limit = prefix + "a" * (2048 - len("https://cdn.gmtm.com/") - len(prefix) - len(".png")) + ".png"
+    result = api._thumbnail_url({"service": "gmtm", "thumbnail_uri": at_limit})
+    assert result is not None and len(result) == 2048
+    assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": at_limit.replace(".png", "a.png")}) is None

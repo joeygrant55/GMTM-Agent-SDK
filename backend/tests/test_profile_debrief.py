@@ -38,7 +38,8 @@ class ProfileDB(Database):
         super().__init__()
         self.submissions = [submission()]
         self.submitted_films = self.career_films = []
-        self.direct_films = [film(title="PUBLIC_TITLE_KEEP_LOCAL", processed=0),
+        self.direct_films = [film(title="PUBLIC_TITLE_KEEP_LOCAL", processed=0, service="gmtm",
+                                 thumbnail_uri="videos/film/thumbnails/PREVIEW_MUST_STAY_LOCAL.png"),
                              film(film_id=302, title="PRIVATE_FILM_OMIT", visibility=1)]
 
     def cursor(self):
@@ -106,7 +107,7 @@ def test_real_source_helpers_minimize_context_and_resolve_only_used_references(s
     assert len(calls) == 1
     sent = calls[0]["system"]
     for secret in (CALLER, str(ATHLETE), "Alex", "Sample High School", "Tampa", "PRIVATE_EMAIL", "PUBLIC_TITLE_KEEP_LOCAL",
-                   "PRIVATE_FILM_OMIT", "Sample combine", "https://", "GMTM profile measurement"):
+                   "PRIVATE_FILM_OMIT", "PREVIEW_MUST_STAY_LOCAL", "thumbnail", "Sample combine", "https://", "GMTM profile measurement"):
         assert secret not in sent
     assert "4.1234567 seconds" in sent and "4.12346 seconds" not in sent
     assert "Assertions in the athlete's question are unverified" in sent

@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -120,6 +120,11 @@ window.__mount=(strict=false)=>{const app=React.createElement(load('app/home/com
 window.__unmount=()=>root.render(null);
 `;
 const origin = 'http://127.0.0.1:4321';
+// One inert fixture poster only; this is not a general remote-image allowance.
+const posterURL = 'https://cdn.gmtm.com/videos/film/thumbnails/fixture-12.png';
+const posterPNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+const posterRequests = [];
+let posterMode = 'loaded';
 const assets = {
   '/': '<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div><script src="/react.js"></script><script src="/react-dom.js"></script><script src="/app.js"></script></body></html>',
   '/react.js': fs.readFileSync(path.join(deps, 'react/umd/react.development.js'), 'utf8'),
@@ -156,7 +161,17 @@ const work = (async()=>{
     const context=await browser.newContext({serviceWorkers:'block',timezoneId:'America/Los_Angeles'});
     context.setDefaultTimeout(10000); context.setDefaultNavigationTimeout(10000);
     const page=await context.newPage();page.on('pageerror',e=>errors.push(String(e)));
-    await context.route('**/*',route=>{const u=new URL(route.request().url());if(u.origin!==origin||!(u.pathname in assets)){denied.push(u.origin+u.pathname);return route.abort()}return route.fulfill({status:200,contentType:u.pathname.endsWith('.js')?'application/javascript':'text/html',body:assets[u.pathname]})});
+    await context.addCookies([{name:'synthetic-poster-cookie',value:'fixture-only',url:'https://cdn.gmtm.com',secure:true,sameSite:'None'}]);
+    await context.route('**/*',async route=>{
+      const request=route.request(),u=new URL(request.url());
+      if(request.url()===posterURL&&request.resourceType()==='image'){
+        const headers=await request.allHeaders();
+        posterRequests.push({url:request.url(),mode:posterMode,hasCookie:!!headers.cookie,hasAuthorization:!!headers.authorization,hasReferrer:!!headers.referer});
+        return route.fulfill({status:200,contentType:'image/png',headers:{'access-control-allow-origin':origin},body:posterMode==='loaded'?posterPNG:Buffer.from('not an image')});
+      }
+      if(u.origin!==origin||!(u.pathname in assets)){denied.push(u.origin+u.pathname);return route.abort()}
+      return route.fulfill({status:200,contentType:u.pathname.endsWith('.js')?'application/javascript':'text/html',body:assets[u.pathname]});
+    });
     const check=(condition,name)=>{assert(condition,name);checks.push(name)};
     const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const reset=async(mode={body:profile()},identity={isLoaded:true,user:{id:'athlete-a'}},strict=false,materialMode={body:materials()})=>{await page.goto(origin);await page.evaluate(({mode,identity,strict,materialMode})=>{window.__mode=mode;window.__materialsMode=materialMode;window.__setIdentity(identity);window.__mount(strict)},{mode,identity,strict,materialMode});await settle()};
@@ -164,9 +179,10 @@ const work = (async()=>{
     const openProfile=async()=>{if(await profileDialog().isVisible())return;const choose=page.getByRole('button',{name:/^Choose profile details/});await (await choose.isVisible()?choose:page.getByRole('button',{name:'View profile',exact:true})).click();await profileDialog().waitFor()};
     const closeProfile=async()=>{if(await profileDialog().isVisible())await profileDialog().getByRole('button',{name:'Done',exact:true}).click()};
     const openComposer=async()=>{await closeProfile();if(await page.getByRole('button',{name:'Back to SPARQ',exact:true}).isVisible())return;const resume=page.getByRole('button',{name:'Return to your draft',exact:true});await (await resume.isVisible()?resume:page.getByRole('button',{name:'Write an introduction',exact:true})).click();if(await page.getByLabel('Your text — ready to edit',{exact:true}).count()===0)await page.getByLabel('Profile summary',{exact:true}).check()};
-    const openGuidance=async()=>{await closeProfile();const back=page.getByRole('button',{name:'Back to SPARQ',exact:true});if(await back.isVisible())await back.click()};
+    const openGuidance=async()=>{await closeProfile();const back=page.getByRole('button',{name:'Back to SPARQ',exact:true});if(await back.isVisible())await back.click();const ask=page.getByRole('button',{name:'Ask about my profile',exact:true});if(await ask.isVisible())await ask.click()};
+    const openOverview=async()=>{await closeProfile();const back=page.getByRole('button',{name:'Back to SPARQ',exact:true});if(await back.isVisible())await back.click();const content=page.getByRole('button',{name:'Back to your content',exact:true});if(await content.isVisible())await content.click()};
     const editDetails=async()=>{await openComposer();const edit=page.getByRole('button',{name:'Edit details',exact:true});if(await edit.isVisible())await edit.click()};
-    const ready=async(open=true)=>{await page.getByRole('button',{name:'View profile',exact:true}).waitFor();if(open)await openComposer()};
+    const ready=async(open=true)=>{await page.getByRole('button',{name:'View profile',exact:true}).waitFor();if(open)await openComposer();else await openGuidance()};
     const selectEvidence=async(index=0,checked=true)=>{await openProfile();await page.getByRole('checkbox').nth(index).setChecked(checked);await closeProfile()};
     const refreshProfile=async()=>{await openProfile();await profileDialog().getByRole('button',{name:'Refresh profile',exact:true}).click()};
     const setMode=async mode=>page.evaluate(mode=>{window.__mode=mode},mode);
@@ -180,8 +196,154 @@ const work = (async()=>{
     const prepare=async()=>{await editDetails();await page.getByRole('button',{name:'Prepare my text',exact:true}).click()};
     const rebuild=async()=>{await editDetails();await page.getByRole('button',{name:'Rebuild from these details',exact:true}).click()};
 
+    const overview=()=>page.getByRole('region',{name:'Your athlete content',exact:true});
+    const overviewReady=async()=>{await page.getByRole('button',{name:'View profile',exact:true}).waitFor();await overview().waitFor()};
+    const publicPoster=materialFilm('film-12',{thumbnail_url:posterURL});
+    const secondClip=materialFilm('film-13',{title:'Second clip',source_url:'https://gmtm.com/film/13'});
+    const privateClip=materialFilm('film-14',{title:'Private poster record',source_url:'https://gmtm.com/film/14',can_include:false,thumbnail_url:null});
+    const deadClip=materialFilm('film-15',{title:'Unavailable poster record',source_url:null,can_include:false,availability:'unavailable',thumbnail_url:null});
+    const overviewMaterials=materials([materialResult(),publicPoster,secondClip,privateClip,deadClip]);
+    await reset({body:profile()},undefined,false,{body:overviewMaterials});await overviewReady();
+    await page.waitForFunction(src=>Array.from(document.images).some(img=>img.src===src&&img.complete&&img.naturalWidth===1),posterURL);
+    const poster=overview().getByRole('img',{name:'Thumbnail for Game footage',exact:true});
+    check(await overview().getByRole('heading',{name:'Your work. Your next move.',exact:true}).isVisible()
+      &&await overview().getByRole('heading',{name:'Game footage',exact:true}).isVisible()
+      &&!await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&!await goal().isVisible(),
+      'The default overview shows the athlete’s own returned clip while guidance and writing stay on demand');
+    check(await poster.count()===1&&await poster.getAttribute('src')===posterURL
+      &&await poster.getAttribute('crossorigin')==='anonymous'&&await poster.getAttribute('referrerpolicy')==='no-referrer'
+      &&posterRequests.at(-1).hasCookie===false&&posterRequests.at(-1).hasAuthorization===false&&posterRequests.at(-1).hasReferrer===false,
+      'The exact intercepted fixture image loads without cross-origin credentials or a referrer');
+    const resultOverview=overview().locator('[aria-label="Recorded and submitted results"]');
+    check(await resultOverview.getByRole('article').count()===2&&await resultOverview.getByText('Recorded',{exact:true}).isVisible()
+      &&await resultOverview.getByText('Submitted',{exact:true}).isVisible()&&await resultOverview.getByRole('heading',{name:'20-yard dash',exact:true}).isVisible()
+      &&await resultOverview.getByRole('heading',{name:'Submitted sprint',exact:true}).isVisible(),
+      'The overview keeps one recorded and one submitted result with their distinct source types');
+    check(await overview().getByRole('button',{name:'Previous clip',exact:true}).isDisabled()
+      &&!await overview().getByRole('button',{name:'Next clip',exact:true}).isDisabled()
+      &&await overview().getByText('Private poster record',{exact:true}).count()===0&&await overview().getByText('Unavailable poster record',{exact:true}).count()===0,
+      'Clip browsing includes eligible public footage only and starts at the first endpoint');
+    check(await page.locator('video,audio,iframe,source').count()===0&&await page.evaluate(()=>window.__requests.length===2),
+      'The poster adds no playback, embedding, extra source read or automatic debrief');
+    await openGuidance();await page.getByLabel('What would you like to figure out?',{exact:true}).fill('Help me use the content I already have.');
+    await openOverview();await settle();
+    check(await overview().isVisible()&&await page.getByRole('button',{name:'Ask about my profile',exact:true}).evaluate(el=>document.activeElement===el)
+      &&await page.evaluate(()=>window.__requests.length===2), 'Returning from guidance restores the content trigger without a source or model call');
+    await overview().getByRole('button',{name:'Next clip',exact:true}).click();
+    check(await overview().getByRole('heading',{name:'Second clip',exact:true}).isVisible()
+      &&await overview().getByRole('button',{name:'Next clip',exact:true}).isDisabled()&&await overview().getByRole('img').count()===0
+      &&await overview().getByText('Preview unavailable',{exact:true}).isVisible(),
+      'A clip without a stored poster keeps its real title and action with an honest fallback');
+    check(await overview().getByRole('link',{name:'View on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/13',
+      'Changing clips changes only the canonical existing GMTM page destination');
+    await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).click();
+    check(await page.getByLabel('Introduction',{exact:true}).isChecked()&&await page.locator('[aria-label="Selected footage"]').getByText('Second clip',{exact:true}).isVisible()
+      &&await draft().count()===0&&await page.evaluate(()=>window.__requests.length===2),
+      'Using a clip selects its public reference and opens an introduction without generating or sending text');
+    await goal().fill('Introduce my existing game footage.');await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');await page.getByRole('button',{name:'Prepare my text',exact:true}).click();
+    const clipDraft=await draft().inputValue();
+    check((clipDraft.match(/https:\/\/gmtm\.com\/film\/13/g)||[]).length===1&&!clipDraft.includes(posterURL)&&!clipDraft.includes('thumbnail_url'),
+      'A factual introduction includes the selected canonical page once and never includes its thumbnail URL');
+    await openOverview();await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).click();
+    check(await draft().inputValue()===clipDraft&&await page.getByText(/Your selections changed/).count()===0
+      &&await page.evaluate(()=>window.__requests.length===2),
+      'Using the already selected clip in the same introduction preserves the exact draft without a false stale warning or another request');
+    await draft().fill('KEEP MY EXACT CLIP DRAFT');await openOverview();
+    check(await overview().getByRole('heading',{name:'Second clip',exact:true}).isVisible(), 'Returning from the composer preserves the chosen clip');
+    await overview().getByRole('button',{name:'Previous clip',exact:true}).click();
+    await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).click();
+    check(await draft().inputValue()==='KEEP MY EXACT CLIP DRAFT'&&await page.getByText(/Your selections changed/).isVisible(),
+      'Using another clip preserves exact existing edits until explicit rebuild');
+    await openProfile();
+    check(await profileDialog().getByRole('checkbox',{name:/Include Game footage/}).isChecked()
+      &&await profileDialog().getByRole('checkbox',{name:/Include Second clip/}).isChecked(), 'Hero selection and profile-sheet selection use the same footage state');
+    await rebuild();
+    const rebuiltClips=await draft().inputValue();
+    check((rebuiltClips.match(/https:\/\/gmtm\.com\/film\/12/g)||[]).length===1&&(rebuiltClips.match(/https:\/\/gmtm\.com\/film\/13/g)||[]).length===1&&!rebuiltClips.includes(posterURL),
+      'Only explicit rebuild incorporates both selected public clips without duplicated links or poster metadata');
+    await openGuidance();
+    check(await page.getByLabel('What would you like to figure out?',{exact:true}).inputValue()==='Help me use the content I already have.'
+      &&await page.evaluate(()=>window.__requests.length===2), 'Overview and composer navigation retain the athlete’s typed question without asking AI');
+    await setMode({body:profile('Blair Fixture')});await setMaterialsMode({body:materials([materialFilm('film-21',{title:'New athlete clip',source_url:'https://gmtm.com/film/21'})])});await switchAccount('athlete-b');await overviewReady();
+    check(await overview().getByRole('heading',{name:'New athlete clip',exact:true}).isVisible()&&await page.getByText('Game footage',{exact:true}).count()===0
+      &&await page.getByText('Second clip',{exact:true}).count()===0&&await draft().count()===0&&await page.locator(`img[src="${posterURL}"]`).count()===0,
+      'Account change removes the old clip, poster, selection context and draft before displaying new content');
+    await openProfile();check(await profileDialog().getByRole('checkbox').evaluateAll(inputs=>inputs.every(input=>!input.checked)), 'The new account starts with no inherited evidence or footage selection');
+
+    const imageAttemptsBeforeFailure=posterRequests.length;posterMode='broken';
+    await reset({body:profile()},undefined,false,{body:materials([publicPoster])});await overviewReady();await overview().getByText('Preview unavailable',{exact:true}).waitFor();
+    check(await overview().getByRole('img').count()===0&&await overview().getByRole('heading',{name:'Game footage',exact:true}).isVisible()
+      &&await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).isEnabled()
+      &&await overview().getByRole('link',{name:'View on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/film/12'
+      &&posterRequests.length===imageAttemptsBeforeFailure+1&&await page.evaluate(()=>window.__requests.length===2),
+      'A failed image becomes an honest fallback without replacing the clip, retrying media, refreshing sources or calling AI');
+    posterMode='loaded';
+    const imageAttemptsBeforeRestricted=posterRequests.length;
+    await reset({body:profile()},undefined,false,{body:materials([privateClip,deadClip])});await overviewReady();
+    check(await overview().getByText('No shareable footage in this view.',{exact:true}).isVisible()
+      &&await overview().getByRole('img').count()===0&&await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).count()===0
+      &&posterRequests.length===imageAttemptsBeforeRestricted, 'Private and unavailable footage never produce a showcase poster or public-use action');
+    await reset({body:profile()},undefined,false,{pending:true});await overviewReady();
+    check(await overview().getByText('Loading your footage…',{exact:true}).isVisible()
+      &&await overview().locator('[aria-label="Recorded and submitted results"]').getByRole('article').count()===2
+      &&await overview().getByRole('button',{name:'Use this in an introduction',exact:true}).count()===0,
+      'Pending footage keeps the returned base measurements visible without inventing a clip action');
+    await releaseMaterials({body:materials([secondClip])});
+    check(await overview().getByRole('heading',{name:'Second clip',exact:true}).isVisible()&&await page.evaluate(()=>window.__requests.length===2),
+      'A completed materials read fills the existing overview without another source request');
+    await reset({body:profile()},undefined,false,{status:503,body:{detail:'PRIVATE FIXTURE DETAIL'}});await overviewReady();
+    check(await overview().getByText('Your footage could not be loaded.',{exact:true}).isVisible()
+      &&await overview().locator('[aria-label="Recorded and submitted results"]').getByRole('article').count()===2
+      &&await overview().getByRole('img').count()===0&&await page.getByText('PRIVATE FIXTURE DETAIL',{exact:false}).count()===0,
+      'A source failure is distinct from an empty profile and preserves usable base measurements without private error text');
+
+    const acceptedPosters=[posterURL,
+      'https://cdn.gmtm.com/videos/events/42/edited-thumbnails/fixture.jpg',
+      'https://cdn.gmtm.com/users/2/uploads/fixture.jpeg',
+      'https://cdn.gmtm.com/users/9007199254740991/uploads/fixture.webp',
+      'https://i.ytimg.com/vi/A1b2C3d4E_-/default.jpg'];
+    const rejectedPosters=[
+      ['control',posterURL+'\n'],['whitespace',' '+posterURL],['traversal','https://cdn.gmtm.com/videos/film/thumbnails/../fixture.png'],
+      ['encoded path','https://cdn.gmtm.com/videos/film/thumbnails/%66ixture.png'],['userinfo','https://fixture@cdn.gmtm.com/videos/film/thumbnails/fixture.png'],
+      ['query',posterURL+'?token=private'],['fragment',posterURL+'#private'],['other origin','https://cdn.gmtm.com.example.invalid/videos/film/thumbnails/fixture.png'],
+      ['HTTP',posterURL.replace('https:','http:')],['port','https://cdn.gmtm.com:443/videos/film/thumbnails/fixture.png'],
+      ['SVG',posterURL.replace('.png','.svg')],['non-image',posterURL.replace('.png','.mp4')],
+      ['uppercase origin',posterURL.replace('cdn.gmtm.com','CDN.GMTM.COM')],['uppercase namespace',posterURL.replace('/videos/','/Videos/')],
+      ['unknown namespace','https://cdn.gmtm.com/private/fixture.png'],['nested file','https://cdn.gmtm.com/videos/film/thumbnails/nested/fixture.png'],
+      ['backslash',posterURL.replace('/fixture-12.png','\\fixture-12.png')],['empty filename','https://cdn.gmtm.com/videos/film/thumbnails/.png'],
+      ['zero namespace ID','https://cdn.gmtm.com/users/0/uploads/fixture.png'],['unsafe namespace ID','https://cdn.gmtm.com/users/9007199254740992/uploads/fixture.png'],
+      ['noncanonical namespace ID','https://cdn.gmtm.com/videos/events/01/edited-thumbnails/fixture.png'],
+      ['short YouTube ID','https://i.ytimg.com/vi/short/default.jpg'],['long YouTube ID','https://i.ytimg.com/vi/A1b2C3d4E_-X/default.jpg'],
+      ['other YouTube path','https://i.ytimg.com/vi_webp/A1b2C3d4E_-/default.webp'],['nonstring',42],['empty string','']];
+    const posterParsing=await page.evaluate(({accepted,rejected,film,snapshot})=>{
+      const helpers=window.__materialHelpers;
+      const acceptedResults=accepted.map(url=>helpers.isProfileThumbnail(url)
+        &&helpers.readProfileMaterials({...snapshot,items:[{...film,thumbnail_url:url}]}).items[0].thumbnail_url===url);
+      const rejectedResults=rejected.map(([,url])=>{
+        let rejectsPayload=false;try{helpers.readProfileMaterials({...snapshot,items:[{...film,thumbnail_url:url}]})}catch{rejectsPayload=true}
+        return !helpers.isProfileThumbnail(url)&&rejectsPayload;
+      });
+      return {acceptedResults,rejectedResults,
+        omitted:helpers.readProfileMaterials({...snapshot,items:[film]}).items[0].thumbnail_url===null,
+        explicitNull:helpers.readProfileMaterials({...snapshot,items:[{...film,thumbnail_url:null}]}).items[0].thumbnail_url===null};
+    },{accepted:acceptedPosters,rejected:rejectedPosters,film:materialFilm(),snapshot:materials()});
+    for(const [index,accepted] of posterParsing.acceptedResults.entries())check(accepted,'Stored poster parser accepts only a documented canonical image path: '+index);
+    for(const [index,rejected] of posterParsing.rejectedResults.entries())check(rejected,'Stored poster parser and complete material parser reject '+rejectedPosters[index][0]);
+    check(posterParsing.omitted&&posterParsing.explicitNull,'Older material responses without thumbnail_url remain valid and normalize to null');
+    const restrictedPosters=[{...publicPoster,can_include:false},{...publicPoster,can_include:false,availability:'unavailable',source_url:null},
+      {...publicPoster,can_include:false,availability:'processing'},{...publicPoster,can_include:false,source_url:null},materialResult('r',{thumbnail_url:posterURL})];
+    const restrictedParsing=await page.evaluate(({items,snapshot})=>items.map(item=>{
+      try{window.__materialHelpers.readProfileMaterials({...snapshot,items:[item]});return false}catch{return true}
+    }),{items:restrictedPosters,snapshot:materials()});
+    for(const [index,rejected] of restrictedParsing.entries())check(rejected,'A safe image URL cannot grant publicity, availability or film scope to a restricted record: '+index);
+    check(await page.evaluate(({film,poster})=>{
+      const helpers=window.__materialHelpers,plain=helpers.materialFacts([film]);
+      const intro=helpers.addMaterialsToDraft('Hello Coach Fixture,\n\nThank you for your time.\nAlex Fixture',[film],'introduction');
+      return [plain,intro].every(text=>(text.match(/https:\/\/gmtm\.com\/film\/12/g)||[]).length===1&&!text.includes(poster)&&!text.includes('thumbnail_url'));
+    },{film:publicPoster,poster:posterURL}),'Both factual text builders keep only the canonical film page, never poster metadata');
+
     await reset();await ready(false);
-    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&await page.getByRole('checkbox').count()===0&&!await goal().isVisible()&&!await profileDialog().isVisible(),'The first screen prioritizes guidance and hides evidence cards, materials and composer');
+    check(await page.getByRole('heading',{name:'What’s your next move?',exact:true}).isVisible()&&await page.getByRole('checkbox').count()===0&&!await goal().isVisible()&&!await profileDialog().isVisible(),'The explicit guidance view hides evidence cards, materials and composer');
     check(await page.getByRole('heading',{name:'Alex Fixture',exact:true}).isVisible(),'Ready profile displays the current source identity');
     await openProfile();
     check(await profileDialog().isVisible()&&await profileDialog().getByRole('heading',{name:'Your profile',exact:true}).isVisible(),'View profile opens the athlete evidence in its named native dialog');
@@ -436,6 +598,11 @@ const work = (async()=>{
 
     await reset();await ready(false);await fillQuestion(debriefQuestion);await setDebriefMode({body:debrief()});await ask();await answerReady();await settle();
     check(!await question().isVisible()&&await page.getByRole('button',{name:'Edit question',exact:true}).isVisible()&&await answerRegion().getByRole('heading',{name:debriefQuestion,exact:true}).evaluate(el=>document.activeElement===el),'A completed answer replaces the form and receives focus on the athlete’s actual question');
+    await openOverview();
+    check(await overview().isVisible()&&!await answerRegion().isVisible()&&await page.evaluate(()=>window.__requests.length===3),'Returning to content keeps the completed answer mounted privately without another request');
+    await openGuidance();
+    check(await answerRegion().getByText(debrief().answer.text,{exact:false}).isVisible()&&!await question().isVisible()
+      &&await page.evaluate(()=>window.__requests.length===3),'Opening guidance again restores the same completed answer instead of asking the model again');
     await editQuestion();await settle();
     check(await question().isVisible()&&(await question().inputValue())===debriefQuestion&&await question().evaluate(el=>document.activeElement===el)&&await page.evaluate(()=>window.__requests.length===3),'Edit question restores its exact text and focuses the input without requesting another answer');
     await setDebriefMode({pending:true});await ask();await settle();await page.evaluate(()=>window.__advance(60000));await settle();await page.getByRole('alert').waitFor();
@@ -504,13 +671,14 @@ const work = (async()=>{
     const literal='<img src=x onerror="window.__debriefXss=1">';await reset();await ready(false);await fillQuestion(literal);const escapedAnswer={...debrief(literal),answer:{text:literal,refs:['f1']}};await setDebriefMode({body:escapedAnswer});await ask();await answerRegion().waitFor();
     check(await answerRegion().getByText(literal,{exact:false}).count()>0&&await page.locator('img,iframe,video,audio').count()===0&&await page.evaluate(()=>window.__debriefXss===undefined&&localStorage.length===0&&sessionStorage.length===0),'Athlete and generated text render escaped without media, code execution or persisted conversation');
     check(await page.evaluate(body=>{body.references[0].href='https://gmtm.com/film/12';try{return !!window.__debriefHelpers.readAthleteDebrief(body,{track:'profile',question:body.question})}catch{return false}},debrief('Can I use https://gmtm.com in my introduction?')),'A question may contain a URL as quoted input; evidence links still require the canonical server-resolved film form');
-    check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside the intercepted fixture assets');
+    check(posterRequests.length>0&&posterRequests.every(request=>request.url===posterURL&&!request.hasCookie&&!request.hasAuthorization&&!request.hasReferrer),'Every native poster request uses the one exact inert fixture without cookies, authorization or referrer');
+    check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside intercepted fixture assets and the one inert poster');
     const changed=files.filter(file=>crypto.createHash('sha256').update(fs.readFileSync(path.join(frontend,file))).digest('hex')!==sourceHashes[file]);check(changed.length===0,'Captured application inputs remain unchanged during the check');
     assertRunning();
-    outcome = {status:'pass',checks,sourceHashes,errors,denied,scope:'Actual source components and API transport with synthetic Clerk/evidence/clipboard and intercepted browser networking; no full Next, CSS/layout, real identity/data/provider or system clipboard acceptance.'};
+    outcome = {status:'pass',checks,sourceHashes,errors,denied,posterRequests,scope:'Actual source components and API transport with synthetic Clerk/evidence/clipboard and one inert 1-pixel poster served by exact URL interception; no full Next, CSS/layout, real media, identity/data/provider or system clipboard acceptance.'};
 })();
 Promise.race([work, interrupted]).catch(error => {
-  outcome = {status:'failed',checks,error:String(error.stack||error),sourceHashes,errors,denied}; process.exitCode = 1;
+  outcome = {status:'failed',checks,error:String(error.stack||error),sourceHashes,errors,denied,posterRequests}; process.exitCode = 1;
 }).finally(async () => {
   stopping = true; clearTimeout(runTimer); lifecycle('cleanup_started', { interruption });
   cleanupTimer = setTimeout(() => emergencyStop('Cleanup exceeded its 60-second budget'), cleanupBudgetMs);

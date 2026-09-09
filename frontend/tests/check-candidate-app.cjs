@@ -22,6 +22,10 @@ const deps = '/Users/joey/GMTM-Agent-SDK/frontend/node_modules';
 const python = '/Users/joey/GMTM-Agent-SDK/backend/.venv/bin/python';
 const playwrightPath = '/Users/joey/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright';
 const sourceHashes = {}, checks = [], browserErrors = [], requests = [], blockedBrowser = [];
+const thumbnailURL = 'https://cdn.gmtm.com/videos/film/thumbnails/fixture-703.png';
+const thumbnailFixturePath = path.join(frontend, 'tests/fixtures/synthetic-footage.png');
+const thumbnailRequests = [];
+let thumbnailBytes = null, thumbnailFixtureSha256 = null, thumbnailMode = 'ready';
 const httpChecks = [];
 let backendSourceHashes = {};
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
@@ -270,6 +274,13 @@ async function portClosed(port) {
 
 const work = (async () => {
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
+  if (surface === 'profile') {
+    thumbnailBytes = fs.readFileSync(thumbnailFixturePath);
+    thumbnailFixtureSha256 = sha(thumbnailBytes);
+    writeJSON('media-fixture.json', { path: 'frontend/tests/fixtures/synthetic-footage.png', sha256: thumbnailFixtureSha256,
+      bytes: thumbnailBytes.length, interceptedURL: thumbnailURL, synthetic: true,
+      scope: 'Local sample image only; the exact CDN image request is fulfilled in the browser route without external networking. Sec-Fetch-Mode may be absent on intercepted requests.' });
+  }
   lifecycle('run_started', { surface, checkout: repo, runBudgetMs, cleanupBudgetMs, supervisor: 'In-process timeout and POSIX signal cleanup; external SIGKILL or a blocked JS event loop cannot be intercepted.' });
   runTimer = setTimeout(() => interrupt('Candidate verification exceeded its 8-minute run budget'), runBudgetMs);
   assert(process.platform !== 'win32', 'Owned process-group cleanup requires POSIX');
@@ -327,12 +338,22 @@ const work = (async () => {
   assertRunning();
   const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'], viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
   context.setDefaultTimeout(20000); context.setDefaultNavigationTimeout(30000);
-  await context.route('**/*', route => {
-    const url = new URL(route.request().url());
+  await context.route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url());
+    if (surface === 'profile' && request.url() === thumbnailURL && request.method() === 'GET' && request.resourceType() === 'image') {
+      const headers = await request.allHeaders();
+      thumbnailRequests.push({ url: thumbnailURL, method: request.method(), resourceType: request.resourceType(),
+        referrerPresent: !!headers.referer, authorizationPresent: !!headers.authorization, cookiePresent: !!headers.cookie,
+        fetchMode: headers['sec-fetch-mode'] || null, response: thumbnailMode === 'ready' ? 200 : 404 });
+      return route.fulfill({ status: thumbnailMode === 'ready' ? 200 : 404, contentType: 'image/png',
+        headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+        body: thumbnailMode === 'ready' ? thumbnailBytes : Buffer.alloc(0) });
+    }
     if (!frontOrigins.has(url.origin) && url.origin !== backOrigin) { blockedBrowser.push({ origin: url.origin, path: cleanPath(url.href) }); return route.abort(); }
     requests.push({ origin: frontOrigins.has(url.origin) ? 'frontend' : 'backend', method: route.request().method(), path: cleanPath(url.href), rsc: route.request().headers()['rsc'] === '1' });
     return route.continue();
   });
+  if (surface === 'profile') await context.addCookies([{name:'synthetic_cdn_cookie',value:'must-not-be-sent',url:'https://cdn.gmtm.com',sameSite:'None',secure:true}]);
   const page = await context.newPage(); page.on('pageerror', error => browserErrors.push(error.message));
   const check = (condition, label) => { assert(condition, label); checks.push(label); };
   const cookie = async signedIn => context.addCookies([{ name: 'sparq_fixture_auth', value: signedIn ? 'signed-in' : 'signed-out', url: frontOrigin }]);
@@ -412,6 +433,9 @@ const work = (async () => {
     const profileDialog = page.getByRole('dialog', {name:'Your profile',exact:true});
     const measurementGroup = profileDialog.getByRole('group', {name:'Evidence to include',exact:true});
     const materialsRegion = profileDialog.getByRole('region', {name:'Your submitted results and footage',exact:true});
+    const showcase = page.getByRole('region', {name:'Your athlete content',exact:true});
+    const poster = showcase.getByRole('img', {name:'Thumbnail for Fixture highlight reel',exact:true});
+    const useClip = page.getByRole('button', {name:'Use this in an introduction',exact:true});
     const editor = page.getByRole('textbox', {name:'Your text — ready to edit',exact:true});
     const debriefCalls = () => requests.filter(request => request.origin === 'backend' && request.path === '/api/athlete/debrief').length;
     const profileReads = () => requests.filter(request => request.origin === 'backend' && ['/api/athlete/evidence','/api/athlete/materials'].includes(request.path)).length;
@@ -429,25 +453,44 @@ const work = (async () => {
       await profileDialog.getByRole('button', {name:'Refresh profile',exact:true}).click();
       await profileDialog.waitFor({state:'hidden'});
       await athleteHeading.waitFor();
-      await page.getByRole('heading', {name:'What’s your next move?',exact:true}).waitFor();
+      await showcase.getByRole('heading', {name:'Your work. Your next move.',exact:true}).waitFor();
     };
     await athleteHeading.waitFor();
+    await poster.waitFor();
+    await page.waitForFunction(url => { const image = [...document.images].find(item => item.src === url); return image?.complete && image.naturalWidth > 0 && !image.classList.contains('opacity-0'); }, thumbnailURL);
     check(await page.locator('#combine-workspace-main').count() === 0, 'Profile entry does not mount the combine checklist');
-    check(await page.getByRole('heading', {name:'What’s your next move?',exact:true}).count() === 1, 'Actual claimed profile reaches the focused question workspace');
-    check(await page.getByRole('group', {name:'Your focus',exact:true}).getByRole('radio').count() === 3, 'Three intent starters are accessible as the focus radio group');
+    check(await showcase.getByRole('heading', {name:'Your work. Your next move.',exact:true}).isVisible()
+      && await showcase.getByRole('heading', {name:'Fixture highlight reel',exact:true}).isVisible(), 'Actual claimed profile opens with its source footage and next action');
+    check(await poster.evaluate(image => image.complete && image.naturalWidth > 0)
+      && await poster.getAttribute('src') === thumbnailURL, 'Source-backed poster loads the exact locally intercepted synthetic PNG');
+    check(await poster.getAttribute('crossorigin') === 'anonymous' && await poster.getAttribute('referrerpolicy') === 'no-referrer'
+      && thumbnailRequests.length > 0 && thumbnailRequests.every(request => !request.referrerPresent && !request.authorizationPresent && !request.cookiePresent), 'Poster request omits referrer, authorization and even the seeded CDN cookie');
+    check(await showcase.locator('[aria-label="Recorded and submitted results"] article').count() === 2
+      && await showcase.getByText('Recorded',{exact:true}).count() === 1 && await showcase.getByText('Submitted',{exact:true}).count() === 1, 'Overview presents only two existing results with distinct recorded and submitted labels');
     check(await profileDialog.count() === 0 && await measurementGroup.count() === 0
       && await materialsRegion.count() === 0 && await page.getByRole('textbox', {name:'What are you working toward?',exact:true}).count() === 0
-      && await editor.count() === 0, 'Initial screen keeps profile records and composer controls out of the accessible view');
+      && await editor.count() === 0 && await question.count() === 0, 'Initial overview keeps the long profile sheet, question form and composer controls out of the accessible view');
     check(debriefCalls() === 0, 'Loading a profile does not automatically ask the model');
     await page.screenshot({path:path.join(output,'desktop-initial.png'),fullPage:true});
     await page.setViewportSize({width:390,height:844});
     await page.evaluate(() => window.scrollTo(0,0));
-    const initialAsk = await page.getByRole('button', {name:'Ask SPARQ',exact:true}).boundingBox();
-    check(initialAsk !== null && initialAsk.y >= 0 && initialAsk.y + initialAsk.height <= 844, 'Initial phone view places the whole Ask SPARQ control within the first 844 pixels');
+    const initialUse = await useClip.boundingBox();
+    check(initialUse !== null && initialUse.y >= 0 && initialUse.y + initialUse.height <= 844, 'Initial phone view places the whole Use this in an introduction control within the first 844 pixels');
     const initialWords = await page.evaluate(() => document.body.innerText.trim().split(/\s+/).filter(Boolean).length);
     check(initialWords <= 100, `Initial phone screen limits visible copy to 100 words (${initialWords} observed)`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Initial phone view has no horizontal overflow');
     await page.screenshot({path:path.join(output,'phone-initial.png'),fullPage:true});
+    const readsBeforeClip = profileReads(), imagesBeforeClip = thumbnailRequests.length;
+    await useClip.click();
+    check(await editor.count() === 0 && await page.getByRole('radio', {name:'Introduction',exact:true}).isChecked()
+      && await page.locator('[aria-label="Selected footage"]').getByText('Fixture highlight reel',{exact:true}).isVisible(), 'Explicit Use clip selects the public footage and opens an introduction without generating text');
+    await openProfile('Choose profile details');
+    check(await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).isChecked()
+      && !await measurementGroup.getByRole('checkbox').first().isChecked(), 'Use clip selects that public reference without selecting unrelated measurements');
+    await closeProfile();
+    await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
+    await showcase.waitFor();
+    check(profileReads() === readsBeforeClip && thumbnailRequests.length === imagesBeforeClip && debriefCalls() === 0, 'Clip-to-editor navigation preserves loaded media and makes no source reload or AI call');
     await openProfile();
     await materialsRegion.getByText('2 submitted results and 2 footage records in this view.', {exact:true}).waitFor();
     check(await materialsRegion.locator('article').count() === 3, 'Profile sheet initially shows three actual ASGI material records');
@@ -468,6 +511,9 @@ const work = (async () => {
     await page.screenshot({path:path.join(output,'desktop-profile-sheet.png'),fullPage:true});
     await closeProfile();
     check(profileReads() === readsBeforeSheetReopen && debriefCalls() === 0, 'Opening and closing the loaded profile sheet performs no reload or model request');
+    await page.getByRole('button', {name:'Ask about my profile',exact:true}).click();
+    await page.getByRole('heading', {name:'What’s your next move?',exact:true}).waitFor();
+    check(await page.getByRole('group', {name:'Your focus',exact:true}).getByRole('radio').count() === 3, 'Explicit Ask about my profile opens the three accessible intent starters');
     for (const [focusName, starter] of [
       ['USA Football (adult)','What happens after my adult USA Football digital combine?'],
       ['Introduce myself','How can I introduce myself to a coach using my profile?'],
@@ -563,11 +609,43 @@ const work = (async () => {
       && await materialsRegion.getByRole('checkbox',{name:/Include Vertical Jump from/}).isChecked()
       && !await materialsRegion.getByRole('checkbox',{name:/Include Fixture highlight reel from/}).isChecked(), 'Switching views preserves evidence selections');
     check(debriefCalls() === 1, 'Editing, copying, profile disclosure and view changes leave exactly one explicit debrief request');
+    await closeProfile();
+    await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
+    await page.getByRole('button', {name:'Back to your content',exact:true}).click();
+    await useClip.click();
+    check(await editor.inputValue() === revised && await page.getByRole('radio', {name:'Introduction',exact:true}).isChecked()
+      && await page.getByLabel('Who is this for?',{exact:true}).inputValue() === ''
+      && await page.getByRole('button', {name:'Rebuild from these details',exact:true}).isDisabled(), 'Using a clip with an existing draft preserves exact edits and requires an explicit recipient before rebuilding');
+    await page.getByLabel('Who is this for?',{exact:true}).fill('Coach Fixture');
+    await page.getByRole('button', {name:'Rebuild from these details',exact:true}).click();
+    check((await editor.inputValue()).startsWith('Hello Coach Fixture,') && (await editor.inputValue()).includes('https://gmtm.com/film/703')
+      && !(await editor.inputValue()).includes('I am available to discuss my next step.'), 'Only explicit rebuild changes the existing text into an introduction using the selected clip');
+    await openProfile('Choose profile details');
     await refreshProfile();
     check(await editor.count() === 0 && !await page.getByText(answerText).count(), 'Refresh clears the page-local draft and private debrief');
     await openProfile();
     await materialsRegion.getByText('2 submitted results and 2 footage records in this view.',{exact:true}).waitFor();
     check(await materialsRegion.getByRole('checkbox').evaluateAll(inputs => inputs.every(input => !input.checked)), 'Refresh also clears all material selections');
+    await page.waitForFunction(url => { const image = [...document.images].find(item => item.src === url); return image?.complete && image.naturalWidth > 0; }, thumbnailURL);
+    const imageRequestsBeforeFailure = thumbnailRequests.length;
+    thumbnailMode = 'failed';
+    // A loaded image may remain in the current document's decoded-image cache
+    // across React remounts. A fresh document tests a genuine failed first load.
+    await page.reload();
+    await athleteHeading.waitFor();
+    await showcase.getByText('Preview unavailable',{exact:true}).waitFor();
+    const readsAfterImageFailure = profileReads();
+    check(await poster.count() === 0 && await useClip.isEnabled()
+      && await showcase.getByRole('heading', {name:'Fixture highlight reel',exact:true}).isVisible(), 'Failed thumbnail keeps an honest title fallback and an available clip action');
+    await page.screenshot({path:path.join(output,'phone-preview-unavailable.png'),fullPage:true});
+    await useClip.click();
+    check(await editor.count() === 0 && await page.locator('[aria-label="Selected footage"]').getByText('Fixture highlight reel',{exact:true}).isVisible(), 'The clip remains usable for an introduction when its image cannot load');
+    await page.getByRole('button', {name:'Back to SPARQ',exact:true}).click();
+    await showcase.getByText('Preview unavailable',{exact:true}).waitFor();
+    check(profileReads() === readsAfterImageFailure && thumbnailRequests.length === imageRequestsBeforeFailure + 1
+      && thumbnailRequests.at(-1).response === 404 && debriefCalls() === 1, 'Image failure and fallback navigation cause no source retry, alternate image request or extra AI call');
+    thumbnailMode = 'ready';
+    await openProfile();
     const materialsURL = backOrigin + '/api/athlete/materials';
     const failedMaterials = route => route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Synthetic materials outage'})});
     await page.route(materialsURL, failedMaterials);
@@ -617,9 +695,10 @@ const work = (async () => {
       check(await measurementGroup.getByRole('checkbox').count() === 3, 'Phone athlete can collapse the result list again');
       await closeProfile();
       await page.evaluate(() => window.scrollTo(0,0));
-      const stressAsk = await page.getByRole('button', {name:'Ask SPARQ',exact:true}).boundingBox();
-      check(stressAsk !== null && stressAsk.y >= 0 && stressAsk.y + stressAsk.height <= 844, 'Twenty-result profile keeps Ask SPARQ in the first phone viewport with the sheet closed');
+      const stressUse = await useClip.boundingBox();
+      check(stressUse !== null && stressUse.y >= 0 && stressUse.y + stressUse.height <= 844, 'Twenty-result profile keeps the clip introduction action in the first phone viewport with the sheet closed');
       check(await measurementGroup.count() === 0, 'Closed twenty-result sheet keeps its controls out of the active view');
+      check(await showcase.locator('[aria-label="Recorded and submitted results"] article').count() === 2, 'Twenty stored results do not expand the overview beyond two labeled results');
       await page.getByRole('button', {name:'Write an introduction',exact:true}).click();
       await page.getByRole('group', {name:'Output format',exact:true}).getByText('Profile summary',{exact:true}).click();
       await page.getByLabel('What are you working toward?').fill('Use my selected result for a next opportunity.');
@@ -631,7 +710,8 @@ const work = (async () => {
     await page.goto(frontOrigin + '/connect');
     await page.waitForURL(url => url.pathname === '/home/inbox');
     await athleteHeading.waitFor();
-    check(true,'Profile connection recovery returns to the profile workspace');
+    await showcase.waitFor();
+    check(true,'Profile connection recovery returns to the athlete content overview');
     check(!requests.some(request => request.origin === 'backend' && request.path.startsWith('/api/combine/')), 'Profile journey calls no combine status or help endpoint');
     const deniedHelp = await context.request.post(backOrigin + '/api/combine/help');
     check(deniedHelp.status() === 404,'Profile ASGI does not expose model-backed combine help');
@@ -639,7 +719,10 @@ const work = (async () => {
     await page.waitForURL(url => url.pathname === '/sign-in');
     check(frontOrigins.has(new URL(page.url()).origin), 'Signed-out redirect remains on the exact owned frontend port');
     await page.getByRole('heading', {name:'Fixture sign in',exact:true}).waitFor();
-    check(await editor.count() === 0,'Signed-out profile no longer displays athlete draft');
+    check(await editor.count() === 0 && await showcase.count() === 0 && await poster.count() === 0,'Signed-out profile no longer displays athlete draft or media');
+    check(thumbnailRequests.length > 0 && thumbnailRequests.every(request => request.url === thumbnailURL && request.method === 'GET'
+      && request.resourceType === 'image' && !request.referrerPresent && !request.authorizationPresent && !request.cookiePresent), 'Every thumbnail request uses the single exact intercepted URL without cross-origin identity headers');
+    check(sha(fs.readFileSync(thumbnailFixturePath)) === thumbnailFixtureSha256, 'The synthetic footage image bytes remain unchanged during the journey');
   }
   check(!requests.some(request => request.origin === 'backend' && /workspace|artifacts|badges|search|agent\//.test(request.path)), 'Focused browser never calls legacy workspace/artifact/badge/search/agent APIs');
   check(blockedBrowser.every(request => ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].includes(request.origin)), 'Browser blocks external font assets and attempts no service origin');
@@ -658,6 +741,9 @@ Promise.race([work, interrupted]).catch(error => { result = { status: 'failed', 
     stop(next), stopFixture(),
   ]);
   result.cleanup = cleanup;
+  if (surface === 'profile') result.mediaFixture = { path:'frontend/tests/fixtures/synthetic-footage.png', sha256:thumbnailFixtureSha256,
+    interceptedURL:thumbnailURL, synthetic:true, requests:thumbnailRequests,
+    scope:'Every admitted image request was fulfilled from local fixture bytes or a synthetic404; no CDN connection was made by this harness. Sec-Fetch-Mode may be absent on intercepted requests.' };
   result.httpChecks = httpChecks;
   if (cleanup.some(item => item.status === 'rejected' || item.value.dead === false || item.value.groupDead === false || item.value.closed === false || item.value.ownershipConfirmed === false)) { result.status = 'failed'; process.exitCode = 1; }
   result.portsAfterCleanup = await Promise.all(ownedPorts.map(portClosed));
@@ -686,6 +772,7 @@ Promise.race([work, interrupted]).catch(error => { result = { status: 'failed', 
       }
       assert.deepEqual(backendHashes(), backendSourceHashes, 'Backend source changed during harness');
       for (const [file, hash] of Object.entries(sourceHashes)) assert.equal(sha(fs.readFileSync(path.join(frontend, file))), hash, 'Frontend source changed: ' + file);
+      if (surface === 'profile') assert.equal(sha(fs.readFileSync(thumbnailFixturePath)), thumbnailFixtureSha256, 'Synthetic media fixture changed during harness');
       result.safetyChecks = ['Backend forbidden attempts empty', 'No real provider attempts', 'All synthetic connections closed', 'Backend stopped normally', 'Frontend and backend source hashes unchanged'];
     } catch (error) { result.status = 'failed'; result.safetyError = error.message; process.exitCode = 1; }
     if (result.nodeNetworkDenials.length || !result.backendReceiptSha256) { result.status = 'failed'; process.exitCode = 1; }

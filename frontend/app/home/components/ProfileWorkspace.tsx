@@ -6,8 +6,9 @@ import Link from 'next/link'
 import { apiFetch } from '@/app/_lib/api'
 import { evidenceDate, evidenceValue, prepareProfileDraft, ProfileDraftKind, ProfileEvidence, readProfileEvidence } from './profileEvidence'
 import ProfileMaterialsPanel, { useProfileMaterials } from './ProfileMaterialsPanel'
-import { addMaterialsToDraft } from './profileMaterials'
+import { addMaterialsToDraft, ProfileMaterialItem } from './profileMaterials'
 import AthleteDebriefPanel from './AthleteDebriefPanel'
+import AthleteShowcase from './AthleteShowcase'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 const secondary = `inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-white/40 disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -108,12 +109,14 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
   const [copyStatus, setCopyStatus] = useState('')
   const [copying, setCopying] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [guidanceOpen, setGuidanceOpen] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(true)
   const [profileOpen, setProfileOpen] = useState(false)
   const [debriefVersion, setDebriefVersion] = useState(0)
   const sheet = useRef<HTMLDialogElement>(null)
   const composerHeading = useRef<HTMLHeadingElement>(null)
   const writeButton = useRef<HTMLButtonElement>(null)
+  const askButton = useRef<HTMLButtonElement>(null)
   const draftInput = useRef<HTMLTextAreaElement>(null)
   const lifetime = useRef(false)
   const draftRevision = useRef(0)
@@ -136,6 +139,21 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
   const backToSPARQ = () => {
     setComposerOpen(false)
     requestAnimationFrame(() => { if (lifetime.current) writeButton.current?.focus() })
+  }
+  const useClip = (item: ProfileMaterialItem) => {
+    if (!item.can_include || item.kind !== 'footage' || !item.source_url) return
+    if (!selectedMaterials.includes(item.id)) {
+      setSelectedMaterials(value => value.includes(item.id) ? value : [...value, item.id])
+      changed()
+    }
+    openComposer('introduction', '')
+  }
+  const showGuidance = () => {
+    setGuidanceOpen(true)
+    requestAnimationFrame(() => { if (lifetime.current) {
+      const heading = document.getElementById('profile-debrief-title')
+      heading?.setAttribute('tabindex', '-1'); heading?.focus()
+    } })
   }
   const prepare = () => {
     const includedMaterials = materials.snapshot?.state === 'ready'
@@ -164,6 +182,7 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
 
   const selectedCount = selected.length + selectedMaterials.length
   const profileContext = [athlete.sport, athlete.position].filter(Boolean).join(' · ')
+  const includedClips = materials.snapshot?.items.filter(item => item.kind === 'footage' && selectedMaterials.includes(item.id)) || []
 
   return (
     <>
@@ -175,10 +194,17 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
         <button type="button" aria-haspopup="dialog" onClick={() => setProfileOpen(true)} className={`${secondary} shrink-0 rounded-full`}>View profile</button>
       </header>
 
-      <div className="mx-auto w-full max-w-3xl pb-12 pt-12 sm:pt-20">
+      <div className={`mx-auto w-full pb-12 pt-8 sm:pt-12 ${composerOpen || guidanceOpen ? 'max-w-3xl' : ''}`}>
         <div hidden={composerOpen}>
-          <AthleteDebriefPanel key={debriefVersion} onPrepare={openComposer} />
-          <div className="mt-8 border-t border-white/10 pt-4 sm:mt-10">
+          <div hidden={guidanceOpen}>
+            <AthleteShowcase profile={profile} snapshot={materials.snapshot} loading={materials.loading} error={materials.error} onUseClip={useClip} onBrowse={() => setProfileOpen(true)} />
+            <button ref={askButton} type="button" onClick={showGuidance} className={`${secondary} mt-6`}>Ask about my profile</button>
+          </div>
+          <div hidden={!guidanceOpen}>
+            <button type="button" onClick={() => { setGuidanceOpen(false); requestAnimationFrame(() => { if (lifetime.current) askButton.current?.focus() }) }} className={`mb-6 min-h-11 text-sm text-gray-400 hover:text-white ${focus}`}>Back to your content</button>
+            <AthleteDebriefPanel key={debriefVersion} onPrepare={openComposer} />
+          </div>
+          <div className="mt-6 border-t border-white/10 pt-4">
             <button ref={writeButton} type="button" onClick={() => openComposer(draft === null ? 'introduction' : kind, '')} className={`min-h-11 text-sm text-gray-400 transition-colors hover:text-white ${focus}`}>{draft === null ? 'Write an introduction' : 'Return to your draft'}</button>
           </div>
         </div>
@@ -192,6 +218,7 @@ function ProfileReadout({ profile, refreshing, onRefresh }: { profile: ProfileEv
             <button type="button" aria-haspopup="dialog" onClick={() => setProfileOpen(true)} className={`inline-flex min-h-11 items-center gap-3 text-sm text-gray-200 ${focus}`}>Choose profile details<span className="rounded-full bg-white/10 px-2.5 py-1 text-xs tabular-nums" aria-label={`${selectedCount} selected`}>{selectedCount}</span></button>
             {draft !== null && <button type="button" aria-expanded={detailsOpen} aria-controls="profile-draft-details" onClick={() => setDetailsOpen(value => !value)} className={`min-h-11 text-sm text-gray-400 hover:text-white ${focus}`}>{detailsOpen ? 'Hide details' : 'Edit details'}</button>}
           </div>
+          {includedClips.length > 0 && <div aria-label="Selected footage" className="mb-6 flex flex-wrap gap-2">{includedClips.map(item => <span key={item.id} className="inline-flex max-w-full items-center gap-2 rounded-lg bg-white/[0.04] px-3 py-2 text-xs text-gray-300"><span className="text-sparq-lime">Selected footage</span><span className="min-w-0 break-words">{item.title}</span></span>)}</div>}
           <form id="profile-draft-details" hidden={!detailsOpen} onSubmit={event => { event.preventDefault(); prepare() }}>
             <fieldset><legend className="sr-only">Output format</legend><div className="flex flex-wrap gap-2">{(['summary', 'introduction'] as const).map(value => <label key={value} className="cursor-pointer"><input type="radio" name="profile-output-format" value={value} checked={kind === value} onChange={() => { setKind(value); setDestination(''); changed() }} className="peer sr-only" /><span className="inline-flex min-h-11 items-center rounded-full border border-white/15 px-4 text-sm text-gray-400 transition-colors peer-checked:border-white/40 peer-checked:bg-white/[0.06] peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-sparq-lime">{value === 'summary' ? 'Profile summary' : 'Introduction'}</span></label>)}</div></fieldset>
             <label htmlFor="profile-goal" className="mt-6 block text-sm font-medium">What are you working toward?</label><textarea id="profile-goal" value={goal} onChange={event => { setGoal(event.target.value); changed() }} maxLength={600} rows={2} required className={field} placeholder="Your next goal, in your own words" />

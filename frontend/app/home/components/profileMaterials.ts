@@ -9,6 +9,7 @@ export interface ProfileMaterialItem {
   date_label: 'Submitted' | 'Published'
   result: { value: number; unit: string } | null
   source_url: string | null
+  thumbnail_url?: string | null
   can_include: boolean
   availability: 'recorded' | 'processing' | 'unavailable' | 'unchecked'
 }
@@ -22,6 +23,18 @@ export interface ProfileMaterialsSnapshot {
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value)
+
+// Only stored, public film posters from the documented delivery namespaces.
+// No URL rewriting, image proxy, arbitrary host or fallback media fetch.
+export function isProfileThumbnail(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 2048 || /[^\x21-\x7e]|[\\%?#]/.test(value)) return false
+  const cdn = /^https:\/\/cdn\.gmtm\.com\/(?:videos\/film\/thumbnails\/|videos\/events\/([1-9][0-9]*)\/edited-thumbnails\/|users\/([1-9][0-9]*)\/uploads\/)([^/]+)$/.exec(value)
+  const youtube = /^https:\/\/i\.ytimg\.com\/vi\/[A-Za-z0-9_-]{11}\/([^/]+)$/.exec(value)
+  const file = cdn?.[3] || youtube?.[1]
+  return !!file && /^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?:png|jpg|jpeg|webp)$/i.test(file)
+    && (!cdn || [cdn[1], cdn[2]].every(id => !id || Number.isSafeInteger(Number(id))))
+}
+
 function sourceDate(value: unknown): value is string {
   if (!text(value, 40) || !/^\d{4}-\d{2}-\d{2}(?:[T ](?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(value)) return false
   const day = value.slice(0, 10)
@@ -60,10 +73,13 @@ export function readProfileMaterials(value: unknown): ProfileMaterialsSnapshot {
     }
     if (item.can_include && (item.availability === 'processing' || item.availability === 'unavailable'
       || item.kind === 'footage' && item.source_url === null)) throw invalid()
+    const thumbnail = item.thumbnail_url ?? null
+    if (thumbnail !== null && (!isProfileThumbnail(thumbnail) || item.kind !== 'footage'
+      || !item.can_include || item.availability !== 'unchecked' || item.source_url === null)) throw invalid()
     ids.add(item.id)
     return { id: item.id, kind: item.kind, title: item.title, source_label: item.source_label,
       recorded_at: item.recorded_at, date_label: item.date_label, result: item.result,
-      source_url: item.source_url, can_include: item.can_include, availability: item.availability } as ProfileMaterialItem
+      source_url: item.source_url, thumbnail_url: thumbnail, can_include: item.can_include, availability: item.availability } as ProfileMaterialItem
   })
   if (results > 20 || footage > 10) throw invalid()
   return { state: value.state as ProfileMaterialsSnapshot['state'], items,

@@ -2,6 +2,8 @@
 
 Starting point: local `29efaf2`, Codex's existing SPARQ lane. Joey approved connecting richer existing evidence after the first live adapter returned height/weight only.
 
+**Later September 8 extension:** the [media design contract](profile-media-design-contract-2026-09-08.md) supersedes this slice's no-thumbnail presentation constraint. Existing owner/publicity/query-count boundaries remain; stored service and a bounded thumbnail key are now read in the same film queries and projected as nullable `thumbnail_url`. The client displays only validated public-source posters. Earlier live receipts below predate those additional selected fields and do not verify their real data or CDN behavior. No prior read allowance is reopened.
+
 ## Completion contract
 
 An athlete can inspect supported results already submitted to GMTM and their existing footage records, see the program and source date, choose eligible evidence, and include it in the editable summary/introduction. This is a retrospective evidence collection, with no new checklist or submission workflow. Media opens on an existing validated GMTM film page only on an explicit click; nothing downloads, embeds, autoplays or analyzes footage in this slice.

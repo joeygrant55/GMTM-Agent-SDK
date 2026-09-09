@@ -318,6 +318,7 @@ def main():
             return dict(user_id=ATHLETE, film_id=identifier, direct_user_id=ATHLETE,
                         career_id=None, joined_career_id=None, career_user_id=None,
                         task_submission_id=None, title="Fixture highlight reel",
+                        service="gmtm", thumbnail_uri="videos/film/thumbnails/fixture-703.png",
                         published_on=datetime(2026, 9, 3, 11, 0), visibility=visibility,
                         approved=0, suggested_by=None, suggested_by_org_id=None,
                         processed=0, dead_link=0, challenge_id=None, film_event_id=0,

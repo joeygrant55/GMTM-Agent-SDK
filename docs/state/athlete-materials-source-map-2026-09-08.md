@@ -2,6 +2,19 @@
 
 This is a source audit, not evidence of deployment, actual playback or live schema acceptance. Reviewed local core API snapshot: `/Users/joey/mercor-scan/repos/gmtm-api-v2`, `f2fe121d`, branch `chore/opensearch-v2-host`. Client source is the adjacent `gmtm.com` checkout. Neither core checkout was edited or executed.
 
+## Stored thumbnails — later September 8 extension
+
+The [media design contract](profile-media-design-contract-2026-09-08.md) supersedes the initial no-thumbnail projection below. The three existing owner film queries now also select `service` and `thumbnail_uri`, with SQL `OCTET_LENGTH` limiting the latter to 2048 bytes. There are no new queries or server media requests. Existing ownership, public-source eligibility and dead-link checks apply before a nullable thumbnail is projected; private/unknown/dead footage receives no thumbnail.
+
+- Core `schemas.md:569` records nullable `thumbnail_uri` and `service`; no intrinsic image dimensions are provided.
+- `resources/film/film.resolver.js:438` maps GMTM/S3 to the GMTM CDN and YouTube service names to YouTube's image origin. The adapter does not reuse that helper's permissive substring-host/arbitrary-URL behavior.
+- Local research `lambda-code/generate-thumbnail/index.js:66` writes `videos/film/thumbnails/<UUID>.png`. The legacy `thumbnail-extractor/index.js:55` supports `videos/events/<event>/edited-thumbnails/<filename>` and `users/<user>/uploads/<filename>`. Its extension is environment-derived; do not assume every historical record is JPEG.
+- `resources/film/film.resolver.js:1541–1547` stores YouTube keys as `vi/<11-character-video-id>/default.jpg`.
+- The adapter accepts only exact `https://cdn.gmtm.com` or `https://i.ytimg.com` namespaces corresponding to the recorded service, positive safe-integer owner/event path segments, and conservative JPEG/PNG/WebP filenames. No ports, credentials, encoded paths, query strings, fragments, arbitrary hosts or video-URI-derived images are accepted. Unknown legacy forms return `null`.
+- The client uses a 16:9 containment frame; this is presentation, not a claim about stored dimensions. It omits referrers and cross-origin credentials. Missing/failed images remain honest placeholders with the canonical film-page action available. No alternative image host or generic athlete photo is substituted.
+
+This is verified local source mapping, not fresh live thumbnail coverage, image availability, CORS or playback acceptance. Earlier owner reads below predate these added columns. Thumbnail metadata remains outside the server-assembled model context and generated draft text.
+
 ## Submitted answers
 
 - `resources/submission/submission.resolver.js:301–317`: own submissions derive `user_id` from the authenticated session and include nonremoved visibility >=0.
