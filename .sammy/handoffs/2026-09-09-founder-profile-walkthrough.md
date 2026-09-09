@@ -1,0 +1,11 @@
+# Founder profile walkthrough
+
+September 9, 2026. Joey asked to reopen the repaired profile and walk through it. Branch `codex/athlete-home-first-value`, application commit `d0fb1219ead40b11e5cd1d2159fd9d230afb8fa4`; checkout was clean. This task changes operational documentation only.
+
+The existing reviewed launcher prepared a fresh 176-file snapshot in `/private/tmp/sparq-profile-walkthrough-2026-09-09-01` and started it with `--launch --read-only --seconds 900`. Actual Clerk authentication and unique owner-2 link passed. Browser: `http://localhost:54857/home/inbox`; backend port 54858. Parent exec session 58721 owns both service process groups; expiry is approximately **3:18 PM EDT**. It is intentionally left running for Joey to review. Cleanup is scheduled by the finite parent but has not yet been observed; inspect its final `supervisor.json` and ports before claiming completion or starting another heavy preview. Do not reset this ledger or the prior exhausted three-save allowance.
+
+The visible walkthrough covered Home's two decoded footage posters, Portfolio's existing measurements/ten footage records, Continue my draft's saved summary, and Opportunities' explicit unimplemented state. Returned to Home. No editing, copying, feature changes, saves, AI request, GMTM writes, infrastructure changes or deployment occurred. Some saving/Ask SPARQ controls remain visible; Joey was told these operations are off in this preview.
+
+Checkpoint receipt `walkthrough-observed.json` records actual owner verification, unchanged source hashes, successful navigation, no browser errors, three personal GETs/20 SELECTs, eight connections opened/closed and zero PATCH attempts/commits, errors, denials, providers or GMTM writes. The initial private workspace receipt stays outside Git. No unchanged source test suite was rerun; prior test evidence belongs to the footage-repair handoff.
+
+Next: Joey reviews the working profile-to-draft flow; implement the [opportunity research contract](../../docs/state/athlete-opportunity-research-2026-09-09.md). The researched shortlist and contact/event recommendations are not implemented. This operational note is committed locally; nothing was pushed.

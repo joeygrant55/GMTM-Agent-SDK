@@ -2,6 +2,10 @@
 
 Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Founder walkthrough reopened — September 9, 2026
+
+At Joey's request, the unchanged `d0fb121` app is open on his real owner-2 profile at `http://localhost:54857/home/inbox`, with read-only saving policy and automatic expiry around **3:18 PM EDT**. Both posters loaded; Portfolio, the existing saved draft and the explicit Opportunities placeholder were inspected, then the browser returned to Home. AI responses are disabled in this preview. No application source changed or saves occurred. This dated URL may expire; consult the [walkthrough handoff](../../.sammy/handoffs/2026-09-09-founder-profile-walkthrough.md) before reusing or restarting it. The research shortlist remains the next build.
+
 ## Real footage previews repaired; opportunity research is next — September 9, 2026
 
 Both public film posters now load in Joey's actual signed-in profile, including after a full reload. GMTM stores these older posters under the literal `users/undefined/uploads/<UUID>.<raster>` namespace, which the SPARQ backend and frontend rejected. The repair accepts that exact legacy shape while retaining existing film ownership/public-source checks, exact CDN host restrictions, anonymous image requests and no referrer. No SQL, GMTM record or video playback behavior changed.
