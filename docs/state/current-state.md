@@ -1,6 +1,10 @@
 # SPARQ Agent current work
 
-Updated: 2026-09-09. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+Updated: 2026-09-10. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+
+## GMTM-to-SPARQ athlete journey clarified — September 10, 2026
+
+Joey wants a prominent signed-in entry from GMTM into SPARQ, clean two-way navigation and SPARQ to become the athlete experience over time. The [journey recommendation](gmtm-sparq-athlete-journey-2026-09-10.md) defines existing combine flow → populated SPARQ workspace → useful opportunity/action → contextual GMTM return. Routine second sign-in, profile re-entry and lost mobile/combine context are integration failures. Current Clerk/claim linkage is not GMTM-session SSO; the auth handoff and persistent contextual navigation remain to be built alongside the researched shortlist. Separate databases can remain behind this single athlete experience. This is a documented direction, not an implementation or hosting/auth change; see the [handoff](../../.sammy/handoffs/2026-09-10-athlete-entry-direction.md).
 
 ## Founder walkthrough reopened — September 9, 2026
 
