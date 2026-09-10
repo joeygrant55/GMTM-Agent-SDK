@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/AthleteOpportunities.tsx', 'app/home/components/opportunityEvidence.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/AthleteOpportunities.tsx', 'app/home/components/opportunityEvidence.ts', 'app/home/components/opportunityEngagement.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -95,6 +95,21 @@ window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
 window.Clerk={session:{getToken:async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null}};
 window.__requests=[];window.__sourceRequests=()=>window.__requests.filter(r=>r.path!=='/api/athlete/workspace');window.__pending=[];window.__mode={};window.__materialsMode={};window.__workspaceMode=null;window.__workspaceStore={};window.__workspaceRevision='a'.repeat(64);window.__debriefMode={status:503,body:{detail:'Fixture disabled'}};window.__opportunityMode={status:503,body:{detail:'Fixture opportunity search not configured'}};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
+window.__engagementMode={status:200,body:{state:'recorded'}};window.__setEngagementFlag=value=>{process.env.NEXT_PUBLIC_OPPORTUNITY_ENGAGEMENT_ENABLED=value};
+window.__visibility='visible';Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>window.__visibility});
+window.__setVisibility=value=>{window.__visibility=value;document.dispatchEvent(new Event('visibilitychange'))};
+window.__intersectionObservers=[];
+window.IntersectionObserver=class{
+ constructor(callback,options){this.callback=callback;this.options=options;this.targets=new Set();this.history=[];this.disconnected=false;window.__intersectionObservers.push(this)}
+ observe(target){this.targets.add(target);this.history.push(target);this.disconnected=false}
+ unobserve(target){this.targets.delete(target)}
+ disconnect(){this.targets.clear();this.disconnected=true}
+};
+window.__intersect=(id,ratio)=>{for(const observer of window.__intersectionObservers)for(const target of observer.targets)if(target.dataset.opportunityId===id)observer.callback([{target,isIntersecting:ratio>0,intersectionRatio:ratio}],observer)};
+window.__externalActivations=[];
+// Let the component handle real DOM activations, then cancel only the fixture's
+// exact external defaults at window bubbling so no destination is contacted.
+for(const type of ['click','auxclick','contextmenu'])window.addEventListener(type,event=>{const anchor=event.target.closest?.('a');if(anchor&&['https://www.usafootball.com/national-team/synthetic-opportunity','https://iflag.org/synthetic-team-event'].includes(anchor.href)){window.__externalActivations.push({type,button:event.button,preventedByApp:event.defaultPrevented});event.preventDefault()}});
 Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__clipboard.push(text);if(window.__clipboardMode==='failure')throw Error('Fixture clipboard denial');if(window.__clipboardMode==='pending')return new Promise(resolve=>window.__copyPending.push(resolve))}}});
 window.__now=1000000;window.__timers=new Map();let timerId=0;
 window.setTimeout=(fn,ms=0,...args)=>{const id=++timerId;window.__timers.set(id,{at:window.__now+ms,fn:()=>fn(...args)});return id};
@@ -103,10 +118,10 @@ window.__advance=async ms=>{const end=window.__now+ms;for(const[id,t]of [...wind
 function reply(mode={},request){if(mode.reject)throw Error('Fixture network failure');const response=new Response(mode.badJSON?'malformed-json':JSON.stringify(mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});if(mode.bodyPending)response.json=()=>new Promise(resolve=>window.__pending.push({stage:'body',resolve,request}));return response}
 window.__emptyWorkspace=()=>({state:'ready',owner_scope:window.__identity.user?.id==='athlete-b'?'c'.repeat(64):'b'.repeat(64),link_revision:window.__identity.user?.id==='athlete-b'?'b'.repeat(64):window.__workspaceRevision,version:0,goal:null,featured_source_id:null,draft:null,recent_work:[],updated_at:null});
 window.fetch=async(input,init={})=>{
- const u=new URL(String(input),location.origin),isDebrief=u.pathname==='/api/athlete/debrief',isOpportunity=u.pathname==='/api/athlete/opportunities',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
- if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief','/api/athlete/workspace','/api/athlete/opportunities'].includes(u.pathname)||u.search||!(isWorkspace?['GET','PATCH'].includes(method):method===(isDebrief||isOpportunity?'POST':'GET')))throw Error('Unexpected endpoint '+u);
+ const u=new URL(String(input),location.origin),isDebrief=u.pathname==='/api/athlete/debrief',isOpportunity=u.pathname==='/api/athlete/opportunities',isEngagement=u.pathname==='/api/athlete/opportunities/engagement',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
+ if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief','/api/athlete/workspace','/api/athlete/opportunities','/api/athlete/opportunities/engagement'].includes(u.pathname)||u.search||!(isWorkspace?['GET','PATCH'].includes(method):method===(isDebrief||isOpportunity||isEngagement?'POST':'GET')))throw Error('Unexpected endpoint '+u);
  const headers=new Headers(init.headers),request={path:u.pathname,method,signal:init.signal,authorization:headers.get('Authorization'),contentType:headers.get('Content-Type'),body:init.body,cache:init.cache};window.__requests.push(request);
- let mode=isOpportunity?window.__opportunityMode:isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;
+ let mode=isEngagement?window.__engagementMode:isOpportunity?window.__opportunityMode:isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;
  if(isWorkspace){
    const actor=window.__identity.user?.id;if(!actor)return reply({status:401,body:{detail:'Fixture signed out'}},request);
    if(window.__workspaceMode?.[method]||window.__workspaceMode?.status||window.__workspaceMode?.body||window.__workspaceMode?.pending||window.__workspaceMode?.reject||window.__workspaceMode?.badJSON)mode=window.__workspaceMode[method]||window.__workspaceMode;
@@ -126,7 +141,7 @@ window.fetch=async(input,init={})=>{
      }else mode={body:saved};
    }
  }
- if(mode.pending)return new Promise((resolve,reject)=>{window.__pending.push({stage:'response',resolve,request});if(isWorkspace)init.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true})});return reply(mode,request);
+ if(mode.pending)return new Promise((resolve,reject)=>{window.__pending.push({stage:'response',resolve,request});if(isWorkspace||isEngagement)init.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true})});return reply(mode,request);
 };
 window.__release=(mode={},path)=>{const index=path?window.__pending.findIndex(p=>p.request?.path===path):0;const pending=index>=0?window.__pending.splice(index,1)[0]:null;if(!pending)throw Error('No pending read');pending.resolve(pending.stage==='body'?mode.body:reply(mode,pending.request))};
 const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefined?{key}:{})});
@@ -1111,6 +1126,154 @@ const work = (async()=>{
       'A rejected search retains clearly previous validated results but disables their introduction action');
     await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
     check(await draft().inputValue()===opportunityDraft, 'Opportunity validation failure preserves the athlete’s current editable introduction');
+
+    const engagementPath='/api/athlete/opportunities/engagement';
+    const engagementCount=(kind=null)=>page.evaluate(({path,kind})=>window.__requests.filter(r=>r.path===path&&(!kind||JSON.parse(r.body).kind===kind)).length,{path:engagementPath,kind});
+    const advanceEngagement=async ms=>{await page.evaluate(ms=>window.__advance(ms),ms);await settle()};
+    const intersect=async(id,ratio)=>{await page.evaluate(({id,ratio})=>window.__intersect(id,ratio),{id,ratio});await settle()};
+    const visibility=async value=>{await page.evaluate(value=>window.__setVisibility(value),value);await settle()};
+    const engagementMode=mode=>page.evaluate(mode=>{window.__engagementMode=mode},mode);
+    const engagementReady=async(flag='true',edit=false)=>{
+      await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();
+      await page.evaluate(flag=>window.__setEngagementFlag(flag),flag);
+      if(edit){await page.getByRole('button',{name:'Continue my draft',exact:true}).click();await draft().fill('MY EXACT ENGAGEMENT EDIT')}
+      await openOpportunities();await setOpportunityMode({body:opportunityResponse([opportunityItem(),opportunityItem(true),teamOpportunity])});await findOpportunities();await opportunityResults().waitFor();
+    };
+    const assessmentDetails=()=>page.getByRole('button',{name:'Details & sources for Synthetic adult assessment',exact:true});
+    const assessmentAction=()=>opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).first();
+    check(await engagementCount()===0&&await page.evaluate(()=>window.__intersectionObservers.length===0),
+      'The unset engagement flag leaves all preceding opportunity journeys without collection requests or visibility observers');
+    await engagementReady('TRUE');await intersect('fixture-assessment',1);await advanceEngagement(1500);await assessmentDetails().click();await opportunityDialog().waitFor();
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await assessmentAction().click();await settle();
+    check(await engagementCount()===0&&await page.evaluate(()=>window.__intersectionObservers.length===0),
+      'Only the exact true flag enables capture; nonmatching configuration preserves useful details and outbound activation without measurement');
+
+    await engagementReady();
+    check(await engagementCount()===0&&await page.evaluate(()=>window.__intersectionObservers.length===1&&window.__intersectionObservers[0].targets.size===3),
+      'An enabled result observes only its three current cards and does not equate a search response with a viewed card');
+    await intersect('fixture-assessment',0.49);await advanceEngagement(1500);
+    check(await engagementCount()===0, 'A card below fifty percent intersection does not qualify despite elapsed time');
+    await intersect('fixture-assessment',0.5);await advanceEngagement(999);
+    check(await engagementCount()===0, 'Fifty percent intersection needs a full continuous second');
+    await intersect('fixture-assessment',0.49);await advanceEngagement(1);
+    check(await engagementCount()===0, 'Dropping below the threshold cancels the pending qualified view');
+    await intersect('fixture-assessment',0.5);await advanceEngagement(1000);
+    check(await engagementCount('card_visible')===1, 'A fresh continuous second at exactly fifty percent records one qualified card view');
+    await intersect('fixture-assessment',0.9);await advanceEngagement(2000);
+    check(await engagementCount('card_visible')===1, 'Repeated qualifying intersection remains one view per opportunity in the mounted result');
+    await intersect('fixture-contact',0.8);await advanceEngagement(600);await visibility('hidden');await advanceEngagement(5000);
+    check(await engagementCount()===1&&await page.evaluate(()=>window.__intersectionObservers.every(observer=>observer.disconnected)),
+      'Hiding the browser document cancels dwell and disconnects observation without background counting');
+    await visibility('visible');await advanceEngagement(1500);
+    check(await engagementCount()===1, 'Returning to a visible document waits for a fresh intersection instead of reusing earlier dwell');
+    await intersect('fixture-contact',0.5);await advanceEngagement(999);
+    check(await engagementCount()===1, 'Document visibility restoration starts a new full dwell interval');
+    await advanceEngagement(1);
+    check(await engagementCount('card_visible')===2, 'A newly qualified contact card records its own view without inventing an outbound action');
+    await intersect('fixture-team-event',0.8);await advanceEngagement(500);await openOverview();await advanceEngagement(1500);
+    check(await engagementCount()===2&&await page.evaluate(()=>window.__intersectionObservers.every(observer=>observer.disconnected)),
+      'Leaving Opportunities cancels partial card dwell and pauses its hidden surface');
+    await openOpportunities();await intersect('fixture-assessment',1);await intersect('fixture-team-event',0.8);await advanceEngagement(999);
+    check(await engagementCount()===2, 'Returning to the same results preserves view deduplication and restarts unfinished dwell');
+    await advanceEngagement(1);
+    check(await engagementCount('card_visible')===3, 'The newly visible team event qualifies only after its own uninterrupted second');
+
+    await engagementReady();await intersect('fixture-assessment',0.7);await advanceEngagement(700);await assessmentDetails().click();await opportunityDialog().waitFor();await advanceEngagement(1500);
+    check(await engagementCount('details_opened')===1&&await engagementCount('card_visible')===0
+      &&await page.evaluate(()=>window.__intersectionObservers.every(observer=>observer.disconnected)),
+      'Opening the drawer records the deliberate details action but cancels partial dwell for cards occluded by its modal backdrop');
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await advanceEngagement(1500);
+    check(await engagementCount('card_visible')===0, 'Closing the drawer does not assume the previously occluded cards were continuously visible');
+    await intersect('fixture-assessment',0.5);await advanceEngagement(1000);
+    check(await engagementCount('card_visible')===1, 'A fresh qualified intersection after closing the drawer may record the card view');
+
+    await engagementReady();await intersect('fixture-assessment',0.8);await advanceEngagement(600);
+    await page.getByRole('button',{name:'Prepare program inquiry',exact:true}).click();await replaceDialog.waitFor();await advanceEngagement(1500);
+    check(await engagementCount()===0&&await page.evaluate(()=>window.__intersectionObservers.every(observer=>observer.disconnected)),
+      'The parent draft-confirmation modal cancels occluded card dwell without counting introduction preparation as engagement');
+    await replaceDialog.getByRole('button',{name:'Keep my draft',exact:true}).click();await replaceDialog.waitFor({state:'hidden'});await advanceEngagement(1500);
+    check(await engagementCount()===0, 'Closing a parent modal also requires a fresh visible interval before counting a card');
+    await intersect('fixture-assessment',0.5);await advanceEngagement(1000);
+    check(await engagementCount('card_visible')===1, 'Card observation resumes after the parent modal closes without using the occluded interval');
+
+    await engagementReady();await assessmentAction().click({button:'right'});await settle();
+    check(await engagementCount()===0, 'Opening an external-link context menu is not an outbound activation');
+    await assessmentDetails().click();await opportunityDialog().waitFor();await settle();
+    check(await engagementCount('details_opened')===1&&await engagementCount('card_visible')===0,
+      'Opening the actual source drawer records details without fabricating an unseen card impression');
+    await opportunityDialog().getByRole('link',{name:'Synthetic official program source',exact:true}).click();await settle();
+    check(await engagementCount()===1, 'A cited source link is distinct from the card’s primary outbound action');
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await assessmentDetails().click();await opportunityDialog().waitFor();await settle();
+    check(await engagementCount('details_opened')===1, 'Reopening the same drawer stays deduplicated within the current result');
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await assessmentAction().focus();await page.keyboard.press('Enter');await settle();
+    check(await engagementCount('outbound_activated')===1, 'Keyboard activation of the primary reviewed external action records an outbound activation');
+    await assessmentAction().click();await assessmentAction().click({button:'middle'});await settle();
+    check(await engagementCount('outbound_activated')===1, 'Regular and middle-button activation of an already recorded action do not duplicate it');
+    await opportunityResults().getByRole('article',{name:'Synthetic team tournament',exact:true}).getByRole('link',{name:'Review assessment details',exact:true}).click({button:'middle'});await settle();
+    check(await engagementCount('outbound_activated')===2&&await engagementCount('card_visible')===0
+      &&await page.evaluate(()=>window.__externalActivations.every(event=>!event.preventedByApp)),
+      'A different team event counts its intentional middle-click while delivery never delays or prevents valid link defaults');
+    await page.getByRole('button',{name:'Prepare program inquiry',exact:true}).click();await replaceDialog.waitFor();await replaceDialog.getByRole('button',{name:'Keep my draft',exact:true}).click();await settle();
+    check(await engagementCount()===3, 'Preparing an introduction is not counted as external destination activation');
+    check(await page.evaluate(({path,reviewedAt})=>{const rows=window.__requests.filter(r=>r.path===path);const ids=new Set();return rows.length===3&&rows.every(r=>{
+      const body=JSON.parse(r.body);ids.add(body.event_id);return r.method==='POST'&&r.cache==='no-store'&&r.authorization==='Bearer fixture-athlete-a'&&r.contentType==='application/json'
+        &&Object.keys(body).sort().join(',')==='event_id,kind,link_revision,opportunity_id,reviewed_at'
+        &&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(body.event_id)
+        &&['fixture-assessment','fixture-team-event'].includes(body.opportunity_id)&&['details_opened','outbound_activated'].includes(body.kind)
+        &&body.link_revision==='a'.repeat(64)&&body.reviewed_at===reviewedAt
+    })&&ids.size===3},{path:engagementPath,reviewedAt:opportunityTime(-60000)}),
+      'Engagement POSTs contain exactly random occurrence ID, reviewed opportunity ID, kind, link revision and source timestamp with authenticated private transport');
+
+    for(const delivery of ['network failure','authorization failure','timeout']){
+      await engagementReady('true',true);await engagementMode(delivery==='timeout'?{pending:true}:delivery==='network failure'?{reject:true}:{status:401,body:{detail:'PRIVATE ENGAGEMENT ERROR'}});
+      await assessmentDetails().click();await opportunityDialog().waitFor();await settle();if(delivery==='timeout')await advanceEngagement(4000);
+      check(await engagementCount('details_opened')===1&&await opportunityDialog().isVisible()&&await page.getByRole('alert').count()===0
+        &&await page.getByText('PRIVATE ENGAGEMENT ERROR',{exact:false}).count()===0,
+        'Engagement '+delivery+' stays silent and leaves the requested source drawer usable');
+      if(delivery==='timeout')check(await page.evaluate(path=>window.__requests.find(r=>r.path===path).signal.aborted,engagementPath),
+        'A pending engagement request is aborted within its bounded four-second delivery window');
+      await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await assessmentDetails().click();await opportunityDialog().waitFor();await settle();
+      check(await engagementCount()===1, 'Engagement '+delivery+' does not retry or multiply the same action');
+      await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await assessmentAction().click();await settle();await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+      check(await draft().inputValue()==='MY EXACT ENGAGEMENT EDIT'&&(await currentWorkspace()).draft.text==='MY SAVED ATHLETE WORDS'
+        &&await page.evaluate(()=>window.__requests.every(r=>r.method!=='PATCH'&&r.path!=='/api/athlete/debrief')&&window.__externalActivations.every(event=>!event.preventedByApp)&&window.__clipboard.length===0&&localStorage.length===0&&sessionStorage.length===0),
+        'Engagement '+delivery+' preserves exact edited/saved drafts and navigation without model calls, saves, copying or browser persistence');
+    }
+
+    await engagementReady();await intersect('fixture-assessment',0.8);await advanceEngagement(500);await page.getByRole('radio',{name:'Places to compete',exact:true}).check();await advanceEngagement(1500);
+    check(await engagementCount()===0&&await opportunityResults().count()===0&&await page.evaluate(()=>window.__intersectionObservers.every(observer=>observer.disconnected)),
+      'Changing filters cancels qualification of the previous result and disconnects its cards');
+    await page.getByRole('radio',{name:'National team',exact:true}).check();await advanceEngagement(1500);
+    check(await engagementCount()===0, 'Changing filters back cannot restore an old impression without a new explicit result');
+    await findOpportunities();await opportunityResults().waitFor();await setOpportunityMode({pending:true});await findOpportunities();await intersect('fixture-assessment',1);await advanceEngagement(1500);
+    await assessmentDetails().click();await opportunityDialog().waitFor();await settle();
+    check(await engagementCount()===0&&await opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).count()===0,
+      'Loading previous results cannot count card views, details or disabled outbound actions');
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await page.evaluate(()=>window.__release({status:503,body:{}},'/api/athlete/opportunities'));await settle();await intersect('fixture-assessment',1);await advanceEngagement(1500);
+    check(await engagementCount()===0, 'An unsuccessful search leaves previous cards ineligible for engagement capture');
+    await setOpportunityMode({body:opportunityResponse()});await findOpportunities();await opportunityResults().waitFor();await intersect('fixture-assessment',1);
+    await page.evaluate(()=>{window.__originalDateNow=Date.now;Date.now=()=>window.__originalDateNow()+172800000});await advanceEngagement(1000);
+    check(await engagementCount()===0, 'A card that expires during its dwell interval cannot emit a qualified view');
+    await page.evaluate(()=>{Date.now=window.__originalDateNow;delete window.__originalDateNow});
+
+    for(const boundary of ['account','link revision','unmount']){
+      await engagementReady();await intersect('fixture-team-event',0.8);await advanceEngagement(500);await engagementMode({pending:true});
+      await assessmentDetails().click();await opportunityDialog().waitFor();await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await settle();
+      if(boundary==='account'){await setMode({body:profile('Blair Fixture')});await setMaterialsMode({body:materials()});await switchAccount('athlete-b');await overviewReady()}
+      else if(boundary==='link revision'){await page.evaluate(()=>{const actor=window.__identity.user.id;window.__workspaceStore[actor]={...window.__workspaceStore[actor],link_revision:'e'.repeat(64),draft:null}});await openOverview();await refreshProfile();await overviewReady()}
+      else {await page.evaluate(()=>window.__unmount());await settle()}
+      await advanceEngagement(5000);await page.evaluate(path=>window.__release({body:{state:'recorded'}},path),engagementPath);
+      await page.evaluate(()=>{const old=window.__intersectionObservers[0];for(const target of old.history)old.callback([{target,isIntersecting:true,intersectionRatio:1}],old)});await advanceEngagement(1500);
+      check(await engagementCount()===1&&await page.evaluate(path=>window.__requests.find(r=>r.path===path).signal.aborted&&window.__intersectionObservers.every(observer=>observer.disconnected),engagementPath),
+        'The '+boundary+' boundary aborts pending engagement and ignores late delivery and old intersection callbacks');
+      if(boundary!=='unmount'){
+        await openOpportunities();const next=opportunityResponse();next.owner_scope=(boundary==='account'?'c':'b').repeat(64);next.link_revision=(boundary==='account'?'b':'e').repeat(64);
+        await engagementMode({body:{state:'recorded'}});await setOpportunityMode({body:next});await findOpportunities();await opportunityResults().waitFor();await assessmentDetails().click();await opportunityDialog().waitFor();await settle();
+        check(await engagementCount('details_opened')===2&&await page.evaluate(({path,revision,actor})=>{const r=window.__requests.filter(r=>r.path===path).at(-1);return JSON.parse(r.body).link_revision===revision&&r.authorization==='Bearer fixture-'+actor},
+          {path:engagementPath,revision:next.link_revision,actor:boundary==='account'?'athlete-b':'athlete-a'}),
+          'The next '+boundary+' gets a fresh bounded dedupe scope and its current authenticated revision');
+      }
+    }
 
     check(posterRequests.length>0&&posterRequests.every(request=>request.url===posterURL&&!request.hasCookie&&!request.hasAuthorization&&!request.hasReferrer),'Every native poster request uses the one exact inert fixture without cookies, authorization or referrer');
     check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside intercepted fixture assets and the one inert poster');

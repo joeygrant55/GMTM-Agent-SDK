@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { apiFetch } from '@/app/_lib/api'
 import { AthleteOpportunity, AthleteOpportunitiesResponse, OpportunityCategory, OpportunityEntry, OpportunityFocus, OpportunityFormat, OpportunityScopeError, isOpportunityCurrent, readAthleteOpportunities } from './opportunityEvidence'
+import { createOpportunityEngagement, OpportunityEngagement } from './opportunityEngagement'
 
 export interface AthleteOpportunitiesProps {
   ownerScope: string
@@ -79,6 +80,9 @@ export default function AthleteOpportunities({ ownerScope, linkRevision, goal, a
   scopeLost.current = onScopeLost
   const dialog = useRef<HTMLDialogElement>(null)
   const returnFocus = useRef<HTMLElement | null>(null)
+  const section = useRef<HTMLElement>(null)
+  const engagement = useRef<OpportunityEngagement | null>(null)
+  const detailsIntent = useRef<string | null>(null)
   const id = useId()
 
   const sameScope = result?.data.owner_scope === ownerScope && result.data.link_revision === linkRevision
@@ -86,6 +90,19 @@ export default function AthleteOpportunities({ ownerScope, linkRevision, goal, a
   const response = sameScope && sameOptions ? result!.data : null
   const items = response?.items.filter(item => isOpportunityCurrent(item)) || []
   const selected = active ? items.find(item => item.id === detailsId) || null : null
+  const engagementContext = useRef({ response, ownerScope, linkRevision, available: active && !loading && !error, canObserve: !detailsId })
+  engagementContext.current = { response, ownerScope, linkRevision, available: active && !loading && !error, canObserve: !detailsId }
+
+  useEffect(() => {
+    if (!response || !section.current) return
+    const tracker = createOpportunityEngagement({ result: response, root: section.current, isActive: () => {
+      const context = engagementContext.current
+      return context.available && context.response === response && context.ownerScope === ownerScope && context.linkRevision === linkRevision
+    }, canObserve: () => engagementContext.current.canObserve })
+    engagement.current = tracker
+    return () => { tracker?.destroy(); if (engagement.current === tracker) engagement.current = null }
+  }, [response, ownerScope, linkRevision])
+  useEffect(() => { engagement.current?.sync() }, [response, active, loading, error, clock, detailsId])
 
   useEffect(() => {
     mounted.current = true
@@ -114,6 +131,7 @@ export default function AthleteOpportunities({ ownerScope, linkRevision, goal, a
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     element.showModal()
+    if (detailsIntent.current === selected.id) { engagement.current?.record('details_opened', selected); detailsIntent.current = null }
     return () => {
       element.close(); document.body.style.overflow = previousOverflow
       if (current.current.active && returnFocus.current?.isConnected) returnFocus.current.focus()
@@ -168,11 +186,12 @@ export default function AthleteOpportunities({ ownerScope, linkRevision, goal, a
   }
   const showDetails = (item: AthleteOpportunity, button: HTMLButtonElement) => {
     if (!isOpportunityCurrent(item)) { setClock(Date.now()); return }
+    detailsIntent.current = actionCurrent(item) ? item.id : null
     returnFocus.current = button; setDetailsId(item.id)
   }
   const filtersChanged = () => { setResult(null); setDetailsId(null); setError(null) }
 
-  return <section hidden={!active} aria-labelledby={`${id}-title`} className="max-w-5xl py-8 sm:py-12">
+  return <section ref={section} hidden={!active} aria-labelledby={`${id}-title`} className="max-w-5xl py-8 sm:py-12">
     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sparq-lime">Your opportunities</p>
     <h1 id={`${id}-title`} className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">Find your next move.</h1>
     <p className="mt-4 max-w-2xl text-base leading-relaxed text-gray-400">Explore adult flag pathways, places to compete and people who can help.</p>
@@ -199,7 +218,7 @@ export default function AthleteOpportunities({ ownerScope, linkRevision, goal, a
     {response && <div className="mt-7" aria-label="Opportunity results">
       {(loading || error) && <p className="mb-4 text-xs text-gray-400">Previous results. Complete a new search before taking the next step.</p>}
       {items.length === 0 ? <div className="rounded-2xl border border-white/15 p-6"><h2 className="text-xl font-semibold">No current options in this collection.</h2><p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-400">{format === 'in_person' ? 'No confirmed upcoming in-person opportunity matches these options in this collection. Try different options or check back later.' : 'No source-backed options are current for this search. Try different options or check back later.'}</p></div>
-        : <div className="grid gap-4 lg:grid-cols-2">{items.map(item => <article key={item.id} className="flex min-w-0 flex-col rounded-2xl border border-white/15 bg-white/[0.025] p-5 sm:p-6" aria-labelledby={`${id}-item-${item.id}`}>
+        : <div className="grid gap-4 lg:grid-cols-2">{items.map(item => <article key={item.id} data-opportunity-id={item.id} className="flex min-w-0 flex-col rounded-2xl border border-white/15 bg-white/[0.025] p-5 sm:p-6" aria-labelledby={`${id}-item-${item.id}`}>
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium text-gray-400">{item.organization}</p><span className="rounded-full border border-white/15 px-2.5 py-1 text-[10px] text-gray-300">{statusLabels[item.status]}</span></div>
           <h2 id={`${id}-item-${item.id}`} className="mt-4 break-words text-2xl font-semibold leading-tight tracking-tight">{item.title}</h2>
           {item.participation === 'team' && <p className="mt-3 text-sm font-medium text-amber-200">{item.kind === 'event' ? 'Team registration required.' : 'Team registration required. Confirm roster and division requirements.'}</p>}
@@ -211,7 +230,7 @@ export default function AthleteOpportunities({ ownerScope, linkRevision, goal, a
           <div className="mt-auto pt-5">{item.action.kind === 'prepare_introduction'
             ? <button type="button" disabled={loading || !!error} onClick={() => { if (actionCurrent(item)) onPrepare(item) }} className={`${primary} w-full`}>{item.action.label}</button>
             : loading || error ? <span aria-disabled="true" className={`${primary} w-full opacity-40`}>{item.action.label}</span>
-              : <a href={item.action.href} target="_blank" rel="noopener noreferrer" onClick={event => { if (!actionCurrent(item)) event.preventDefault() }} onAuxClick={event => { if (!actionCurrent(item)) event.preventDefault() }} onContextMenu={event => { if (!actionCurrent(item)) event.preventDefault() }} className={`${primary} w-full`}>{item.action.label}</a>}
+              : <a href={item.action.href} target="_blank" rel="noopener noreferrer" onClick={event => { if (!actionCurrent(item)) event.preventDefault(); else if (event.button === 0) engagement.current?.record('outbound_activated', item) }} onAuxClick={event => { if (!actionCurrent(item)) event.preventDefault(); else if (event.button === 1) engagement.current?.record('outbound_activated', item) }} onContextMenu={event => { if (!actionCurrent(item)) event.preventDefault() }} className={`${primary} w-full`}>{item.action.label}</a>}
             <button type="button" aria-haspopup="dialog" onClick={event => showDetails(item, event.currentTarget)} className={`${secondary} mt-2`}>{item.kind === 'event' ? 'Costs, eligibility & sources' : 'Details & sources'}<span className="sr-only"> for {item.title}</span></button>
           </div>
         </article>)}</div>}

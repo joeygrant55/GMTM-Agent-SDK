@@ -23,7 +23,7 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (search) return false
   if (surface === 'combine' && pathname === '/api/combine/help') return method === 'POST'
   if (surface === 'profile' && ['/api/athlete/evidence', '/api/athlete/materials'].includes(pathname)) return method === 'GET'
-  if (surface === 'profile' && ['/api/athlete/debrief', '/api/athlete/opportunities'].includes(pathname)) return method === 'POST'
+  if (surface === 'profile' && ['/api/athlete/debrief', '/api/athlete/opportunities', '/api/athlete/opportunities/engagement'].includes(pathname)) return method === 'POST'
   if (surface === 'profile' && pathname === '/api/athlete/workspace') return method === 'GET' || method === 'PATCH'
   if (/^\/api\/profile\/by-clerk\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
   if (/^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?\/redeem$/.test(pathname)) return method === 'POST'

@@ -2,6 +2,14 @@
 
 Updated: 2026-09-10. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
+## Measure interest in relevant events — September 10, 2026
+
+Joey's next priority is useful event discovery, measured athlete interest, then evidence-led organizer conversations. The local profile app now optionally records qualified card views, deliberate details opens and primary outbound activations. Its authenticated collector derives private account pseudonyms and emits bounded structured logs; an offline report deduplicates audience and excludes founder/internal/fixture cohorts from pilot totals. Relevance, reviewed links, navigation and existing drafts are preserved. Both capture flags default off; no live traffic was collected or settings changed.
+
+Final verification: **454 backend tests, 423 component checks, 113 policy checks, 156 actual-app checks plus five safety assertions**, and actual production compile/typecheck/start passed. The report reproduced captured fixture interactions and returned zero pilot audience from those same test logs. Final source hashes match and all owned verification groups/ports are closed. The [engagement handoff](../../.sammy/handoffs/2026-09-10-opportunity-engagement.md) records attempts, review findings and evidence; the [measurement contract](opportunity-engagement-contract-2026-09-10.md) owns definitions/configuration/limits.
+
+**Next:** validate shortlist relevance with the founder and a small explicitly admitted adult pilot. Before collecting pilot evidence, establish the reviewed hosted build and signed-in entry, fresh event sources, paired measurement configuration, fixed reporting window and private log retention/export. Outbound activation is not destination arrival or registration. Production capture remains unconfigured; the existing real-owner launcher blocks this route and cannot supply pilot logs. The [GMTM auth planner](gmtm-auth-implementation-contract-2026-09-10.md) remains separate pending integration work. No push, deployment, live database operation, model call, registration, affiliate agreement or outreach occurred. No preview is left running and the founder's earlier three-save allowance remains exhausted.
+
 ## Goal, travel and participation search — September 10, 2026
 
 Implemented locally: explicit **National team / Places to compete / Both**, optional US state/DC travel destination and individual/team participation. The five-record collection now includes two Florida team events and a public organizer inquiry alongside the two USA Football routes. Compact event cards show dates, venue and team entry; one labeled drawer retains full fees, eligibility and source facts. Athlete goal text is not interpreted as eligibility or travel consent. Existing drafts survive exploration and require explicit replacement for a different inquiry.

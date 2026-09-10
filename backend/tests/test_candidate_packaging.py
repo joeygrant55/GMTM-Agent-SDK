@@ -214,7 +214,7 @@ entry=importlib.import_module(sys.argv[2])
 surface=sys.argv[3]
 app=entry.app
 assert not any(name in sys.modules for name in ('main','agent_api','artifacts_api','reports_api','search_api','enrichment_worker'))
-profile_modules=('profile_candidate_app','athlete_evidence','athlete_materials','athlete_workspace','athlete_opportunities','opportunity_catalog','profile_debrief','profile_pathways','source_scope')
+profile_modules=('profile_candidate_app','athlete_evidence','athlete_materials','athlete_workspace','athlete_opportunities','opportunity_catalog','opportunity_engagement','profile_debrief','profile_pathways','source_scope')
 if surface == 'profile':
  assert all(name in sys.modules for name in profile_modules)
  assert all(Path(sys.modules[name].__file__).parent == Path(sys.argv[1]) for name in profile_modules)
@@ -229,7 +229,7 @@ expected={
 }
 if surface == 'profile':
  expected.update({('GET','/api/athlete/evidence'),('GET','/api/athlete/materials'),
-                  ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace')})
+                  ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace')})
 else:
  expected.update({('GET','/api/combine/current'),('POST','/api/combine/help')})
 assert {(method,route.path) for route in app.routes for method in route.methods} == expected
@@ -305,7 +305,7 @@ def test_separate_profile_packaging_preserves_the_original_combine_source_set():
         "backend/profile_candidate_app.py", "backend/athlete_evidence.py", "backend/athlete_materials.py",
         "backend/athlete_workspace.py", "backend/profile_debrief.py", "backend/profile_pathways.py",
         "backend/source_scope.py", "backend/start_profile_candidate.py",
-        "backend/athlete_opportunities.py", "backend/opportunity_catalog.py",
+        "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
     }
     assert original_combine - set(profile_packager.SOURCES) == {
         "Dockerfile.candidate", "Dockerfile.candidate.dockerignore", "backend/start_candidate.py",

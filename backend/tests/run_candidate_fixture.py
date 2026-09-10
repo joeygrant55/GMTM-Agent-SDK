@@ -58,6 +58,11 @@ def main():
         "PROFILE_DEBRIEF_ENABLED": "true" if surface == "profile" else "false",
         "PROFILE_DEBRIEF_MODEL": "claude-sonnet-4-6", "PROFILE_DEBRIEF_MAX_MODEL_CALLS": "4",
         "PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS": "1",
+        "OPPORTUNITY_ENGAGEMENT_ENABLED": "true" if surface == "profile" else "false",
+        "OPPORTUNITY_ENGAGEMENT_COHORT": "fixture",
+        "OPPORTUNITY_ENGAGEMENT_PERIOD": "fixture-2026-09",
+        # Deliberately synthetic HMAC material, never an inherited credential.
+        "OPPORTUNITY_ENGAGEMENT_SECRET": "ab" * 32,
     })
     attempts, requests, commands = Counter(), Counter(), Counter()
     counts = {"synthetic_help_calls": 0, "synthetic_debrief_calls": 0}
@@ -250,6 +255,7 @@ def main():
         import athlete_materials
         import athlete_workspace
         import athlete_opportunities
+        import opportunity_engagement
         from backend.tests.workspace_fixture_store import WorkspaceStore
 
         career_store = WorkspaceStore(mutex=mutex, link_reader=lambda: [
@@ -257,6 +263,7 @@ def main():
             for uid, clerk in claims["athlete_profiles"].items()])
         athlete_workspace._get_agent_db = career_store.connect
         athlete_opportunities._get_agent_db = career_store.connect
+        opportunity_engagement._get_agent_db = career_store.connect
         # Fixture-only freshness overlay: exercise the actual catalog projection
         # independently of the real records' seven-day review window. This is
         # synthetic HTTP acceptance, never evidence of a current source review.
@@ -270,6 +277,8 @@ def main():
             for source_record in record["sources"]:
                 source_record["checked_at"] = fixture_checked
                 source_record["expires_at"] = fixture_expires
+
+        opportunity_engagement.RECORDS = athlete_opportunities.RECORDS
 
         class EvidenceAgentDB(AgentDB):
             """Use the shared claim link, but permit only the two owner reads."""
@@ -481,7 +490,7 @@ def main():
                     "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/{clerk_id}",
                     "/api/athlete/debrief",
                     "/api/athlete/workspace",
-                    "/api/athlete/opportunities",
+                    "/api/athlete/opportunities", "/api/athlete/opportunities/engagement",
                     "/api/claims/{token}", "/api/claims/{token}/redeem",
                 })
     assert set(app.openapi()["paths"]) == expected
@@ -567,7 +576,7 @@ def main():
                 "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
                 "combine_help_api.py", "tests/run_candidate_fixture.py",
                 *(("athlete_evidence.py", "athlete_materials.py", "profile_debrief.py", "profile_pathways.py", "combine_model.py",
-                   "athlete_workspace.py", "athlete_opportunities.py", "opportunity_catalog.py", "source_scope.py", "tests/workspace_fixture_store.py") if surface == "profile" else ()))},
+                   "athlete_workspace.py", "athlete_opportunities.py", "opportunity_catalog.py", "opportunity_engagement.py", "source_scope.py", "tests/workspace_fixture_store.py") if surface == "profile" else ()))},
         }
         descriptor = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as handle:

@@ -237,6 +237,8 @@ def test_read_only_keeps_owned_source_gets_and_rejects_patch_before_auth_or_db(s
         attempts = dict(app.ledger.data["attempts"])
         assert client.patch("/api/athlete/workspace", headers=setup.headers(), json={}).status_code == 403
         assert len(setup.store.connections) == connections and app.ledger.data["attempts"] == attempts
+        assert client.post("/api/athlete/opportunities/engagement", headers=setup.headers(), json={}).status_code == 403
+        assert len(setup.store.connections) == connections and app.ledger.data["attempts"] == attempts
     ledger = json.loads((run_dir / "acceptance-ledger.json").read_text())
     assert ledger["caps"] == {**acceptance.CAPS, "patch_attempts": 0}
     assert ledger["attempts"]["patch_attempts"] == ledger["commits_attempted"] == 0

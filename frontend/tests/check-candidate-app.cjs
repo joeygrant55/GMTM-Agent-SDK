@@ -322,7 +322,7 @@ const work = (async () => {
   assertRunning();
   assert(fixtureReady.token && fixtureReady.claim_token && fixtureReady.clerk_id);
   authOverlays(snapshotRoot, fixtureReady);
-  const nextEnvironment = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'development', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: surface, NEXT_PUBLIC_BACKEND_URL: backOrigin, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only', CLERK_SECRET_KEY: 'sk_test_fixture_only' };
+  const nextEnvironment = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'development', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: surface, NEXT_PUBLIC_OPPORTUNITY_ENGAGEMENT_ENABLED: surface === 'profile' ? 'true' : 'false', NEXT_PUBLIC_BACKEND_URL: backOrigin, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_fixture_only', CLERK_SECRET_KEY: 'sk_test_fixture_only' };
   assertRunning();
   next = ownProcess('next', spawn(process.execPath, [path.join(deps, 'next/dist/bin/next'), 'dev', '--hostname', '127.0.0.1', '--port', String(frontPort)], { cwd: snapshotRoot, env: nextEnvironment, detached: true, stdio: ['ignore', 'pipe', 'pipe'] }));
   for (const stream of [next.stdout, next.stderr]) stream.on('data', data => { nextLog += data.toString(); nextReady = nextLog.includes('Ready in'); });
@@ -349,6 +349,9 @@ const work = (async () => {
       return route.fulfill({ status: thumbnailMode === 'ready' ? 200 : 404, contentType: 'image/png',
         headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
         body: thumbnailMode === 'ready' ? thumbnailBytes : Buffer.alloc(0) });
+    }
+    if (surface === 'profile' && request.url() === 'https://iflag.org/tournaments/2026-battle-orlando/' && request.method() === 'GET' && request.resourceType() === 'document') {
+      return route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Synthetic organizer destination</title><p>Locally intercepted organizer navigation fixture.</p>'});
     }
     if (!frontOrigins.has(url.origin) && url.origin !== backOrigin) { blockedBrowser.push({ origin: url.origin, path: cleanPath(url.href) }); return route.abort(); }
     requests.push({ origin: frontOrigins.has(url.origin) ? 'frontend' : 'backend', method: route.request().method(), path: cleanPath(url.href), rsc: route.request().headers()['rsc'] === '1' });
@@ -620,6 +623,33 @@ const work = (async () => {
     await page.setViewportSize({width:390,height:844});
     check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'Expanded purpose and travel filters plus team competition cards fit the phone width');
     await page.screenshot({path:path.join(output,'phone-competition-options.png'),fullPage:true});
+    const engagementURL=backOrigin+'/api/athlete/opportunities/engagement';
+    const observed=[];
+    const observeEngagement=request=>{if(request.url()===engagementURL)observed.push(request.postDataJSON())};
+    page.on('request',observeEngagement);
+    const accepted=kind=>page.waitForResponse(response=>response.url()===engagementURL&&response.request().postDataJSON()?.kind===kind&&response.request().postDataJSON()?.opportunity_id==='iflag-battle-orlando-2026'&&response.status()===204);
+    const cardVisible=accepted('card_visible');await findOpportunities();
+    const measuredCard=opportunityResults.getByRole('article',{name:'Battle Orlando · October 2026',exact:true});
+    await measuredCard.scrollIntoViewIfNeeded();await cardVisible;
+    const detailsAccepted=accepted('details_opened');
+    await measuredCard.getByRole('button',{name:'Costs, eligibility & sources for Battle Orlando · October 2026',exact:true}).click();await detailsAccepted;
+    await page.keyboard.press('Escape');await opportunityDetails.waitFor({state:'hidden'});
+    const outboundAccepted=accepted('outbound_activated');const popupPromise=context.waitForEvent('page');
+    await measuredCard.getByRole('link',{name:'Review team entry',exact:true}).click();
+    const popup=await popupPromise;await popup.getByText('Locally intercepted organizer navigation fixture.',{exact:true}).waitFor();await outboundAccepted;
+    check(await popup.url()==='https://iflag.org/tournaments/2026-battle-orlando/'&&await measuredCard.isVisible(),
+      'Primary event activation preserves the SPARQ workspace and exact organizer target; destination bytes are a local fixture');
+    await popup.close();await page.bringToFront();
+    page.off('request',observeEngagement);
+    check(['card_visible','details_opened','outbound_activated'].every(kind=>observed.some(event=>event.kind===kind&&event.opportunity_id==='iflag-battle-orlando-2026'))
+      &&observed.every(event=>Object.keys(event).sort().join(',')==='event_id,kind,link_revision,opportunity_id,reviewed_at'
+        &&!JSON.stringify(event).includes('Ava')&&!JSON.stringify(event).includes('https://')),
+      'Actual visible-card, source-details and outbound events traverse authenticated ASGI without profile text, URLs or client identity');
+    const captured=fixtureLog.split('\n').filter(line=>line.startsWith('SPARQ_OPPORTUNITY_ENGAGEMENT ')).map(line=>JSON.parse(line.slice('SPARQ_OPPORTUNITY_ENGAGEMENT '.length)));
+    check(captured.some(event=>event.kind==='outbound_activated'&&event.opportunity_id==='iflag-battle-orlando-2026'&&event.destination_kind==='event_page')
+      &&captured.every(event=>event.cohort==='fixture'&&event.measurement_period==='fixture-2026-09'&&/^[a-f0-9]{64}$/.test(event.account)),
+      'The actual collector emits pseudonymous fixture-only records that cannot count as pilot demand');
+    writeJSON('engagement-fixture-events.json',captured);
     await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('TX');const texas=await findOpportunities();
     check(texas.items.length===0&&await opportunityResults.getByRole('article').count()===0,'A requested Texas destination does not surface the Florida events as local opportunities');
     await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('FL');

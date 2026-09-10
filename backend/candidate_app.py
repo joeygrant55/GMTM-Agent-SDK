@@ -48,6 +48,9 @@ _CONFIGURATION_KEYS = (
     "PROFILE_DEBRIEF_ENABLED", "PROFILE_DEBRIEF_MODEL",
     "PROFILE_DEBRIEF_MAX_MODEL_CALLS", "PROFILE_DEBRIEF_MAX_CONCURRENT_CALLS",
     "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
+    "OPPORTUNITY_ENGAGEMENT_ENABLED", "OPPORTUNITY_ENGAGEMENT_COHORT",
+    "OPPORTUNITY_ENGAGEMENT_PERIOD", "OPPORTUNITY_ENGAGEMENT_SECRET",
+    "OPPORTUNITY_ENGAGEMENT_EXCLUDED_IDS", "OPPORTUNITY_ENGAGEMENT_PILOT_IDS",
 )
 
 
@@ -198,12 +201,14 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from athlete_evidence import current_athlete_evidence
         from athlete_materials import current_athlete_materials
         from athlete_opportunities import current_athlete_opportunities
+        from opportunity_engagement import current_opportunity_engagement, RateLimit, validate_configuration as engagement_configuration
         from profile_debrief import current_profile_debrief, validate_configuration as debrief_configuration
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         routes = (
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
             ("GET", "/api/athlete/materials", current_athlete_materials),
             ("POST", "/api/athlete/opportunities", current_athlete_opportunities),
+            ("POST", "/api/athlete/opportunities/engagement", current_opportunity_engagement),
             ("POST", "/api/athlete/debrief", current_profile_debrief),
             ("GET", "/api/athlete/workspace", current_athlete_workspace),
             ("PATCH", "/api/athlete/workspace", update_athlete_workspace),
@@ -217,6 +222,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         if surface == "profile":
             # Pure validation only; no provider or usage ledger is initialized.
             application.state.profile_debrief_configuration = debrief_configuration(os.environ)
+            application.state.opportunity_engagement_configuration = engagement_configuration(os.environ)
+            application.state.opportunity_engagement_limiter = RateLimit()
         # Pure configuration work only; no schema, provider or shared override.
         application.state.candidate_configuration = config
         try:
@@ -224,6 +231,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         finally:
             application.state.candidate_configuration = None
             application.state.profile_debrief_configuration = None
+            application.state.opportunity_engagement_configuration = None
+            application.state.opportunity_engagement_limiter = None
 
     application = FastAPI(title=title, version="1.0.0",
                           docs_url=None, redoc_url=None, openapi_url=None,
@@ -246,6 +255,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         if surface == "profile":
             debrief = getattr(application.state, "profile_debrief_configuration", None)
             body["debrief_enabled"] = bool(ready and debrief is not None)
+            body["opportunity_engagement_enabled"] = bool(ready and getattr(application.state, "opportunity_engagement_configuration", None) is not None)
             key = "OPENAI_API_KEY" if debrief is not None and MODELS[debrief.model] == "openai" else "ANTHROPIC_API_KEY"
             body["debrief_provider_configured"] = bool(ready and debrief is not None and os.environ.get(key, "").strip())
         return JSONResponse(body, status_code=200 if ready else 503)

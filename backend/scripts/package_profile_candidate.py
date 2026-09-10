@@ -26,7 +26,7 @@ SOURCES = (
     "backend/profile_candidate_app.py", "backend/athlete_evidence.py", "backend/athlete_materials.py",
     "backend/athlete_workspace.py", "backend/profile_debrief.py", "backend/profile_pathways.py",
     "backend/source_scope.py", "backend/start_profile_candidate.py",
-    "backend/athlete_opportunities.py", "backend/opportunity_catalog.py",
+    "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
 )
 
 
