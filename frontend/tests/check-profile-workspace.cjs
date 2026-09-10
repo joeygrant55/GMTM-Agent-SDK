@@ -178,7 +178,7 @@ const opportunityNow=Date.now(), opportunityTime=offset=>new Date(opportunityNow
 const opportunitySourceURL='https://www.usafootball.com/national-team/synthetic-opportunity';
 const opportunityItem=(contact=false)=>({
   id:contact?'fixture-contact':'fixture-assessment',title:contact?'Synthetic program inquiry':'Synthetic adult assessment',organization:'Synthetic program',
-  kind:contact?'contact':'assessment',summary:'A synthetic source-reviewed pathway for component verification.',
+  kind:contact?'contact':'assessment',participation:contact?'information':'individual',summary:'A synthetic source-reviewed pathway for component verification.',
   relevance:'You chose adult flag football. This is a published route, not an eligibility assessment.',
   status:contact?'published_route':'check_details',valid_until:opportunityTime(86400000),
   facts:['dates','location','cost','eligibility','contact'].map(key=>({key,label:key[0].toUpperCase()+key.slice(1),
@@ -902,21 +902,28 @@ const work = (async()=>{
     const setOpportunityMode=async mode=>page.evaluate(mode=>{window.__opportunityMode=mode},mode);
     const findOpportunities=async()=>{await page.getByRole('button',{name:'Find opportunities',exact:true}).click();await settle()};
     const opportunityReads=()=>page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/opportunities').length);
+    const opportunityQuery=(extra={})=>({pathway:'adult_flag',category:'unspecified',format:'any',link_revision:'a'.repeat(64),focus:'national_team',state:null,entry:'any',...extra});
+    const opportunityQueryMatches=expected=>page.evaluate(expected=>{const request=window.__requests.filter(r=>r.path==='/api/athlete/opportunities').at(-1);if(!request)return false;const body=JSON.parse(request.body);return Object.keys(body).length===7&&Object.keys(expected).length===7&&Object.entries(expected).every(([key,value])=>Object.hasOwn(body,key)&&body[key]===value)},expected);
+    const refineOpportunities=async()=>{const summary=page.locator('summary').filter({hasText:/^Refine search$/});if(!await summary.evaluate(el=>el.parentElement.open))await summary.click()};
+    const opportunityDefaults=async()=>await page.getByLabel('Competition category (optional)',{exact:true}).inputValue()==='unspecified'
+      &&await page.getByLabel('Format',{exact:true}).inputValue()==='any'
+      &&await page.getByRole('radio',{name:'National team',exact:true}).isChecked()
+      &&await page.getByLabel('Travel destination (optional)',{exact:true}).inputValue()===''
+      &&await page.getByLabel('Participation',{exact:true}).inputValue()==='any';
     const opportunitySaved=workspaceState({version:1,goal:{text:'Explore my adult flag pathway',destination:null,timeframe:null},
       draft:{kind:'summary',text:'MY SAVED ATHLETE WORDS',goal:'Explore my adult flag pathway',destination:'',selected_evidence_ids:['metric-1'],selected_material_ids:[],inputs_changed:false},updated_at:'2026-09-09T12:00:00Z'});
-    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
-    check(await opportunityReads()===0&&await opportunityResults().count()===0
-      &&await page.getByLabel('Competition category (optional)',{exact:true}).inputValue()==='unspecified'
-      &&await page.getByLabel('Format',{exact:true}).inputValue()==='any',
-      'Opening Opportunities preserves explicit athlete choice without deriving category from the profile or searching automatically');
+    const choiceGoal={...opportunitySaved,goal:{text:'Find women’s team competitions in Texas',destination:'Florida program',timeframe:null}};
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},choiceGoal);await overviewReady();await openOpportunities();
+    check(await opportunityReads()===0&&await opportunityResults().count()===0&&await opportunityDefaults(),
+      'Opening Opportunities keeps neutral category, travel and participation choices without deriving filters from the Florida profile or authored Texas team goal');
     await setOpportunityMode({body:opportunityResponse()});await findOpportunities();await opportunityResults().waitFor();
     check(await opportunityResults().getByRole('article').count()===2&&await opportunityResults().getByText('Not confirmed',{exact:true}).count()===1
       &&await opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).getAttribute('href')===opportunitySourceURL
       &&await opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).getAttribute('rel')==='noopener noreferrer',
       'A validated scoped search renders only reviewed options, preserves unknown cost and exposes the exact source action without opening it');
-    check(await page.evaluate(()=>{const requests=window.__requests.filter(r=>r.path==='/api/athlete/opportunities'),r=requests[0],body=JSON.parse(r.body);return requests.length===1&&r.method==='POST'&&r.cache==='no-store'&&r.authorization==='Bearer fixture-athlete-a'&&r.contentType==='application/json'
-      &&JSON.stringify(body)===JSON.stringify({pathway:'adult_flag',category:'unspecified',format:'any',link_revision:'a'.repeat(64)})}),
-      'Search sends only the chosen pathway, category, format and current link revision with the authenticated private transport');
+    check(await page.evaluate(()=>{const requests=window.__requests.filter(r=>r.path==='/api/athlete/opportunities'),r=requests[0];return requests.length===1&&r.method==='POST'&&r.cache==='no-store'&&r.authorization==='Bearer fixture-athlete-a'&&r.contentType==='application/json'})
+      &&await opportunityQueryMatches(opportunityQuery()),
+      'Search sends exactly seven explicit filter and link fields with authenticated private transport, without profile location or authored goal data');
     const sourceDetailsButton=page.getByRole('button',{name:'Details & sources for Synthetic adult assessment',exact:true});
     await sourceDetailsButton.click();await opportunityDialog().waitFor();await settle();
     check(await opportunityDialog().getByText('Eligibility',{exact:true}).isVisible()
@@ -933,14 +940,67 @@ const work = (async()=>{
     check(await opportunityResults().count()===0&&await opportunityReads()===1,
       'Changed filters withhold earlier cards until a new explicit search without sending an automatic request');
     await setOpportunityMode({body:opportunityResponse([opportunityItem()])});await findOpportunities();await opportunityResults().waitFor();
-    check(await page.evaluate(()=>{const body=JSON.parse(window.__requests.filter(r=>r.path==='/api/athlete/opportunities').at(-1).body);return body.category==='women'&&body.format==='remote'})
+    check(await opportunityQueryMatches(opportunityQuery({category:'women',format:'remote'}))
       &&await opportunityResults().getByRole('article').count()===1, 'Explicit filter search uses the selected category and format and displays the returned scoped subset');
     await page.getByLabel('Format',{exact:true}).selectOption('in_person');await setOpportunityMode({body:opportunityResponse([])});await findOpportunities();await opportunityResults().waitFor();
-    check(await opportunityResults().getByRole('article').count()===0&&await opportunityResults().getByText('No upcoming in-person opportunity is confirmed here. Try another format to see published pathways.',{exact:true}).isVisible(),
+    check(await opportunityResults().getByRole('article').count()===0&&await opportunityResults().getByText('No confirmed upcoming in-person opportunity matches these options in this collection. Try different options or check back later.',{exact:true}).isVisible(),
       'An empty in-person collection explains the missing reviewed schedule without manufacturing a showcase card');
 
+    // The mock returns reviewed-shaped records; backend filtering is tested separately.
+    const teamOpportunity={...opportunityItem(),id:'fixture-team-event',title:'Synthetic team tournament',kind:'event',participation:'team'};
+    const teamSourceURL='https://iflag.org/synthetic-team-event';
+    const teamFullCost='$375 per team/division; referees included. $50 deposit, balance due on the published date. Teams supply flags; final checkout and travel costs are unverified.';
+    teamOpportunity.sources[0].url=teamSourceURL;teamOpportunity.action.href=teamSourceURL;
+    teamOpportunity.facts[2]={...teamOpportunity.facts[2],value:teamFullCost,source_ids:['source-1']};
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
+    await page.getByRole('radio',{name:'Places to compete',exact:true}).check();await refineOpportunities();
+    await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('TX');await page.getByLabel('Participation',{exact:true}).selectOption('team');
+    await page.getByLabel('Competition category (optional)',{exact:true}).selectOption('women');await page.getByLabel('Format',{exact:true}).selectOption('in_person');await settle();
+    check(await opportunityReads()===0&&await opportunityResults().count()===0
+      &&await page.getByText('Choose a state you would travel to.',{exact:true}).isVisible(),
+      'Choosing competition focus, travel destination and team entry changes only explicit search controls and makes no request');
+    await setOpportunityMode({body:opportunityResponse([teamOpportunity])});await findOpportunities();await opportunityResults().waitFor();
+    check(await opportunityReads()===1&&await opportunityQueryMatches(opportunityQuery({focus:'competition',category:'women',format:'in_person',state:'TX',entry:'team'}))
+      &&await opportunityResults().getByRole('article',{name:'Synthetic team tournament',exact:true}).isVisible(),
+      'Find sends the explicit competition, Texas travel and team-entry query and displays the returned reviewed event');
+    const teamWarning='Team registration required.',teamDetailsWarning='Team registration required. Confirm roster and division requirements.';
+    check(await opportunityResults().getByText(teamWarning,{exact:true}).isVisible()
+      &&await opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).getAttribute('href')===teamSourceURL,
+      'A reviewed team event clearly requires team registration before its exact canonical iFlag action');
+    check(await opportunityResults().getByText(teamOpportunity.facts[0].value,{exact:true}).isVisible()
+      &&await opportunityResults().getByText(teamOpportunity.facts[1].value,{exact:true}).isVisible()
+      &&await opportunityResults().getByText('Cost',{exact:true}).count()===0
+      &&await opportunityResults().getByText(teamFullCost,{exact:false}).count()===0
+      &&await opportunityResults().getByText(teamOpportunity.relevance,{exact:true}).count()===0,
+      'Event cards retain exact dates and venue while moving full payment terms to details and omitting repetitive relevance');
+    await page.getByRole('button',{name:'Costs, eligibility & sources for Synthetic team tournament',exact:true}).click();await opportunityDialog().waitFor();
+    check(await opportunityDialog().getByText(teamDetailsWarning,{exact:true}).isVisible(), 'Team roster and division requirements remain explicit in the source details');
+    const teamCostDetail=opportunityDialog().locator('dl > div').filter({has:page.getByText('Cost',{exact:true})}).locator('dd');
+    check(await teamCostDetail.isVisible()&&await teamCostDetail.evaluate(el=>[...el.childNodes].filter(node=>node.nodeType===Node.TEXT_NODE).map(node=>node.textContent).join(''))===teamFullCost
+      &&await opportunityDialog().getByText('Eligibility',{exact:true}).isVisible()
+      &&await opportunityDialog().getByRole('link',{name:'Synthetic official program source',exact:true}).getAttribute('href')===teamSourceURL,
+      'One labeled details action reveals exact full team fee and deposit terms with eligibility and cited official sources');
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});
+    for(const filter of ['focus','state','entry']){
+      if(filter==='focus'){await page.getByRole('radio',{name:'Both',exact:true}).check();await page.getByRole('radio',{name:'Places to compete',exact:true}).check()}
+      if(filter==='state'){await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('FL');await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('TX')}
+      if(filter==='entry'){await page.getByLabel('Participation',{exact:true}).selectOption('individual');await page.getByLabel('Participation',{exact:true}).selectOption('team')}
+      await settle();
+      check(await opportunityResults().count()===0&&await opportunityReads()===(filter==='focus'?1:filter==='state'?2:3),
+        'Changing '+filter+' away and back still withholds old cards until another explicit Find');
+      await findOpportunities();await opportunityResults().waitFor();
+      check(await opportunityQueryMatches(opportunityQuery({focus:'competition',category:'women',format:'in_person',state:'TX',entry:'team'})),
+        'Explicit Find after changing '+filter+' back sends the same complete reviewed query');
+    }
+    await page.getByRole('radio',{name:'Both',exact:true}).check();await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('DC');await page.getByLabel('Participation',{exact:true}).selectOption('individual');
+    check(await opportunityReads()===4&&await opportunityResults().count()===0, 'Both focus, District of Columbia travel and individual entry also remain explicit choices before Find');
+    await setOpportunityMode({body:opportunityResponse([opportunityItem()])});await findOpportunities();await opportunityResults().waitFor();
+    check(await opportunityReads()===5&&await opportunityQueryMatches(opportunityQuery({focus:'any',category:'women',format:'in_person',state:'DC',entry:'individual'}))
+      &&await opportunityResults().getByText(teamWarning,{exact:true}).count()===0,
+      'Both and individual entry use their canonical request values, and an individual route does not inherit a team warning');
+
     const badOpportunities=[];
-    for(const label of ['unknown fact reference','unsafe source host','unsourced contact','duplicate item','extra response field','missing fact']){
+    for(const label of ['unknown fact reference','unsafe source host','unsourced contact','duplicate item','extra response field','missing fact','missing participation','null participation','unknown participation','array participation','object participation']){
       const body=opportunityResponse();
       if(label==='unknown fact reference')body.items[0].facts[0].source_ids=['missing'];
       if(label==='unsafe source host')body.items[0].sources[0].url='https://www.usafootball.com.evil.invalid/national-team';
@@ -948,10 +1008,30 @@ const work = (async()=>{
       if(label==='duplicate item')body.items[1]=structuredClone(body.items[0]);
       if(label==='extra response field')body.extra='unreviewed';
       if(label==='missing fact')body.items[0].facts.pop();
+      if(label==='missing participation')delete body.items[0].participation;
+      if(label==='null participation')body.items[0].participation=null;
+      if(label==='unknown participation')body.items[0].participation='solo';
+      if(label==='array participation')body.items[0].participation=['team'];
+      if(label==='object participation')body.items[0].participation={value:'team'};
       badOpportunities.push([label,body]);
     }
     check(await page.evaluate(({fixtures,now})=>fixtures.every(([,body])=>{try{window.__opportunityHelpers.readAthleteOpportunities(body,{ownerScope:'b'.repeat(64),linkRevision:'a'.repeat(64)},now);return false}catch{return true}}),{fixtures:badOpportunities,now:opportunityNow}),
-      'The complete opportunity parser rejects unsupported references, unapproved hosts, unsourced introductions, duplicates and unexpected or incomplete fields');
+      'The complete opportunity parser rejects unsupported references, unapproved hosts, unsourced introductions, duplicates, incomplete fields and missing or malformed participation');
+    for(const participation of ['team','individual','information']){
+      const unknownEligibility=opportunityResponse([participation==='information'?opportunityItem(true):opportunityItem()]);
+      unknownEligibility.items[0].participation=participation;unknownEligibility.items[0].facts[3].value=null;unknownEligibility.items[0].facts[3].source_ids=[];
+      check(await page.evaluate(({body,now,allowed})=>{try{return window.__opportunityHelpers.readAthleteOpportunities(body,{ownerScope:'b'.repeat(64),linkRevision:'a'.repeat(64)},now).items.length===1&&allowed}catch{return !allowed}},
+        {body:unknownEligibility,now:opportunityNow,allowed:participation==='information'}),
+        participation==='information'?'An information contact can honestly leave eligibility unknown':'A '+participation+' entry claim requires a source-backed eligibility fact');
+    }
+    const opportunityHosts={allowed:['https://iflag.org/synthetic-event','https://www.iflag.org/synthetic-event'],
+      denied:['https://dev.iflag.org/synthetic-event','https://www.dev.iflag.org/synthetic-event','https://iflag.org.evil.invalid/synthetic-event','https://iflag.org@evil.invalid/synthetic-event','https://usaflag.org/synthetic-event','https://ffwct.com/synthetic-event']};
+    check(await page.evaluate(({hosts,fixture,now})=>Object.entries(hosts).every(([kind,urls])=>urls.every(url=>{
+      const helper=window.__opportunityHelpers,body=structuredClone(fixture);body.items[0].sources[0].url=url;body.items[0].action.href=url;
+      const allowed=kind==='allowed';if(helper.isOpportunitySourceURL(url)!==allowed)return false;
+      try{return helper.readAthleteOpportunities(body,{ownerScope:'b'.repeat(64),linkRevision:'a'.repeat(64)},now).items.length===1&&allowed}catch{return !allowed}
+    })),{hosts:opportunityHosts,fixture:opportunityResponse([teamOpportunity]),now:opportunityNow}),
+      'Source and whole-response validation accept only canonical iFlag hosts while rejecting development, lookalike, credential and old redirect hosts');
     const expiredOpportunity=opportunityResponse();expiredOpportunity.items[0].valid_until=opportunityTime(-1);
     check(await page.evaluate(({body,now})=>{const parsed=window.__opportunityHelpers.readAthleteOpportunities(body,{ownerScope:'b'.repeat(64),linkRevision:'a'.repeat(64)},now);return parsed.items.length===1&&parsed.items[0].id==='fixture-contact'&&!window.__opportunityHelpers.isOpportunityCurrent(body.items[0],now)}, {body:expiredOpportunity,now:opportunityNow}),
       'Parser and interaction-time freshness both exclude expired options while retaining a separately current route');
@@ -964,6 +1044,32 @@ const work = (async()=>{
       'An option that expires on screen withdraws its card and external action without another request');
     await page.evaluate(()=>{Date.now=window.__originalDateNow;delete window.__originalDateNow});
 
+    for(const changedScope of ['account','link revision']){
+      await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
+      await page.getByRole('radio',{name:'Places to compete',exact:true}).check();await refineOpportunities();
+      await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('TX');await page.getByLabel('Participation',{exact:true}).selectOption('team');
+      await page.getByLabel('Competition category (optional)',{exact:true}).selectOption('women');await page.getByLabel('Format',{exact:true}).selectOption('in_person');
+      await setOpportunityMode({pending:true});await findOpportunities();
+      if(changedScope==='account'){
+        await setMode({body:profile('Blair Fixture')});await setMaterialsMode({body:materials()});await switchAccount('athlete-b');
+      }else{
+        await page.evaluate(()=>{const actor=window.__identity.user.id;window.__workspaceStore[actor]={...window.__workspaceStore[actor],link_revision:'e'.repeat(64),draft:null}});
+        await openOverview();await refreshProfile();
+      }
+      await overviewReady();await openOpportunities();
+      check(await opportunityDefaults()&&await opportunityResults().count()===0&&await opportunityReads()===1,
+        'Changing '+changedScope+' resets every search choice and result without automatically searching the next association');
+      await page.evaluate(body=>window.__release({body},'/api/athlete/opportunities'),opportunityResponse([teamOpportunity]));await settle();
+      check(await opportunityResults().count()===0&&await opportunityReads()===1
+        &&await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/athlete/opportunities').signal.aborted),
+        'Changing '+changedScope+' aborts the pending old search and ignores its late reviewed team response');
+      const nextResponse=opportunityResponse();nextResponse.owner_scope=(changedScope==='account'?'c':'b').repeat(64);nextResponse.link_revision=(changedScope==='account'?'b':'e').repeat(64);
+      await setOpportunityMode({body:nextResponse});await findOpportunities();await opportunityResults().waitFor();
+      check(await opportunityReads()===2&&await opportunityQueryMatches(opportunityQuery({link_revision:nextResponse.link_revision}))
+        &&await page.evaluate(actor=>window.__requests.filter(r=>r.path==='/api/athlete/opportunities').at(-1).authorization==='Bearer fixture-'+actor,changedScope==='account'?'athlete-b':'athlete-a'),
+        'Only an explicit new Find sends the reset choices with the current '+changedScope+' and credential');
+    }
+
     for(const failure of ['owner scope','link revision','authorization']){
       await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
       const body=opportunityResponse();if(failure==='owner scope')body.owner_scope='d'.repeat(64);if(failure==='link revision')body.link_revision='d'.repeat(64);
@@ -974,7 +1080,19 @@ const work = (async()=>{
     }
 
     await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
-    await draft().fill('MY EXACT UNSAVED OPPORTUNITY EDIT');await openOpportunities();await setOpportunityMode({body:opportunityResponse()});await findOpportunities();await opportunityResults().waitFor();
+    await draft().fill('MY EXACT UNSAVED OPPORTUNITY EDIT');await openOpportunities();
+    await page.getByRole('radio',{name:'Both',exact:true}).check();await refineOpportunities();
+    await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('FL');await page.getByLabel('Participation',{exact:true}).selectOption('individual');
+    await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='MY EXACT UNSAVED OPPORTUNITY EDIT'&&(await currentWorkspace()).draft.text==='MY SAVED ATHLETE WORDS'
+      &&await opportunityReads()===0&&await page.evaluate(()=>window.__requests.every(r=>r.method!=='PATCH'&&r.path!=='/api/athlete/debrief')),
+      'Editing opportunity filters and navigating back preserves exact unsaved and saved drafts without searching, saving or asking a model');
+    await openOpportunities();
+    check(await page.getByRole('radio',{name:'Both',exact:true}).isChecked()
+      &&await page.getByLabel('Travel destination (optional)',{exact:true}).inputValue()==='FL'
+      &&await page.getByLabel('Participation',{exact:true}).inputValue()==='individual',
+      'Returning to Opportunities retains the athlete’s explicit unsent search choices');
+    await setOpportunityMode({body:opportunityResponse()});await findOpportunities();await opportunityResults().waitFor();
     await page.getByRole('button',{name:'Prepare program inquiry',exact:true}).click();const replaceDialog=page.getByRole('dialog',{name:'Keep your current draft?',exact:true});await replaceDialog.waitFor();
     await replaceDialog.getByRole('button',{name:'Keep my draft',exact:true}).click();await replaceDialog.waitFor({state:'hidden'});await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
     check(await draft().inputValue()==='MY EXACT UNSAVED OPPORTUNITY EDIT'&&(await currentWorkspace()).draft.text==='MY SAVED ATHLETE WORDS',

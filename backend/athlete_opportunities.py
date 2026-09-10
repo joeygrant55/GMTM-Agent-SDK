@@ -23,7 +23,9 @@ from source_scope import owner_scope
 from opportunity_catalog import RECORDS
 
 MAX_BODY = 4096
-HOSTS = {"usafootball.com", "www.usafootball.com", "gmtm.com", "events.usafootball.com"}
+HOSTS = {"usafootball.com", "www.usafootball.com", "gmtm.com", "events.usafootball.com", "iflag.org", "www.iflag.org"}
+STATES = frozenset("AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split())
+FOCUSES = ("national_team", "competition", "any")
 FACT_KEYS = {"dates", "location", "cost", "eligibility", "contact"}
 KINDS = {"assessment", "event", "contact", "pathway"}
 STATUSES = {"registration_open", "published_route", "check_details"}
@@ -62,18 +64,24 @@ def _references(value, known, *, optional=False):
 
 
 def validate_query(value):
-    if (not isinstance(value, dict) or set(value) != {"pathway", "category", "format", "link_revision"}
+    required = {"pathway", "category", "format", "link_revision"}
+    optional = {"focus", "state", "entry"}
+    if (not isinstance(value, dict) or not required <= set(value) or set(value) - required - optional
             or value["pathway"] != "adult_flag" or value["category"] not in ("men", "women", "unspecified")
             or value["format"] not in ("any", "remote", "in_person")
             or not isinstance(value["link_revision"], str) or not re.fullmatch(r"[a-f0-9]{64}", value["link_revision"])):
         raise ValueError("Invalid opportunity search")
-    return value
+    query = {"focus": "national_team", "state": None, "entry": "any", **value}
+    if (query["focus"] not in FOCUSES or query["entry"] not in ("any", "individual", "team")
+            or query["state"] is not None and (not isinstance(query["state"], str) or query["state"] not in STATES)):
+        raise ValueError("Invalid opportunity constraints")
+    return query
 
 
 def _validated_record(record):
     """Structural/source-reference verification. Actual claims require source review."""
     fields = {"id", "title", "organization", "kind", "summary", "status", "valid_until", "facts", "action", "sources",
-              "categories", "format", "opens_at", "closes_at"}
+              "categories", "format", "opens_at", "closes_at", "focuses", "state", "participation"}
     if not isinstance(record, dict) or set(record) != fields:
         raise ValueError("Invalid reviewed record")
     for field, limit in (("id", 64), ("title", 180), ("organization", 120), ("summary", 300)):
@@ -85,6 +93,13 @@ def _validated_record(record):
             or any(x not in ("men", "women") for x in record["categories"])
             or len(set(record["categories"])) != len(record["categories"])):
         raise ValueError("Invalid opportunity classification")
+    if (not isinstance(record["focuses"], list) or not record["focuses"]
+            or any(value not in FOCUSES[:2] for value in record["focuses"])
+            or len(set(record["focuses"])) != len(record["focuses"])
+            or record["participation"] not in ("individual", "team", "information")
+            or record["state"] is not None and (not isinstance(record["state"], str) or record["state"] not in STATES)
+            or record["format"] != "in_person" and record["state"] is not None):
+        raise ValueError("Invalid opportunity constraints")
     valid_until = _date(record["valid_until"])
     if not isinstance(record["sources"], list) or not 1 <= len(record["sources"]) <= 8:
         raise ValueError("Sources required")
@@ -105,6 +120,9 @@ def _validated_record(record):
                 or fact["value"] is not None and not _text(fact["value"], 600)
                 or fact["value"] is None and fact["source_ids"]):
             raise ValueError("Unsupported fact")
+    if (record["state"] is not None and not next(f for f in facts if f["key"] == "location")["value"]
+            or record["participation"] in ("individual", "team") and not next(f for f in facts if f["key"] == "eligibility")["value"]):
+        raise ValueError("Participation and location need published evidence")
     action = record["action"]
     if (not isinstance(action, dict) or set(action) != {"kind", "label", "href", "recipient", "purpose", "source_ids"}
             or action["kind"] not in ("open_source", "prepare_introduction") or not _text(action["label"], 100)
@@ -128,7 +146,7 @@ def _validated_record(record):
 
 
 def reviewed_shortlist(query, records, now):
-    validate_query(query)
+    query = validate_query(query)
     if now.tzinfo is None or now.utcoffset().total_seconds() != 0:
         raise ValueError("UTC review clock required")
     if not isinstance(records, (tuple, list)) or len(records) > 30:
@@ -140,20 +158,34 @@ def reviewed_shortlist(query, records, now):
             raise ValueError("Duplicate reviewed record")
         seen.add(record["id"])
         if (query["category"] != "unspecified" and query["category"] not in record["categories"]
-                or query["format"] != "any" and record["format"] != query["format"]):
+                or query["format"] != "any" and record["format"] != query["format"]
+                or query["focus"] != "any" and query["focus"] not in record["focuses"]
+                or query["entry"] != "any" and record["participation"] not in (query["entry"], "information")
+                or query["state"] is not None and record["format"] == "in_person" and record["state"] != query["state"]):
             continue
         if (now >= _date(record["valid_until"]) or any(now < _date(s["checked_at"]) or now >= _date(s["expires_at"]) for s in record["sources"])
                 or record["closes_at"] is not None and now >= _date(record["closes_at"])
                 or record["opens_at"] is not None and now < _date(record["opens_at"])):
             omitted = True
             continue
-        item = deepcopy({k: record[k] for k in record if k not in {"categories", "format", "opens_at", "closes_at"}})
+        item = deepcopy({k: record[k] for k in record if k not in {"categories", "format", "opens_at", "closes_at", "focuses", "state"}})
         if record["closes_at"] is not None:
             item["valid_until"] = min(_date(item["valid_until"]), _date(record["closes_at"])).isoformat()
         scope = "adult flag football" if query["category"] == "unspecified" else f"adult {query['category']}'s flag football"
         item["relevance"] = f"You chose {scope}. " + ({"assessment": "This is a published assessment route.", "event": "This is a published in-person opportunity.", "contact": "This official contact can clarify the pathway and its requirements.", "pathway": "This published pathway helps you identify the next participation step."}[item["kind"]])
+        if record["kind"] == "event":
+            location = f" in {record['state']}" if record["state"] else ""
+            item["relevance"] = f"For your {scope} competition search: an in-person event{location}. " + (
+                "Enter with a team; confirm your division and roster requirements." if record["participation"] == "team" else "Review the participation requirements before planning travel.")
+        elif record["kind"] == "contact" and record["focuses"] == ["competition"]:
+            item["relevance"] = f"For your {scope} competition search: ask this organizer about team access and participation requirements."
         items.append(item)
-    limitations = ["This first collection covers adult flag football. Options follow your chosen search, not an assessment of your ability or eligibility."]
+    limitations = ["This reviewed collection covers adult flag football. Options follow your search choices, not an assessment of your ability or eligibility.",
+                   "Competition events are separate from national-team evaluations. Inclusion does not establish a USA Football or Olympic qualification route."]
+    if query["state"] is not None:
+        limitations.append("Travel destination filters in-person events by their published state; remote options remain available. Your home location was not inferred.")
+    if len(items) > 3:
+        limitations.append(f"Showing 3 of {len(items)} current options. Choose a search focus to narrow the collection.")
     if omitted:
         limitations.append("Some records are outside their reviewed dates and are not shown.")
     if not items:
@@ -162,7 +194,7 @@ def reviewed_shortlist(query, records, now):
 
 
 def search_opportunities(clerk_id, query):
-    validate_query(query)
+    query = validate_query(query)
     db = None
     try:
         db = _get_agent_db()

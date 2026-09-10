@@ -31,6 +31,7 @@ def record(identifier="synthetic-assessment", **changes):
             "kind": "assessment", "summary": "A synthetic reviewed route for testing.",
             "status": "check_details", "valid_until": "2026-09-17T12:00:00Z",
             "categories": ["men", "women"], "format": "remote",
+            "focuses": ["national_team"], "state": None, "participation": "individual",
             "opens_at": "2026-09-01T00:00:00Z", "closes_at": "2026-09-21T00:00:00Z",
             "sources": [{"id": "source-1", "title": "Synthetic source", "url": SOURCE_URL,
                          "checked_at": "2026-09-09T12:00:00Z", "expires_at": "2026-09-17T12:00:00Z"}],
@@ -44,7 +45,7 @@ def record(identifier="synthetic-assessment", **changes):
 
 def contact_record():
     item = record("synthetic-contact", kind="contact", status="published_route", format="any",
-                  opens_at=None, closes_at=None)
+                  opens_at=None, closes_at=None, participation="information")
     item["facts"][4].update(value="Synthetic program inquiry desk", source_ids=["source-1"])
     item["action"].update(kind="prepare_introduction", label="Prepare introduction",
                           recipient="Synthetic program inquiry desk", purpose="Ask which pathway requirements apply.")
@@ -334,3 +335,209 @@ def test_duplicate_even_beyond_visible_limit_and_unbounded_collection_are_reject
 def test_review_clock_requires_utc(now):
     with pytest.raises(ValueError):
         api.reviewed_shortlist(query(), [record()], now)
+
+
+def competition_record(identifier="synthetic-team-event", *, state="FL", participation="team"):
+    item = record(identifier, kind="event", format="in_person", focuses=["competition"],
+                  state=state, participation=participation)
+    item["sources"][0]["url"] = "https://iflag.org/tournaments/synthetic-reviewed-event/"
+    item["action"]["href"] = item["sources"][0]["url"]
+    item["facts"][1]["value"] = f"Synthetic venue in {state}" if state else None
+    item["facts"][1]["source_ids"] = ["source-1"] if state else []
+    item["facts"][2]["value"] = "Synthetic $375 per team; additional charges unconfirmed"
+    item["facts"][3]["value"] = "Synthetic team entry; no individual spot established"
+    return item
+
+
+def test_old_four_field_query_defaults_to_national_team_without_mutating_input(client, monkeypatch):
+    legacy = query()
+    original = deepcopy(legacy)
+    normalized = api.validate_query(legacy)
+    assert normalized == {**legacy, "focus": "national_team", "state": None, "entry": "any"}
+    assert legacy == original and set(legacy) == {"pathway", "category", "format", "link_revision"}
+    monkeypatch.setattr(api, "RECORDS", (competition_record(), record()))
+    response = client.post(PATH, json=legacy)
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == ["synthetic-assessment"]
+    assert response.json()["items"][0]["participation"] == "individual"
+
+
+@pytest.mark.parametrize("optional", [
+    {"focus": "competition"}, {"focus": "any"}, {"state": "FL"}, {"state": "DC"},
+    {"state": None}, {"entry": "individual"}, {"entry": "team"},
+    {"focus": "competition", "state": "TX", "entry": "team"},
+])
+def test_optional_constraints_can_be_supplied_independently(optional):
+    assert api.validate_query(query(**optional)) == {
+        **query(), "focus": "national_team", "state": None, "entry": "any", **optional}
+
+
+@pytest.mark.parametrize("optional", [
+    {"focus": "olympics"}, {"focus": "college"}, {"focus": None}, {"focus": []}, {"focus": True},
+    {"entry": "information"}, {"entry": "free_agent"}, {"entry": None}, {"entry": []},
+    {"state": "fl"}, {"state": "Florida"}, {"state": " FL"}, {"state": "FL\n"},
+    {"state": "ZZ"}, {"state": ""}, {"state": False}, {"state": []}, {"state": {"code": "FL"}},
+    {"location": "FL"}, {"states": ["FL"]}, {"focuses": ["competition"]}, {"participation": "team"},
+    {"radius_miles": 50}, {"home_state": "FL"},
+])
+def test_malformed_or_unreviewed_constraints_fail_before_database(client, store, optional):
+    response = client.post(PATH, json=query(**optional))
+    assert response.status_code == 400 and response.json()["code"] == "opportunities_invalid"
+    assert not store.connections
+
+
+@pytest.mark.parametrize("key,value", [("focus", "competition"), ("state", "FL"), ("entry", "team")])
+def test_duplicate_optional_fields_are_rejected_before_database(client, store, key, value):
+    body = json.dumps(query(**{key: value}))[:-1] + "," + json.dumps(key) + ":" + json.dumps(value) + "}"
+    response = client.post(PATH, content=body, headers={"content-type": "application/json"})
+    assert response.status_code == 400 and not store.connections
+
+
+def test_goal_focus_separates_competition_from_national_team_evaluation():
+    records = [competition_record(), record(), contact_record()]
+    national, _ = shortlist(records)
+    competition, limits = shortlist(records, focus="competition")
+    assert [item["id"] for item in national] == ["synthetic-assessment", "synthetic-contact"]
+    assert [item["id"] for item in competition] == ["synthetic-team-event"]
+    assert competition[0]["participation"] == "team" and "Enter with a team" in competition[0]["relevance"]
+    assert any("does not establish a USA Football or Olympic qualification route" in text for text in limits)
+
+
+def test_team_individual_and_information_routes_are_distinct():
+    information = contact_record()
+    information["focuses"] = ["national_team", "competition"]
+    records = [competition_record(), record(), information]
+    individuals, _ = shortlist(records, focus="any", entry="individual")
+    teams, _ = shortlist(records, focus="any", entry="team")
+    assert [item["id"] for item in individuals] == ["synthetic-assessment", "synthetic-contact"]
+    assert [item["id"] for item in teams] == ["synthetic-team-event", "synthetic-contact"]
+    assert individuals[-1]["participation"] == teams[-1]["participation"] == "information"
+    assert all(item["participation"] != "team" for item in individuals)
+
+
+def test_destination_filters_physical_venues_keeps_remote_and_excludes_unknown_state():
+    remote = record("remote-evaluation", focuses=["competition"])
+    information = contact_record()
+    information.update(focuses=["competition"], format="remote")
+    records = [competition_record("fl-team", state="FL"), competition_record("tx-team", state="TX"),
+               competition_record("unknown-venue", state=None), remote, information]
+    florida, limits = shortlist(records, focus="competition", state="FL")
+    texas, _ = shortlist(records, focus="competition", state="TX", format="in_person")
+    elsewhere, _ = shortlist(records, focus="competition", state="CA")
+    assert [item["id"] for item in florida] == ["fl-team", "remote-evaluation", "synthetic-contact"]
+    assert [item["id"] for item in texas] == ["tx-team"]
+    assert [item["id"] for item in elsewhere] == ["remote-evaluation", "synthetic-contact"]
+    assert any("Your home location was not inferred" in text for text in limits)
+    assert all("unknown-venue" != item["id"] for item in florida + texas + elsewhere)
+    unconstrained, _ = shortlist(records, focus="competition", format="in_person")
+    assert [item["id"] for item in unconstrained] == ["fl-team", "tx-team", "unknown-venue"]
+
+
+def test_all_constraints_are_applied_together_on_actual_owner_bound_http(client, store, monkeypatch):
+    team = competition_record("selected-team", state="FL")
+    team["categories"] = ["women"]
+    others = [competition_record("wrong-state", state="TX"), record(),
+              competition_record("wrong-category", state="FL")]
+    others[-1]["categories"] = ["men"]
+    monkeypatch.setattr(api, "RECORDS", tuple(others + [team]))
+    response = client.post(PATH, json=query(focus="competition", state="FL", entry="team",
+                                            category="women", format="in_person"))
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["id"] for item in items] == ["selected-team"]
+    assert items[0]["participation"] == "team"
+    assert set(items[0]).isdisjoint({"state", "focuses", "categories", "format"})
+    assert len(store.connections) == 1 and len(store.queries) == 2
+
+
+@pytest.mark.parametrize("changes", [
+    {"focuses": []}, {"focuses": "competition"}, {"focuses": ["any"]},
+    {"focuses": ["competition", "competition"]}, {"focuses": ["college"]},
+    {"state": "Florida"}, {"state": "fl"}, {"state": []},
+    {"participation": "free_agent"}, {"participation": None}, {"participation": []},
+    {"format": "remote", "state": "FL"}, {"format": "any", "state": "FL"},
+])
+def test_reviewed_constraint_metadata_must_be_exact_and_unambiguous(changes):
+    with pytest.raises(ValueError):
+        shortlist([competition_record() | changes], focus="any")
+
+
+@pytest.mark.parametrize("key", ["focuses", "state", "participation"])
+def test_missing_constraint_metadata_is_not_silently_inferred(key):
+    item = competition_record()
+    del item[key]
+    with pytest.raises(ValueError):
+        shortlist([item], focus="any")
+
+
+@pytest.mark.parametrize("fact_key", ["location", "eligibility"])
+@pytest.mark.parametrize("missing", ["value", "references", "unknown_source"])
+def test_team_participation_and_state_require_supported_material_facts(fact_key, missing):
+    item = competition_record()
+    fact = next(fact for fact in item["facts"] if fact["key"] == fact_key)
+    if missing == "value":
+        fact.update(value=None, source_ids=[])
+    elif missing == "references":
+        fact["source_ids"] = []
+    else:
+        fact["source_ids"] = ["unreviewed-source"]
+    with pytest.raises(ValueError):
+        shortlist([item], focus="competition")
+
+
+def test_information_route_does_not_require_invented_participation_eligibility():
+    item = contact_record()
+    next(fact for fact in item["facts"] if fact["key"] == "eligibility").update(value=None, source_ids=[])
+    result, _ = shortlist([item], entry="individual")
+    assert result[0]["participation"] == "information"
+    assert next(fact for fact in result[0]["facts"] if fact["key"] == "eligibility")["value"] is None
+
+
+@pytest.mark.parametrize("url", [
+    "https://dev.iflag.org/tournaments/example/", "https://dev.usaflag.org/tournaments/example/",
+    "https://iflag.org.evil.test/tournaments/example/", "https://iflag.org/tournaments/example/?secret=x",
+    "https://iflag.org/tournaments/example/#register", "https://iflag.org:443/tournaments/example/",
+    "https://user@iflag.org/tournaments/example/", "https://iflag.org/tournaments/%2e%2e/example/",
+])
+def test_expanded_organizer_host_does_not_allow_test_sites_or_url_variants(url):
+    item = competition_record()
+    item["sources"][0]["url"] = item["action"]["href"] = url
+    with pytest.raises(ValueError):
+        shortlist([item], focus="competition")
+
+
+def test_new_reviewed_organizer_keeps_team_fee_basis_and_source_context():
+    item = competition_record()
+    result, _ = shortlist([item], focus="competition")
+    assert result[0]["action"]["href"] == "https://iflag.org/tournaments/synthetic-reviewed-event/"
+    assert "per team" in next(fact for fact in result[0]["facts"] if fact["key"] == "cost")["value"]
+    assert result[0]["participation"] == "team"
+
+
+def test_top_three_limit_counts_only_matching_current_options_and_explains_truncation():
+    current = [competition_record(f"event-{index}") for index in range(4)]
+    past = competition_record("expired-event")
+    past["valid_until"] = "2026-09-10T12:00:00Z"
+    items, limits = shortlist([record(), past, *current], focus="competition", state="FL")
+    assert [item["id"] for item in items] == ["event-0", "event-1", "event-2"]
+    assert "Showing 3 of 4 current options. Choose a search focus to narrow the collection." in limits
+    assert any("outside their reviewed dates" in text for text in limits)
+    assert len(limits) <= 6
+    three, three_limits = shortlist(current[:3], focus="competition")
+    assert len(three) == 3 and not any(text.startswith("Showing 3 of") for text in three_limits)
+
+
+def test_reviewed_catalog_keeps_solo_inquiries_separate_from_team_tournaments():
+    from opportunity_catalog import RECORDS as reviewed_catalog
+
+    checked = datetime(2026, 9, 10, 23, tzinfo=timezone.utc)
+    national, _ = api.reviewed_shortlist(query(), reviewed_catalog, checked)
+    solo, _ = api.reviewed_shortlist(query(focus="competition", entry="individual"), reviewed_catalog, checked)
+    events, _ = api.reviewed_shortlist(query(focus="competition", format="in_person", state="FL"), reviewed_catalog, checked)
+    everything, limits = api.reviewed_shortlist(query(focus="any"), reviewed_catalog, checked)
+    assert national and solo and events
+    assert all(item["kind"] != "event" for item in national)
+    assert all(item["participation"] == "information" for item in solo)
+    assert all(item["kind"] == "event" and item["participation"] == "team" for item in events)
+    assert {item["id"] for item in national}.isdisjoint(item["id"] for item in events + solo)
+    assert len(everything) == 3 and any(text.startswith("Showing 3 of ") for text in limits)

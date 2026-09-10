@@ -398,7 +398,7 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
     }
     if (editor.text !== null && !replace) { setPendingOpportunity(item); return }
     const purpose = item.action.purpose
-    const intent = savedGoal?.text || editor.goal.trim() || 'Explore adult flag football evaluation opportunities.'
+    const intent = savedGoal?.text || editor.goal.trim() || 'Explore adult flag football opportunities.'
     const pickedEvidence = editor.selected_evidence_ids.filter(id => profile.evidence.some(fact => fact.id === id))
     const requestedMaterials = new Set(editor.selected_material_ids)
     if (eligibleFeature) requestedMaterials.add(eligibleFeature.id)

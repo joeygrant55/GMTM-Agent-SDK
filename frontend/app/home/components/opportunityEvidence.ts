@@ -1,5 +1,7 @@
 export type OpportunityCategory = 'men' | 'women' | 'unspecified'
 export type OpportunityFormat = 'any' | 'remote' | 'in_person'
+export type OpportunityFocus = 'national_team' | 'competition' | 'any'
+export type OpportunityEntry = 'any' | 'individual' | 'team'
 export interface OpportunitySource { id: string; title: string; url: string; checked_at: string; expires_at: string }
 export interface OpportunityFact {
   key: 'dates' | 'location' | 'cost' | 'eligibility' | 'contact'
@@ -12,6 +14,7 @@ export interface AthleteOpportunity {
   title: string
   organization: string
   kind: 'assessment' | 'event' | 'contact' | 'pathway'
+  participation: 'individual' | 'team' | 'information'
   summary: string
   relevance: string
   status: 'registration_open' | 'published_route' | 'check_details'
@@ -36,7 +39,7 @@ const invalidText = new RegExp('[\\u0000-\\u001f\\u007f\\uD800-\\uDFFF]', 'u')
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.length <= max && !!value.trim()
   && value === value.trim() && !invalidText.test(value)
 const scope = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-const hosts = new Set(['usafootball.com', 'www.usafootball.com', 'gmtm.com', 'events.usafootball.com'])
+const hosts = new Set(['usafootball.com', 'www.usafootball.com', 'gmtm.com', 'events.usafootball.com', 'iflag.org', 'www.iflag.org'])
 
 export function isOpportunitySourceURL(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 2048 || !value.startsWith('https://')
@@ -73,9 +76,10 @@ export function readAthleteOpportunities(value: unknown, expected: { ownerScope:
     || value.limitations.length > 6 || !value.limitations.every(item => text(item, 300))) throw invalid()
   const ids = new Set<string>()
   const items = value.items.map(item => {
-    if (!exact(item, ['id', 'title', 'organization', 'kind', 'summary', 'relevance', 'status', 'valid_until', 'facts', 'action', 'sources'])
+    if (!exact(item, ['id', 'title', 'organization', 'kind', 'participation', 'summary', 'relevance', 'status', 'valid_until', 'facts', 'action', 'sources'])
       || !text(item.id, 64) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id) || ids.has(item.id) || !text(item.title, 180) || !text(item.organization, 120)
       || !['assessment', 'event', 'contact', 'pathway'].includes(String(item.kind)) || !text(item.summary, 300) || !text(item.relevance, 300)
+      || typeof item.participation !== 'string' || !['individual', 'team', 'information'].includes(item.participation)
       || !['registration_open', 'published_route', 'check_details'].includes(String(item.status)) || !utc(item.valid_until)
       || !Array.isArray(item.sources) || item.sources.length < 1 || item.sources.length > 8
       || !Array.isArray(item.facts) || item.facts.length !== 5) throw invalid()
@@ -99,6 +103,7 @@ export function readAthleteOpportunities(value: unknown, expected: { ownerScope:
       keys.add(String(fact.key))
       return { ...fact, source_ids: [...fact.source_ids as string[]] } as unknown as OpportunityFact
     })
+    if (item.participation !== 'information' && !facts.some(fact => fact.key === 'eligibility' && fact.value !== null && fact.source_ids.length > 0)) throw invalid()
     const action = item.action
     if (!exact(action, ['kind', 'label', 'href', 'recipient', 'purpose', 'source_ids'])
       || !['open_source', 'prepare_introduction'].includes(String(action.kind)) || !text(action.label, 100)

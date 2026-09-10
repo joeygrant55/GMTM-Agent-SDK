@@ -524,7 +524,7 @@ const work = (async () => {
     const opportunityResults=page.locator('[aria-label="Opportunity results"]');
     const opportunityDetails=page.getByRole('dialog',{name:'Opportunity details',exact:true});
     const openOpportunities=async()=>{await nav.getByRole('button',{name:'Opportunities',exact:true}).click();await page.getByRole('heading',{name:'Find your next move.',exact:true}).waitFor();};
-    const findOpportunities=async()=>{const pending=page.waitForResponse(r=>r.url()===opportunitiesURL&&r.request().method()==='POST');await page.getByRole('button',{name:'Find opportunities',exact:true}).click();const response=await pending;assert.equal(response.status(),200);await opportunityResults.waitFor();return response.json();};
+    const findOpportunities=async()=>{const pending=page.waitForResponse(r=>r.url()===opportunitiesURL&&r.request().method()==='POST').then(async response=>{assert.equal(response.status(),200);return response.json();});await page.getByRole('button',{name:'Find opportunities',exact:true}).click();const body=await pending;await opportunityResults.waitFor();return body;};
     const beforeOpportunities={saved:await readSaved(),writes:workspaceWrites(),providers:debriefCalls(),sources:profileReads()};
     const gmtmReturn=page.getByRole('link',{name:'Back to GMTM (opens in a new tab)',exact:true});
     check(await gmtmReturn.getAttribute('href')==='https://gmtm.com'&&await gmtmReturn.getAttribute('target')==='_blank'
@@ -566,7 +566,7 @@ const work = (async () => {
     check(opportunityCalls()===1&&await opportunityResults.count()===0,'Changing the real format filter hides previous cards without automatic research');
     const inPersonOptions=await findOpportunities();
     check(inPersonOptions.items.length===0&&await opportunityResults.getByRole('article').count()===0
-      &&await opportunityResults.getByText('No upcoming in-person opportunity is confirmed here. Try another format to see published pathways.',{exact:true}).isVisible(),
+      &&await opportunityResults.getByText('No confirmed upcoming in-person opportunity matches these options in this collection. Try different options or check back later.',{exact:true}).isVisible(),
       'Actual in-person filtering returns an honest empty result instead of a closed camp or invented event');
     await page.getByLabel('Format',{exact:true}).selectOption('any');await findOpportunities();
     await opportunityResults.getByRole('button',{name:'Prepare introduction',exact:true}).click();await editor.waitFor();
@@ -582,6 +582,60 @@ const work = (async () => {
     check(await editor.inputValue()==='MY EXACT UNSAVED PROGRAM INQUIRY','Keep my draft preserves the exact authored inquiry in the actual app');
     await openOpportunities();await opportunityResults.getByRole('button',{name:'Prepare introduction',exact:true}).click();await replaceOpportunity.waitFor();await replaceOpportunity.getByRole('button',{name:'Replace with introduction',exact:true}).click();await editor.waitFor();
     check(await editor.inputValue()===firstOpportunityDraft,'Only explicit replacement rebuilds the inquiry from the same athlete and reviewed program context');
+    await openOpportunities();await page.getByRole('radio',{name:'Places to compete',exact:true}).check();
+    const priorCompetitionCalls=opportunityCalls();
+    check(await opportunityResults.count()===0,'Changing research purpose removes national-team results until an explicit new search');
+    await page.locator('summary').filter({hasText:'Refine search'}).click();
+    await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('FL');
+    await page.getByLabel('Participation',{exact:true}).selectOption('team');
+    await page.getByLabel('Format',{exact:true}).selectOption('in_person');
+    check(opportunityCalls()===priorCompetitionCalls,'Purpose, destination and team constraints do not start automatic research or infer an athlete home');
+    const floridaTeams=await findOpportunities();
+    check(floridaTeams.items.length===2&&floridaTeams.items.every(item=>item.participation==='team')
+      &&await opportunityResults.getByRole('heading',{name:'Battle Orlando · October 2026',exact:true}).isVisible()
+      &&await opportunityResults.getByRole('heading',{name:'Tampa National Championships · 2027',exact:true}).isVisible()
+      &&await opportunityResults.getByText('Team registration required.',{exact:true}).count()===2,
+      'Actual goal/state/entry filtering finds two reviewed Florida team competitions and clearly requires a team');
+    const floridaLinks=await opportunityResults.getByRole('link',{name:'Review team entry',exact:true}).evaluateAll(links=>links.map(link=>link.href));
+    check(JSON.stringify(floridaLinks)===JSON.stringify(['https://iflag.org/tournaments/2026-battle-orlando/','https://iflag.org/tournaments/2027-tampa-national-championships/'])
+      &&await opportunityResults.getByText(/Winter Haven/).isVisible(),
+      'The actual competition cards preserve exact official destinations and actual venue city');
+    for(const item of floridaTeams.items){
+      const card=opportunityResults.getByRole('article',{name:item.title,exact:true});
+      const cardText=await card.innerText();
+      const fact=key=>item.facts.find(fact=>fact.key===key).value;
+      check(cardText.includes(fact('dates'))&&cardText.includes(fact('location'))&&!cardText.includes(fact('cost'))
+        &&cardText.trim().split(/\s+/).length<=110,
+        'The '+item.title+' card keeps dates and venue legible within a compact overview');
+      const trigger=card.getByRole('button',{name:'Costs, eligibility & sources for '+item.title,exact:true});
+      await trigger.click();await opportunityDetails.waitFor();
+      check(await opportunityDetails.getByText(fact('cost')).isVisible()
+        &&await opportunityDetails.getByText(fact('eligibility')).isVisible()
+        &&await opportunityDetails.getByText('Team registration required. Confirm roster and division requirements.',{exact:true}).isVisible(),
+        'The '+item.title+' drawer retains exact team fees, payment details and eligibility without truncation');
+      await page.keyboard.press('Escape');await opportunityDetails.waitFor({state:'hidden'});
+      check(await trigger.evaluate(el=>document.activeElement===el),'The competition drawer restores focus to its exact cost-and-source action');
+    }
+    await page.setViewportSize({width:1487,height:1058});await page.screenshot({path:path.join(output,'desktop-competition-options.png'),fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'Expanded purpose and travel filters plus team competition cards fit the phone width');
+    await page.screenshot({path:path.join(output,'phone-competition-options.png'),fullPage:true});
+    await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('TX');const texas=await findOpportunities();
+    check(texas.items.length===0&&await opportunityResults.getByRole('article').count()===0,'A requested Texas destination does not surface the Florida events as local opportunities');
+    await page.getByLabel('Travel destination (optional)',{exact:true}).selectOption('FL');
+    await page.getByLabel('Participation',{exact:true}).selectOption('individual');const solo=await findOpportunities();
+    check(solo.items.length===0,'An individual-only in-person search excludes team tournaments instead of inventing solo entry');
+    await page.getByLabel('Format',{exact:true}).selectOption('any');const teamAccess=await findOpportunities();
+    check(teamAccess.items.length===1&&teamAccess.items[0].participation==='information'
+      &&await opportunityResults.getByRole('button',{name:'Ask about team access',exact:true}).isVisible(),
+      'A solo athlete can find a public organizer inquiry while individual registration stays unconfirmed');
+    await opportunityResults.getByRole('button',{name:'Ask about team access',exact:true}).click();await replaceOpportunity.waitFor();
+    await replaceOpportunity.getByRole('button',{name:'Keep my draft',exact:true}).click();await continueDraft();
+    check(await editor.inputValue()===firstOpportunityDraft,'Exploring a different organizer still preserves the authored existing introduction');
+    await openOpportunities();await opportunityResults.getByRole('button',{name:'Ask about team access',exact:true}).click();await replaceOpportunity.waitFor();
+    await replaceOpportunity.getByRole('button',{name:'Replace with introduction',exact:true}).click();await editor.waitFor();
+    check((await editor.inputValue()).startsWith('Hello International Flag League team,')&&(await editor.inputValue()).includes('enter as a free agent')
+      &&(await editor.inputValue()).includes('https://gmtm.com/film/703'),'Explicit replacement prepares an organizer-specific team-access question using selected athlete work');
     const afterOpportunities=await readSaved();
     check(JSON.stringify(afterOpportunities)===JSON.stringify(beforeOpportunities.saved)&&workspaceWrites()===beforeOpportunities.writes
       &&debriefCalls()===beforeOpportunities.providers&&profileReads()===beforeOpportunities.sources,
