@@ -26,3 +26,5 @@ backend/**
 !backend/profile_pathways.py
 !backend/source_scope.py
 !backend/start_profile_candidate.py
+!backend/athlete_opportunities.py
+!backend/opportunity_catalog.py

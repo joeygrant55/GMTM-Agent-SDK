@@ -36,7 +36,7 @@ function CareerShell({ children }: { children: React.ReactNode }) {
             {navigationItems.map(item => <button key={item.view} type="button" onClick={() => setView(item.view)} aria-current={view === item.view ? 'page' : undefined} className={`inline-flex min-h-12 shrink-0 items-center border-b-[3px] px-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-sparq-lime sm:min-h-[72px] sm:px-2 sm:text-sm ${view === item.view ? 'border-sparq-lime text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>{item.label}</button>)}
           </nav>
           <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-gray-500 lg:inline">Private workspace</span>
+            <a href="https://gmtm.com" target="_blank" rel="noopener noreferrer" aria-label="Back to GMTM (opens in a new tab)" className="inline-flex min-h-11 items-center gap-1 text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Back to GMTM <span aria-hidden="true">↗</span></a>
             <UserButton />
           </div>
         </div>

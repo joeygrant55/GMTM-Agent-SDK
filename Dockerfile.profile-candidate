@@ -13,6 +13,8 @@ RUN python -m pip install --no-cache-dir --requirement /app/dependencies/require
 # Exact import/handler closure; shared combine imports do not expose combine routes.
 COPY backend/auth.py backend/candidate_app.py backend/claims_api.py backend/combine_api.py backend/combine_context.py backend/combine_help_api.py backend/combine_model.py backend/combine_requirements.py backend/combine_results.py backend/model_usage.py backend/profile_api.py backend/workspace_bootstrap.py backend/profile_candidate_app.py backend/athlete_evidence.py backend/athlete_materials.py backend/athlete_workspace.py backend/profile_debrief.py backend/profile_pathways.py backend/source_scope.py backend/start_profile_candidate.py /app/backend/
 
+COPY backend/athlete_opportunities.py backend/opportunity_catalog.py /app/backend/
+
 USER 10001:10001
 EXPOSE 8000
 ENTRYPOINT ["python", "/app/backend/start_profile_candidate.py"]

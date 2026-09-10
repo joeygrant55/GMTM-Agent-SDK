@@ -22,6 +22,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
         "/api/athlete/evidence": "get", "/api/profile/by-clerk/{clerk_id}": "get",
         "/api/athlete/materials": "get",
         "/api/athlete/debrief": "post",
+        "/api/athlete/opportunities": "post",
         "/api/athlete/workspace": ("get", "patch"),
         "/api/claims/{token}": "get", "/api/claims/{token}/redeem": "post",
         "/health": "get",
@@ -33,6 +34,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
     assert "/api/athlete/materials" not in candidate_app.create_app().openapi()["paths"]
     assert "/api/athlete/debrief" not in candidate_app.create_app().openapi()["paths"]
     assert "/api/athlete/workspace" not in candidate_app.create_app().openapi()["paths"]
+    assert "/api/athlete/opportunities" not in candidate_app.create_app().openapi()["paths"]
     with pytest.raises(ValueError):
         candidate_app.create_app(surface="unexpected")
 
@@ -66,6 +68,7 @@ def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, si
             debrief = client.post("/api/athlete/debrief", headers=headers,
                                   json={"track": "profile", "question": "What can I use?"})
             assert debrief.status_code == 401
+            assert client.post("/api/athlete/opportunities", headers=headers, json={}).status_code == 401
             assert client.get("/api/athlete/workspace", headers=headers).status_code == 401
             assert client.patch("/api/athlete/workspace", headers=headers, json={}).status_code == 401
 
@@ -76,6 +79,7 @@ def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, s
             ("POST", "/api/athlete/evidence"), ("GET", "/api/athlete/evidence/"),
             ("POST", "/api/athlete/materials"), ("GET", "/api/athlete/materials/"),
             ("GET", "/api/athlete/debrief"), ("POST", "/api/athlete/debrief/"),
+            ("GET", "/api/athlete/opportunities"), ("POST", "/api/athlete/opportunities/"),
             ("POST", "/api/athlete/workspace"), ("DELETE", "/api/athlete/workspace"),
             ("GET", "/api/athlete/workspace/"), ("PATCH", "/api/athlete/workspace/"),
             ("GET", "/api/combine/current"), ("POST", "/api/combine/help"),

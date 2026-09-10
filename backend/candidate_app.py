@@ -197,11 +197,13 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     if surface == "profile":
         from athlete_evidence import current_athlete_evidence
         from athlete_materials import current_athlete_materials
+        from athlete_opportunities import current_athlete_opportunities
         from profile_debrief import current_profile_debrief, validate_configuration as debrief_configuration
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         routes = (
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
             ("GET", "/api/athlete/materials", current_athlete_materials),
+            ("POST", "/api/athlete/opportunities", current_athlete_opportunities),
             ("POST", "/api/athlete/debrief", current_profile_debrief),
             ("GET", "/api/athlete/workspace", current_athlete_workspace),
             ("PATCH", "/api/athlete/workspace", update_athlete_workspace),

@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/AthleteOpportunities.tsx', 'app/home/components/opportunityEvidence.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -94,7 +94,7 @@ window.__identity={isLoaded:true,user:{id:'athlete-a'}};window.__listeners=new S
 window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(fn=>fn())};
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
 window.Clerk={session:{getToken:async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null}};
-window.__requests=[];window.__sourceRequests=()=>window.__requests.filter(r=>r.path!=='/api/athlete/workspace');window.__pending=[];window.__mode={};window.__materialsMode={};window.__workspaceMode=null;window.__workspaceStore={};window.__workspaceRevision='a'.repeat(64);window.__debriefMode={status:503,body:{detail:'Fixture disabled'}};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
+window.__requests=[];window.__sourceRequests=()=>window.__requests.filter(r=>r.path!=='/api/athlete/workspace');window.__pending=[];window.__mode={};window.__materialsMode={};window.__workspaceMode=null;window.__workspaceStore={};window.__workspaceRevision='a'.repeat(64);window.__debriefMode={status:503,body:{detail:'Fixture disabled'}};window.__opportunityMode={status:503,body:{detail:'Fixture opportunity search not configured'}};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
 Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__clipboard.push(text);if(window.__clipboardMode==='failure')throw Error('Fixture clipboard denial');if(window.__clipboardMode==='pending')return new Promise(resolve=>window.__copyPending.push(resolve))}}});
 window.__now=1000000;window.__timers=new Map();let timerId=0;
 window.setTimeout=(fn,ms=0,...args)=>{const id=++timerId;window.__timers.set(id,{at:window.__now+ms,fn:()=>fn(...args)});return id};
@@ -103,10 +103,10 @@ window.__advance=async ms=>{const end=window.__now+ms;for(const[id,t]of [...wind
 function reply(mode={},request){if(mode.reject)throw Error('Fixture network failure');const response=new Response(mode.badJSON?'malformed-json':JSON.stringify(mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});if(mode.bodyPending)response.json=()=>new Promise(resolve=>window.__pending.push({stage:'body',resolve,request}));return response}
 window.__emptyWorkspace=()=>({state:'ready',owner_scope:window.__identity.user?.id==='athlete-b'?'c'.repeat(64):'b'.repeat(64),link_revision:window.__identity.user?.id==='athlete-b'?'b'.repeat(64):window.__workspaceRevision,version:0,goal:null,featured_source_id:null,draft:null,recent_work:[],updated_at:null});
 window.fetch=async(input,init={})=>{
- const u=new URL(String(input),location.origin),isDebrief=u.pathname==='/api/athlete/debrief',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
- if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief','/api/athlete/workspace'].includes(u.pathname)||u.search||!(isWorkspace?['GET','PATCH'].includes(method):method===(isDebrief?'POST':'GET')))throw Error('Unexpected endpoint '+u);
+ const u=new URL(String(input),location.origin),isDebrief=u.pathname==='/api/athlete/debrief',isOpportunity=u.pathname==='/api/athlete/opportunities',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
+ if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief','/api/athlete/workspace','/api/athlete/opportunities'].includes(u.pathname)||u.search||!(isWorkspace?['GET','PATCH'].includes(method):method===(isDebrief||isOpportunity?'POST':'GET')))throw Error('Unexpected endpoint '+u);
  const headers=new Headers(init.headers),request={path:u.pathname,method,signal:init.signal,authorization:headers.get('Authorization'),contentType:headers.get('Content-Type'),body:init.body,cache:init.cache};window.__requests.push(request);
- let mode=isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;
+ let mode=isOpportunity?window.__opportunityMode:isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;
  if(isWorkspace){
    const actor=window.__identity.user?.id;if(!actor)return reply({status:401,body:{detail:'Fixture signed out'}},request);
    if(window.__workspaceMode?.[method]||window.__workspaceMode?.status||window.__workspaceMode?.body||window.__workspaceMode?.pending||window.__workspaceMode?.reject||window.__workspaceMode?.badJSON)mode=window.__workspaceMode[method]||window.__workspaceMode;
@@ -142,6 +142,7 @@ window.__helpers=load('app/home/components/profileEvidence');
 window.__materialHelpers=load('app/home/components/profileMaterials');
 window.__debriefHelpers=load('app/home/components/athleteDebrief');
 window.__workspaceHelpers=load('app/home/components/careerWorkspace');
+window.__opportunityHelpers=load('app/home/components/opportunityEvidence');
 const root=ReactDOM.createRoot(document.getElementById('root'));
 window.__mount=(strict=false)=>{const app=React.createElement(load('app/home/components/ProfileWorkspaceShell').default,null,React.createElement(load('app/home/components/ProfileWorkspace').default));root.render(strict?React.createElement(React.StrictMode,null,app):app)};
 window.__unmount=()=>root.render(null);
@@ -172,6 +173,23 @@ const debrief = (question=debriefQuestion,track='profile',action='prepare_summar
   const official = {usaf_support:{id:'o2',href:'https://www.usafootball.com/contact-us',label:'Check the official support route'},usaf_development:{id:'o3',href:'https://usafootball.com/resources/app',label:'Explore USA Football development resources'}}[action];
   return {state:'ready',owner_scope:'b'.repeat(64),track,question,answer:{text:'Your recorded result can help you make a factual introduction.',refs:['f1']},insights:[{text:'The recorded dash has a source and a date.',refs:['f1']}],unknowns:[{text:'This evidence does not confirm a selection decision.',refs:['coverage']}],next_action:{id:action,kind:official?'open_source':action,label:official?official.label:action==='prepare_summary'?'Prepare my profile summary':'Prepare an introduction',href:official?official.href:null,reason:{text:official?'Use the official published route to learn more.':'Prepare text for a recipient or use you already know.',refs:[official?official.id:'f1']}},references:[{id:'f1',kind:'evidence',label:'Recorded dash',detail:'20-yard dash: 3.12 seconds; measurement verification is unconfirmed.',href:null,checked_at:null},{id:'coverage',kind:'coverage',label:'Coverage of this view',detail:'Selection and eligibility have not been established.',href:null,checked_at:null},...(official?[{id:official.id,kind:'official',label:'Official USA Football source',detail:'A reviewed published source; not a promise of review or selection.',href:official.href,checked_at:'2026-09-08T22:51:00Z'}]:[])],fetched_at:'2026-09-08T23:00:00Z'};
 };
+// Reviewed-source-shaped fixtures only: no current real program claims or destinations are opened.
+const opportunityNow=Date.now(), opportunityTime=offset=>new Date(opportunityNow+offset).toISOString();
+const opportunitySourceURL='https://www.usafootball.com/national-team/synthetic-opportunity';
+const opportunityItem=(contact=false)=>({
+  id:contact?'fixture-contact':'fixture-assessment',title:contact?'Synthetic program inquiry':'Synthetic adult assessment',organization:'Synthetic program',
+  kind:contact?'contact':'assessment',summary:'A synthetic source-reviewed pathway for component verification.',
+  relevance:'You chose adult flag football. This is a published route, not an eligibility assessment.',
+  status:contact?'published_route':'check_details',valid_until:opportunityTime(86400000),
+  facts:['dates','location','cost','eligibility','contact'].map(key=>({key,label:key[0].toUpperCase()+key.slice(1),
+    value:key==='contact'?(contact?'Synthetic program desk':null):key==='cost'?null:'Synthetic '+key+' details',
+    source_ids:key==='cost'||key==='contact'&&!contact?[]:['source-1']})),
+  action:{kind:contact?'prepare_introduction':'open_source',label:contact?'Prepare program inquiry':'Review assessment details',href:opportunitySourceURL,
+    recipient:contact?'Synthetic program desk':null,purpose:contact?'Could you clarify the next adult evaluation dates and requirements?':null,source_ids:['source-1']},
+  sources:[{id:'source-1',title:'Synthetic official program source',url:opportunitySourceURL,checked_at:opportunityTime(-60000),expires_at:opportunityTime(86400000)}],
+});
+const opportunityResponse=(items=[opportunityItem(),opportunityItem(true)])=>({state:'ready',owner_scope:'b'.repeat(64),link_revision:'a'.repeat(64),
+  generated_at:opportunityTime(-1000),items,limitations:['Synthetic reviewed options; eligibility and staff interest are not established.']});
 const checks=[], errors=[], denied=[];
 const work = (async()=>{
     lifecycle('run_started', { runBudgetMs, cleanupBudgetMs });
@@ -877,6 +895,105 @@ const work = (async()=>{
     const literal='<img src=x onerror="window.__debriefXss=1">';await reset();await ready(false);await fillQuestion(literal);const escapedAnswer={...debrief(literal),answer:{text:literal,refs:['f1']}};await setDebriefMode({body:escapedAnswer});await ask();await answerRegion().waitFor();
     check(await answerRegion().getByText(literal,{exact:false}).count()>0&&await page.locator('img:not([src="/sparq-wordmark.png"]),iframe,video,audio').count()===0&&await page.evaluate(()=>window.__debriefXss===undefined&&localStorage.length===0&&sessionStorage.length===0),'Athlete and generated text render escaped without source media, code execution or persisted conversation');
     check(await page.evaluate(body=>{body.references[0].href='https://gmtm.com/film/12';try{return !!window.__debriefHelpers.readAthleteDebrief(body,{track:'profile',question:body.question})}catch{return false}},debrief('Can I use https://gmtm.com in my introduction?')),'A question may contain a URL as quoted input; evidence links still require the canonical server-resolved film form');
+    // Actual reviewed-opportunity components and parser, using synthetic public facts only.
+    const opportunityResults=()=>page.locator('[aria-label="Opportunity results"]');
+    const opportunityDialog=()=>page.getByRole('dialog',{name:'Opportunity details',exact:true});
+    const openOpportunities=async()=>{await closeProfile();await page.getByRole('navigation',{name:'Athlete workspace',exact:true}).getByRole('button',{name:'Opportunities',exact:true}).click();await page.getByRole('heading',{name:'Find your next move.',exact:true}).waitFor();await settle()};
+    const setOpportunityMode=async mode=>page.evaluate(mode=>{window.__opportunityMode=mode},mode);
+    const findOpportunities=async()=>{await page.getByRole('button',{name:'Find opportunities',exact:true}).click();await settle()};
+    const opportunityReads=()=>page.evaluate(()=>window.__requests.filter(r=>r.path==='/api/athlete/opportunities').length);
+    const opportunitySaved=workspaceState({version:1,goal:{text:'Explore my adult flag pathway',destination:null,timeframe:null},
+      draft:{kind:'summary',text:'MY SAVED ATHLETE WORDS',goal:'Explore my adult flag pathway',destination:'',selected_evidence_ids:['metric-1'],selected_material_ids:[],inputs_changed:false},updated_at:'2026-09-09T12:00:00Z'});
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
+    check(await opportunityReads()===0&&await opportunityResults().count()===0
+      &&await page.getByLabel('Competition category (optional)',{exact:true}).inputValue()==='unspecified'
+      &&await page.getByLabel('Format',{exact:true}).inputValue()==='any',
+      'Opening Opportunities preserves explicit athlete choice without deriving category from the profile or searching automatically');
+    await setOpportunityMode({body:opportunityResponse()});await findOpportunities();await opportunityResults().waitFor();
+    check(await opportunityResults().getByRole('article').count()===2&&await opportunityResults().getByText('Not confirmed',{exact:true}).count()===1
+      &&await opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).getAttribute('href')===opportunitySourceURL
+      &&await opportunityResults().getByRole('link',{name:'Review assessment details',exact:true}).getAttribute('rel')==='noopener noreferrer',
+      'A validated scoped search renders only reviewed options, preserves unknown cost and exposes the exact source action without opening it');
+    check(await page.evaluate(()=>{const requests=window.__requests.filter(r=>r.path==='/api/athlete/opportunities'),r=requests[0],body=JSON.parse(r.body);return requests.length===1&&r.method==='POST'&&r.cache==='no-store'&&r.authorization==='Bearer fixture-athlete-a'&&r.contentType==='application/json'
+      &&JSON.stringify(body)===JSON.stringify({pathway:'adult_flag',category:'unspecified',format:'any',link_revision:'a'.repeat(64)})}),
+      'Search sends only the chosen pathway, category, format and current link revision with the authenticated private transport');
+    const sourceDetailsButton=page.getByRole('button',{name:'Details & sources for Synthetic adult assessment',exact:true});
+    await sourceDetailsButton.click();await opportunityDialog().waitFor();await settle();
+    check(await opportunityDialog().getByText('Eligibility',{exact:true}).isVisible()
+      &&await opportunityDialog().getByRole('link',{name:'Synthetic official program source',exact:true}).getAttribute('href')===opportunitySourceURL
+      &&await opportunityDialog().getByText(/Checked .* UTC · Review due .* UTC/).isVisible()
+      &&await opportunityDialog().getByRole('button',{name:'Done',exact:true}).evaluate(el=>document.activeElement===el),
+      'Details reveal eligibility, numbered source evidence and review dates in a focused dialog');
+    await page.keyboard.press('Escape');await opportunityDialog().waitFor({state:'hidden'});await settle();
+    check(await sourceDetailsButton.evaluate(el=>document.activeElement===el), 'Closing opportunity source details returns focus to the exact originating action');
+    await openOverview();await openOpportunities();
+    check(await opportunityResults().getByRole('article').count()===2&&await opportunityReads()===1,
+      'Home-to-Opportunities navigation retains the reviewed results without repeating the search');
+    await page.getByLabel('Competition category (optional)',{exact:true}).selectOption('women');await page.getByLabel('Format',{exact:true}).selectOption('remote');await settle();
+    check(await opportunityResults().count()===0&&await opportunityReads()===1,
+      'Changed filters withhold earlier cards until a new explicit search without sending an automatic request');
+    await setOpportunityMode({body:opportunityResponse([opportunityItem()])});await findOpportunities();await opportunityResults().waitFor();
+    check(await page.evaluate(()=>{const body=JSON.parse(window.__requests.filter(r=>r.path==='/api/athlete/opportunities').at(-1).body);return body.category==='women'&&body.format==='remote'})
+      &&await opportunityResults().getByRole('article').count()===1, 'Explicit filter search uses the selected category and format and displays the returned scoped subset');
+    await page.getByLabel('Format',{exact:true}).selectOption('in_person');await setOpportunityMode({body:opportunityResponse([])});await findOpportunities();await opportunityResults().waitFor();
+    check(await opportunityResults().getByRole('article').count()===0&&await opportunityResults().getByText('No upcoming in-person opportunity is confirmed here. Try another format to see published pathways.',{exact:true}).isVisible(),
+      'An empty in-person collection explains the missing reviewed schedule without manufacturing a showcase card');
+
+    const badOpportunities=[];
+    for(const label of ['unknown fact reference','unsafe source host','unsourced contact','duplicate item','extra response field','missing fact']){
+      const body=opportunityResponse();
+      if(label==='unknown fact reference')body.items[0].facts[0].source_ids=['missing'];
+      if(label==='unsafe source host')body.items[0].sources[0].url='https://www.usafootball.com.evil.invalid/national-team';
+      if(label==='unsourced contact'){body.items[1].facts[4].value=null;body.items[1].facts[4].source_ids=[]}
+      if(label==='duplicate item')body.items[1]=structuredClone(body.items[0]);
+      if(label==='extra response field')body.extra='unreviewed';
+      if(label==='missing fact')body.items[0].facts.pop();
+      badOpportunities.push([label,body]);
+    }
+    check(await page.evaluate(({fixtures,now})=>fixtures.every(([,body])=>{try{window.__opportunityHelpers.readAthleteOpportunities(body,{ownerScope:'b'.repeat(64),linkRevision:'a'.repeat(64)},now);return false}catch{return true}}),{fixtures:badOpportunities,now:opportunityNow}),
+      'The complete opportunity parser rejects unsupported references, unapproved hosts, unsourced introductions, duplicates and unexpected or incomplete fields');
+    const expiredOpportunity=opportunityResponse();expiredOpportunity.items[0].valid_until=opportunityTime(-1);
+    check(await page.evaluate(({body,now})=>{const parsed=window.__opportunityHelpers.readAthleteOpportunities(body,{ownerScope:'b'.repeat(64),linkRevision:'a'.repeat(64)},now);return parsed.items.length===1&&parsed.items[0].id==='fixture-contact'&&!window.__opportunityHelpers.isOpportunityCurrent(body.items[0],now)}, {body:expiredOpportunity,now:opportunityNow}),
+      'Parser and interaction-time freshness both exclude expired options while retaining a separately current route');
+
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
+    const expiring=opportunityResponse([opportunityItem()]);expiring.items[0].valid_until=new Date(Date.now()+30000).toISOString();
+    await setOpportunityMode({body:expiring});await findOpportunities();await opportunityResults().getByRole('article').waitFor();
+    await page.evaluate(async()=>{window.__originalDateNow=Date.now;Date.now=()=>window.__originalDateNow()+120000;await window.__advance(120000)});await settle();
+    check(await opportunityResults().getByRole('article').count()===0&&await opportunityResults().getByRole('heading',{name:'No current options in this collection.',exact:true}).isVisible(),
+      'An option that expires on screen withdraws its card and external action without another request');
+    await page.evaluate(()=>{Date.now=window.__originalDateNow;delete window.__originalDateNow});
+
+    for(const failure of ['owner scope','link revision','authorization']){
+      await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await openOpportunities();
+      const body=opportunityResponse();if(failure==='owner scope')body.owner_scope='d'.repeat(64);if(failure==='link revision')body.link_revision='d'.repeat(64);
+      await setOpportunityMode(failure==='authorization'?{status:401,body:{detail:'PRIVATE OPPORTUNITY AUTH DETAIL'}}:{body});await findOpportunities();
+      await page.getByText('Your profile connection changed. Reload your saved work to continue.',{exact:true}).waitFor();
+      check(await opportunityResults().count()===0&&await draft().count()===0&&await page.getByText('PRIVATE OPPORTUNITY AUTH DETAIL',{exact:false}).count()===0,
+        'Opportunity '+failure+' failure invalidates the stale owner association before any result or draft action');
+    }
+
+    await reset({body:canonicalProfile},undefined,false,{body:canonicalMaterials},opportunitySaved);await overviewReady();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    await draft().fill('MY EXACT UNSAVED OPPORTUNITY EDIT');await openOpportunities();await setOpportunityMode({body:opportunityResponse()});await findOpportunities();await opportunityResults().waitFor();
+    await page.getByRole('button',{name:'Prepare program inquiry',exact:true}).click();const replaceDialog=page.getByRole('dialog',{name:'Keep your current draft?',exact:true});await replaceDialog.waitFor();
+    await replaceDialog.getByRole('button',{name:'Keep my draft',exact:true}).click();await replaceDialog.waitFor({state:'hidden'});await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()==='MY EXACT UNSAVED OPPORTUNITY EDIT'&&(await currentWorkspace()).draft.text==='MY SAVED ATHLETE WORDS',
+      'Preparing an opportunity introduction asks before replacement and Keep my draft preserves both edited and saved versions');
+    await openOpportunities();await page.getByRole('button',{name:'Prepare program inquiry',exact:true}).click();await replaceDialog.waitFor();await replaceDialog.getByRole('button',{name:'Replace with introduction',exact:true}).click();await draft().waitFor();
+    const opportunityDraft=await draft().inputValue();
+    check(opportunityDraft.startsWith('Hello Synthetic program desk,')&&opportunityDraft.includes('Explore my adult flag pathway')
+      &&opportunityDraft.includes('Could you clarify the next adult evaluation dates and requirements?')&&opportunityDraft.includes('20-yard dash: 3.12 seconds')
+      &&!opportunityDraft.includes('MY EXACT UNSAVED OPPORTUNITY EDIT')&&(await currentWorkspace()).draft.text==='MY SAVED ATHLETE WORDS',
+      'Explicit replacement creates a relevant editable introduction using the chosen contact, inquiry purpose, athlete goal and selected evidence while preserving the saved version');
+    check(await opportunityReads()===1&&await page.evaluate(()=>window.__requests.every(r=>r.method!=='PATCH'&&r.path!=='/api/athlete/debrief')&&window.__clipboard.length===0&&localStorage.length===0&&sessionStorage.length===0),
+      'Searching, inspecting, retaining and explicitly preparing an introduction performs no save, provider request, copy, outreach or browser persistence');
+    await openOpportunities();await setOpportunityMode({body:badOpportunities[0][1]});await findOpportunities();await page.getByRole('alert').waitFor();
+    check(await opportunityResults().getByRole('button',{name:'Prepare program inquiry',exact:true}).isDisabled()
+      &&await page.getByText('Previous results. Complete a new search before taking the next step.',{exact:true}).isVisible(),
+      'A rejected search retains clearly previous validated results but disables their introduction action');
+    await openOverview();await page.getByRole('button',{name:'Continue my draft',exact:true}).click();
+    check(await draft().inputValue()===opportunityDraft, 'Opportunity validation failure preserves the athlete’s current editable introduction');
+
     check(posterRequests.length>0&&posterRequests.every(request=>request.url===posterURL&&!request.hasCookie&&!request.hasAuthorization&&!request.hasReferrer),'Every native poster request uses the one exact inert fixture without cookies, authorization or referrer');
     check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside intercepted fixture assets and the one inert poster');
     const changed=files.filter(file=>crypto.createHash('sha256').update(fs.readFileSync(path.join(frontend,file))).digest('hex')!==sourceHashes[file]);check(changed.length===0,'Captured application inputs remain unchanged during the check');

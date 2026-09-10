@@ -9,6 +9,8 @@ import ProfileMaterialsPanel, { useProfileMaterials } from './ProfileMaterialsPa
 import { addMaterialsToDraft, ProfileMaterialItem } from './profileMaterials'
 import AthleteDebriefPanel from './AthleteDebriefPanel'
 import AthleteCareerHome from './AthleteCareerHome'
+import AthleteOpportunities from './AthleteOpportunities'
+import { AthleteOpportunity, isOpportunityCurrent } from './opportunityEvidence'
 import { CareerDraft, CareerGoal, CareerWorkspace, useCareerWorkspace, workLabels } from './careerWorkspace'
 import { useCareerNavigation } from './ProfileWorkspaceShell'
 
@@ -230,12 +232,21 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
   const writeButton = useRef<HTMLButtonElement>(null)
   const askButton = useRef<HTMLButtonElement>(null)
   const draftInput = useRef<HTMLTextAreaElement>(null)
+  const [pendingOpportunity, setPendingOpportunity] = useState<AthleteOpportunity | null>(null)
+  const [opportunityNotice, setOpportunityNotice] = useState('')
+  const opportunityDialog = useRef<HTMLDialogElement>(null)
   const lifetime = useRef(false)
   const draftRevision = useRef(0)
   const currentDraft = useRef(draft)
   currentDraft.current = draft
   useEffect(() => { setCopyStatus('') }, [draft])
   useEffect(() => { lifetime.current = true; return () => { lifetime.current = false } }, [])
+  useEffect(() => {
+    if (!pendingOpportunity || !opportunityDialog.current) return
+    const dialog = opportunityDialog.current
+    dialog.showModal()
+    return () => dialog.close()
+  }, [pendingOpportunity])
   const changed = () => { if (draft !== null) setInputsChanged(true); setCopyStatus('') }
   useEffect(() => {
     const dialog = sheet.current
@@ -373,6 +384,39 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
   const profileContext = [athlete.sport, athlete.position].filter(Boolean).join(' · ')
   const includedClips = materials.snapshot?.items.filter(item => item.kind === 'footage' && selectedMaterials.includes(item.id)) || []
 
+  const prepareOpportunity = (item: AthleteOpportunity, replace = false) => {
+    if (workspace.blocked || !workspace.snapshot
+        || workspace.snapshot.owner_scope !== profile.owner_scope) return
+    if (workspace.loading || workspace.saving || materials.loading) {
+      setOpportunityNotice('Your profile is still loading or saving. Try preparing the introduction again in a moment.')
+      return
+    }
+    if (!isOpportunityCurrent(item) || item.action.kind !== 'prepare_introduction' || !item.action.recipient || !item.action.purpose) {
+      setPendingOpportunity(null)
+      setOpportunityNotice('This source needs a fresh review. Find opportunities again before preparing an introduction.')
+      return
+    }
+    if (editor.text !== null && !replace) { setPendingOpportunity(item); return }
+    const purpose = item.action.purpose
+    const intent = savedGoal?.text || editor.goal.trim() || 'Explore adult flag football evaluation opportunities.'
+    const pickedEvidence = editor.selected_evidence_ids.filter(id => profile.evidence.some(fact => fact.id === id))
+    const requestedMaterials = new Set(editor.selected_material_ids)
+    if (eligibleFeature) requestedMaterials.add(eligibleFeature.id)
+    const pickedMaterials = materials.snapshot?.state === 'ready' ? materials.snapshot.items.filter(material => material.can_include && requestedMaterials.has(material.id)) : []
+    const base = prepareProfileDraft(profile, pickedEvidence, intent, item.action.recipient, 'introduction')
+      .replace('\n\nThank you for your time.', `\n\n${purpose}\n\nThank you for your time.`)
+    const text = addMaterialsToDraft(base, pickedMaterials, 'introduction')
+    setEditor({ kind: 'introduction', text, goal: intent, destination: item.action.recipient,
+      selected_evidence_ids: pickedEvidence, selected_material_ids: pickedMaterials.map(material => material.id), inputs_changed: false })
+    setPendingOpportunity(null); setOpportunityNotice(''); setCopyStatus(''); setDetailsOpen(false)
+    draftRevision.current += 1
+    navigationAction.current = () => {
+      setComposerOpen(true)
+      requestAnimationFrame(() => { if (lifetime.current) draftInput.current?.focus() })
+    }
+    setView('home')
+  }
+
   if (materialsScopeMismatch) return <p role="status" className="py-12 text-gray-300">Checking your profile connection…</p>
 
   return (
@@ -434,13 +478,21 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
       </div>
       </div>
 
-      <section hidden={view !== 'opportunities'} className="max-w-3xl py-8 sm:py-16" aria-labelledby="career-opportunities">
-        <p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your opportunities</p>
-        <h1 id="career-opportunities" className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">Opportunities not reviewed yet.</h1>
-        <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-400">Your goal gives the search a direction. A recommended opportunity needs a current source, eligibility details and a clear next step.</p>
-        {savedGoal && <p className="mt-6 border-l-2 border-sparq-lime pl-4 text-xl">{savedGoal.text}</p>}
-        <button type="button" onClick={editGoal} disabled={workspace.loading || workspace.saving || workspace.blocked} className={primary + ' mt-8'}>{savedGoal ? 'Refine my goal' : 'Set my goal'}</button>
-      </section>
+      <div hidden={view !== 'opportunities'}>
+        {workspace.snapshot && !workspace.blocked && <AthleteOpportunities ownerScope={workspace.snapshot.owner_scope}
+          linkRevision={workspace.snapshot.link_revision} goal={savedGoal?.text || null} active={view === 'opportunities'}
+          onPrepare={item => prepareOpportunity(item)} onScopeLost={workspace.invalidateScope} />}
+        {(!workspace.snapshot || workspace.blocked) && <p role="status" className="py-12 text-gray-300">Reload your saved work to confirm your profile before finding opportunities.</p>}
+        {opportunityNotice && <p role="status" className="mb-8 text-sm text-amber-200">{opportunityNotice}</p>}
+      </div>
+      <dialog ref={opportunityDialog} aria-labelledby="opportunity-draft-title" onCancel={() => setPendingOpportunity(null)} onClose={() => setPendingOpportunity(null)} className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-white/15 bg-sparq-charcoal-light p-6 text-white backdrop:bg-black/70 sm:p-8">
+        <h2 id="opportunity-draft-title" className="text-2xl font-semibold">Keep your current draft?</h2>
+        <p className="mt-4 text-sm leading-relaxed text-gray-300">You already have text in progress. Preparing this introduction replaces the text in your editor. Your saved version stays unchanged until you save.</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" autoFocus onClick={() => setPendingOpportunity(null)} className={secondary}>Keep my draft</button>
+          <button type="button" disabled={workspace.loading || workspace.saving || workspace.blocked || materials.loading} onClick={() => { if (pendingOpportunity) prepareOpportunity(pendingOpportunity, true) }} className={primary}>Replace with introduction</button>
+        </div>
+      </dialog>
       <section hidden={view !== 'progress'} className="max-w-3xl py-8 sm:py-16" aria-labelledby="career-progress">
         <p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your progress</p>
         <h1 id="career-progress" className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">Recent work</h1>

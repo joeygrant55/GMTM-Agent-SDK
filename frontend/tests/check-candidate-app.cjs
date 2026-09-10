@@ -518,8 +518,79 @@ const work = (async () => {
       'One desktop Home action prepares the editable introduction with the supplied recipient and one featured link, with details collapsed');
     await page.reload();await showcase.waitFor();await showcase.getByRole('heading',{name:'Your featured work',exact:true}).waitFor();
     check(await showcase.getByText('Use my profile to explore a flag football opportunity.',{exact:true}).isVisible()&&await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible(),'A genuine document reload restores saved goal and featured footage without creating a draft');
-    await nav.getByRole('button',{name:'Opportunities',exact:true}).click();await page.getByRole('heading',{name:'Opportunities not reviewed yet.',exact:true}).waitFor();
-    check(await page.getByRole('link',{name:/apply|match|invitation/i}).count()===0,'The opportunities view is honest about its unreviewed state and invents no application destinations');
+    // Actual Next -> authenticated ASGI -> reviewed catalog, with fixture-only fresh dates.
+    const opportunitiesURL=backOrigin+'/api/athlete/opportunities';
+    const opportunityCalls=()=>requests.filter(r=>r.origin==='backend'&&r.path==='/api/athlete/opportunities').length;
+    const opportunityResults=page.locator('[aria-label="Opportunity results"]');
+    const opportunityDetails=page.getByRole('dialog',{name:'Opportunity details',exact:true});
+    const openOpportunities=async()=>{await nav.getByRole('button',{name:'Opportunities',exact:true}).click();await page.getByRole('heading',{name:'Find your next move.',exact:true}).waitFor();};
+    const findOpportunities=async()=>{const pending=page.waitForResponse(r=>r.url()===opportunitiesURL&&r.request().method()==='POST');await page.getByRole('button',{name:'Find opportunities',exact:true}).click();const response=await pending;assert.equal(response.status(),200);await opportunityResults.waitFor();return response.json();};
+    const beforeOpportunities={saved:await readSaved(),writes:workspaceWrites(),providers:debriefCalls(),sources:profileReads()};
+    const gmtmReturn=page.getByRole('link',{name:'Back to GMTM (opens in a new tab)',exact:true});
+    check(await gmtmReturn.getAttribute('href')==='https://gmtm.com'&&await gmtmReturn.getAttribute('target')==='_blank'
+      &&await gmtmReturn.getAttribute('rel')==='noopener noreferrer',
+      'The visible GMTM return opens a separate tab so unsaved private work stays mounted');
+    await openOpportunities();
+    check(opportunityCalls()===0&&await opportunityResults.count()===0&&await page.getByLabel('Competition category (optional)',{exact:true}).inputValue()==='unspecified',
+      'Actual Opportunities entry waits for an explicit athlete search and does not infer a competition category');
+    const reviewedOptions=await findOpportunities();
+    check(reviewedOptions.owner_scope===beforeOpportunities.saved.owner_scope&&reviewedOptions.link_revision===beforeOpportunities.saved.link_revision
+      &&reviewedOptions.items.length===2&&await opportunityResults.getByRole('article').count()===2
+      &&await opportunityResults.getByRole('heading',{name:'Adult Flag Digital Combine 2',exact:true}).isVisible()
+      &&await opportunityResults.getByRole('heading',{name:'Ask about your next evaluation',exact:true}).isVisible(),
+      'Actual ASGI returns the two reviewed catalog records bound to the current athlete link, with no fabricated third option');
+    check(await opportunityResults.getByRole('link',{name:'View official details',exact:true}).getAttribute('href')==='https://www.usafootball.com/national-team/digital-combine'
+      &&await opportunityResults.getByText('Confirm details',{exact:true}).isVisible()&&profileReads()===beforeOpportunities.sources,
+      'The digital route exposes official details without claiming verified registration or rereading athlete evidence');
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The actual desktop opportunity shortlist has no horizontal overflow');
+    await page.screenshot({path:path.join(output,'desktop-opportunities.png'),fullPage:true});
+    const detailsTrigger=page.getByRole('button',{name:'Details & sources for Adult Flag Digital Combine 2',exact:true});
+    await detailsTrigger.click();await opportunityDetails.waitFor();
+    check(await opportunityDetails.getByRole('link',{name:'USA Football digital combines — schedule and requirements',exact:true}).getAttribute('href')==='https://www.usafootball.com/national-team/digital-combine'
+      &&await opportunityDetails.getByRole('link',{name:'Official adult combine link on GMTM',exact:true}).getAttribute('href')==='https://gmtm.com/virtuals/1318/2027-u-s-flag-national-team-adult-digital-combine-2'
+      &&await opportunityDetails.getByText(/Cutoff time and timezone are not published/).isVisible(),
+      'The real source drawer retains exact schedule and GMTM references plus the unknown cutoff timezone without opening external pages');
+    await page.screenshot({path:path.join(output,'desktop-opportunity-sources.png'),fullPage:true});
+    await page.keyboard.press('Escape');await opportunityDetails.waitFor({state:'hidden'});
+    check(await detailsTrigger.evaluate(el=>document.activeElement===el),'The actual source drawer returns keyboard focus to its trigger');
+    await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The actual opportunity shortlist fits the 390-pixel phone width');
+    await page.screenshot({path:path.join(output,'phone-opportunities.png'),fullPage:true});
+    await page.getByRole('button',{name:'Details & sources for Ask about your next evaluation',exact:true}).click();await opportunityDetails.waitFor();
+    check(await opportunityDetails.getByText(/teamusa@usafootball.com/).isVisible()
+      &&await opportunityDetails.getByRole('link',{name:'USA Football national team — High Performance contact',exact:true}).getAttribute('href')==='https://usafootball.com/national-team'
+      &&await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),
+      'The phone drawer shows the publicly sourced department contact and remains within the viewport');
+    await page.screenshot({path:path.join(output,'phone-opportunity-sources.png'),fullPage:true});await opportunityDetails.getByRole('button',{name:'Done',exact:true}).click();await opportunityDetails.waitFor({state:'hidden'});
+    await page.getByLabel('Format',{exact:true}).selectOption('in_person');
+    check(opportunityCalls()===1&&await opportunityResults.count()===0,'Changing the real format filter hides previous cards without automatic research');
+    const inPersonOptions=await findOpportunities();
+    check(inPersonOptions.items.length===0&&await opportunityResults.getByRole('article').count()===0
+      &&await opportunityResults.getByText('No upcoming in-person opportunity is confirmed here. Try another format to see published pathways.',{exact:true}).isVisible(),
+      'Actual in-person filtering returns an honest empty result instead of a closed camp or invented event');
+    await page.getByLabel('Format',{exact:true}).selectOption('any');await findOpportunities();
+    await opportunityResults.getByRole('button',{name:'Prepare introduction',exact:true}).click();await editor.waitFor();
+    const firstOpportunityDraft=await editor.inputValue();
+    check(firstOpportunityDraft.startsWith('Hello USA Football High Performance,')&&firstOpportunityDraft.includes('Ava Fixture')
+      &&firstOpportunityDraft.includes(beforeOpportunities.saved.goal.text)&&firstOpportunityDraft.includes('https://gmtm.com/film/703')
+      &&firstOpportunityDraft.includes('Could you clarify the next adult flag evaluation dates, any in-person opportunities, and the requirements for the applicable national-team cycle?'),
+      'One sourced action creates an editable inquiry grounded in the current athlete, saved goal, featured footage and real program-question purpose');
+    await editor.fill('MY EXACT UNSAVED PROGRAM INQUIRY');await openOpportunities();
+    check(opportunityCalls()===3&&await opportunityResults.getByRole('article').count()===2,'Returning from the introduction retains reviewed search results without another request');
+    await opportunityResults.getByRole('button',{name:'Prepare introduction',exact:true}).click();const replaceOpportunity=page.getByRole('dialog',{name:'Keep your current draft?',exact:true});await replaceOpportunity.waitFor();
+    await replaceOpportunity.getByRole('button',{name:'Keep my draft',exact:true}).click();await replaceOpportunity.waitFor({state:'hidden'});await continueDraft();
+    check(await editor.inputValue()==='MY EXACT UNSAVED PROGRAM INQUIRY','Keep my draft preserves the exact authored inquiry in the actual app');
+    await openOpportunities();await opportunityResults.getByRole('button',{name:'Prepare introduction',exact:true}).click();await replaceOpportunity.waitFor();await replaceOpportunity.getByRole('button',{name:'Replace with introduction',exact:true}).click();await editor.waitFor();
+    check(await editor.inputValue()===firstOpportunityDraft,'Only explicit replacement rebuilds the inquiry from the same athlete and reviewed program context');
+    const afterOpportunities=await readSaved();
+    check(JSON.stringify(afterOpportunities)===JSON.stringify(beforeOpportunities.saved)&&workspaceWrites()===beforeOpportunities.writes
+      &&debriefCalls()===beforeOpportunities.providers&&profileReads()===beforeOpportunities.sources,
+      'Search, source inspection and both draft choices leave the actual saved store unchanged with no implicit PATCH, model request or evidence refresh');
+    await page.screenshot({path:path.join(output,'phone-opportunity-introduction.png'),fullPage:true});
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'The prepared opportunity introduction remains usable at phone width');
+    await page.reload();await showcase.waitFor();await showcase.getByRole('heading',{name:'Your featured work',exact:true}).waitFor();await page.setViewportSize({width:1487,height:1058});
+    check(await page.getByRole('button',{name:'Prepare introduction',exact:true}).isVisible()&&await editor.count()===0&&(await readSaved()).draft===null,
+      'Reload discards only the unsaved test inquiry and restores the original saved state for the rest of the journey');
     await nav.getByRole('button',{name:'Progress',exact:true}).click();await page.getByRole('heading',{name:'Recent work',exact:true}).waitFor();
     check(await page.locator('[aria-labelledby="career-progress"]').getByText('Goal saved',{exact:true}).count()===2&&await page.locator('[aria-labelledby="career-progress"]').getByText('Featured film chosen',{exact:true}).isVisible(),'Progress records actual saves without calling them athletic improvement or outreach');
     await home();await page.getByRole('button',{name:'Ask SPARQ',exact:true}).click();

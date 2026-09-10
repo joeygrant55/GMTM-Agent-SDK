@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 from collections import Counter
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -249,12 +249,27 @@ def main():
         import athlete_evidence
         import athlete_materials
         import athlete_workspace
+        import athlete_opportunities
         from backend.tests.workspace_fixture_store import WorkspaceStore
 
         career_store = WorkspaceStore(mutex=mutex, link_reader=lambda: [
             {"id": uid + 1000, "user_id": uid, "clerk_id": clerk}
             for uid, clerk in claims["athlete_profiles"].items()])
         athlete_workspace._get_agent_db = career_store.connect
+        athlete_opportunities._get_agent_db = career_store.connect
+        # Fixture-only freshness overlay: exercise the actual catalog projection
+        # independently of the real records' seven-day review window. This is
+        # synthetic HTTP acceptance, never evidence of a current source review.
+        fixture_now = datetime.now(timezone.utc)
+        fixture_checked = (fixture_now - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+        fixture_expires = (fixture_now + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        athlete_opportunities.RECORDS = deepcopy(athlete_opportunities.RECORDS)
+        for record in athlete_opportunities.RECORDS:
+            record["valid_until"] = fixture_expires
+            record["opens_at"] = record["closes_at"] = None
+            for source_record in record["sources"]:
+                source_record["checked_at"] = fixture_checked
+                source_record["expires_at"] = fixture_expires
 
         class EvidenceAgentDB(AgentDB):
             """Use the shared claim link, but permit only the two owner reads."""
@@ -466,6 +481,7 @@ def main():
                     "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/{clerk_id}",
                     "/api/athlete/debrief",
                     "/api/athlete/workspace",
+                    "/api/athlete/opportunities",
                     "/api/claims/{token}", "/api/claims/{token}/redeem",
                 })
     assert set(app.openapi()["paths"]) == expected
@@ -551,7 +567,7 @@ def main():
                 "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
                 "combine_help_api.py", "tests/run_candidate_fixture.py",
                 *(("athlete_evidence.py", "athlete_materials.py", "profile_debrief.py", "profile_pathways.py", "combine_model.py",
-                   "athlete_workspace.py", "source_scope.py", "tests/workspace_fixture_store.py") if surface == "profile" else ()))},
+                   "athlete_workspace.py", "athlete_opportunities.py", "opportunity_catalog.py", "source_scope.py", "tests/workspace_fixture_store.py") if surface == "profile" else ()))},
         }
         descriptor = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as handle:
