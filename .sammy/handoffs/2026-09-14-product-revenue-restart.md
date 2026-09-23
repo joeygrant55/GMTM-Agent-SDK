@@ -1,0 +1,13 @@
+# Product and revenue restart
+
+Joey asked to resume product development and identify the highest-leverage path to revenue. Read the actual repo instructions, current state, branch/remotes/log/status and Control Tower ownership documents. Starting checkout is clean at `159869c`, branch `codex/athlete-home-first-value`. The latest app work remains the September 10 reviewed-opportunity/measurement checkpoint.
+
+Root refreshed current product evidence, public USA Football calendar and bounded Gmail evidence. An independent read-only agent reviewed hosting, admission, payment, acceptance and measurement gaps. The resulting scope is [paid-pilot-priority-2026-09-14.md](../../docs/state/paid-pilot-priority-2026-09-14.md): hosted profile release and explicit adult admission, fresh opportunities, founder acceptance, then a small invited cohort and one paid organization offer. Full SSO remains a parallel track; no new migration is needed for the existing workspace.
+
+USA Football's official page currently lists September 21 as combine 2's end. Charles's August 25 message proposes a league combine day; no later direct email or commercial commitment was established. Joey was asked whether the joint promotion ran and how many adult profiles are complete. This question does not block offline preparation.
+
+This turn made planning-document changes only. No source changes, tests, local server launches, current cloud-state verification, deployments, pushes, model calls, account mutations, settings changes or external messages. Existing source compilation/tests are historical evidence from the pinned handoffs, not newly executed checks. Product deployment and actual payment remain unverified.
+
+Uncommitted changes: this handoff, the new priority/scope document, and the current-state routing entry. Existing app code and all other writers were preserved. Next coding milestone is the bounded server admission/expiry boundary and profile release manifest, after proportionate review of the scope.
+
+Independent scope review completed. Accepted clarifications pin an admission to the approved GMTM/Clerk/link identity, require the gate enabled for the hosted pilot, and separate first acceptance with an already linked account from new-claim onboarding. All three planning documents passed a direct read/whitespace check. Final Git diff/status commands stalled and were interrupted through their exact owned sessions (exit 130); no final Git-check pass is claimed. The starting clean branch/HEAD/status inspection completed successfully. No application tests were needed or run for the documentation-only change.

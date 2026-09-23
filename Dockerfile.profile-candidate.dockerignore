@@ -29,3 +29,5 @@ backend/**
 !backend/athlete_opportunities.py
 !backend/opportunity_catalog.py
 !backend/opportunity_engagement.py
+!backend/profile_admission.py
+!backend/profile_owner.py

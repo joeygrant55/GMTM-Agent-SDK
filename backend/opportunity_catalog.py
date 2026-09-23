@@ -3,14 +3,20 @@
 Records expire and are rechecked before use. Import does not fetch or call AI.
 """
 
-CHECKED = "2026-09-10T16:30:06Z"
-EXPIRES = "2026-09-17T16:30:06Z"
+CHECKED = "2026-09-23T16:17:39Z"
+EXPIRES = "2026-09-30T16:17:39Z"
+# Review again before the imminent deposit-balance date, not after a seven-day TTL.
+ORLANDO_EXPIRES = "2026-09-25T00:00:00Z"
+# The linked GMTM page did not expose current details. Keep its previous receipt;
+# a fresh schedule read does not renew that source or reopen this ended combine.
+COMBINE_ENTRY_CHECKED = "2026-09-10T16:30:06Z"
+COMBINE_ENTRY_EXPIRES = "2026-09-17T16:30:06Z"
 DIGITAL = "https://www.usafootball.com/national-team/digital-combine"
 CONTACT = "https://usafootball.com/national-team"
 GMTM_COMBINE = "https://gmtm.com/virtuals/1318/2027-u-s-flag-national-team-adult-digital-combine-2"
 
 # Field-by-field evidence and excluded stale/test sources:
-# docs/research/athlete-opportunities-2026-09-10.md. Review expiry is SPARQ's
+# docs/research/adult-flag-events-2026-09-23.md. Review expiry is SPARQ's
 # internal freshness policy; it is never presented as an organizer's deadline.
 RECORDS = (
     {
@@ -18,8 +24,8 @@ RECORDS = (
         "organization": "USA Football", "kind": "assessment", "format": "remote",
         "categories": ["men", "women"], "status": "check_details",
         "focuses": ["national_team"], "state": None, "participation": "individual",
-        "summary": "Review the published evaluation window and requirements. Already participating? Use the official details without starting another submission.",
-        "valid_until": EXPIRES, "opens_at": None,
+        "summary": "The published window ended September 21, 2026. This record is retained for history and excluded from current opportunities; a later combine is still to be announced.",
+        "valid_until": COMBINE_ENTRY_EXPIRES, "opens_at": None,
         # Conservative internal withdrawal, not a claim about the missing timezone.
         "closes_at": "2026-09-21T00:00:00Z",
         "facts": [
@@ -33,7 +39,7 @@ RECORDS = (
                    "recipient": None, "purpose": None, "source_ids": ["schedule"]},
         "sources": [
             {"id": "schedule", "title": "USA Football digital combines — schedule and requirements", "url": DIGITAL, "checked_at": CHECKED, "expires_at": EXPIRES},
-            {"id": "entry", "title": "Official adult combine link on GMTM", "url": GMTM_COMBINE, "checked_at": CHECKED, "expires_at": EXPIRES},
+            {"id": "entry", "title": "Official adult combine link on GMTM", "url": GMTM_COMBINE, "checked_at": COMBINE_ENTRY_CHECKED, "expires_at": COMBINE_ENTRY_EXPIRES},
         ],
     },
     {
@@ -58,7 +64,7 @@ RECORDS = (
     },
 )
 
-# Competition research: docs/research/adult-flag-events-2026-09-10.md.
+# Competition research: docs/research/adult-flag-events-2026-09-23.md.
 # Calendar cutoffs below are conservative internal withdrawals, not official UTC deadlines.
 RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'title': 'Battle Orlando · October 2026',
@@ -72,7 +78,7 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'status': 'check_details',
   'summary': 'Compete with a team in published adult divisions. Confirm roster rules, availability and full costs before '
              'planning travel.',
-  'valid_until': '2026-09-17T17:41:56Z',
+  'valid_until': ORLANDO_EXPIRES,
   'opens_at': None,
   'closes_at': '2026-10-02T00:00:00Z',
   'facts': [{'key': 'dates',
@@ -90,8 +96,8 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
              'source_ids': ['event']},
             {'key': 'eligibility',
              'label': 'Entry requirements',
-             'value': "Team entry; adult men's, women's and coed divisions. Confirm individual age, ranking and roster "
-                      'rules. Individual placement is not established.',
+             'value': "Open-invite team entry; no prior qualification required. Adult men's, women's and coed divisions. "
+                      'Confirm age, ranking and roster rules. Individual placement is not established.',
              'source_ids': ['event']},
             {'key': 'contact',
              'label': 'Organizer contact',
@@ -106,13 +112,13 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'sources': [{'id': 'event',
                'title': 'Official event details and team divisions',
                'url': 'https://iflag.org/tournaments/2026-battle-orlando/',
-               'checked_at': '2026-09-10T17:41:56Z',
-               'expires_at': '2026-09-17T17:41:56Z'},
+               'checked_at': CHECKED,
+               'expires_at': ORLANDO_EXPIRES},
               {'id': 'contact',
                'title': 'International Flag League — contact',
                'url': 'https://iflag.org/contact/',
-               'checked_at': '2026-09-10T17:41:56Z',
-               'expires_at': '2026-09-17T17:41:56Z'}]},
+               'checked_at': CHECKED,
+               'expires_at': ORLANDO_EXPIRES}]},
  {'id': 'iflag-tampa-nationals-2027',
   'title': 'Tampa National Championships · 2027',
   'organization': 'International Flag League',
@@ -125,7 +131,7 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'status': 'check_details',
   'summary': 'Compete with a team in published adult divisions. Confirm roster rules, availability and full costs before '
              'planning travel.',
-  'valid_until': '2026-09-17T17:41:56Z',
+  'valid_until': EXPIRES,
   'opens_at': None,
   'closes_at': '2026-12-04T00:00:00Z',
   'facts': [{'key': 'dates',
@@ -138,13 +144,14 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
              'source_ids': ['event']},
             {'key': 'cost',
              'label': 'Team entry cost',
-             'value': '5v5 non-contact: $375–$450 per team/division; referees included. $50 deposit, balance due Oct 9, 2026 or '
-                      'earlier if full. Late fees from Nov 27. Parking TBD; teams bring flags. Confirm checkout and travel totals.',
+             'value': '5v5 non-contact: $375–$450 per team/division; referees included. $50 deposit; balance due Oct 9, 2026 '
+                      'at 7pm EST, possibly earlier if full. $50 late fee from Nov 27 at 7pm EST for 5v5. Confirm timezone. '
+                      'Parking TBD; teams bring flags. Checkout and travel totals unverified.',
              'source_ids': ['event']},
             {'key': 'eligibility',
              'label': 'Entry requirements',
-             'value': "Team entry; adult men's, women's and coed divisions. Confirm individual age, ranking and roster "
-                      'rules. Individual placement is not established.',
+             'value': "Open-invite team entry; no prior qualification required. Adult men's, women's and coed divisions. "
+                      'Confirm age, ranking and roster rules. Individual placement is not established.',
              'source_ids': ['event']},
             {'key': 'contact',
              'label': 'Organizer contact',
@@ -159,13 +166,13 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'sources': [{'id': 'event',
                'title': 'Official event details and team divisions',
                'url': 'https://iflag.org/tournaments/2027-tampa-national-championships/',
-               'checked_at': '2026-09-10T17:41:56Z',
-               'expires_at': '2026-09-17T17:41:56Z'},
+               'checked_at': CHECKED,
+               'expires_at': EXPIRES},
               {'id': 'contact',
                'title': 'International Flag League — contact',
                'url': 'https://iflag.org/contact/',
-               'checked_at': '2026-09-10T17:41:56Z',
-               'expires_at': '2026-09-17T17:41:56Z'}]},
+               'checked_at': CHECKED,
+               'expires_at': EXPIRES}]},
  {'id': 'iflag-team-access-inquiry',
   'title': 'Find your way into competition',
   'organization': 'International Flag League',
@@ -178,7 +185,7 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'status': 'published_route',
   'summary': 'Ask the organizer about team access, possible free-agent routes and division requirements. A place on a team '
              'is not confirmed.',
-  'valid_until': '2026-09-17T17:41:56Z',
+  'valid_until': EXPIRES,
   'opens_at': None,
   'closes_at': None,
   'facts': [{'key': 'dates', 'label': 'Dates', 'value': None, 'source_ids': []},
@@ -199,5 +206,5 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'sources': [{'id': 'contact',
                'title': 'International Flag League — contact',
                'url': 'https://iflag.org/contact/',
-               'checked_at': '2026-09-10T17:41:56Z',
-               'expires_at': '2026-09-17T17:41:56Z'}]})
+               'checked_at': CHECKED,
+               'expires_at': EXPIRES}]})

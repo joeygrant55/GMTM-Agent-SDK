@@ -20,6 +20,7 @@ from auth import require_clerk_id
 from combine_api import _get_agent_db, _get_gmtm_db
 from athlete_evidence import PRIVATE_HEADERS
 from source_scope import owner_scope
+from profile_admission import enforce_owner, recheck_admission
 
 
 MAX_BODY_BYTES = 98304
@@ -165,6 +166,7 @@ def _owner(cursor, clerk_id, *, lock=False):
     reverse = cursor.fetchall()
     if len(reverse) != 1 or reverse[0] != row:
         raise _link_changed()
+    enforce_owner(row)
     return row
 
 
@@ -236,7 +238,7 @@ def _read_owned_workspace(clerk_id):
         with db.cursor() as cursor:
             owner = _owner(cursor, clerk_id)
             return _state(cursor, owner), owner
-    except WorkspaceError:
+    except (WorkspaceError, HTTPException):
         raise
     except Exception:
         raise _unavailable() from None
@@ -260,7 +262,7 @@ def _check_feature(athlete_id, source_id):
         if not any(item["id"] == source_id and item["can_include"] and item["availability"] == "unchecked"
                    and item["source_url"] for item in items):
             raise WorkspaceError(400, "workspace_invalid", "Choose an available public clip from your profile.")
-    except WorkspaceError:
+    except (WorkspaceError, HTTPException):
         raise
     except Exception:
         raise WorkspaceError(503, "workspace_unavailable", "That clip could not be checked. Your saved work has not changed.") from None
@@ -321,12 +323,13 @@ def save_workspace(clerk_id, value):
                                (version, encoded, stamp, subject, owner["id"], owner["user_id"], expected))
             if cursor.rowcount != 1:
                 raise _conflict()
+        recheck_admission()
         db.commit()
         committed = True
         return {"state": "ready", "link_revision": revision, "version": version,
                 "owner_scope": owner_scope(clerk_id, owner["user_id"]),
                 **payload, "updated_at": now.isoformat()}
-    except WorkspaceError:
+    except (WorkspaceError, HTTPException):
         raise
     except Exception as exc:
         if getattr(exc, "args", ()) and type(exc.args[0]) is int and exc.args[0] in (1062, 1205, 1213):

@@ -310,8 +310,8 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
         finally: db.close()
 
     def install():
-        import athlete_evidence, athlete_materials, athlete_opportunities, combine_api, profile_api, claims_api, profile_debrief
-        for module in (athlete_evidence, athlete_materials, athlete_opportunities, workspace, combine_api, profile_api, claims_api, profile_debrief):
+        import athlete_evidence, athlete_materials, athlete_opportunities, combine_api, profile_api, claims_api, profile_debrief, profile_owner
+        for module in (athlete_evidence, athlete_materials, athlete_opportunities, workspace, combine_api, profile_api, claims_api, profile_debrief, profile_owner):
             for name, kind in (("_get_agent_db", "agent"), ("_get_gmtm_db", "gmtm")):
                 if hasattr(module, name):
                     patches.append((module, name, getattr(module, name)))

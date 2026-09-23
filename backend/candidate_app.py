@@ -51,6 +51,7 @@ _CONFIGURATION_KEYS = (
     "OPPORTUNITY_ENGAGEMENT_ENABLED", "OPPORTUNITY_ENGAGEMENT_COHORT",
     "OPPORTUNITY_ENGAGEMENT_PERIOD", "OPPORTUNITY_ENGAGEMENT_SECRET",
     "OPPORTUNITY_ENGAGEMENT_EXCLUDED_IDS", "OPPORTUNITY_ENGAGEMENT_PILOT_IDS",
+    "PROFILE_ADMISSION_ENABLED", "PROFILE_ADMISSION_FILE",
 )
 
 
@@ -168,6 +169,7 @@ class CandidateBoundaryMiddleware:
     """Fail closed before source handlers, then apply framework CORS policy."""
     def __init__(self, app, surface="combine"):
         self.app = app
+        self.surface = surface
         self.methods = ["GET", "POST", "PATCH"] if surface == "profile" else ["GET", "POST"]
 
     async def __call__(self, scope, receive, send):
@@ -184,7 +186,31 @@ class CandidateBoundaryMiddleware:
             return
         # This is a request-local wrapper around the existing ASGI pipeline, not
         # a retained call_next closure or a mutation of application middleware.
-        cors = CORSMiddleware(self.app, allow_origins=list(config.origins),
+        async def admitted_app(scope, receive, send):
+            admission = getattr(scope["app"].state, "profile_admission_configuration", None)
+            if self.surface != "profile" or admission is None or scope["path"] == "/health":
+                await self.app(scope, receive, send)
+                return
+            from profile_admission import begin_request, reset_request
+            token = None
+            try:
+                # Claims can write opened_at without authentication. They are a
+                # separate onboarding flow, never an exception to pilot admission.
+                if scope["path"].startswith("/api/claims/"):
+                    raise HTTPException(403, "Account linking is unavailable in this pilot.")
+                request = Request(scope)
+                subject = await require_candidate_clerk_id(request, request.headers.get("authorization"))
+                token = begin_request(admission, subject)
+            except HTTPException as exc:
+                await JSONResponse({"detail": exc.detail}, status_code=exc.status_code)(scope, receive, send)
+                return
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                if token is not None:
+                    reset_request(token)
+
+        cors = CORSMiddleware(admitted_app, allow_origins=list(config.origins),
                               allow_credentials=True, allow_methods=self.methods,
                               allow_headers=["Authorization", "Content-Type"])
         await cors(scope, receive, send)
@@ -204,6 +230,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from opportunity_engagement import current_opportunity_engagement, RateLimit, validate_configuration as engagement_configuration
         from profile_debrief import current_profile_debrief, validate_configuration as debrief_configuration
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
+        from profile_owner import current_profile_recovery
+        from profile_admission import validate_configuration as admission_configuration, load_admissions
         routes = (
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
             ("GET", "/api/athlete/materials", current_athlete_materials),
@@ -212,7 +240,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("POST", "/api/athlete/debrief", current_profile_debrief),
             ("GET", "/api/athlete/workspace", current_athlete_workspace),
             ("PATCH", "/api/athlete/workspace", update_athlete_workspace),
-            *BUSINESS_ROUTES[2:],
+            ("GET", "/api/profile/by-clerk/{clerk_id}", current_profile_recovery),
+            *BUSINESS_ROUTES[3:],
         )
         title = "SPARQ Profile Candidate"
 
@@ -224,6 +253,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.profile_debrief_configuration = debrief_configuration(os.environ)
             application.state.opportunity_engagement_configuration = engagement_configuration(os.environ)
             application.state.opportunity_engagement_limiter = RateLimit()
+            application.state.profile_admission_configuration = admission_configuration(os.environ, config.origins)
+            if application.state.profile_admission_configuration is not None:
+                # Only the explicit private admission file is read at startup;
+                # no database, schema or provider work is performed.
+                load_admissions(application.state.profile_admission_configuration)
         # Pure configuration work only; no schema, provider or shared override.
         application.state.candidate_configuration = config
         try:
@@ -233,6 +267,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.profile_debrief_configuration = None
             application.state.opportunity_engagement_configuration = None
             application.state.opportunity_engagement_limiter = None
+            application.state.profile_admission_configuration = None
 
     application = FastAPI(title=title, version="1.0.0",
                           docs_url=None, redoc_url=None, openapi_url=None,
@@ -246,6 +281,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     async def health():
         config = application.state.candidate_configuration
         ready = config is not None and config.signature == _signature(os.environ)
+        if ready and surface == "profile" and application.state.profile_admission_configuration is not None:
+            try:
+                load_admissions(application.state.profile_admission_configuration)
+            except HTTPException:
+                ready = False
         body = {
             "service": title, "surface": f"{surface}_candidate",
             "configuration_ready": ready, "connectivity_verified": False,
@@ -256,6 +296,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             debrief = getattr(application.state, "profile_debrief_configuration", None)
             body["debrief_enabled"] = bool(ready and debrief is not None)
             body["opportunity_engagement_enabled"] = bool(ready and getattr(application.state, "opportunity_engagement_configuration", None) is not None)
+            body["pilot_admission_enabled"] = bool(ready and getattr(application.state, "profile_admission_configuration", None) is not None)
             key = "OPENAI_API_KEY" if debrief is not None and MODELS[debrief.model] == "openai" else "ANTHROPIC_API_KEY"
             body["debrief_provider_configured"] = bool(ready and debrief is not None and os.environ.get(key, "").strip())
         return JSONResponse(body, status_code=200 if ready else 503)

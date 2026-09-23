@@ -19,7 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 import athlete_evidence as evidence
 import athlete_materials as materials
 from auth import require_clerk_id
-from combine_api import _get_agent_db, _get_gmtm_db, _linked_athlete
+from combine_api import _get_agent_db, _get_gmtm_db
+from profile_owner import linked_profile_athlete as _linked_athlete
 from combine_model import stream_answer
 from model_usage import MODELS, ModelCallLimitError, UsageLedger
 from profile_pathways import PathwayExpired, pathway_bundle
@@ -367,6 +368,8 @@ def _new_anthropic_client():
 
 
 async def _generate(body, snapshot, request, config, ledger):
+    from profile_admission import recheck_admission
+    recheck_admission()
     system = SYSTEM_PROMPT + "\n\nCURRENT QUOTED DATA:\n" + json.dumps(snapshot["provider_context"], ensure_ascii=False)
     parts, completed = [], False
     async with aclosing(stream_answer(
@@ -388,6 +391,7 @@ async def _generate(body, snapshot, request, config, ledger):
                 raise ValueError("Debrief model did not complete")
     if not completed or await request.is_disconnected():
         raise ValueError("Debrief did not complete for this request")
+    recheck_admission()
     pathway_bundle(body.track)  # A review can expire during the bounded model call.
     return _validated_response("".join(parts), snapshot, body)
 
@@ -440,6 +444,8 @@ async def current_profile_debrief(body: ProfileDebriefRequest, request: Request,
             raise
         except PathwayExpired:
             return _expired()
+        except HTTPException as error:
+            return _error(error.status_code, error.detail)
         except Exception:
             return _error(502, "SPARQ could not finish a source-backed debrief. Your profile and text tools remain available; you can try again.")
         return JSONResponse(result, headers=PRIVATE_HEADERS)

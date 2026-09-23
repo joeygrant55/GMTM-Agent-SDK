@@ -15,7 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from auth import require_clerk_id
-from combine_api import _get_agent_db, _get_gmtm_db, _linked_athlete
+from combine_api import _get_agent_db, _get_gmtm_db
+from profile_owner import linked_profile_athlete as _linked_athlete
 from source_scope import owner_scope
 
 

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import re
 from urllib.parse import urlsplit
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -229,5 +229,7 @@ async def current_athlete_opportunities(request: Request, clerk_id: str = Depend
         return JSONResponse(await run_in_threadpool(search_opportunities, clerk_id, query), headers=PRIVATE_HEADERS)
     except WorkspaceError as exc:
         return _error(exc.status, exc.code, exc.detail)
+    except HTTPException:
+        raise
     except Exception:
         return _error(503, "opportunities_unavailable", "The reviewed opportunity collection is unavailable. Your profile and draft are unchanged.")

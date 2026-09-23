@@ -1,6 +1,22 @@
 # SPARQ Agent current work
 
-Updated: 2026-09-10. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+Updated: 2026-09-23. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
+
+## Adult pilot access and current opportunities — September 23, 2026
+
+Implemented the next coding milestone from the September 14 scope: server-enforced, human-reviewed adult admission for the explicit profile app. Invitations pin exact Clerk subject, GMTM user and link row/revision, with expiry/revocation rechecked through owner resolution and before saves, model work or measurement. Gated claims are blocked before their preview/redemption side effects. Disabled previews are limited to loopback UI origins; hosted profile origins require the gate. No actual account has been admitted or changed by this work.
+
+Fresh official review retains four current event/contact options; the USA Football round ending September 21 remains withdrawn. Orlando requires another review before September 25 UTC; the other renewed records expire September 30. These are source freshness policies, not inferred registration availability or qualification. The product remains a reviewed shortlist, not autonomous live research.
+
+**Verification: 983 affected offline backend tests pass**, including actual ASGI admission, synthetic save/reload and mid-write revocation rollback, owner-bound evidence/materials/recovery, provider/measurement denial, source freshness and both package import closures. Exact test input hashes match after the run. Independent review findings on packaging, source receipts and the acceptance connector were fixed; final review found no material issue. UI source was unchanged; earlier UI checks are historical, not rerun today. See the [implementation handoff](../../.sammy/handoffs/2026-09-23-profile-pilot-admission.md) for raw receipts and runtime attempts.
+
+**Next delivery:** fill and verify the concrete paired hosted targets/artifacts in the [release manifest](profile-pilot-release-manifest-2026-09-23.md), prepare private reviewed admissions for a small already-linked adult cohort, obtain the scoped release decision, then verify the actual hosted athlete journey. Existing migrations and the exhausted founder save allowance are unchanged. No deployment, push, production write, provider call, payment, external message or admission-file provisioning occurred. Full GMTM SSO, payment entitlements and real pilot demand remain unproven. Commercial priority stays one organization-paid league/program pilot via Charles, alongside athlete usefulness testing; no sale or budget is established.
+
+## Product resumed: first paid program — September 14, 2026
+
+Joey resumed product work after the company-deck detour. Fresh read-only inspection confirms the clean `159869c` application checkpoint described below; no newer hosted release or payment implementation was established. The [next-delivery scope](paid-pilot-priority-2026-09-14.md) prioritizes an explicit adult invitation/expiry boundary, paired profile release manifest, source refresh before September 17 and founder acceptance, followed by a 5–10 adult pilot and a separately scoped paid league/program offer. Existing Clerk/claim entry can support the small invited pilot; seamless GMTM SSO remains separate work. Existing workspace migrations must not be repeated.
+
+USA Football's current public calendar lists combine 2 through September 21. Charles's August 25 email proposes a league combine day but does not establish a sale or budget; current promotion status and adult-completion counts remain pending. No app code, tests, services, cloud settings, accounts, payments or external messages changed in this planning pass. See the [restart handoff](../../.sammy/handoffs/2026-09-14-product-revenue-restart.md). Next coding milestone: bounded server admission/expiry plus the exact profile release manifest.
 
 ## Measure interest in relevant events — September 10, 2026
 

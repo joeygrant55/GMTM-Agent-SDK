@@ -174,6 +174,8 @@ def capture(clerk_id, value, config, limiter, *, now=None, emit=None):
         "cohort": cohort, "account": pseudonym, "measurement_period": config.period,
         "destination_kind": "event_page" if record["kind"] == "event" else "contact_page" if record["kind"] == "contact" else "program_page",
     }
+    from profile_admission import recheck_admission
+    recheck_admission()
     (emit or _emit)(event)
 
 

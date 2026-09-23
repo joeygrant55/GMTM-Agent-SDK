@@ -29,7 +29,8 @@ BACKEND = Path(__file__).resolve().parents[1]
 REPO = BACKEND.parent
 CAPS = {"connections": 2, "selects": 6, "statements": 10}
 SOURCE_FILES = ("scripts/read_owner_profile_evidence.py", "athlete_evidence.py",
-                "combine_api.py", "combine_requirements.py", "auth.py", "source_scope.py")
+                "combine_api.py", "combine_requirements.py", "auth.py", "source_scope.py",
+                "profile_owner.py", "profile_admission.py")
 SCOPES = {
     "profile": {"caps": CAPS, "module": "athlete_evidence", "files": SOURCE_FILES,
                 "receipt_scope": "designated_owner_profile_projection",
