@@ -528,9 +528,9 @@ def test_top_three_limit_counts_only_matching_current_options_and_explains_trunc
 
 
 def test_reviewed_catalog_keeps_solo_inquiries_separate_from_team_tournaments():
-    from opportunity_catalog import RECORDS as reviewed_catalog
+    from opportunity_catalog import CHECKED, RECORDS as reviewed_catalog
 
-    checked = datetime(2026, 9, 23, 23, tzinfo=timezone.utc)
+    checked = datetime.fromisoformat(CHECKED.replace("Z", "+00:00"))
     national, _ = api.reviewed_shortlist(query(), reviewed_catalog, checked)
     solo, _ = api.reviewed_shortlist(query(focus="competition", entry="individual"), reviewed_catalog, checked)
     events, _ = api.reviewed_shortlist(query(focus="competition", format="in_person", state="FL"), reviewed_catalog, checked)

@@ -3,10 +3,11 @@
 Records expire and are rechecked before use. Import does not fetch or call AI.
 """
 
-CHECKED = "2026-09-23T16:17:39Z"
-EXPIRES = "2026-09-30T16:17:39Z"
-# Review again before the imminent deposit-balance date, not after a seven-day TTL.
-ORLANDO_EXPIRES = "2026-09-25T00:00:00Z"
+CHECKED = "2026-09-30T21:09:58Z"
+EXPIRES = "2026-10-07T21:09:58Z"
+# Orlando's deposit deadline has passed. Withdraw before the final registration
+# date instead of retaining this imminent event for the usual seven-day review.
+ORLANDO_EXPIRES = "2026-10-02T00:00:00Z"
 # The linked GMTM page did not expose current details. Keep its previous receipt;
 # a fresh schedule read does not renew that source or reopen this ended combine.
 COMBINE_ENTRY_CHECKED = "2026-09-10T16:30:06Z"
@@ -16,7 +17,7 @@ CONTACT = "https://usafootball.com/national-team"
 GMTM_COMBINE = "https://gmtm.com/virtuals/1318/2027-u-s-flag-national-team-adult-digital-combine-2"
 
 # Field-by-field evidence and excluded stale/test sources:
-# docs/research/adult-flag-events-2026-09-23.md. Review expiry is SPARQ's
+# .sammy/handoffs/2026-09-30-opportunity-catalog-refresh.md. Review expiry is SPARQ's
 # internal freshness policy; it is never presented as an organizer's deadline.
 RECORDS = (
     {
@@ -64,7 +65,7 @@ RECORDS = (
     },
 )
 
-# Competition research: docs/research/adult-flag-events-2026-09-23.md.
+# Competition research: .sammy/handoffs/2026-09-30-opportunity-catalog-refresh.md.
 # Calendar cutoffs below are conservative internal withdrawals, not official UTC deadlines.
 RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'title': 'Battle Orlando · October 2026',
@@ -76,8 +77,8 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
   'state': 'FL',
   'participation': 'team',
   'status': 'check_details',
-  'summary': 'Compete with a team in published adult divisions. Confirm roster rules, availability and full costs before '
-             'planning travel.',
+  'summary': 'Team entry is published, but the deposit-balance deadline has passed. Confirm whether new fully paid '
+             'entries are still accepted, plus roster rules and full costs, before planning travel.',
   'valid_until': ORLANDO_EXPIRES,
   'opens_at': None,
   'closes_at': '2026-10-02T00:00:00Z',
@@ -91,8 +92,9 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
              'source_ids': ['event']},
             {'key': 'cost',
              'label': 'Team entry cost',
-             'value': '$375 per team/division; referees included. $50 deposit, balance due Sep 25 at 7pm EST. Teams supply '
-                      'flags; final checkout and travel costs unverified.',
+             'value': '$375 per team/division; referees included. The $50 deposit balance deadline passed Sep 25 at '
+                      '7pm EST. Confirm whether new fully paid entries remain available. Teams supply flags; final '
+                      'checkout and travel costs unverified.',
              'source_ids': ['event']},
             {'key': 'eligibility',
              'label': 'Entry requirements',
@@ -151,7 +153,8 @@ RECORDS += ({'id': 'iflag-battle-orlando-2026',
             {'key': 'eligibility',
              'label': 'Entry requirements',
              'value': "Open-invite team entry; no prior qualification required. Adult men's, women's and coed divisions. "
-                      'Confirm age, ranking and roster rules. Individual placement is not established.',
+                      'Confirm age, ranking and roster rules; the published U23 cutoff says Jan 1, 2026 for this 2027 '
+                      'event. Individual placement is not established.',
              'source_ids': ['event']},
             {'key': 'contact',
              'label': 'Organizer contact',
