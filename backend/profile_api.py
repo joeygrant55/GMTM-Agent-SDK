@@ -1418,10 +1418,11 @@ async def run_deep_research(clerk_id: str, college_id: int, background_tasks: Ba
     stats_str = ", ".join(f"{s[0]}: {s[1]}" for s in stats_preview) if stats_preview else "not provided"
 
     athlete_summary = (
-        f"Name: {mp_raw.get('name') or 'Athlete'}\n"
+        # No name or city: a model prompt / web search must not identify a minor.
         f"Sport: {sport}\n"
         f"Position: {profile.get('position') or mp_raw.get('position') or 'Unknown'}\n"
-        f"From: {profile.get('city', '')}, {profile.get('state', '')}\n"
+        f"Class of: {profile.get('class_year') or 'not provided'}\n"
+        f"State: {profile.get('state') or 'not provided'}\n"
         f"Stats: {stats_str}\n"
         f"GPA: {profile.get('gpa') or 'not provided'}\n"
         f"Major interest: {profile.get('major_area') or 'Undecided'}\n"

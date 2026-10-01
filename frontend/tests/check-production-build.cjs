@@ -156,7 +156,9 @@ async function portClosed() {
   }
   result.productionManifests = manifests;
   process.stdout.write('PRODUCTION_BUILD_STAGE compile-passed; unauthenticated-smoke-started\n');
-  server = startChild('start', ['start', '--hostname', '127.0.0.1', '--port', String(port)], env);
+  // Bound as localhost (loopback): Clerk rewrites pages to the URL Next sees, and a
+  // 127.0.0.1 hostname would make Next treat that rewrite as external and proxy it.
+  server = startChild('start', ['start', '--hostname', 'localhost', '--port', String(port)], env);
   await waitReady(server);
   const origin = `http://127.0.0.1:${port}`;
   for (const route of ['/home/colleges', '/home/artifact/123.jpg', '/api/combine/current', '/api/demo-chat', '/_next/image?url=%2Fsparq-logo.jpg&w=64&q=75']) {
@@ -167,6 +169,25 @@ async function portClosed() {
   const location = response.headers.get('location');
   smoke.push({ path: '/home/inbox?event_id=1318', status: response.status, redirectPath: location ? new URL(location, origin).pathname : null });
   if (![302, 303, 307, 308].includes(response.status) || !location || new URL(location, origin).pathname !== '/sign-in') throw Error('Real Clerk unauthenticated redirect unconfirmed; inspect start.log and denials.');
+  if (surface === 'profile') {
+    // Minors are never publicly exposed on the profile surface.
+    for (const route of ['/athlete/123', '/report/sometoken', '/api/athlete/123', '/api/reports/public/sometoken']) {
+      const denied = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
+      smoke.push({ path: route, status: denied.status }); assert.equal(denied.status, 404, 'Profile public exposure: ' + route);
+    }
+    // A real rendered page: nonce CSP without script 'unsafe-inline', and every script carries the nonce.
+    const page = await fetch(origin + '/sign-in', { redirect: 'manual', headers: { cookie: 'sessionId=synthetic-gmtm-session' }, signal: AbortSignal.timeout(20000) });
+    const csp = page.headers.get('content-security-policy') || '';
+    const html = await page.text();
+    const scriptSrc = (csp.split(';').map(part => part.trim()).find(part => part.startsWith('script-src ')) || '');
+    const nonce = (/'nonce-([^']+)'/.exec(scriptSrc) || [])[1];
+    const scripts = html.match(/<script\b[^>]*>/g) || [];
+    smoke.push({ path: '/sign-in', status: page.status, scripts: scripts.length, scriptsWithNonce: scripts.filter(tag => nonce && tag.includes(`nonce="${nonce}"`)).length, scriptSrc });
+    assert.equal(page.status, 200, 'Profile sign-in page renders');
+    assert.ok(nonce && !scriptSrc.includes("'unsafe-inline'"), 'Profile CSP uses a nonce without script unsafe-inline');
+    assert.ok(scripts.length > 0 && scripts.every(tag => tag.includes(`nonce="${nonce}"`)), 'Every rendered script carries the CSP nonce');
+    assert.ok(!html.includes('synthetic-gmtm-session'), 'GMTM sessionId never reaches rendered output');
+  }
   result.status = 'passed';
 })().catch(error => { result.status = interrupted ? 'interrupted' : 'failed'; result.error = error.message; process.exitCode = 1; }).finally(async () => {
   result.cleanup = await Promise.allSettled(children.map(stop));

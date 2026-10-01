@@ -12,6 +12,7 @@ import {
   type StatData,
   type ActionOption,
 } from './ResponseCards'
+import SafeMarkdown from '@/components/SafeMarkdown'
 
 /* ═══════════════════════════════════════════════
    Types
@@ -353,112 +354,6 @@ function parseContent(content: string): Segment[] {
 }
 
 /* ═══════════════════════════════════════════════
-   Inline text formatter (markdown-lite)
-   ═══════════════════════════════════════════════ */
-
-function formatInlineHtml(text: string): string {
-  return text
-    .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
-    .replace(
-      /(https?:\/\/[^\s<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-[#c8ff00] hover:underline">$1</a>'
-    )
-}
-
-function renderMarkdownTable(tableLines: string[]): string {
-  // Parse header, separator, and body rows
-  const parseRow = (line: string): string[] =>
-    line.split('|').map((c) => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length)
-
-  const header = parseRow(tableLines[0])
-  const bodyRows = tableLines.slice(2).map(parseRow) // skip separator line
-
-  let html = '<div class="overflow-x-auto my-3 rounded-lg border border-white/[0.08]">'
-  html += '<table class="w-full text-sm">'
-
-  // Header
-  html += '<thead><tr class="bg-[#c8ff00]/10 border-b border-white/[0.08]">'
-  for (const h of header) {
-    html += `<th class="px-3 py-2 text-left text-[#c8ff00] font-semibold text-xs uppercase tracking-wide">${formatInlineHtml(h)}</th>`
-  }
-  html += '</tr></thead>'
-
-  // Body
-  html += '<tbody>'
-  for (let r = 0; r < bodyRows.length; r++) {
-    const row = bodyRows[r]
-    const bg = r % 2 === 0 ? 'bg-white/[0.02]' : 'bg-white/[0.04]'
-    html += `<tr class="${bg} border-b border-white/[0.04] last:border-0">`
-    for (let c = 0; c < Math.max(header.length, row.length); c++) {
-      const cell = row[c] || ''
-      const bold = c === 0 ? ' font-semibold text-white' : ' text-white/[0.85]'
-      html += `<td class="px-3 py-2${bold}">${formatInlineHtml(cell)}</td>`
-    }
-    html += '</tr>'
-  }
-  html += '</tbody></table></div>'
-
-  return html
-}
-
-// Check if a line looks like a markdown table row
-function isTableRow(line: string): boolean {
-  const trimmed = line.trim()
-  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.includes('|')
-}
-
-function isTableSeparator(line: string): boolean {
-  const trimmed = line.trim()
-  return /^\|[\s:]*[-]+[\s:]*(\|[\s:]*[-]+[\s:]*)*\|$/.test(trimmed)
-}
-
-function renderTextBlock(content: string): string {
-  const lines = content.split('\n')
-  let html = ''
-  let i = 0
-
-  while (i < lines.length) {
-    const trimmed = lines[i].trim()
-
-    // Check for markdown table: header row + separator row + body rows
-    if (isTableRow(trimmed) && i + 1 < lines.length && isTableSeparator(lines[i + 1].trim())) {
-      const tableLines: string[] = [trimmed, lines[i + 1].trim()]
-      let j = i + 2
-      while (j < lines.length && isTableRow(lines[j].trim())) {
-        tableLines.push(lines[j].trim())
-        j++
-      }
-      if (tableLines.length >= 3) {
-        html += renderMarkdownTable(tableLines)
-        i = j
-        continue
-      }
-    }
-
-    if (trimmed.startsWith('#### '))
-      html += `<h5 class="font-semibold text-white/90 mt-3 mb-1 text-sm">${formatInlineHtml(trimmed.slice(5))}</h5>`
-    else if (trimmed.startsWith('### '))
-      html += `<h4 class="font-semibold text-white mt-4 mb-2 font-display">${formatInlineHtml(trimmed.slice(4))}</h4>`
-    else if (trimmed.startsWith('## '))
-      html += `<h3 class="font-bold text-white mt-4 mb-2 text-lg font-display">${formatInlineHtml(trimmed.slice(3))}</h3>`
-    else if (trimmed.startsWith('# '))
-      html += `<h2 class="font-bold text-white mt-4 mb-2 text-xl font-display">${formatInlineHtml(trimmed.slice(2))}</h2>`
-    else if (trimmed === '---')
-      html += '<hr class="my-3 border-white/[0.06]">'
-    else if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* '))
-      html += `<div class="flex gap-2 ml-2 my-0.5"><span class="text-[#c8ff00]">•</span><span class="text-white/[0.85]">${formatInlineHtml(trimmed.replace(/^[-•*]\s*/, ''))}</span></div>`
-    else if (trimmed === '')
-      html += '<div class="h-2"></div>'
-    else
-      html += `<p class="my-1 text-white/[0.85]">${formatInlineHtml(trimmed)}</p>`
-
-    i++
-  }
-
-  return html
-}
-
-/* ═══════════════════════════════════════════════
    ResponseParser Component
    ═══════════════════════════════════════════════ */
 
@@ -471,11 +366,9 @@ export default function ResponseParser({ content, onAction }: ResponseParserProp
         switch (seg.type) {
           case 'text':
             return (
-              <div
-                key={i}
-                className="text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: renderTextBlock(seg.content) }}
-              />
+              <div key={i} className="text-sm leading-relaxed">
+                <SafeMarkdown content={seg.content} />
+              </div>
             )
 
           case 'colleges':

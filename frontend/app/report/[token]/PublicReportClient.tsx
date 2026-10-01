@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import SafeMarkdown from '@/components/SafeMarkdown'
 
 interface PublicReport {
   id: number
@@ -26,79 +27,6 @@ const REPORT_TYPE_META: Record<string, { label: string; icon: string }> = {
   school_deep_dive: { label: 'School Deep Dive', icon: '🔍' },
   action_plan: { label: 'Action Plan', icon: '✅' },
   research: { label: 'Research Report', icon: '📋' },
-}
-
-// ── Markdown → HTML formatter (matches ReportView.tsx) ────────────────────────
-function formatInline(text: string) {
-  return text
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" class="text-sparq-lime underline">$1</a>')
-}
-
-function formatReportContent(content: string): string {
-  const lines = content.split('\n')
-  let html = ''
-  let inTable = false
-  let tableHeaders: string[] = []
-  let tableRows: string[][] = []
-
-  const flushTable = () => {
-    if (tableHeaders.length === 0) return ''
-    let t = '<div class="overflow-x-auto my-4"><table class="min-w-full text-sm border border-white/10 rounded-lg overflow-hidden">'
-    t += '<thead class="bg-white/5"><tr>'
-    tableHeaders.forEach(h => {
-      t += `<th class="px-4 py-2.5 text-left font-semibold text-sparq-lime border-b border-white/10">${formatInline(h)}</th>`
-    })
-    t += '</tr></thead><tbody>'
-    tableRows.forEach((row, idx) => {
-      const bg = idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'
-      t += `<tr class="${bg}">`
-      row.forEach(cell => {
-        t += `<td class="px-4 py-2.5 border-b border-white/5 text-gray-300">${formatInline(cell)}</td>`
-      })
-      t += '</tr>'
-    })
-    t += '</tbody></table></div>'
-    tableHeaders = []
-    tableRows = []
-    inTable = false
-    return t
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmed = line.trim()
-
-    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-      const cells = trimmed.slice(1, -1).split('|').map(c => c.trim())
-      if (cells.every(c => /^[-:\s]+$/.test(c))) { inTable = true; continue }
-      if (!inTable && tableHeaders.length === 0) { tableHeaders = cells; continue }
-      if (inTable) { tableRows.push(cells); continue }
-    } else {
-      if (inTable || tableHeaders.length > 0) html += flushTable()
-    }
-
-    if (trimmed.startsWith('#### ')) {
-      html += `<h4 class="font-semibold text-white mt-5 mb-2 text-base">${formatInline(trimmed.slice(5))}</h4>`
-    } else if (trimmed.startsWith('### ')) {
-      html += `<h3 class="font-semibold text-gray-100 mt-6 mb-2 text-lg">${formatInline(trimmed.slice(4))}</h3>`
-    } else if (trimmed.startsWith('## ')) {
-      html += `<h2 class="font-bold text-white mt-8 mb-3 text-xl border-b border-white/10 pb-2">${formatInline(trimmed.slice(3))}</h2>`
-    } else if (trimmed.startsWith('# ')) {
-      html += `<h1 class="font-bold text-white mt-6 mb-4 text-2xl">${formatInline(trimmed.slice(2))}</h1>`
-    } else if (trimmed === '---') {
-      html += '<hr class="my-6 border-white/10">'
-    } else if (trimmed.startsWith('- ')) {
-      html += `<div class="flex gap-2 ml-3 my-1"><span class="text-sparq-lime mt-0.5">•</span><span class="text-gray-300">${formatInline(trimmed.slice(2))}</span></div>`
-    } else if (trimmed === '') {
-      html += '<div class="h-3"></div>'
-    } else {
-      html += `<p class="my-2 text-gray-300 leading-relaxed">${formatInline(trimmed)}</p>`
-    }
-  }
-
-  if (inTable || tableHeaders.length > 0) html += flushTable()
-  return html
 }
 
 export default function PublicReportClient({ token }: { token: string }) {
@@ -238,9 +166,7 @@ export default function PublicReportClient({ token }: { token: string }) {
 
           {/* Report content */}
           <div className="px-6 sm:px-10 py-8">
-            <div
-              dangerouslySetInnerHTML={{ __html: formatReportContent(report.content) }}
-            />
+            <SafeMarkdown content={report.content} />
           </div>
         </div>
 

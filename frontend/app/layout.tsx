@@ -36,7 +36,8 @@ export default function RootLayout({
   if (clerkKey) {
     // Profile (sparq.gmtm.com): juniors sign in only through GMTM, so sign-out returns there.
     const afterSignOutUrl = profile ? process.env.NEXT_PUBLIC_GMTM_WEB_URL || undefined : undefined
-    return <ClerkProvider publishableKey={clerkKey} afterSignOutUrl={afterSignOutUrl}>{body}</ClerkProvider>
+    // Profile renders per request so Next and Clerk scripts carry the middleware CSP nonce.
+    return <ClerkProvider publishableKey={clerkKey} afterSignOutUrl={afterSignOutUrl} dynamic={profile}>{body}</ClerkProvider>
   }
   return body
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import { isProfileSurface } from '@/lib/backend-config.cjs'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -25,7 +26,7 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
   const [error, setError] = useState<string | null>(null)
   const [savingState, setSavingState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [pending, setPending] = useState<null | 'approve' | 'discard'>(null)
-  const [resultNotice, setResultNotice] = useState<{ kind: 'queued' | 'send_failed'; message: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const editedPayloadRef = useRef<Record<string, unknown> | null>(null)
   const dirtyRef = useRef(false)
@@ -119,45 +120,46 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
     [persistPayload]
   )
 
+  // Non-outreach artifacts only. SPARQ never sends outreach: the athlete copies
+  // the draft or opens it in their own email app and sends it themselves.
   const approve = async () => {
     if (!artifact) return
     setPending('approve')
-    setResultNotice(null)
     await persistPayload()
     try {
-      const athleteEmail = user?.primaryEmailAddress?.emailAddress ?? null
-      const athleteName = user?.fullName ?? user?.firstName ?? null
       const res = await apiFetch(`${backendUrl}/api/artifacts/${artifact.id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          performed_by: user?.id ?? null,
-          athlete_email: athleteEmail,
-          athlete_name: athleteName,
-        }),
+        body: JSON.stringify({ performed_by: user?.id ?? null }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (data?.state) {
-        setArtifact({ ...artifact, state: data.state })
-      }
-      if (data?.state === 'queued') {
-        setResultNotice({
-          kind: 'queued',
-          message: 'Approved and logged in your outreach log. Send infrastructure is not configured yet — copy & send manually for now.',
-        })
-        return // don't redirect — let the athlete see the notice
-      }
-      if (data?.state === 'send_failed') {
-        setResultNotice({
-          kind: 'send_failed',
-          message: `Send failed: ${data?.detail?.reason ?? 'unknown error'}. The draft is still here — retry, or copy & send manually.`,
-        })
-        return
-      }
-      router.push('/home/inbox')
+      if (res.ok) router.push('/home/inbox')
     } finally {
       setPending(null)
     }
+  }
+
+  const copyOnly = isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
+
+  const draft = () => {
+    const p = (editedPayloadRef.current || artifact?.payload || {}) as Record<string, unknown>
+    const text = (v: unknown) => (typeof v === 'string' ? v : '')
+    const to = text(p.to_email).trim()
+    // One plain address only: no commas, semicolons, % or other mailto header tricks.
+    return { to: /^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(to) ? to : '', subject: text(p.subject), body: text(p.body) }
+  }
+
+  const copyDraft = async () => {
+    const { subject, body } = draft()
+    try {
+      await navigator.clipboard.writeText(subject ? `Subject: ${subject}\n\n${body}` : body)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch { /* Clipboard denied: the draft stays visible to copy by hand. */ }
+  }
+
+  const mailtoHref = () => {
+    const { to, subject, body } = draft()
+    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
   const discard = async () => {
@@ -200,8 +202,6 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
     )
   }
 
-  const approveLabel =
-    artifact.type === 'outreach_draft' ? (pending === 'approve' ? 'Sending…' : 'Approve & Send') : 'Approve'
 
   return (
     <div className="p-8 pb-12 text-white">
@@ -268,26 +268,34 @@ export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
         </div>
       )}
 
-      {resultNotice && (
-        <div
-          className={`mt-6 rounded-xl px-4 py-3 text-sm ${
-            resultNotice.kind === 'queued'
-              ? 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
-              : 'bg-red-500/10 border border-red-500/30 text-red-300'
-          }`}
-        >
-          {resultNotice.message}
-        </div>
-      )}
-
       <div className="mt-6 flex items-center gap-3">
-        <button
-          onClick={approve}
-          disabled={pending !== null}
-          className="bg-sparq-lime text-sparq-charcoal font-bold px-4 py-2 rounded-lg text-sm hover:bg-sparq-lime-light disabled:opacity-40"
-        >
-          {approveLabel}
-        </button>
+        {/* Junior app (profile surface): SPARQ never sends; the athlete copies or opens their own email.
+            Other surfaces keep the send button. */}
+        {artifact.type === 'outreach_draft' && copyOnly ? (
+          <>
+            <button
+              onClick={copyDraft}
+              className="bg-sparq-lime text-sparq-charcoal font-bold px-4 py-2 rounded-lg text-sm hover:bg-sparq-lime-light"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+            <button
+              // Built on click so it carries the latest edits, which live in a ref.
+              onClick={() => { void persistPayload(); window.location.href = mailtoHref() }}
+              className="border border-sparq-lime/40 text-sparq-lime font-bold px-4 py-2 rounded-lg text-sm hover:bg-sparq-lime/10"
+            >
+              Open in my email
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={approve}
+            disabled={pending !== null}
+            className="bg-sparq-lime text-sparq-charcoal font-bold px-4 py-2 rounded-lg text-sm hover:bg-sparq-lime-light disabled:opacity-40"
+          >
+            {artifact.type === 'outreach_draft' ? (pending === 'approve' ? 'Sending…' : 'Approve & Send') : 'Approve'}
+          </button>
+        )}
         <button
           onClick={discard}
           disabled={pending !== null}

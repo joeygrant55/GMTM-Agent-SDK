@@ -53,6 +53,7 @@ _CONFIGURATION_KEYS = (
     "OPPORTUNITY_ENGAGEMENT_EXCLUDED_IDS", "OPPORTUNITY_ENGAGEMENT_PILOT_IDS",
     "PROFILE_ADMISSION_ENABLED", "PROFILE_ADMISSION_FILE",
     "SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "CLERK_SECRET_KEY", "SPARQ_TEST_ALLOWLIST",
+    "SENDGRID_API_KEY", "SPARQ_FROM_EMAIL",
 )
 
 
@@ -264,6 +265,9 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     async def lifespan(application: FastAPI):
         config = validate_configuration(os.environ)
         if surface == "profile":
+            # Juniors send outreach from their own email; this app never sends.
+            if any(os.environ.get(name, "").strip() for name in ("SENDGRID_API_KEY", "SPARQ_FROM_EMAIL")):
+                raise CandidateConfigurationError("The profile surface must not configure outreach email sending.")
             # Pure validation only; no provider or usage ledger is initialized.
             application.state.profile_debrief_configuration = debrief_configuration(os.environ)
             application.state.opportunity_engagement_configuration = engagement_configuration(os.environ)
@@ -290,6 +294,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
                           docs_url=None, redoc_url=None, openapi_url=None,
                           lifespan=lifespan, redirect_slashes=False)
     application.state.candidate_configuration = None
+    # Read by artifacts_api approve if outreach routes are ever mounted here.
+    application.state.outreach_send_disabled = surface == "profile"
     application.dependency_overrides[auth.require_clerk_id] = require_candidate_clerk_id
     for method, path, endpoint in routes:
         application.add_api_route(path, endpoint, methods=[method])

@@ -3,6 +3,7 @@
 import { apiFetch } from '@/app/_lib/api'
 
 import { useState, useEffect, useCallback } from 'react'
+import SafeMarkdown from '@/components/SafeMarkdown'
 
 interface ReportViewProps {
   athleteId: string
@@ -17,78 +18,6 @@ const REPORT_TYPE_META: Record<string, { label: string, icon: string, color: str
   school_deep_dive: { label: 'School Deep Dive', icon: '🔍', color: 'bg-purple-50 text-purple-700' },
   action_plan: { label: 'Action Plan', icon: '✅', color: 'bg-emerald-50 text-emerald-700' },
   research: { label: 'Research', icon: '📋', color: 'bg-gray-50 text-gray-700' },
-}
-
-const formatInline = (text: string) => {
-  return text
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" class="text-blue-600 underline">$1</a>')
-}
-
-const formatReportContent = (content: string) => {
-  const lines = content.split('\n')
-  let html = ''
-  let inTable = false
-  let tableHeaders: string[] = []
-  let tableRows: string[][] = []
-
-  const flushTable = () => {
-    if (tableHeaders.length === 0) return ''
-    let t = '<div class="overflow-x-auto my-4"><table class="min-w-full text-sm border border-gray-200 rounded-lg overflow-hidden">'
-    t += '<thead class="bg-gray-900"><tr>'
-    tableHeaders.forEach(h => {
-      t += `<th class="px-4 py-2.5 text-left font-semibold text-sparq-lime border-b border-gray-700">${formatInline(h)}</th>`
-    })
-    t += '</tr></thead><tbody>'
-    tableRows.forEach((row, idx) => {
-      const bg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-      t += `<tr class="${bg}">`
-      row.forEach(cell => {
-        t += `<td class="px-4 py-2.5 border-b border-gray-100 text-gray-700">${formatInline(cell)}</td>`
-      })
-      t += '</tr>'
-    })
-    t += '</tbody></table></div>'
-    tableHeaders = []
-    tableRows = []
-    inTable = false
-    return t
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmed = line.trim()
-
-    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-      const cells = trimmed.slice(1, -1).split('|').map(c => c.trim())
-      if (cells.every(c => /^[-:\s]+$/.test(c))) { inTable = true; continue }
-      if (!inTable && tableHeaders.length === 0) { tableHeaders = cells; continue }
-      if (inTable) { tableRows.push(cells); continue }
-    } else {
-      if (inTable || tableHeaders.length > 0) html += flushTable()
-    }
-
-    if (trimmed.startsWith('#### ')) {
-      html += `<h4 class="font-semibold text-gray-800 mt-5 mb-2 text-base">${formatInline(trimmed.slice(5))}</h4>`
-    } else if (trimmed.startsWith('### ')) {
-      html += `<h3 class="font-semibold text-gray-900 mt-6 mb-2 text-lg">${formatInline(trimmed.slice(4))}</h3>`
-    } else if (trimmed.startsWith('## ')) {
-      html += `<h2 class="font-bold text-gray-900 mt-8 mb-3 text-xl border-b border-gray-200 pb-2">${formatInline(trimmed.slice(3))}</h2>`
-    } else if (trimmed.startsWith('# ')) {
-      html += `<h1 class="font-bold text-gray-900 mt-6 mb-4 text-2xl">${formatInline(trimmed.slice(2))}</h1>`
-    } else if (trimmed === '---') {
-      html += '<hr class="my-6 border-gray-200">'
-    } else if (trimmed.startsWith('- ')) {
-      html += `<div class="flex gap-2 ml-3 my-1"><span class="text-sparq-lime-dark mt-0.5">•</span><span class="text-gray-700">${formatInline(trimmed.slice(2))}</span></div>`
-    } else if (trimmed === '') {
-      html += '<div class="h-3"></div>'
-    } else {
-      html += `<p class="my-2 text-gray-700 leading-relaxed">${formatInline(trimmed)}</p>`
-    }
-  }
-
-  if (inTable || tableHeaders.length > 0) html += flushTable()
-  return html
 }
 
 export default function ReportView({ athleteId, reportId, onBack }: ReportViewProps) {
@@ -165,10 +94,9 @@ export default function ReportView({ athleteId, reportId, onBack }: ReportViewPr
         </div>
 
         {/* Report Content - beautifully formatted */}
-        <div 
-          className="prose prose-gray max-w-none"
-          dangerouslySetInnerHTML={{ __html: formatReportContent(report.content) }}
-        />
+        <div className="prose prose-gray max-w-none">
+          <SafeMarkdown content={report.content} light />
+        </div>
       </div>
     </div>
   )

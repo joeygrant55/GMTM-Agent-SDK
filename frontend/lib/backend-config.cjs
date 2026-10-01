@@ -51,4 +51,38 @@ function candidatePagePolicy(pathname, method, surface = 'combine') {
   if (/^\/claim\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?(?:\/redeem)?$/.test(pathname)) return 'page'
   return 'deny'
 }
-module.exports = { isCombineSurface, isProfileSurface, isRestrictedSurface, resolveBackendOrigin, candidateAPIAllowed, resolveAPIRequest, candidatePagePolicy }
+// Profile surface (sparq.gmtm.com) CSP: GMTM's .gmtm.com sessionId cookie is
+// script-readable, so scripts run only with the per-request nonce. Styles keep
+// 'unsafe-inline' (Next/Clerk inline styles); scripts never do.
+function clerkFrontendApi(publishableKey) {
+  const match = /^pk_(?:test|live)_([A-Za-z0-9+/=]+)$/.exec(publishableKey || '')
+  if (!match) return null
+  let host
+  try { host = atob(match[1]).replace(/\$$/, '') } catch { return null }
+  return /^[a-z0-9.-]+$/i.test(host) ? 'https://' + host : null
+}
+function profileContentSecurityPolicy({ nonce, publishableKey, backendOrigin, dev = false }) {
+  if (!/^[A-Za-z0-9+/=_-]{16,}$/.test(nonce || '')) throw new Error('A random CSP nonce is required')
+  const clerk = clerkFrontendApi(publishableKey)
+  const hosts = list => list.filter(Boolean).join(' ')
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''} ` + hosts([clerk, 'https://challenges.cloudflare.com']),
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
+    'connect-src ' + hosts(["'self'", backendOrigin && resolveBackendOrigin(backendOrigin), clerk, 'https://clerk-telemetry.com']),
+    "frame-src 'self' https://challenges.cloudflare.com",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ')
+}
+// Drop GMTM's sessionId from a Cookie header without reading its value.
+function withoutGmtmSession(cookieHeader) {
+  return (cookieHeader || '').split(';').map(part => part.trim()).filter(part => part && part.split('=')[0].trim() !== 'sessionId').join('; ')
+}
+module.exports = { profileContentSecurityPolicy, withoutGmtmSession, isCombineSurface, isProfileSurface, isRestrictedSurface, resolveBackendOrigin, candidateAPIAllowed, resolveAPIRequest, candidatePagePolicy }

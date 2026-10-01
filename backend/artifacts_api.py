@@ -14,7 +14,7 @@ Endpoints powering the Inbox + Artifact Viewer flow:
 Tables are prepared explicitly with prepare_agent_schema; imports never run DDL.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional, Any
 import os
@@ -204,7 +204,7 @@ def get_artifact(artifact_id: int, caller_clerk_id: str = Depends(require_clerk_
 
 
 @router.post("/artifacts/{artifact_id}/approve")
-def approve_artifact(artifact_id: int, body: Optional[dict] = None, caller_clerk_id: str = Depends(require_clerk_id)):
+def approve_artifact(artifact_id: int, request: Request, body: Optional[dict] = None, caller_clerk_id: str = Depends(require_clerk_id)):
     """Approve.
 
     - Non-outreach artifacts → state 'approved'.
@@ -240,6 +240,11 @@ def approve_artifact(artifact_id: int, body: Optional[dict] = None, caller_clerk
                 _record_action(c, artifact_id, "approve", performed_by, {"new_state": "approved"})
                 db.commit()
                 return {"ok": True, "state": "approved"}
+
+            # The profile surface (juniors) never sends: the athlete copies or opens
+            # the draft in their own email. send_outreach_email is unreachable here.
+            if getattr(request.app.state, "outreach_send_disabled", False):
+                return {"ok": False, "status": "not_configured"}
 
             # outreach_draft path — try to actually send.
             payload = _safe_json(row.get("payload")) or {}
@@ -433,7 +438,7 @@ Respond with ONLY valid JSON in this exact shape — no preamble, no code fences
   "to_email": "<email or empty string if unknown>",
   "school": "<full school name>",
   "subject": "<short, specific subject line — class year + position + the hook>",
-  "body": "<150-220 word email body — opens with a specific personal observation about the program, states 1-2 measurable stats, asks one clear next step (camp, film review, questionnaire). Sign with the athlete's first name only.>",
+  "body": "<150-220 word email body — opens with a specific personal observation about the program, states 1-2 measurable stats, offers one clear next step the coach can take on their own time (film review or the recruiting questionnaire). Sign with the athlete's first name only.>",
   "personalization_notes": ["<3-5 short bullets describing the specific things you used from the program and the athlete to personalize this draft>"]
 }
 
@@ -442,6 +447,9 @@ Rules:
 - Body must be one block of plain text with \\n\\n between paragraphs.
 - Avoid clichés (\"I am writing to express my interest…\"). Open with a real observation.
 - Stay under 220 words in the body.
+- The athlete may be a minor. Never ask for a phone call, video call, campus visit or meeting.
+- Include one plain sentence that the athlete understands coaches may not be able to reply yet because of recruiting contact rules.
+- You only receive the athlete's first name. Never invent a last name, school name, email, phone number or address.
 """
 
 
@@ -671,9 +679,16 @@ def draft_outreach(body: DraftOutreachBody, caller_clerk_id: str = Depends(requi
     position_coach = research.get("coaching_staff", {}).get("position_coach", {}).get("name")
     coach_name = body.coach_name or position_coach or head_coach or ""
 
+    # Minimum needed to write the email: first name only; no last name, school,
+    # contacts, address, exact birth date or free-text goals reach the model.
+    first_name = (str(profile.get("name") or "").split() or [""])[0]
+    prompt_profile = {
+        "first_name": first_name or None,
+        **{key: profile.get(key) for key in ("sport", "position", "class_year", "state", "gpa", "combine_metrics", "stats", "season")},
+    }
     user_message = (
         "ATHLETE PROFILE\n"
-        f"{json.dumps(profile, default=str, indent=2)}\n\n"
+        f"{json.dumps(prompt_profile, default=str, indent=2)}\n\n"
         "TARGET PROGRAM\n"
         f"{json.dumps(college, default=str, indent=2)}\n\n"
         "ADDRESSEE\n"

@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
-import { candidatePagePolicy, isRestrictedSurface, resolveBackendOrigin } from './lib/backend-config.cjs'
+import { candidatePagePolicy, isProfileSurface, isRestrictedSurface, profileContentSecurityPolicy, resolveBackendOrigin, withoutGmtmSession } from './lib/backend-config.cjs'
 
 const isPublicRoute = createRouteMatcher([
   '/', '/sign-in(.*)', '/sign-up(.*)', '/connect', '/demo', '/quick-scan',
@@ -9,7 +9,27 @@ const isPublicRoute = createRouteMatcher([
 const isClaimRedeemRoute = createRouteMatcher(['/claim/(.*)/redeem'])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
 const combine = isRestrictedSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
+const profile = isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
 const backendUrl = resolveBackendOrigin(process.env.NEXT_PUBLIC_BACKEND_URL)
+
+// Profile surface: per-request nonce CSP (Next and ClerkProvider read it from the
+// request headers), and GMTM's sessionId cookie is removed before any handler.
+function profileResponse(request: NextRequest) {
+  const nonce = btoa(crypto.randomUUID())
+  const csp = profileContentSecurityPolicy({
+    nonce, backendOrigin: backendUrl, dev: process.env.NODE_ENV !== 'production',
+    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  })
+  const headers = new Headers(request.headers)
+  const cookie = withoutGmtmSession(headers.get('cookie'))
+  if (cookie) headers.set('cookie', cookie)
+  else headers.delete('cookie')
+  headers.set('x-nonce', nonce)
+  headers.set('content-security-policy', csp)
+  const response = NextResponse.next({ request: { headers } })
+  response.headers.set('Content-Security-Policy', csp)
+  return response
+}
 const authenticatedMiddleware = clerkMiddleware(async (auth, request) => {
   if (isClaimRedeemRoute(request) || !isPublicRoute(request)) {
     const { userId, getToken } = await auth()
@@ -29,6 +49,7 @@ const authenticatedMiddleware = clerkMiddleware(async (auth, request) => {
       } catch { /* Unknown recovery does not prevent ordinary onboarding. */ }
     }
   }
+  if (profile) return profileResponse(request)
 })
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
