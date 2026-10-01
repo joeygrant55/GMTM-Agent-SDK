@@ -6,6 +6,7 @@ class MemoryStore:
     def __init__(self, links=None):
         self.refusals, self.entries, self.notices = [], [], {}
         self.links = dict(links or {})  # user_id -> clerk_id
+        self.sessions = {}  # clerk_id -> active jti
 
     def record_refusal(self, user_id, decision, at):
         self.refusals.append({"user_id": user_id, "decision": decision, "decided_at": at})
@@ -22,6 +23,19 @@ class MemoryStore:
 
     def accept_notice(self, clerk_id, at):
         self.notices.setdefault(clerk_id, {"accepted_at": at, "attested_by_session_kind": "unknown"})
+
+    def set_session(self, clerk_id, jti, at):
+        self.sessions[clerk_id] = jti
+
+    def session_jti(self, clerk_id):
+        return self.sessions.get(clerk_id)
+
+    def end_session(self, clerk_id, jti):
+        if self.sessions.get(clerk_id) == jti:
+            del self.sessions[clerk_id]
+
+    def linked_clerk_id(self, user_id):
+        return self.links.get(user_id)
 
     def ensure_link(self, clerk_id, user_id):
         if any(c == clerk_id and u != user_id for u, c in self.links.items()):

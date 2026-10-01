@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useState } from 'react'
-import { UserButton, useUser } from '@clerk/nextjs'
+import { signOutOfSparq, useSparqSession } from '@/app/_lib/useSparqSession'
 import { usePathname, useRouter } from 'next/navigation'
 import SparqLogo from '@/components/SparqLogo'
 import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentNoticeGate'
@@ -48,7 +48,7 @@ function CareerShell({ children, userId }: { children: React.ReactNode; userId?:
           <div className="flex items-center gap-3">
             {notice.required && <SwitchAccountLink />}
             <a href="https://gmtm.com" target="_blank" rel="noopener noreferrer" aria-label="Back to GMTM (opens in a new tab)" className="inline-flex min-h-11 items-center gap-1 text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Back to GMTM <span aria-hidden="true">↗</span></a>
-            <UserButton />
+            <button type="button" onClick={() => { void signOutOfSparq() }} className="inline-flex min-h-11 items-center text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Sign out</button>
           </div>
         </div>
       </header>
@@ -62,6 +62,6 @@ function CareerShell({ children, userId }: { children: React.ReactNode; userId?:
 }
 
 export default function ProfileWorkspaceShell({ children }: { children: React.ReactNode }) {
-  const { isLoaded, user } = useUser()
+  const { isLoaded, user } = useSparqSession()
   return <CareerShell key={isLoaded ? user?.id || 'signed-out' : 'loading'} userId={user?.id}>{children}</CareerShell>
 }

@@ -1,8 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
-import Link from 'next/link'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { apiFetch } from '@/app/_lib/api'
 import { evidenceDate, evidenceValue, prepareProfileDraft, ProfileDraftKind, ProfileEvidence, readProfileEvidence } from './profileEvidence'
 import ProfileMaterialsPanel, { useProfileMaterials } from './ProfileMaterialsPanel'
@@ -22,9 +21,9 @@ const field = `mt-2 block w-full min-w-0 rounded-xl border border-white/15 bg-wh
 const primary = `inline-flex min-h-12 items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-sm font-bold text-sparq-charcoal transition-colors hover:bg-sparq-lime-light disabled:cursor-not-allowed disabled:opacity-40 ${focus}`
 
 export default function ProfileWorkspace() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   if (!isLoaded) return <p role="status" className="mx-auto max-w-6xl px-5 py-16 text-gray-300">Loading your account…</p>
-  if (!user?.id) return <div className="mx-auto max-w-6xl px-5 py-16"><h1 className="text-3xl font-bold">Your profile is private.</h1><p className="mt-3 text-gray-300">Sign in to see your own athlete evidence.</p><Link href="/sign-in" className={`${secondary} mt-6`}>Sign in</Link></div>
+  if (!user?.id) return <div className="mx-auto max-w-6xl px-5 py-16"><h1 className="text-3xl font-bold">Your profile is private.</h1><p className="mt-3 text-gray-300">Open SPARQ from GMTM to see your own athlete evidence.</p><a href={process.env.NEXT_PUBLIC_GMTM_WEB_URL || 'https://gmtm.com'} className={`${secondary} mt-6`}>Back to GMTM</a></div>
   return <ProfileSession key={user.id} />
 }
 
@@ -160,8 +159,8 @@ function ProfileSession() {
       </div>}
       {!workspace.loading && !workspace.error && workspace.snapshot && <p role="status" className="sr-only">Saved work loaded.</p>}
       {loading && !profile && !error && <div role="status" className="py-16"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your private profile</p><h1 className="mt-4 text-3xl font-bold">Bringing your evidence together…</h1><p className="mt-3 text-gray-400">Reading the details already in your GMTM profile.</p></div>}
-      {error && <section role="alert" className="max-w-xl rounded-2xl border border-white/15 p-6 sm:p-8"><h1 className="text-2xl font-bold">{error.title}</h1><p className="mt-3 leading-relaxed text-gray-300">{error.detail}</p><div className="mt-6 flex flex-wrap gap-3"><button type="button" disabled={loading} onClick={() => void refresh()} className={secondary}>{loading ? 'Loading…' : 'Try again'}</button><Link href="/connect" className={secondary}>Check connection</Link>{error.title === 'Please sign in again.' && <Link href="/sign-in" className={secondary}>Sign in</Link>}</div></section>}
-      {!error && profile?.state === 'unlinked' && <section className="max-w-xl py-8"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your private profile</p><h1 className="mt-4 text-3xl font-bold">Bring your GMTM profile with you.</h1><p className="mt-4 leading-relaxed text-gray-300">Your account does not have a confirmed athlete connection yet. Use your organizer’s secure invitation, or check an existing connection.</p><Link href="/connect" className={`${secondary} mt-6`}>Check connection</Link></section>}
+      {error && <section role="alert" className="max-w-xl rounded-2xl border border-white/15 p-6 sm:p-8"><h1 className="text-2xl font-bold">{error.title}</h1><p className="mt-3 leading-relaxed text-gray-300">{error.detail}</p><div className="mt-6 flex flex-wrap gap-3"><button type="button" disabled={loading} onClick={() => void refresh()} className={secondary}>{loading ? 'Loading…' : 'Try again'}</button><a href="/enter" className={secondary}>Reconnect from GMTM</a></div></section>}
+      {!error && profile?.state === 'unlinked' && <section className="max-w-xl py-8"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your private profile</p><h1 className="mt-4 text-3xl font-bold">Bring your GMTM profile with you.</h1><p className="mt-4 leading-relaxed text-gray-300">Your account does not have a confirmed athlete connection yet. Use your organizer’s secure invitation, or check an existing connection.</p><a href="/enter" className={`${secondary} mt-6`}>Reconnect from GMTM</a></section>}
       {!error && profile?.state === 'source_unavailable' && <section role="alert" className="max-w-xl py-8"><h1 className="text-3xl font-bold">Your GMTM evidence is unavailable.</h1><p className="mt-4 leading-relaxed text-gray-300">We could not read your source profile. This does not mean your results are missing.</p><button type="button" disabled={loading} onClick={() => void refresh()} className={`${secondary} mt-6`}>{loading ? 'Loading…' : 'Try again'}</button></section>}
       {!error && (!workspace.loading || workspace.snapshot) && workspace.error?.kind !== 'link' && !associationInvalid && profile?.state === 'ready' && <ProfileReadout key={version} profile={profile} refreshing={loading} onRefresh={() => void refreshAll()} workspace={workspace} editor={editor} setEditor={setEditor} onSaveDraft={saveDraft} onRemoveDraft={removeDraft} />}
       {!loading && !error?.scope && workspace.error?.kind !== 'link' && profile?.state !== 'ready' && profile?.state !== 'unlinked' && (workspace.snapshot?.draft || editor.text !== null) && <SavedDraftRecovery editor={editor} setEditor={setEditor} workspace={workspace} onSave={saveDraft} />}

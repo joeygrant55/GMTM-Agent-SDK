@@ -12,8 +12,7 @@ import athlete_workspace as workspace
 import candidate_app
 import profile_admission as admission
 import profile_owner
-from backend.tests.test_candidate_app import signed
-from backend.tests.test_profile_candidate_app import profile_app
+from backend.tests.test_profile_candidate_app import profile_app, session
 from backend.tests.workspace_fixture_store import WorkspaceStore, WorkspaceDB
 
 
@@ -45,14 +44,14 @@ def pilot(profile_app, monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("change", ["absent", "revoked", "expired", "not_started", "wrong_subject"])
-def test_all_personal_operations_deny_before_source_work(pilot, signed, change):
+def test_all_personal_operations_deny_before_source_work(pilot, session, change):
     app, record, publish, _ = pilot
     now = datetime.now(timezone.utc)
     if change == "revoked": record["revoked"] = True
     elif change == "expired": record["expires_at"] = (now-timedelta(seconds=1)).isoformat()
     elif change == "not_started": record["starts_at"] = (now+timedelta(minutes=1)).isoformat()
     publish([] if change == "absent" else None)
-    headers = signed(sub="uninvited" if change == "wrong_subject" else LINK["clerk_id"])
+    headers = session(sub="uninvited" if change == "wrong_subject" else LINK["clerk_id"])
     with TestClient(app) as client:
         for method, path in PATHS:
             response = client.request(method, path, headers=headers, json={})
@@ -63,25 +62,25 @@ def test_all_personal_operations_deny_before_source_work(pilot, signed, change):
     assert not admission.is_active()
 
 
-def test_claim_routes_never_open_or_redeem_in_pilot(pilot, signed):
+def test_claim_routes_never_open_or_redeem_in_pilot(pilot, session):
     with TestClient(pilot[0]) as client:
-        for headers in ({}, signed()):
+        for headers in ({}, session()):
             assert client.get("/api/claims/synthetic-token", headers=headers).status_code == 403
             assert client.post("/api/claims/synthetic-token/redeem", headers=headers).status_code == 403
 
 
-def test_missing_and_invalid_auth_still_deny_before_admission(pilot, signed):
+def test_missing_and_invalid_auth_still_deny_before_admission(pilot, session):
     with TestClient(pilot[0]) as client:
         assert client.get("/api/athlete/workspace").status_code == 401
-        assert client.get("/api/athlete/workspace", headers=signed(azp="https://wrong.example.invalid")).status_code == 401
+        assert client.get("/api/athlete/workspace", headers=session(active=False)).status_code == 401
 
 
-def test_file_loss_malformed_contents_and_permissions_fail_closed(pilot, signed):
+def test_file_loss_malformed_contents_and_permissions_fail_closed(pilot, session):
     app, _, publish, path = pilot
     with TestClient(app) as client:
         for mutation in (lambda: path.unlink(), lambda: path.write_text("invalid"), lambda: (publish(), path.chmod(0o644))):
             mutation()
-            response = client.get("/api/athlete/workspace", headers=signed())
+            response = client.get("/api/athlete/workspace", headers=session())
             assert response.status_code == 503
             assert str(path) not in response.text
             publish()
@@ -97,40 +96,40 @@ def test_gated_cors_and_health_do_not_require_identity(pilot):
         assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:3218"
 
 
-def test_admitted_workspace_save_reload_revocation_and_context_cleanup(pilot, signed, monkeypatch):
+def test_admitted_workspace_save_reload_revocation_and_context_cleanup(pilot, session, monkeypatch):
     app, record, publish, _ = pilot
     store = WorkspaceStore([LINK])
     monkeypatch.setattr(workspace, "_get_agent_db", store.connect)
     with TestClient(app) as client:
-        state = client.get("/api/athlete/workspace", headers=signed()).json()
+        state = client.get("/api/athlete/workspace", headers=session()).json()
         assert state["version"] == 0
-        response = client.patch("/api/athlete/workspace", headers=signed(), json={
+        response = client.patch("/api/athlete/workspace", headers=session(), json={
             "link_revision": state["link_revision"], "expected_version": 0,
             "changes": {"goal": {"text": "Find flag opportunities", "destination": "A program", "timeframe": None}}})
         assert response.status_code == 200, response.text
-        assert client.get("/api/athlete/workspace", headers=signed()).json() == response.json()
+        assert client.get("/api/athlete/workspace", headers=session()).json() == response.json()
         record["revoked"] = True
         publish()
-        assert client.get("/api/athlete/workspace", headers=signed()).status_code == 403
+        assert client.get("/api/athlete/workspace", headers=session()).status_code == 403
     assert not admission.is_active()
     assert all(db.closed and not db.transaction for db in store.connections)
     assert sum(db.commits for db in store.connections) == 1
 
 
 @pytest.mark.parametrize("change", [{"id": 92}, {"user_id": 7202}, {"clerk_id": "Clerk_owner"}])
-def test_changed_or_recreated_link_denies_all_read_adapters(pilot, signed, monkeypatch, change):
+def test_changed_or_recreated_link_denies_all_read_adapters(pilot, session, monkeypatch, change):
     store = WorkspaceStore([{**LINK, **change}])
     for module in (workspace, profile_owner, athlete_evidence, athlete_materials):
         monkeypatch.setattr(module, "_get_agent_db", store.connect)
     with TestClient(pilot[0]) as client:
         for path in ("/api/athlete/workspace", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/clerk_owner"):
-            response = client.get(path, headers=signed())
+            response = client.get(path, headers=session())
             assert response.status_code in (403, 409), (path, response.text)
             assert "7202" not in response.text
     assert all(db.closed for db in store.connections)
 
 
-def test_revocation_after_write_before_commit_rolls_back(pilot, signed, monkeypatch):
+def test_revocation_after_write_before_commit_rolls_back(pilot, session, monkeypatch):
     app, record, publish, _ = pilot
     store = WorkspaceStore([LINK])
     monkeypatch.setattr(workspace, "_get_agent_db", store.connect)
@@ -142,7 +141,7 @@ def test_revocation_after_write_before_commit_rolls_back(pilot, signed, monkeypa
             publish()
     monkeypatch.setattr(WorkspaceDB, "execute", execute)
     with TestClient(app) as client:
-        response = client.patch("/api/athlete/workspace", headers=signed(), json={
+        response = client.patch("/api/athlete/workspace", headers=session(), json={
             "link_revision": workspace._revision(LINK), "expected_version": 0,
             "changes": {"goal": {"text": "Synthetic", "destination": "Test", "timeframe": None}}})
         assert response.status_code == 403, response.text

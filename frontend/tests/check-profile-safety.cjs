@@ -50,27 +50,26 @@ check('Outreach mailto takes one plain address; profile surface is copy-only', (
 })
 
 const nonce = 'c3ludGhldGljLW5vbmNlLXZhbHVl'
-const publishableKey = 'pk_live_' + Buffer.from('clerk.sparq.example$').toString('base64')
-check('Production CSP: nonce + strict-dynamic, no script unsafe-inline, Clerk host allowed', () => {
-  const csp = policy.profileContentSecurityPolicy({ nonce, publishableKey, backendOrigin: 'https://api.sparq.example' })
+check('Production CSP: nonce + strict-dynamic, no script unsafe-inline, no Clerk (rev 3), self-only connect', () => {
+  const csp = policy.profileContentSecurityPolicy({ nonce })
   const directive = name => csp.split('; ').find(part => part.startsWith(name + ' ')) || ''
   const script = directive('script-src')
   assert.ok(script.includes(`'nonce-${nonce}'`) && script.includes("'strict-dynamic'"))
   assert.ok(!script.includes("'unsafe-inline'") && !script.includes("'unsafe-eval'"))
-  assert.ok(script.includes('https://clerk.sparq.example'))
-  assert.ok(directive('connect-src').includes('https://api.sparq.example') && directive('connect-src').includes('https://clerk.sparq.example'))
+  assert.ok(!/clerk|challenges\.cloudflare/i.test(csp), 'no Clerk or Turnstile host')
+  assert.equal(directive('connect-src'), "connect-src 'self'")
   for (const part of ["object-src 'none'", "base-uri 'self'", "frame-ancestors 'none'", "default-src 'self'"]) assert.ok(csp.includes(part), part)
 })
 
 check('Dev CSP adds only unsafe-eval (Next dev runtime), still no script unsafe-inline', () => {
-  const script = policy.profileContentSecurityPolicy({ nonce, publishableKey, dev: true }).split('; ').find(part => part.startsWith('script-src '))
+  const script = policy.profileContentSecurityPolicy({ nonce, dev: true }).split('; ').find(part => part.startsWith('script-src '))
   assert.ok(script.includes("'unsafe-eval'") && !script.includes("'unsafe-inline'"))
 })
 
-check('CSP refuses a missing or weak nonce and ignores a malformed Clerk key', () => {
+check('CSP refuses a missing or weak nonce and ignores any Clerk key', () => {
   for (const bad of [undefined, '', 'short', "x' 'unsafe-inline"]) assert.throws(() => policy.profileContentSecurityPolicy({ nonce: bad }))
-  const csp = policy.profileContentSecurityPolicy({ nonce, publishableKey: 'pk_test_' + Buffer.from("evil.example; script-src *$").toString('base64') })
-  assert.ok(!csp.includes('evil.example'))
+  const csp = policy.profileContentSecurityPolicy({ nonce, publishableKey: 'pk_live_' + Buffer.from('clerk.sparq.example$').toString('base64') })
+  assert.ok(!csp.includes('clerk'))
 })
 
 check('GMTM sessionId is removed from the forwarded Cookie header; other cookies stay', () => {
@@ -80,13 +79,19 @@ check('GMTM sessionId is removed from the forwarded Cookie header; other cookies
   assert.equal(policy.withoutGmtmSession(undefined), '')
 })
 
-check('Profile middleware applies the CSP + cookie filter to every Clerk-handled response', () => {
+check('Profile middleware applies the CSP + cookie filter to every response; GMTM sessionId only hashed', () => {
   const source = fs.readFileSync(path.join(root, 'middleware.ts'), 'utf8')
-  assert.match(source, /if \(profile\) return profileResponse\(request\)/)
+  assert.match(source, /if \(profile\) return profileMiddleware\(request, policy\)/)
+  assert.match(source, /return profileResponse\(request, gsh\)/)
   assert.match(source, /withoutGmtmSession\(headers\.get\('cookie'\)\)/)
   assert.match(source, /response\.headers\.set\('Content-Security-Policy', csp\)/)
-  assert.ok(!/cookies\.get\(['"]sessionId/.test(source))
-  assert.match(fs.readFileSync(path.join(root, 'app/layout.tsx'), 'utf8'), /dynamic=\{profile\}/)
+  // The raw value is read only inside gmtmSessionHash (sha256); nothing else names it.
+  assert.ok(!/sessionId/.test(source.replace(/\/\/.*$/gm, '').replace(/withoutGmtmSession|gmtmSessionHash/g, '')))
+  const helper = fs.readFileSync(path.join(root, 'lib/sparq-session.cjs'), 'utf8')
+  assert.match(helper, /=== 'sessionId'\) \{\s*const value = part\.slice\(at \+ 1\)\.trim\(\)\s*return value \? sha256Hex\(value\) : null/)
+  assert.ok(!/console\./.test(helper + source))
+  // Per-request render so Next's scripts carry the nonce; no ClerkProvider on profile.
+  assert.match(fs.readFileSync(path.join(root, 'app/layout.tsx'), 'utf8'), /if \(profile\) \{\s*headers\(\)\s*return body/)
 })
 
 check('Public athlete pages, share reports and athlete-by-id API are denied on the profile surface', () => {

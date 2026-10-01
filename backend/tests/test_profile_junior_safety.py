@@ -10,7 +10,8 @@ import artifacts_api
 import candidate_app
 import email_sender
 import profile_api
-from backend.tests.test_candidate_app import ENV, signed  # noqa: F401  (fixture)
+from backend.tests.test_candidate_app import ENV  # noqa: F401
+from backend.tests.test_profile_candidate_app import session  # noqa: F401  (fixture)
 
 ATHLETE = {
     "name": "Jordan Smithfield", "email": "jordan.smithfield@example.invalid", "phone": "555-0100",
@@ -92,7 +93,7 @@ def _prompt_text(call):
     return json.dumps({k: call.get(k) for k in ("system", "messages")}, default=str)
 
 
-def test_public_athlete_report_and_outreach_routes_are_absent(profile_app, signed, no_email):
+def test_public_athlete_report_and_outreach_routes_are_absent(profile_app, session, no_email):
     with TestClient(profile_app) as client:
         for method, path in (
             ("GET", "/api/athlete/123"), ("GET", "/api/athlete/user_abc"),
@@ -100,7 +101,7 @@ def test_public_athlete_report_and_outreach_routes_are_absent(profile_app, signe
             ("POST", "/api/artifacts/1/approve"), ("POST", "/api/artifacts/draft-outreach"),
             ("POST", "/api/workspace/colleges/user_abc/1/research"),
         ):
-            for headers in ({}, signed()):
+            for headers in ({}, session()):
                 assert client.request(method, path, headers=headers).status_code in (404, 405), path
     paths = profile_app.openapi()["paths"]
     assert not any(p.startswith(("/api/artifacts", "/api/reports", "/api/search")) or p == "/api/athlete/{athlete_id}" for p in paths)
@@ -117,7 +118,7 @@ def test_profile_app_refuses_to_start_with_email_sending_configured(profile_app,
         assert client.get("/health").status_code == 200
 
 
-def test_approve_on_profile_app_never_reaches_sendgrid(profile_app, signed, no_email, monkeypatch):
+def test_approve_on_profile_app_never_reaches_sendgrid(profile_app, session, no_email, monkeypatch):
     # Simulates a later mount of the outreach routes on this app: approve still never sends.
     profile_app.include_router(artifacts_api.router)
     row = {"type": "outreach_draft", "state": "ready_for_review", "clerk_id": "user_123",
@@ -125,7 +126,7 @@ def test_approve_on_profile_app_never_reaches_sendgrid(profile_app, signed, no_e
     db = FakeDB(row)
     monkeypatch.setattr(artifacts_api, "_get_agent_db", lambda: db)
     with TestClient(profile_app) as client:
-        response = client.post("/api/artifacts/1/approve", headers=signed(sub="user_123"),
+        response = client.post("/api/artifacts/1/approve", headers=session(sub="user_123"),
                                json={"athlete_email": "a@example.invalid"})
     assert response.status_code == 200
     assert response.json() == {"ok": False, "status": "not_configured"}

@@ -35,12 +35,20 @@ Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding t
    - It returns a one-use 60-second code. Redis stores only `sha256(code)`, one use via `SET NX` and `GETDEL`.
    - The route has its own try/catch with fixed 401/429/500 bodies. It never rethrows into the global TrackJS handler and never logs the code. (The API's `x-source` gate is dead, `server/index.js:131`, so it protects nothing.)
    - `/enter/callback` requires the state cookie to match. It redeems the code server to server, then redirects (302) to a clean `/home` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
-   - **Session = Clerk sign-in ticket.** The backend finds or creates a Clerk user with `externalId = gmtm:<user_id>` and mints a sign-in token. The frontend completes it. All existing `require_clerk_id` routes and ownership checks keep working, and no new auth dependency is needed.
-   - To confirm at build time: a Clerk production instance on `sparq.gmtm.com` (needs Clerk DNS records), the dev-instance user cap, and creating users with no email.
+   - **Session = SPARQ session token (rev 3: no Clerk, Joey 2026-10-01).** GMTM sign-in is the only sign-in on this app. The legacy and combine surfaces keep Clerk unchanged.
+     - The middleware reads the `.gmtm.com` `sessionId` cookie only to compute its sha256 (`gsh`). It strips the raw value from every forwarded request and passes only `x-sparq-gsh`.
+     - The callback sends `{code, state, gsh}` to `POST /gmtm-entry/exchange`. The backend redeems the code, checks eligibility and returns an HS256 token signed with `SPARQ_SESSION_SECRET` (at least 32 bytes). Claims: `sub = gmtm_<user_id>`, random `jti`, `gsh`, `iat`, `exp = iat + 24 h`.
+     - The token lives only in the `__Host-sparq-session` cookie (HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age 86400). Browser code never sees it.
+     - The browser calls the backend only through the same-origin `/api/sparq/proxy/<path>`. The proxy refuses any operation that `candidateAPIAllowed` does not allow for the profile surface, re-checks the `gsh` binding and adds `Authorization: Bearer <token>`. `GET /api/sparq/session` returns `{sub}` only.
+     - On the profile backend, `require_identity` replaces `require_clerk_id`. It accepts only a SPARQ token with a valid signature, an unexpired `exp` and the active `jti`. Clerk tokens get 401. Routes still compare the URL `{clerk_id}` to `sub`.
+     - If `athlete_profiles` already links the GMTM user to an older (Clerk) id, that id becomes `sub`, so the user's existing rows stay reachable. The link is never overwritten. The id is valid only inside a SPARQ-signed token. New athletes get `gmtm_<user_id>`.
+     - No Clerk user, Clerk ticket, `/enter/finish`, `ClerkProvider` or Clerk CSP host on this app.
 2. **Session lifetime (R1-5).**
-   - The SPARQ session lasts at most 24 h.
-   - Every `/enter` replaces the current session, so user B signs out user A.
-   - The header shows "Not you? Switch".
+   - The SPARQ session lasts at most 24 h (token `exp` and the entry gate).
+   - Every `/enter` replaces the current session: the backend keeps one active `jti` per user, so the older token gets 401.
+   - Every page load requires `sha256(current GMTM sessionId) == gsh`. On a mismatch, an expired token or a missing GMTM cookie, the middleware clears the cookie. It sends the browser to `/enter` when a GMTM cookie exists (so user B replaces user A), otherwise to GMTM.
+   - Sign-out (`POST /api/sparq/sign-out`) ends the `jti` on the backend, clears the cookie and goes to GMTM.
+   - The header shows "Not you? Switch", which goes to GMTM.
 3. **Who gets in (R1-8, R1-11, R1-12).**
    - Admit only if the user submitted to junior events 1305/1314/1317 **and** dob gives 13–17 today, or the user is on Joey's allow-list. The check runs again on every personal request.
    - The redeem response gives only `user_id` and an eligibility flag, not the dob.
@@ -67,7 +75,7 @@ Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding t
    - the SPARQ middleware ignores `sessionId`.
 8. **No public exposure of minors (R1-9).** On this app, disable `/api/athlete/{id}`, the public `/athlete/[id]` page and share reports (`/report/[token]`).
 9. **Look and feel.** Codex's dark SPARQ theme with "Back to GMTM". The SPARQ button sits on the athlete dashboard and the combine results page, for eligible users only.
-10. **Deploy config (R1-15).** Add `https://sparq.gmtm.com` to `ALLOWED_ORIGINS` and Clerk authorized parties. Turn off `/sign-up` and `/onboarding` on this host.
+10. **Deploy config (R1-15).** Add `https://sparq.gmtm.com` to `ALLOWED_ORIGINS`. Set `SPARQ_SESSION_SECRET` on the backend and the profile frontend (server-only). No Clerk settings on this host (rev 3). Turn off `/sign-in`, `/sign-up`, `/connect` and `/onboarding` on this host.
 
 ## Completion contract (rev 2)
 
@@ -78,10 +86,15 @@ Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding t
   - more than 5 per minute → 429;
   - reuse → rejected; 60-second expiry;
   - no throw reaches the global handler; the code never appears in logs.
-- [ ] C3 SPARQ `/enter` + callback + Clerk ticket + eligibility, with tests:
-  - state mismatch → rejected;
+- [ ] C3 SPARQ `/enter` + callback + SPARQ session (rev 3: no Clerk, Joey 2026-10-01) + eligibility, with tests:
+  - state mismatch → rejected; exchange without `gsh` → 400;
   - eligible 13–17 cohort member → in; under 13, no DOB, not in cohort, or 18+ → out;
-  - user B replaces user A;
+  - token: signature, `exp`, wrong secret and inactive `jti` → 401; a new entry makes the old token 401 (user B replaces user A);
+  - Clerk token → 401 on the profile surface; legacy and combine still verify Clerk;
+  - athlete already linked to an older id → that id is `sub`, the link is unchanged and the existing rows stay reachable;
+  - proxy and sign-out writes from another origin (including another gmtm.com subdomain) → 403;
+  - middleware: `gsh` mismatch, missing GMTM cookie or expired token → cookie cleared and redirect; proxy adds the bearer only for allowed paths;
+  - no `@clerk` import reachable from profile modules, no Clerk host in the profile CSP;
   - a parametrized test over the app's route table: 401 without a session, 403 when the URL `clerk_id` is not the caller.
 - [ ] C4 Colleges + outreach, with tests:
   - no name in prompts;
@@ -90,7 +103,7 @@ Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding t
   - no raw-HTML renderers left;
   - CSP header present.
 - [ ] C5 GMTM.com button (eligible users only) + `/sparq/authorize` server route.
-- [ ] C6 `sparq.gmtm.com`: DNS, Vercel domain, Clerk production, HTTPS valid.
+- [ ] C6 `sparq.gmtm.com`: DNS, Vercel domain, `SPARQ_SESSION_SECRET`, HTTPS valid (no Clerk production needed, rev 3).
 - [ ] C7 End-to-end in production on Joey's account **and** on one real junior test account (Joey-created, DOB in range). Screenshots.
 - [ ] C8 Invite list prepared: count only, ages 13–17, cohort members. Joey sends.
 

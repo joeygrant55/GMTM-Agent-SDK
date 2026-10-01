@@ -22,10 +22,10 @@ from starlette.concurrency import run_in_threadpool
 
 import auth
 import candidate_app
+import junior_entry
 import athlete_workspace as workspace
 from scripts.read_owner_profile_evidence import reviewed_query_specs, normalized
 
-ISSUER = "https://fit-bonefish-6.clerk.accounts.dev"
 CAPS = {"personal_requests": 40, "patch_attempts": 3, "selects": 500, "connections": 160}
 CONTEXT = ContextVar("profile_acceptance_owner", default=None)
 LINK_FORWARD = "SELECT id, user_id, clerk_id FROM athlete_profiles WHERE clerk_id = %s LIMIT 2"
@@ -272,8 +272,14 @@ def _settings(settings, prefix):
 
 def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, backend_host, run_dir, read_only: bool = False):
     if type(read_only) is not bool: raise ValueError("Acceptance read_only must be a boolean")
-    config = candidate_app.validate_configuration(os.environ)
-    if (os.environ.get("CLERK_ISSUER") != ISSUER or config.origins != (frontend_origin,)
+    # Profile has no Clerk (rev 3): the owner authenticates with a SPARQ session token,
+    # so GMTM entry (incl. SPARQ_SESSION_SECRET) must be fully configured.
+    config = candidate_app.validate_configuration(os.environ, "profile")
+    try:
+        entry = junior_entry.entry_configuration(os.environ)
+    except ValueError:
+        entry = None
+    if (entry is None or config.origins != (frontend_origin,)
             or not re.fullmatch(r"http://localhost:[0-9]{1,5}", frontend_origin)
             or not re.fullmatch(r"(?:127\.0\.0\.1|localhost):[0-9]{1,5}", backend_host)
             or os.environ.get("PROFILE_DEBRIEF_ENABLED") != "false"
@@ -365,7 +371,7 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
                     return
                 if config.signature != candidate_app._signature(os.environ): ledger.deny("configuration_drift", 503)
                 stage = "authentication"
-                clerk = await candidate_app.require_candidate_clerk_id(Request({**scope, "app": inner}), headers.get("authorization"))
+                clerk = await junior_entry.require_identity(headers.get("authorization"))
                 if name == "profile_link" and path.rsplit("/", 1)[1] != clerk: ledger.deny("profile_subject")
                 ledger.reserve("personal_requests")
                 if method == "PATCH": ledger.reserve("patch_attempts")

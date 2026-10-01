@@ -17,6 +17,8 @@ lib64/
 /frontend/lib/*
 !/frontend/lib/backend-config.cjs
 !/frontend/lib/backend-config.d.cts
+!/frontend/lib/sparq-session.cjs
+!/frontend/lib/sparq-session.d.cts
 parts/
 sdist/
 var/

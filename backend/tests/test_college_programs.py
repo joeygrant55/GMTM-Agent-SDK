@@ -15,7 +15,7 @@ import college_programs as cp
 import junior_eligibility as elig
 import junior_entry
 from backend.tests.junior_fakes import MemoryStore
-from backend.tests.test_candidate_app import signed  # noqa: F401  (fixture)
+from backend.tests.test_profile_candidate_app import session  # noqa: F401  (fixture)
 from backend.tests.test_profile_candidate_app import profile_app  # noqa: F401  (fixture)
 
 CLERK, USER_ID = "user_junior", 7301
@@ -71,7 +71,7 @@ class Model:
 
 
 @pytest.fixture
-def app(profile_app, monkeypatch, signed):
+def app(profile_app, monkeypatch, session):
     monkeypatch.setattr(auth, "_rate_buckets", {})
     entries = MemoryStore()
     entries.record_entry(CLERK, USER_ID, datetime.now(timezone.utc))
@@ -83,7 +83,7 @@ def app(profile_app, monkeypatch, signed):
     monkeypatch.setattr(cp, "model_json", model)
     monkeypatch.setattr(cp, "read_identity", lambda uid: dict(identity) if uid == USER_ID else None)
     with TestClient(profile_app) as client:
-        yield client, store, model, identity, signed(sub=CLERK), entries
+        yield client, store, model, identity, session(sub=CLERK), entries
 
 
 def walk(value):

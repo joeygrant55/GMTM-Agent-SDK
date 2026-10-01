@@ -3,7 +3,6 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 
 export const TX_COOKIE = '__Host-sparq-tx'
-export const TICKET_COOKIE = '__Host-sparq-ticket'
 export const ENTRY_HEADERS = { 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store' } as const
 
 export function statesMatch(cookie: string | undefined, query: string | null): boolean {

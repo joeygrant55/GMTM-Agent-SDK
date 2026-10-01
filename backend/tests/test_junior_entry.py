@@ -1,28 +1,36 @@
-"""Junior GMTM entry: eligibility, code exchange, Clerk ticket, per-request gate.
+"""Junior GMTM entry: eligibility, code exchange, SPARQ session, per-request gate.
 
-Every outside service is stubbed: GMTM redeem and Clerk go through
-junior_entry.http, GMTM facts through junior_eligibility.reader, Agent rows
+No Clerk on the profile surface (Joey, 2026-10-01). Every outside service is
+stubbed: GMTM redeem goes through junior_entry.http, GMTM facts through junior_eligibility.reader, Agent rows
 through MemoryStore / WorkspaceStore. conftest blocks real DB/network.
 """
 from datetime import date, datetime, timedelta, timezone
+import hashlib
 import json
+import time
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+import jwt
 import pytest
 
 import athlete_workspace as workspace
+import auth
+import candidate_app
 import junior_eligibility as elig
 import junior_entry
 import workspace_bootstrap
 from backend.tests.junior_fakes import MemoryStore
 from backend.tests.test_candidate_app import signed  # noqa: F401  (fixture)
-from backend.tests.test_profile_candidate_app import profile_app  # noqa: F401  (fixture)
+from backend.tests.test_profile_candidate_app import ENTRY_ENV, SESSION_SECRET, profile_app, session  # noqa: F401  (fixtures)
 from backend.tests.workspace_fixture_store import WorkspaceStore
 
 TODAY = date.today()
 SECRET = "synthetic-entry-secret"
 CODE, STATE = "c" * 32, "s" * 32
-USER_ID, CLERK = 7301, "user_junior"
+USER_ID = 7301
+CLERK = f"gmtm_{USER_ID}"  # the SPARQ session subject, same shape as the old Clerk username
+GSH = hashlib.sha256(b"synthetic-gmtm-session-id").hexdigest()
 
 
 def years_ago(years, days=0):
@@ -61,42 +69,22 @@ def test_allowlist_admits_without_reading_gmtm(monkeypatch):
 # ── Exchange ─────────────────────────────────────────────────────────────────────
 
 class FakeServices:
-    """Stub for junior_entry.http: GMTM redeem + Clerk Backend API."""
-    def __init__(self, *, redeem=(200, {"user_id": USER_ID}), existing=None):
-        self.redeem, self.users, self.calls = redeem, list(existing or []), []
-        self.create_status = None  # force a Clerk failure on POST /users
+    """Stub for junior_entry.http: GMTM redeem only (no Clerk)."""
+    def __init__(self, *, redeem=(200, {"user_id": USER_ID})):
+        self.redeem, self.calls = redeem, []
 
     def __call__(self, method, url, *, headers, body=None, params=None):
         self.calls.append((method, url, headers, body, params))
-        if url == "https://gmtm-api.example.invalid/v2/sparq/redeem":
-            assert headers == {"x-sparq-secret": "synthetic-handoff"}
-            return self.redeem
-        assert url.startswith(junior_entry.CLERK_API) and headers == {"Authorization": "Bearer sk_test_synthetic"}
-        path = url[len(junior_entry.CLERK_API):]
-        if (method, path) == ("GET", "/users"):
-            return 200, [u for u in self.users if u["external_id"] == params["external_id"]]
-        if (method, path) == ("POST", "/users"):
-            # Like an instance that requires an identifier: no username -> 422.
-            if self.create_status or not body.get("username"):
-                return self.create_status or 422, {"errors": [{"code": "form_data_missing"}]}
-            assert len(body["username"]) <= 64 and body["username"].replace("_", "").isalnum()
-            user = {"id": CLERK, "external_id": body["external_id"], "username": body["username"]}
-            self.users.append(user)
-            return 200, user
-        if (method, path) == ("POST", "/sign_in_tokens"):
-            return 200, {"token": "ticket-synthetic"}
-        raise AssertionError((method, url))
-
-    def clerk_calls(self):
-        return [(m, u[len(junior_entry.CLERK_API):], b) for m, u, _, b, _ in self.calls if u.startswith(junior_entry.CLERK_API)]
+        assert url == "https://gmtm-api.example.invalid/v2/sparq/redeem", url
+        assert headers == {"x-sparq-secret": "synthetic-handoff"}
+        return self.redeem
 
 
 @pytest.fixture
 def entry(profile_app, monkeypatch):
+    for name, value in ENTRY_ENV.items():
+        monkeypatch.setenv(name, value)
     monkeypatch.setenv("SPARQ_ENTRY_SECRET", SECRET)
-    monkeypatch.setenv("SPARQ_HANDOFF_SECRET", "synthetic-handoff")
-    monkeypatch.setenv("GMTM_API_URL", "https://gmtm-api.example.invalid")
-    monkeypatch.setenv("CLERK_SECRET_KEY", "sk_test_synthetic")
     monkeypatch.delenv("SPARQ_TEST_ALLOWLIST", raising=False)
     store, services = MemoryStore(), FakeServices()
     monkeypatch.setattr(junior_entry, "store", store)
@@ -109,43 +97,153 @@ def entry(profile_app, monkeypatch):
 
 def post_exchange(client, secret=SECRET, body=None):
     headers = {} if secret is None else {"x-sparq-entry-secret": secret}
-    return client.post("/gmtm-entry/exchange", headers=headers, json={"code": CODE, "state": STATE} if body is None else body)
+    return client.post("/gmtm-entry/exchange", headers=headers, json={"code": CODE, "state": STATE, "gsh": GSH} if body is None else body)
 
 
-def test_eligible_junior_gets_a_60_second_ticket_and_link(entry):
+def bearer(token):
+    return {"Authorization": "Bearer " + token}
+
+
+def test_eligible_junior_gets_a_24_hour_session_token_and_link(entry):
     app, store, services, bootstraps = entry
     with TestClient(app) as client:
         response = post_exchange(client)
     assert response.status_code == 200, response.text
-    assert response.json() == {"eligible": True, "ticket": "ticket-synthetic"}
+    body = response.json()
+    assert set(body) == {"eligible", "token"} and body["eligible"] is True
     assert response.headers["cache-control"] == "private, no-store"
-    assert services.calls[0][3] == {"code": CODE, "state": STATE}
-    assert services.clerk_calls() == [
-        ("GET", "/users", None),
-        ("POST", "/users", {"external_id": f"gmtm:{USER_ID}", "username": f"gmtm_{USER_ID}", "skip_password_requirement": True}),
-        ("POST", "/sign_in_tokens", {"user_id": CLERK, "expires_in_seconds": 60}),
-    ]
+    assert services.calls[0][3] == {"code": CODE, "state": STATE}  # gsh never goes to GMTM
+    claims = jwt.decode(body["token"], SESSION_SECRET, algorithms=["HS256"])
+    assert set(claims) == {"sub", "jti", "gsh", "iat", "exp"}
+    assert claims["sub"] == CLERK and claims["gsh"] == GSH
+    assert claims["exp"] - claims["iat"] == 24 * 3600
+    assert store.sessions == {CLERK: claims["jti"]} and len(claims["jti"]) >= 43
     assert store.links == {USER_ID: CLERK}
     assert bootstraps == [(CLERK, USER_ID)]
     assert [(e["clerk_id"], e["user_id"]) for e in store.entries] == [(CLERK, USER_ID)]
     assert store.refusals == []
 
 
-def test_existing_clerk_user_is_reused(entry):
-    app, store, services, _ = entry
-    services.users.append({"id": CLERK, "external_id": f"gmtm:{USER_ID}"})
+def test_new_entry_replaces_the_old_session(entry):
+    app, store, *_ = entry
+    store.accept_notice(CLERK, datetime.now(timezone.utc))
     with TestClient(app) as client:
-        assert post_exchange(client).json()["eligible"] is True
-    assert [c[:2] for c in services.clerk_calls()] == [("GET", "/users"), ("POST", "/sign_in_tokens")]
+        first = post_exchange(client).json()["token"]
+        assert client.get("/api/athlete/parent-notice", headers=bearer(first)).status_code == 200
+        second = post_exchange(client).json()["token"]
+        old = client.get("/api/athlete/parent-notice", headers=bearer(first))
+        assert old.status_code == 401 and "session ended" in old.json()["detail"]
+        assert client.get("/api/athlete/parent-notice", headers=bearer(second)).status_code == 200
 
 
-def test_athlete_linked_to_another_account_is_a_conflict_without_ticket(entry):
-    app, store, services, _ = entry
-    store.links[USER_ID] = "user_someone_else"
+def test_sign_out_ends_the_session_and_is_idempotent(entry):
+    app, store, *_ = entry
     with TestClient(app) as client:
-        assert post_exchange(client).status_code == 409
-    assert ("POST", "/sign_in_tokens") not in [c[:2] for c in services.clerk_calls()]
-    assert store.entries == []
+        token = post_exchange(client).json()["token"]
+        assert client.post(junior_entry.SIGN_OUT_PATH).status_code == 401
+        assert client.post(junior_entry.SIGN_OUT_PATH, headers=bearer(token)).json() == {"signed_out": True}
+        assert store.sessions == {}
+        assert client.get("/api/athlete/parent-notice", headers=bearer(token)).status_code == 401
+        assert client.post(junior_entry.SIGN_OUT_PATH, headers=bearer(token)).status_code == 200
+
+
+def test_session_token_verification(entry, session, signed):
+    app, *_ = entry
+    now = int(time.time())
+    with TestClient(app) as client:
+        get = lambda headers: client.get("/api/athlete/parent-notice", headers=headers).status_code
+        assert get(session(sub="user_any")) == 200
+        assert get(session(sub="user_any", exp=now - 1)) == 401                      # expired
+        assert get(session(sub="user_any", secret="w" * 40)) == 401                  # wrong secret
+        assert get(session(sub="user_any", active=False)) == 401                     # jti not active
+        assert get(session(sub="user_any", jti=None)) == 401                         # no jti
+        assert get(session(sub="user_any", gsh="A" * 64)) == 401                     # gsh not sha256 hex
+        assert get(signed(sub="user_any")) == 401                                    # Clerk token refused
+        none_alg = jwt.encode({"sub": "user_any", "jti": "x", "gsh": GSH, "iat": now, "exp": now + 60}, None, algorithm="none")
+        assert get(bearer(none_alg)) == 401
+
+
+def test_short_session_secret_disables_entry(entry, monkeypatch):
+    app, _, services, _ = entry
+    with TestClient(app) as client:
+        monkeypatch.setenv("SPARQ_SESSION_SECRET", "x" * 31)
+        assert post_exchange(client).status_code == 503
+    assert services.calls == []
+
+
+def test_legacy_and_combine_surfaces_still_verify_clerk(configured_combine, signed, session):
+    # Combine keeps the Clerk dependency; the legacy app has no override at all.
+    assert configured_combine.dependency_overrides[auth.require_clerk_id] is candidate_app.require_candidate_clerk_id
+    import main
+    assert auth.require_clerk_id not in main.app.dependency_overrides
+    sparq = session(sub="user_any")["Authorization"]
+    assert auth.require_clerk_id(signed(sub="user_clerk")["Authorization"]) == "user_clerk"
+    with pytest.raises(HTTPException) as caught:
+        auth.require_clerk_id(sparq)
+    assert caught.value.status_code == 401
+    with TestClient(configured_combine) as client:
+        assert client.get("/api/profile/by-clerk/user_any", headers={"Authorization": sparq}).status_code == 401
+
+
+@pytest.fixture
+def configured_combine(monkeypatch, session):
+    from backend.tests.test_candidate_app import ENV
+    for name, value in ENV.items():
+        monkeypatch.setenv(name, value)
+    return candidate_app.create_app()
+
+
+def test_athlete_linked_to_an_old_clerk_id_keeps_it_and_its_rows(entry, monkeypatch, signed):
+    # No repoint: the existing link id becomes the SPARQ subject, so rows keyed by it
+    # (workspace, college list, notices) stay reachable. It works only inside a
+    # SPARQ-signed token; a Clerk JWT for the same id is still refused on profile.
+    app, store, *_ = entry
+    old = "user_old_clerk"
+    store.links[USER_ID] = old
+    store.accept_notice(old, datetime.now(timezone.utc))
+    monkeypatch.setattr(workspace, "_get_agent_db", WorkspaceStore([{"id": 93, "user_id": USER_ID, "clerk_id": old}]).connect)
+    with TestClient(app) as client:
+        token = post_exchange(client).json()["token"]
+        assert jwt.decode(token, SESSION_SECRET, algorithms=["HS256"])["sub"] == old
+        assert store.links == {USER_ID: old} and store.sessions == {old: jwt.decode(token, SESSION_SECRET, algorithms=["HS256"])["jti"]}
+        assert [e["clerk_id"] for e in store.entries] == [old]
+        assert client.get("/api/athlete/workspace", headers=bearer(token)).status_code == 200
+        assert client.get(f"/api/workspace/colleges/{CLERK}", headers=bearer(token)).status_code == 403
+        assert client.get("/api/athlete/workspace", headers=signed(sub=old)).status_code == 401
+    # Owner check passes for the old id (the handler then needs the college DB, blocked offline).
+    with TestClient(app, raise_server_exceptions=False) as client:
+        assert client.get(f"/api/workspace/colleges/{old}", headers=bearer(token)).status_code not in (401, 403)
+
+
+def test_mysql_link_never_overwrites_an_existing_owner(monkeypatch):
+    class Cursor:
+        def __init__(self, db): self.db = db
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, sql, params=None): self.db.sql.append(" ".join(sql.split()))
+        def fetchone(self):
+            last = self.db.sql[-1]
+            if "GET_LOCK" in last: return {"acquired": 1}
+            if "SELECT clerk_id FROM athlete_profiles WHERE user_id" in last: return self.db.owner
+            return None
+    class DB:
+        def __init__(self, owner): self.owner, self.sql, self.committed = owner, [], False
+        def cursor(self): return Cursor(self)
+        def begin(self): pass
+        def commit(self): self.committed = True
+        def rollback(self): pass
+        def close(self): pass
+    for owner, ok in (({"clerk_id": CLERK}, True), ({"clerk_id": "user_someone_else"}, False)):
+        db = DB(owner)
+        monkeypatch.setattr(junior_entry.MySQLStore, "_db", lambda self: db)
+        if ok:
+            junior_entry.MySQLStore().ensure_link(CLERK, USER_ID)
+        else:
+            with pytest.raises(junior_entry.LinkConflict):
+                junior_entry.MySQLStore().ensure_link(CLERK, USER_ID)
+        assert db.committed is ok
+        assert not any(q.startswith("UPDATE") for q in db.sql)
+        assert any(q.startswith("INSERT INTO athlete_profiles") and "ON DUPLICATE KEY UPDATE user_id = user_id" in q for q in db.sql)
 
 
 @pytest.mark.parametrize("facts", [
@@ -157,7 +255,7 @@ def test_ineligible_gets_no_account_and_only_a_refusal_row(entry, monkeypatch, f
     with TestClient(app) as client:
         response = post_exchange(client)
     assert response.status_code == 200 and response.json() == {"eligible": False}
-    assert services.clerk_calls() == [] and store.links == {} and store.entries == [] and bootstraps == []
+    assert store.sessions == {} and store.links == {} and store.entries == [] and bootstraps == []
     assert store.notices == {}
     assert len(store.refusals) == 1
     refusal = store.refusals[0]
@@ -191,8 +289,10 @@ def test_unset_secret_fails_closed(entry, monkeypatch):
     assert services.calls == []
 
 
-@pytest.mark.parametrize("body", [{}, {"code": CODE}, {"code": "short", "state": STATE},
-                                  {"code": CODE, "state": "bad state with spaces"}, {"code": 1, "state": STATE}])
+@pytest.mark.parametrize("body", [{}, {"code": CODE, "gsh": GSH}, {"code": "short", "state": STATE, "gsh": GSH},
+                                  {"code": CODE, "state": "bad state with spaces", "gsh": GSH}, {"code": 1, "state": STATE, "gsh": GSH},
+                                  {"code": CODE, "state": STATE}, {"code": CODE, "state": STATE, "gsh": "raw-gmtm-session-id"},
+                                  {"code": CODE, "state": STATE, "gsh": GSH.upper()}])
 def test_malformed_body_is_rejected(entry, body):
     app, _, services, _ = entry
     with TestClient(app) as client:
@@ -207,7 +307,7 @@ def test_gmtm_rejection_including_state_mismatch_gets_no_ticket(entry, redeem):
     services.redeem = redeem
     with TestClient(app) as client:
         assert post_exchange(client).status_code == 401
-    assert services.clerk_calls() == [] and store.entries == [] and store.refusals == []
+    assert store.sessions == {} and store.entries == [] and store.refusals == []
 
 
 # ── Per-request gate ─────────────────────────────────────────────────────────────
@@ -216,12 +316,12 @@ LINK = {"id": 93, "user_id": USER_ID, "clerk_id": CLERK}
 
 
 @pytest.fixture
-def junior(entry, monkeypatch, signed):
+def junior(entry, monkeypatch):
     app, store, services, _ = entry
     with TestClient(app) as client:
-        assert post_exchange(client).json()["eligible"] is True
+        token = post_exchange(client).json()["token"]
     monkeypatch.setattr(workspace, "_get_agent_db", WorkspaceStore([LINK]).connect)
-    return app, store, signed(sub=CLERK)
+    return app, store, bearer(token)
 
 
 def test_parent_notice_blocks_personal_routes_until_accepted(junior):
@@ -236,9 +336,9 @@ def test_parent_notice_blocks_personal_routes_until_accepted(junior):
     assert set(store.notices[CLERK]) == {"accepted_at", "attested_by_session_kind"}
 
 
-def test_non_entry_user_has_no_notice_requirement(profile_app, signed):
+def test_non_entry_user_has_no_notice_requirement(profile_app, session):
     with TestClient(profile_app) as client:
-        assert client.get("/api/athlete/parent-notice", headers=signed()).json() == {"required": False, "accepted": False}
+        assert client.get("/api/athlete/parent-notice", headers=session()).json() == {"required": False, "accepted": False}
 
 
 def test_session_older_than_24_hours_is_denied(junior):
@@ -274,7 +374,7 @@ def test_store_failure_fails_closed(junior, monkeypatch):
     assert response.status_code == 503 and "db down" not in response.text
 
 
-def test_junior_bypasses_adult_file_but_others_still_need_it(junior, monkeypatch, tmp_path, signed):
+def test_junior_bypasses_adult_file_but_others_still_need_it(junior, monkeypatch, tmp_path, session):
     app, store, headers = junior
     store.accept_notice(CLERK, datetime.now(timezone.utc))
     path = (tmp_path / "admission.json").resolve()
@@ -284,21 +384,21 @@ def test_junior_bypasses_adult_file_but_others_still_need_it(junior, monkeypatch
     monkeypatch.setenv("PROFILE_ADMISSION_FILE", str(path))
     with TestClient(app) as client:
         assert client.get("/api/athlete/workspace", headers=headers).status_code == 200
-        assert client.get("/api/athlete/workspace", headers=signed(sub="user_adult")).status_code == 403
+        assert client.get("/api/athlete/workspace", headers=session(sub="user_adult")).status_code == 403
 
 
 # ── Route table: 401 without auth, 403 for another clerk_id ─────────────────────
 
 def _personal_routes(app):
     for route in app.routes:
-        if route.path in ("/health", junior_entry.EXCHANGE_PATH) or route.path.startswith("/api/claims/"):
-            continue  # health is public; exchange uses its server secret; claims are 403 in the pilot
+        if route.path in ("/health", junior_entry.EXCHANGE_PATH, junior_entry.SIGN_OUT_PATH) or route.path.startswith("/api/claims/"):
+            continue  # health is public; exchange uses its server secret; sign-out has its own test; claims are 403 in the pilot
         for method in sorted(route.methods - {"HEAD"}):
             yield method, route.path
 
 
 @pytest.mark.parametrize("admission", ["loopback", "pilot"])
-def test_every_personal_route_requires_auth_and_owner(profile_app, signed, monkeypatch, tmp_path, admission):
+def test_every_personal_route_requires_auth_and_owner(profile_app, session, monkeypatch, tmp_path, admission):
     if admission == "pilot":
         path = (tmp_path / "admission.json").resolve()
         path.write_text(json.dumps({"schema": 1, "admissions": []}))
@@ -309,6 +409,7 @@ def test_every_personal_route_requires_auth_and_owner(profile_app, signed, monke
     store.record_entry(CLERK, USER_ID, datetime.now(timezone.utc))
     store.accept_notice(CLERK, datetime.now(timezone.utc))
     monkeypatch.setattr(junior_entry, "store", store)
+    headers = session(sub=CLERK)
     monkeypatch.setattr(elig, "reader", lambda uid: (True, years_ago(15)))
     routes = list(_personal_routes(profile_app))
     assert len(routes) >= 10
@@ -322,21 +423,11 @@ def test_every_personal_route_requires_auth_and_owner(profile_app, signed, monke
             disabled = admission == "loopback" and response.status_code == 404 and "disabled" in response.text
             assert response.status_code == 401 or disabled, (method, route_path, response.text)
         for method, route_path in owned:
-            response = client.request(method, route_path.replace("{clerk_id}", "user_other"), headers=signed(sub=CLERK))
+            response = client.request(method, route_path.replace("{clerk_id}", "user_other"), headers=headers)
             assert response.status_code == 403, (method, route_path, response.text)
 
 
-def test_clerk_user_creation_rejection_is_503_with_no_ticket(entry):
-    app, store, services, bootstraps = entry
-    services.create_status = 422
-    with TestClient(app) as client:
-        response = post_exchange(client)
-    assert response.status_code == 503 and "ticket" not in response.text
-    assert [c[:2] for c in services.clerk_calls()] == [("GET", "/users"), ("POST", "/users")]
-    assert store.links == {} and store.entries == [] and bootstraps == []
-
-
-@pytest.mark.parametrize("name", ["CLERK_SECRET_KEY", "GMTM_API_URL", "SPARQ_HANDOFF_SECRET"])
+@pytest.mark.parametrize("name", ["SPARQ_SESSION_SECRET", "GMTM_API_URL", "SPARQ_HANDOFF_SECRET"])
 def test_missing_setting_is_503_before_the_code_is_redeemed(entry, monkeypatch, name):
     app, store, services, _ = entry
     with TestClient(app) as client:
@@ -355,11 +446,12 @@ def test_insecure_gmtm_url_is_503_before_redeem(entry, monkeypatch, url):
 
 
 def test_entry_configuration_is_off_complete_or_startup_error(profile_app, monkeypatch):
-    full = {"SPARQ_ENTRY_SECRET": "a", "SPARQ_HANDOFF_SECRET": "b", "GMTM_API_URL": "http://127.0.0.1:9", "CLERK_SECRET_KEY": "c"}
+    full = {"SPARQ_ENTRY_SECRET": "a", "SPARQ_HANDOFF_SECRET": "b", "GMTM_API_URL": "http://127.0.0.1:9", "SPARQ_SESSION_SECRET": "c" * 32}
     assert junior_entry.entry_configuration({}) is None
     assert junior_entry.entry_configuration(full)["GMTM_API_URL"] == "http://127.0.0.1:9"
-    with pytest.raises(ValueError):
-        junior_entry.entry_configuration({**full, "CLERK_SECRET_KEY": ""})
+    for bad in ("", "c" * 31):
+        with pytest.raises(ValueError):
+            junior_entry.entry_configuration({**full, "SPARQ_SESSION_SECRET": bad})
     monkeypatch.setenv("SPARQ_ENTRY_SECRET", "only-one")
     with pytest.raises(ValueError):
         with TestClient(profile_app):

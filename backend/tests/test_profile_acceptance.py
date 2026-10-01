@@ -18,6 +18,8 @@ import athlete_workspace as workspace
 from verification import profile_acceptance as acceptance
 from backend.tests.test_candidate_app import ENV as BASE_ENV
 from backend.tests.workspace_fixture_store import WorkspaceStore
+from backend.tests.test_profile_candidate_app import ENTRY_ENV, GSH, SESSION_SECRET
+import junior_entry
 
 ORIGIN, HOST, SUBJECT = "http://localhost:3218", "127.0.0.1:8118", "clerk_owner"
 LINK = {"id": 1, "user_id": 2, "clerk_id": SUBJECT}
@@ -69,16 +71,19 @@ class Raw:
 
 @pytest.fixture
 def setup(monkeypatch, tmp_path):
-    env = {**BASE_ENV, "CLERK_ISSUER": acceptance.ISSUER, "CLERK_AUTHORIZED_PARTIES": ORIGIN,
-           "ALLOWED_ORIGINS": ORIGIN, "PROFILE_DEBRIEF_ENABLED": "false", "AGENT_DB_HOST": "fixture.proxy.rlwy.net"}
+    # No Clerk on profile (rev 3): the owner carries a SPARQ session token.
+    env = {**BASE_ENV, **ENTRY_ENV, "ALLOWED_ORIGINS": ORIGIN, "PROFILE_DEBRIEF_ENABLED": "false",
+           "AGENT_DB_HOST": "fixture.proxy.rlwy.net"}
+    env.pop("CLERK_ISSUER", None); env.pop("CLERK_AUTHORIZED_PARTIES", None)
     for name in candidate_app._CONFIGURATION_KEYS: monkeypatch.delenv(name, raising=False)
     for key, value in env.items(): monkeypatch.setenv(key, value)
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    monkeypatch.setattr(auth, "_jwks_issuer", acceptance.ISSUER)
-    monkeypatch.setattr(auth, "_jwks_client", SimpleNamespace(get_signing_key_from_jwt=lambda _: SimpleNamespace(key=key.public_key())))
-    def headers(**overrides):
-        claims = {"sub": SUBJECT, "iss": acceptance.ISSUER, "exp": int(time.time()) + 120, "azp": ORIGIN, **overrides}
-        return {"Origin": ORIGIN, "Authorization": "Bearer " + jwt.encode(claims, key, algorithm="RS256")}
+    jti = "owner-acceptance-session-jti"
+    junior_entry.store.set_session(SUBJECT, jti, None)
+    def headers(*, secret=SESSION_SECRET, **overrides):
+        now = int(time.time())
+        claims = {"sub": SUBJECT, "jti": jti, "gsh": GSH, "iat": now, "exp": now + 120, **overrides}
+        claims = {k: v for k, v in claims.items() if v is not None}
+        return {"Origin": ORIGIN, "Authorization": "Bearer " + jwt.encode(claims, secret, algorithm="HS256")}
     store = WorkspaceStore([LINK])
     store.source_owner, store.source_queries = 2, []
     monkeypatch.setattr(acceptance, "_raw_connect", lambda settings: Raw(store, "gmtm" if settings["database"] == "gmtm" else "agent"))
@@ -127,15 +132,18 @@ def test_disallowed_routes_are_rejected_before_any_connection(setup, method, pat
     assert not setup.store.connections
 
 
-@pytest.mark.parametrize("headers", ["missing", "wrong_origin", "wrong_host", "expired", "missing_azp", "wrong_issuer", "wrong_subject_path"])
+@pytest.mark.parametrize("headers", ["missing", "wrong_origin", "wrong_host", "expired", "inactive_jti", "wrong_secret", "clerk_jwt", "wrong_subject_path"])
 def test_actual_auth_and_http_boundaries_precede_personal_reads(setup, headers):
     values, path = setup.headers(), "/api/athlete/workspace"
     if headers == "missing": values.pop("Authorization")
     elif headers == "wrong_origin": values["Origin"] = "http://localhost:9999"
     elif headers == "wrong_host": values["Host"] = "other.invalid"
     elif headers == "expired": values = setup.headers(exp=int(time.time()) - 60)
-    elif headers == "missing_azp": values = setup.headers(azp=None)
-    elif headers == "wrong_issuer": values = setup.headers(iss="https://wrong.invalid")
+    elif headers == "inactive_jti": values = setup.headers(jti="replaced-by-a-newer-entry")
+    elif headers == "wrong_secret": values = setup.headers(secret="w" * 40)
+    elif headers == "clerk_jwt":
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        values["Authorization"] = "Bearer " + jwt.encode({"sub": SUBJECT, "exp": int(time.time()) + 120}, key, algorithm="RS256")
     else: path = "/api/profile/by-clerk/other"
     with TestClient(setup.app, base_url="http://" + HOST) as client:
         assert client.get(path, headers=values).status_code in (401, 403)

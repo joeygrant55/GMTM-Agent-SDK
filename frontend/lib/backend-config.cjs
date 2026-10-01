@@ -43,42 +43,38 @@ function resolveAPIRequest(input, origin, surface, method = 'GET') {
   return url.href
 }
 function candidatePagePolicy(pathname, method, surface = 'combine') {
+  // Profile same-origin SPARQ routes: session read, sign-out and the backend proxy.
+  // Each handler checks its own method, session and (proxy) candidateAPIAllowed.
+  if (surface === 'profile' && /^\/api\/sparq\/(?:session|sign-out|proxy\/[^?#]*)$/.test(pathname)) return 'api'
   // No generic filename exemption: dynamic legacy paths can have static suffixes.
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) return 'deny'
   if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico'].includes(pathname)) return 'asset'
   if (pathname === '/') return 'home'
+  // Profile has no Clerk: GMTM is the only sign-in, so no sign-in/up or connect pages.
+  if (surface === 'profile' && /^\/(?:sign-(?:in|up)|connect)(?:\/|$)/.test(pathname)) return 'deny'
   if (['/home', '/home/inbox', '/connect'].includes(pathname)) return 'page'
   // GMTM entry bridge exists only on the profile surface, which has no self sign-up.
-  if (surface === 'profile' && /^\/enter(?:\/(?:callback|finish|unavailable))?$/.test(pathname)) return 'page'
+  if (surface === 'profile' && /^\/enter(?:\/(?:callback|unavailable))?$/.test(pathname)) return 'page'
   if (surface === 'profile' && /^\/home\/colleges(?:\/[a-z0-9-]{1,80})?$/.test(pathname)) return 'page'
-  if (surface === 'profile' && /^\/sign-up(?:\/|$)/.test(pathname)) return 'deny'
   if (/^\/sign-(?:in|up)(?:\/[A-Za-z0-9_-]+)*$/.test(pathname)) return 'page'
   if (/^\/claim\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?(?:\/redeem)?$/.test(pathname)) return 'page'
   return 'deny'
 }
 // Profile surface (sparq.gmtm.com) CSP: GMTM's .gmtm.com sessionId cookie is
-// script-readable, so scripts run only with the per-request nonce. Styles keep
-// 'unsafe-inline' (Next/Clerk inline styles); scripts never do.
-function clerkFrontendApi(publishableKey) {
-  const match = /^pk_(?:test|live)_([A-Za-z0-9+/=]+)$/.exec(publishableKey || '')
-  if (!match) return null
-  let host
-  try { host = atob(match[1]).replace(/\$$/, '') } catch { return null }
-  return /^[a-z0-9.-]+$/i.test(host) ? 'https://' + host : null
-}
-function profileContentSecurityPolicy({ nonce, publishableKey, backendOrigin, dev = false }) {
+// script-readable, so scripts run only with the per-request nonce. No Clerk hosts:
+// the profile surface has no Clerk, and the browser talks only to its own origin
+// (the /api/sparq proxy). Styles keep 'unsafe-inline' (Next inline styles).
+function profileContentSecurityPolicy({ nonce, dev = false }) {
   if (!/^[A-Za-z0-9+/=_-]{16,}$/.test(nonce || '')) throw new Error('A random CSP nonce is required')
-  const clerk = clerkFrontendApi(publishableKey)
-  const hosts = list => list.filter(Boolean).join(' ')
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''} ` + hosts([clerk, 'https://challenges.cloudflare.com']),
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
-    'connect-src ' + hosts(["'self'", backendOrigin && resolveBackendOrigin(backendOrigin), clerk, 'https://clerk-telemetry.com']),
-    "frame-src 'self' https://challenges.cloudflare.com",
+    "connect-src 'self'",
+    "frame-src 'none'",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",

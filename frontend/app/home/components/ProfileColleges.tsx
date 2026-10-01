@@ -5,7 +5,7 @@
 // email. SPARQ never sends. No fit score is shown or received.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
@@ -46,7 +46,7 @@ async function readJSON<T>(request: Promise<Response>): Promise<T> {
 
 /** True only for an eligible athlete (GMTM gender = female). False while loading or on error. */
 export function useFindColleges(): boolean {
-  const { user } = useUser()
+  const { user } = useSparqSession()
   const [eligible, setEligible] = useState(false)
   useEffect(() => {
     if (!user?.id) return
@@ -110,7 +110,7 @@ function NotEligible({ notice, busy, onCheck }: { notice: string | null; busy: b
 }
 
 export function ProfileColleges() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const [list, setList] = useState<CollegeList | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -150,7 +150,7 @@ export function ProfileColleges() {
 }
 
 export function ProfileCollegeDetail({ programId }: { programId: string }) {
-  const { user } = useUser()
+  const { user } = useSparqSession()
   const userId = user?.id
   const [detail, setDetail] = useState<{ program: CollegeProgram; contact_rules: ContactRules[] } | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)

@@ -52,7 +52,7 @@ _CONFIGURATION_KEYS = (
     "OPPORTUNITY_ENGAGEMENT_PERIOD", "OPPORTUNITY_ENGAGEMENT_SECRET",
     "OPPORTUNITY_ENGAGEMENT_EXCLUDED_IDS", "OPPORTUNITY_ENGAGEMENT_PILOT_IDS",
     "PROFILE_ADMISSION_ENABLED", "PROFILE_ADMISSION_FILE",
-    "SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "CLERK_SECRET_KEY", "SPARQ_TEST_ALLOWLIST",
+    "SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "SPARQ_SESSION_SECRET", "SPARQ_TEST_ALLOWLIST",
     "SENDGRID_API_KEY", "SPARQ_FROM_EMAIL",
 )
 
@@ -113,15 +113,19 @@ def _origins(env: Mapping[str, str], name: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(_origin(value.strip(), loopback_http=True) for value in values))
 
 
-def validate_configuration(env: Mapping[str, str]) -> CandidateConfiguration:
-    """Validate declarations only: no file reads, services, or usage-ledger resets."""
+def validate_configuration(env: Mapping[str, str], surface: str = "combine") -> CandidateConfiguration:
+    """Validate declarations only: no file reads, services, or usage-ledger resets.
+
+    The profile surface has no Clerk (GMTM entry + SPARQ session), so no Clerk settings."""
     if env.get("AUTH_ENFORCED") != "true":
         raise CandidateConfigurationError("Candidate AUTH_ENFORCED must be explicitly true.")
-    _origin(_required(env, "CLERK_ISSUER"), loopback_http=False)
-    parties = _origins(env, "CLERK_AUTHORIZED_PARTIES")
     origins = _origins(env, "ALLOWED_ORIGINS")
-    if set(parties) != set(origins):
-        raise CandidateConfigurationError("Candidate authorized parties and CORS origins must match.")
+    parties: tuple[str, ...] = ()
+    if surface != "profile":
+        _origin(_required(env, "CLERK_ISSUER"), loopback_http=False)
+        parties = _origins(env, "CLERK_AUTHORIZED_PARTIES")
+        if set(parties) != set(origins):
+            raise CandidateConfigurationError("Candidate authorized parties and CORS origins must match.")
     if env.get("DB_HOST") != GMTM_HOST or env.get("DB_USER") != "gmtmread":
         raise CandidateConfigurationError("Candidate GMTM must use the reviewed db2-dev host and gmtmread account.")
     if env.get("DB_PORT", "3306") != "3306" or env.get("DB_NAME", "gmtm") != "gmtm":
@@ -190,15 +194,15 @@ class CandidateBoundaryMiddleware:
         # a retained call_next closure or a mutation of application middleware.
         async def admitted_app(scope, receive, send):
             admission = getattr(scope["app"].state, "profile_admission_configuration", None)
-            # The entry exchange authenticates the Next server with its own secret.
-            if self.surface != "profile" or scope["path"] in ("/health", "/gmtm-entry/exchange"):
+            # Exchange uses the Next server secret; sign-out checks its own token.
+            if self.surface != "profile" or scope["path"] in ("/health", "/gmtm-entry/exchange", "/gmtm-entry/sign-out"):
                 await self.app(scope, receive, send)
                 return
             request = Request(scope)
             if admission is None and (scope["path"].startswith("/api/claims/")
                                       or not request.headers.get("authorization")):
                 # Loopback-only mode (hosted origins require admission): handlers
-                # still require Clerk; a bearer request also passes the entry gate.
+                # still require a SPARQ session; a bearer request also passes the entry gate.
                 await self.app(scope, receive, send)
                 return
             from profile_admission import begin_request, reset_request
@@ -209,7 +213,8 @@ class CandidateBoundaryMiddleware:
                 # separate onboarding flow, never an exception to pilot admission.
                 if scope["path"].startswith("/api/claims/"):
                     raise HTTPException(403, "Account linking is unavailable in this pilot.")
-                subject = await require_candidate_clerk_id(request, request.headers.get("authorization"))
+                # Profile accepts ONLY a SPARQ session token (no Clerk on this surface).
+                subject = await junior_entry.require_identity(request.headers.get("authorization"))
                 # gmtm-entry juniors use the entry gate instead of the adult file.
                 if not await junior_entry.gate(subject, scope["path"]) and admission is not None:
                     token = begin_request(admission, subject)
@@ -244,10 +249,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         from profile_owner import current_profile_recovery
         from profile_admission import validate_configuration as admission_configuration, load_admissions
-        from junior_entry import exchange, get_parent_notice, accept_parent_notice, entry_configuration
+        from junior_entry import exchange, sign_out, get_parent_notice, accept_parent_notice, entry_configuration
         import college_programs as colleges
         routes = (
             ("POST", "/gmtm-entry/exchange", exchange),
+            ("POST", "/gmtm-entry/sign-out", sign_out),
             ("GET", "/api/athlete/parent-notice", get_parent_notice),
             ("POST", "/api/athlete/parent-notice", accept_parent_notice),
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
@@ -270,7 +276,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
-        config = validate_configuration(os.environ)
+        config = validate_configuration(os.environ, surface)
         if surface == "profile":
             # Juniors send outreach from their own email; this app never sends.
             if any(os.environ.get(name, "").strip() for name in ("SENDGRID_API_KEY", "SPARQ_FROM_EMAIL")):
@@ -305,7 +311,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     application.state.candidate_configuration = None
     # Read by artifacts_api approve if outreach routes are ever mounted here.
     application.state.outreach_send_disabled = surface == "profile"
-    application.dependency_overrides[auth.require_clerk_id] = require_candidate_clerk_id
+    if surface == "profile":
+        import junior_entry
+        application.dependency_overrides[auth.require_clerk_id] = junior_entry.require_identity
+    else:
+        application.dependency_overrides[auth.require_clerk_id] = require_candidate_clerk_id
     for method, path, endpoint in routes:
         application.add_api_route(path, endpoint, methods=[method])
 

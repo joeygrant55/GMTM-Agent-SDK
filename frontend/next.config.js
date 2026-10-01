@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
-const { resolveBackendOrigin, isRestrictedSurface } = require('./lib/backend-config.cjs')
+const { resolveBackendOrigin, isRestrictedSurface, isCombineSurface } = require('./lib/backend-config.cjs')
 const backendUrl = resolveBackendOrigin(process.env.NEXT_PUBLIC_BACKEND_URL)
 const combine = isRestrictedSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
-if (combine && !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+// Profile has no Clerk (GMTM sign-in + SPARQ session); combine still needs it.
+if (isCombineSurface(process.env.NEXT_PUBLIC_APP_SURFACE) && !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
   throw new Error('The selected surface requires NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY')
 }
 module.exports = {
@@ -12,7 +13,7 @@ module.exports = {
   // compile-time Google Fonts download.
   ...(combine ? { images: { unoptimized: true }, optimizeFonts: false } : {}),
   async headers() {
-    // GMTM entry routes carry one-use codes/tickets: never cache or leak a referrer.
+    // GMTM entry routes carry one-use codes: never cache or leak a referrer.
     const entry = [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }]
     return [{ source: '/enter', headers: entry }, { source: '/enter/:path*', headers: entry }]
   },

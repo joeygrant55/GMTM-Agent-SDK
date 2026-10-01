@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
+import { headers } from 'next/headers'
 import './globals.css'
 import { isCombineSurface, isProfileSurface } from '@/lib/backend-config.cjs'
 
@@ -33,11 +34,12 @@ export default function RootLayout({
     </html>
   )
 
-  if (clerkKey) {
-    // Profile (sparq.gmtm.com): juniors sign in only through GMTM, so sign-out returns there.
-    const afterSignOutUrl = profile ? process.env.NEXT_PUBLIC_GMTM_WEB_URL || undefined : undefined
-    // Profile renders per request so Next and Clerk scripts carry the middleware CSP nonce.
-    return <ClerkProvider publishableKey={clerkKey} afterSignOutUrl={afterSignOutUrl} dynamic={profile}>{body}</ClerkProvider>
+  // Profile (sparq.gmtm.com) has no Clerk: GMTM is the only sign-in (Joey, 2026-10-01).
+  // It renders per request (headers() opts in) so Next's scripts carry the CSP nonce.
+  if (profile) {
+    headers()
+    return body
   }
+  if (clerkKey) return <ClerkProvider publishableKey={clerkKey}>{body}</ClerkProvider>
   return body
 }

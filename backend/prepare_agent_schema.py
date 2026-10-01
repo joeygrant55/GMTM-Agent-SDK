@@ -243,6 +243,15 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
         False,
     ),
     (
+        'create_sparq_sessions',
+        """CREATE TABLE IF NOT EXISTS sparq_sessions (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    jti VARCHAR(64) NOT NULL,
+    issued_at DATETIME(6) NOT NULL
+)""",
+        False,
+    ),
+    (
         'create_sparq_college_lists',
         """CREATE TABLE IF NOT EXISTS sparq_college_lists (
     clerk_id VARBINARY(255) PRIMARY KEY,

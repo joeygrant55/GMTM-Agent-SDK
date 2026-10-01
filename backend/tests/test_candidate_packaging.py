@@ -230,7 +230,7 @@ expected={
 if surface == 'profile':
  expected.update({('GET','/api/athlete/evidence'),('GET','/api/athlete/materials'),
                   ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace'),
-                  ('POST','/gmtm-entry/exchange'),('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice'),
+                  ('POST','/gmtm-entry/exchange'),('POST','/gmtm-entry/sign-out'),('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice'),
                   ('GET','/api/workspace/colleges/{clerk_id}'),('POST','/api/workspace/trigger-matching/{clerk_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),

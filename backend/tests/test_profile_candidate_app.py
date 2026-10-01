@@ -1,10 +1,22 @@
 """Actual profile app authentication/route boundaries with synthetic local JWTs."""
+from datetime import datetime, timezone
+import hashlib
+import secrets
+import time
+
 from fastapi.testclient import TestClient
+import jwt
 import pytest
 
 import candidate_app
+import junior_entry
 import model_usage
 from backend.tests.test_candidate_app import ENV, signed
+
+SESSION_SECRET = "synthetic-sparq-session-secret-32-bytes!"
+GSH = hashlib.sha256(b"synthetic-gmtm-session").hexdigest()
+ENTRY_ENV = {"SPARQ_ENTRY_SECRET": "synthetic-entry-secret", "SPARQ_HANDOFF_SECRET": "synthetic-handoff",
+             "GMTM_API_URL": "https://gmtm-api.example.invalid", "SPARQ_SESSION_SECRET": SESSION_SECRET}
 
 
 @pytest.fixture
@@ -14,6 +26,24 @@ def profile_app(monkeypatch):
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
     return candidate_app.create_app(surface="profile")
+
+
+@pytest.fixture
+def session(profile_app, monkeypatch):
+    """SPARQ session headers (the profile surface's only sign-in). Each call makes
+    its jti the active one for ``sub`` unless ``active=False``. Claim overrides
+    replace token claims; None removes one."""
+    for name, value in ENTRY_ENV.items():
+        monkeypatch.setenv(name, value)
+
+    def token(sub="clerk_owner", *, active=True, secret=SESSION_SECRET, **claims):
+        now = int(time.time())
+        body = {"sub": sub, "jti": secrets.token_urlsafe(32), "gsh": GSH, "iat": now, "exp": now + 86400, **claims}
+        body = {k: v for k, v in body.items() if v is not None}
+        if active:
+            junior_entry.store.set_session(sub, body.get("jti"), datetime.now(timezone.utc))
+        return {"Authorization": "Bearer " + jwt.encode(body, secret, algorithm="HS256")}
+    return token
 
 
 def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profile_app):
@@ -27,7 +57,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
         "/api/athlete/workspace": ("get", "patch"),
         "/api/claims/{token}": "get", "/api/claims/{token}/redeem": "post",
         "/health": "get",
-        "/gmtm-entry/exchange": "post", "/api/athlete/parent-notice": ("get", "post"),
+        "/gmtm-entry/exchange": "post", "/gmtm-entry/sign-out": "post", "/api/athlete/parent-notice": ("get", "post"),
         "/api/workspace/colleges/{clerk_id}": "get", "/api/workspace/trigger-matching/{clerk_id}": "post",
         "/api/workspace/colleges/{clerk_id}/{program_id}": "get",
         "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft": ("get", "post"),
@@ -61,10 +91,11 @@ def test_profile_health_is_not_a_claim_of_live_data_or_provider_delivery(profile
         assert model_usage._ledger is None
 
 
-def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, signed):
+def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, session, signed):
     # Unmocked database/provider/network calls are blocked by conftest.
     with TestClient(profile_app) as client:
-        for headers in ({}, signed(azp=None), signed(sub=" user"), signed(azp="https://foreign.example.invalid")):
+        for headers in ({}, signed(), session(active=False), session(exp=int(time.time()) - 1),
+                        session(secret="another-secret-that-is-32-bytes-long!"), session(gsh=None), session(gsh="raw-session-id")):
             response = client.get("/api/athlete/evidence", headers=headers)
             assert response.status_code == 401
             assert response.headers["cache-control"] == "private, no-store"
@@ -80,7 +111,7 @@ def test_profile_rejects_invalid_sessions_before_any_source_read(profile_app, si
             assert client.patch("/api/athlete/workspace", headers=headers, json={}).status_code == 401
 
 
-def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, signed):
+def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, session):
     with TestClient(profile_app) as client:
         for method, path in (
             ("POST", "/api/athlete/evidence"), ("GET", "/api/athlete/evidence/"),
@@ -95,19 +126,19 @@ def test_profile_excludes_writes_research_help_and_public_sharing(profile_app, s
             ("GET", "/api/workspace/inbox/user"), ("GET", "/api/reports/public/token"),
             ("GET", "/docs"), ("GET", "/openapi.json"),
         ):
-            response = client.request(method, path, headers=signed())
+            response = client.request(method, path, headers=session())
             assert response.status_code in (404, 405)
             assert response.headers["cache-control"] == "private, no-store"
 
 
-def test_profile_configuration_drift_and_query_overrides_fail_closed(profile_app, signed, monkeypatch):
+def test_profile_configuration_drift_and_query_overrides_fail_closed(profile_app, session, monkeypatch):
     with TestClient(profile_app) as client:
-        response = client.get("/api/athlete/evidence?user_id=2", headers=signed())
+        response = client.get("/api/athlete/evidence?user_id=2", headers=session())
         assert response.status_code == 400
-        assert client.get("/api/athlete/materials?user_id=2", headers=signed()).status_code == 400
-        assert client.get("/api/athlete/workspace?user_id=2", headers=signed()).status_code == 400
+        assert client.get("/api/athlete/materials?user_id=2", headers=session()).status_code == 400
+        assert client.get("/api/athlete/workspace?user_id=2", headers=session()).status_code == 400
         monkeypatch.setenv("DB_USER", "unexpected")
-        response = client.get("/api/athlete/evidence", headers=signed())
+        response = client.get("/api/athlete/evidence", headers=session())
         assert response.status_code == 503
         assert response.headers["cache-control"] == "private, no-store"
 
@@ -132,7 +163,7 @@ def test_profile_workspace_patch_preflight_is_allowed_only_in_profile_surface(pr
         assert client.options("/api/athlete/workspace", headers=headers).status_code == 400
 
 
-def test_profile_debrief_limits_are_required_and_runtime_drift_is_rejected(profile_app, signed, monkeypatch):
+def test_profile_debrief_limits_are_required_and_runtime_drift_is_rejected(profile_app, session, monkeypatch):
     monkeypatch.setenv("PROFILE_DEBRIEF_ENABLED", "true")
     with pytest.raises(ValueError):
         with TestClient(profile_app):
@@ -145,7 +176,7 @@ def test_profile_debrief_limits_are_required_and_runtime_drift_is_rejected(profi
         assert health["provider_delivery_verified"] is False
         assert model_usage._ledger is None
         monkeypatch.setenv("PROFILE_DEBRIEF_MAX_MODEL_CALLS", "4")
-        response = client.post("/api/athlete/debrief", headers=signed(),
+        response = client.post("/api/athlete/debrief", headers=session(),
                                json={"track": "profile", "question": "What can I use?"})
         assert response.status_code == 503
         assert response.headers["cache-control"] == "private, no-store"

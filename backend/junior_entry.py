@@ -1,15 +1,23 @@
-"""GMTM -> SPARQ junior entry: code exchange, Clerk ticket, entry gate, parent notice.
+"""GMTM -> SPARQ junior entry: code exchange, SPARQ session, entry gate, parent notice.
+
+No Clerk (Joey, 2026-10-01): GMTM sign-in is the only sign-in on the profile surface.
 
 Inert on import. Every outside effect goes through a module-level seam that tests
-replace: ``http`` (GMTM redeem + Clerk Backend API), ``store`` (Agent DB) and
+replace: ``http`` (GMTM redeem), ``store`` (Agent DB) and
 ``junior_eligibility.reader`` (read-only GMTM).
 
 Flow: the Next server calls ``POST /gmtm-entry/exchange`` with the shared
-``SPARQ_ENTRY_SECRET``. We redeem the one-use GMTM code, check eligibility, find
-or create the Clerk user ``external_id = gmtm:<user_id>``, ensure the athlete link
-row, record the entry time and return a 60-second Clerk sign-in ticket.
+``SPARQ_ENTRY_SECRET`` and ``gsh`` = sha256 hex of the browser's GMTM sessionId.
+We redeem the one-use GMTM code, check eligibility, use the athlete's existing link
+id as the subject (an older Clerk id keeps all its rows reachable) or link
+``gmtm_<user_id>`` for a new athlete, record the entry and return a 24 h HS256 SPARQ session token
+(sub, jti, gsh, iat, exp) signed with ``SPARQ_SESSION_SECRET``. Only the newest
+jti per user is active; a new entry or sign-out ends the old one.
 
-Each personal request from a gmtm-entry Clerk user passes ``gate``: entry is at
+``require_identity`` is the profile surface's only authentication: a valid,
+unexpired, active SPARQ token. Clerk tokens are refused there.
+
+Each personal request from a gmtm-entry user passes ``gate``: entry is at
 most 24 h old, eligibility still holds (10 min cache) and the parent notice is
 accepted (the notice routes themselves are exempt).
 
@@ -24,11 +32,13 @@ import hmac
 import json
 import os
 import re
+import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
+import jwt
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -36,11 +46,12 @@ from auth import require_clerk_id
 import junior_eligibility
 
 EXCHANGE_PATH = "/gmtm-entry/exchange"
+SIGN_OUT_PATH = "/gmtm-entry/sign-out"
 NOTICE_PATH = "/api/athlete/parent-notice"
-CLERK_API = "https://api.clerk.com/v1"
 SESSION_MAX = timedelta(hours=24)
-TICKET_SECONDS = 60
 _OPAQUE = re.compile(r"[A-Za-z0-9_-]{16,512}\Z")
+_GSH = re.compile(r"[0-9a-f]{64}\Z")
+_CLAIMS = ("sub", "jti", "gsh", "iat", "exp")
 
 SCHEMA = (
     """CREATE TABLE IF NOT EXISTS sparq_entry_refusals (
@@ -61,6 +72,11 @@ SCHEMA = (
     clerk_id VARBINARY(255) PRIMARY KEY,
     accepted_at DATETIME(6) NOT NULL,
     attested_by_session_kind VARCHAR(16) NOT NULL
+)""",
+    """CREATE TABLE IF NOT EXISTS sparq_sessions (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    jti VARCHAR(64) NOT NULL,
+    issued_at DATETIME(6) NOT NULL
 )""",
 )
 
@@ -101,7 +117,7 @@ class EntryUnavailable(HTTPException):
         super().__init__(status_code=status, detail=detail)
 
 
-ENTRY_KEYS = ("SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "CLERK_SECRET_KEY")
+ENTRY_KEYS = ("SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "SPARQ_SESSION_SECRET")
 
 
 def entry_configuration(env):
@@ -112,6 +128,8 @@ def entry_configuration(env):
     missing = [k for k, v in values.items() if not v]
     if missing:
         raise ValueError(f"GMTM entry needs {missing[0]}")
+    if len(values["SPARQ_SESSION_SECRET"].encode()) < 32:
+        raise ValueError("SPARQ_SESSION_SECRET must be at least 32 bytes")
     try:
         url = urllib.parse.urlsplit(values["GMTM_API_URL"])
         host = url.hostname
@@ -150,46 +168,63 @@ def redeem(code: str, state: str) -> int:
     return user_id
 
 
-# ── Clerk Backend API ───────────────────────────────────────────────────────────
+# ── SPARQ session token ─────────────────────────────────────────────────────────
 
-def _clerk(method, path, *, body=None, params=None):
-    try:
-        status, data = http(method, CLERK_API + path, body=body, params=params,
-                            headers={"Authorization": "Bearer " + _setting("CLERK_SECRET_KEY")})
-    except OSError:
-        raise EntryUnavailable() from None
-    if status not in (200, 201) or data is None:
-        raise EntryUnavailable()  # e.g. 422 when the instance requires another identifier
-    return data
+def subject_for(user_id: int) -> str:
+    return f"gmtm_{user_id}"
 
 
-def clerk_user_for(user_id: int) -> str:
-    external_id = f"gmtm:{user_id}"
-    found = _clerk("GET", "/users", params={"external_id": external_id})
-    matches = [u for u in found if isinstance(u, dict) and u.get("external_id") == external_id] if isinstance(found, list) else None
-    if matches is None or len(matches) > 1:
-        raise HTTPException(409, "This account needs review before SPARQ can open.")
-    # Clerk usernames: 4-64 chars of letters, digits, "_" or "-". gmtm_<id> fits.
-    user = matches[0] if matches else _clerk("POST", "/users", body={
-        "external_id": external_id, "username": f"gmtm_{user_id}", "skip_password_requirement": True})
-    clerk_id = user.get("id") if isinstance(user, dict) else None
-    if not isinstance(clerk_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,255}", clerk_id) \
-            or user.get("external_id") != external_id:
-        raise EntryUnavailable()
-    return clerk_id
-
-
-def clerk_ticket(clerk_id: str) -> str:
-    data = _clerk("POST", "/sign_in_tokens", body={"user_id": clerk_id, "expires_in_seconds": TICKET_SECONDS})
-    token = data.get("token") if isinstance(data, dict) else None
-    if not isinstance(token, str) or not token:
-        raise EntryUnavailable()
+def issue_session(sub: str, gsh: str, now: datetime) -> str:
+    """Sign a 24 h token and make its jti the only active one for ``sub``."""
+    jti = secrets.token_urlsafe(32)
+    iat = int(now.timestamp())
+    token = jwt.encode({"sub": sub, "jti": jti, "gsh": gsh, "iat": iat, "exp": iat + int(SESSION_MAX.total_seconds())},
+                       _setting("SPARQ_SESSION_SECRET"), algorithm="HS256")
+    store.set_session(sub, jti, now)
     return token
+
+
+def session_claims(token: str) -> dict:
+    """Signature, expiry and shape only (no store read). 401 on any failure."""
+    try:
+        secret = _setting("SPARQ_SESSION_SECRET")
+    except EntryUnavailable:
+        raise HTTPException(503, "SPARQ sign-in is temporarily unavailable.") from None
+    try:
+        claims = jwt.decode(token, secret, algorithms=["HS256"], options={"require": list(_CLAIMS)})
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.") from None
+    if not all(isinstance(claims.get(k), str) and claims[k] for k in ("sub", "jti", "gsh")) \
+            or len(claims["sub"]) > 255 or not _GSH.fullmatch(claims["gsh"]):
+        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.")
+    return claims
+
+
+def _active(claims: dict) -> str:
+    active = store.session_jti(claims["sub"])
+    if not isinstance(active, str) or not hmac.compare_digest(active.encode(), claims["jti"].encode()):
+        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.")
+    return claims["sub"]
+
+
+async def require_identity(authorization: str | None = Header(default=None)) -> str:
+    """Profile surface authentication: ONLY an active SPARQ session token. Returns sub."""
+    parts = (authorization or "").split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1].strip():
+        raise HTTPException(401, "Missing Authorization bearer token.")
+    claims = session_claims(parts[1].strip())
+    try:
+        return await run_in_threadpool(_active, claims)
+    except HTTPException:
+        raise
+    except Exception:
+        raise EntryUnavailable() from None
 
 
 # ── Agent DB store ──────────────────────────────────────────────────────────────
 
 class LinkConflict(HTTPException):
+    """``gmtm_<id>`` already names another athlete row: data needs review."""
     def __init__(self):
         super().__init__(409, "This athlete is connected to another SPARQ account. Contact support.")
 
@@ -244,6 +279,30 @@ class MySQLStore:
             "VALUES (%s, %s, 'unknown') ON DUPLICATE KEY UPDATE clerk_id = clerk_id",
             (clerk_id.encode(), at.replace(tzinfo=None))))
 
+    def set_session(self, clerk_id, jti, at):
+        self._run(lambda c: c.execute(
+            "INSERT INTO sparq_sessions (clerk_id, jti, issued_at) VALUES (%s, %s, %s) "
+            "ON DUPLICATE KEY UPDATE jti = VALUES(jti), issued_at = VALUES(issued_at)",
+            (clerk_id.encode(), jti, at.replace(tzinfo=None))))
+
+    def session_jti(self, clerk_id):
+        def read(c):
+            c.execute("SELECT jti FROM sparq_sessions WHERE clerk_id = %s", (clerk_id.encode(),))
+            row = c.fetchone()
+            return None if row is None else row["jti"]
+        return self._run(read)
+
+    def end_session(self, clerk_id, jti):
+        self._run(lambda c: c.execute("DELETE FROM sparq_sessions WHERE clerk_id = %s AND jti = %s",
+                                      (clerk_id.encode(), jti)))
+
+    def linked_clerk_id(self, user_id):
+        def read(c):
+            c.execute("SELECT clerk_id FROM athlete_profiles WHERE user_id = %s LIMIT 1", (user_id,))
+            row = c.fetchone()
+            return None if row is None else row["clerk_id"]
+        return self._run(read)
+
     def ensure_link(self, clerk_id, user_id):
         """Same lock name and no-overwrite insert as claim redemption (claims_api)."""
         lock = "sparq.claim." + hashlib.sha256(clerk_id.encode()).hexdigest()[:48]
@@ -285,7 +344,7 @@ store = MySQLStore()
 
 # ── Exchange route (Next server only) ──────────────────────────────────────────
 
-def _exchange(code: str, state: str) -> dict:
+def _exchange(code: str, state: str, gsh: str) -> dict:
     # Validate every setting before redeem: a missing one must not burn the one-use code.
     try:
         if entry_configuration(os.environ) is None:
@@ -301,15 +360,18 @@ def _exchange(code: str, state: str) -> dict:
     if not eligible:
         store.record_refusal(user_id, "ineligible", now)
         return {"eligible": False}
-    clerk_id = clerk_user_for(user_id)
-    store.ensure_link(clerk_id, user_id)
+    # The GMTM session proves the person. An athlete already linked (e.g. an older
+    # Clerk id) keeps that id as the subject, so every row keyed by it stays reachable.
+    # It is accepted only inside a SPARQ-signed token; profile has no Clerk JWT path.
+    sub = store.linked_clerk_id(user_id) or subject_for(user_id)
+    store.ensure_link(sub, user_id)
     try:
         from workspace_bootstrap import ensure_workspace_profile
-        ensure_workspace_profile(clerk_id, user_id)
+        ensure_workspace_profile(sub, user_id)
     except Exception:
-        print("[gmtm-entry] workspace bootstrap failed")  # never log ids, codes or tickets
-    store.record_entry(clerk_id, user_id, now)
-    return {"eligible": True, "ticket": clerk_ticket(clerk_id)}
+        print("[gmtm-entry] workspace bootstrap failed")  # never log codes or tokens
+    store.record_entry(sub, user_id, now)
+    return {"eligible": True, "token": issue_session(sub, gsh, now)}
 
 
 async def exchange(request: Request):
@@ -325,9 +387,21 @@ async def exchange(request: Request):
         body = None
     code = body.get("code") if isinstance(body, dict) else None
     state = body.get("state") if isinstance(body, dict) else None
-    if not all(isinstance(v, str) and _OPAQUE.fullmatch(v) for v in (code, state)):
+    gsh = body.get("gsh") if isinstance(body, dict) else None
+    if not all(isinstance(v, str) and _OPAQUE.fullmatch(v) for v in (code, state)) \
+            or not isinstance(gsh, str) or not _GSH.fullmatch(gsh):
         raise HTTPException(400, "Invalid entry request.")
-    return JSONResponse(await run_in_threadpool(_exchange, code, state))
+    return JSONResponse(await run_in_threadpool(_exchange, code, state, gsh))
+
+
+async def sign_out(authorization: str | None = Header(default=None)):
+    """Next server only: end the caller's active jti. Idempotent; never needs the gate."""
+    parts = (authorization or "").split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1].strip():
+        raise HTTPException(401, "Missing Authorization bearer token.")
+    claims = session_claims(parts[1].strip())
+    await run_in_threadpool(store.end_session, claims["sub"], claims["jti"])
+    return {"signed_out": True}
 
 
 # ── Per-request gate (called by the profile admission boundary) ─────────────────
