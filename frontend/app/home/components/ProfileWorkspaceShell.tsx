@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createContext, useCallback, useContext, useState } from 'react'
 import { UserButton, useUser } from '@clerk/nextjs'
 import SparqLogo from '@/components/SparqLogo'
+import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentNoticeGate'
 
 export type CareerView = 'home' | 'portfolio' | 'opportunities' | 'progress'
 
@@ -20,7 +21,9 @@ const navigationItems: Array<{ view: CareerView; label: string }> = [
   { view: 'opportunities', label: 'Opportunities' }, { view: 'progress', label: 'Progress' },
 ]
 
-function CareerShell({ children }: { children: React.ReactNode }) {
+function CareerShell({ children, userId }: { children: React.ReactNode; userId?: string }) {
+  const { notice, accept } = useEntryNotice(userId)
+  const blocked = notice.phase === 'ended' || (notice.required && !notice.accepted)
   const [navigation, setNavigation] = useState<{ view: CareerView; revision: number }>({ view: 'home', revision: 0 })
   const setView = useCallback((view: CareerView) => setNavigation(previous => ({ view, revision: previous.revision + 1 })), [])
   const { view } = navigation
@@ -36,12 +39,16 @@ function CareerShell({ children }: { children: React.ReactNode }) {
             {navigationItems.map(item => <button key={item.view} type="button" onClick={() => setView(item.view)} aria-current={view === item.view ? 'page' : undefined} className={`inline-flex min-h-12 shrink-0 items-center border-b-[3px] px-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-sparq-lime sm:min-h-[72px] sm:px-2 sm:text-sm ${view === item.view ? 'border-sparq-lime text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>{item.label}</button>)}
           </nav>
           <div className="flex items-center gap-3">
+            {notice.required && <SwitchAccountLink />}
             <a href="https://gmtm.com" target="_blank" rel="noopener noreferrer" aria-label="Back to GMTM (opens in a new tab)" className="inline-flex min-h-11 items-center gap-1 text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Back to GMTM <span aria-hidden="true">↗</span></a>
             <UserButton />
           </div>
         </div>
       </header>
-      <main id="profile-main" tabIndex={-1} className="mx-auto w-full max-w-[1424px] px-6 outline-none lg:px-10">{children}</main>
+      <main id="profile-main" tabIndex={-1} className="mx-auto w-full max-w-[1424px] px-6 outline-none lg:px-10">
+        {notice.phase === 'loading' && userId ? <p role="status" className="py-16 text-center text-gray-400">Loading…</p>
+          : blocked ? <ParentNoticeScreen notice={notice} accept={accept} /> : children}
+      </main>
     </div>
     </CareerNavigation.Provider>
   )
@@ -49,5 +56,5 @@ function CareerShell({ children }: { children: React.ReactNode }) {
 
 export default function ProfileWorkspaceShell({ children }: { children: React.ReactNode }) {
   const { isLoaded, user } = useUser()
-  return <CareerShell key={isLoaded ? user?.id || 'signed-out' : 'loading'}>{children}</CareerShell>
+  return <CareerShell key={isLoaded ? user?.id || 'signed-out' : 'loading'} userId={user?.id}>{children}</CareerShell>
 }

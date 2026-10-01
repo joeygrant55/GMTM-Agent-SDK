@@ -4,7 +4,7 @@ import { candidatePagePolicy, isRestrictedSurface, resolveBackendOrigin } from '
 
 const isPublicRoute = createRouteMatcher([
   '/', '/sign-in(.*)', '/sign-up(.*)', '/connect', '/demo', '/quick-scan',
-  '/athlete/(.*)', '/report/(.*)', '/claim/(.*)',
+  '/athlete/(.*)', '/report/(.*)', '/claim/(.*)', '/enter(.*)',
 ])
 const isClaimRedeemRoute = createRouteMatcher(['/claim/(.*)/redeem'])
 const isOnboardingRoute = createRouteMatcher(['/onboarding(.*)'])
@@ -34,7 +34,7 @@ const authenticatedMiddleware = clerkMiddleware(async (auth, request) => {
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const pathname = request.nextUrl.pathname
   if (combine) {
-    const policy = candidatePagePolicy(pathname, request.method)
+    const policy = candidatePagePolicy(pathname, request.method, process.env.NEXT_PUBLIC_APP_SURFACE)
     // This runs before Clerk, all page handlers and same-origin API routes.
     if (policy === 'deny') return new NextResponse('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } })
     if (policy === 'asset') return NextResponse.next()

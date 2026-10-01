@@ -25,6 +25,7 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (surface === 'profile' && ['/api/athlete/evidence', '/api/athlete/materials'].includes(pathname)) return method === 'GET'
   if (surface === 'profile' && ['/api/athlete/debrief', '/api/athlete/opportunities', '/api/athlete/opportunities/engagement'].includes(pathname)) return method === 'POST'
   if (surface === 'profile' && pathname === '/api/athlete/workspace') return method === 'GET' || method === 'PATCH'
+  if (surface === 'profile' && pathname === '/api/athlete/parent-notice') return method === 'GET' || method === 'POST'
   if (/^\/api\/profile\/by-clerk\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
   if (/^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?\/redeem$/.test(pathname)) return method === 'POST'
   return /^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?$/.test(pathname) && pathname !== '/api/claims/mint' && method === 'GET'
@@ -37,12 +38,15 @@ function resolveAPIRequest(input, origin, surface, method = 'GET') {
   if (isRestrictedSurface(surface) && !candidateAPIAllowed(url.pathname, method.toUpperCase(), url.search, surface)) throw new Error('This API operation is unavailable in the selected surface')
   return url.href
 }
-function candidatePagePolicy(pathname, method) {
+function candidatePagePolicy(pathname, method, surface = 'combine') {
   // No generic filename exemption: dynamic legacy paths can have static suffixes.
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) return 'deny'
   if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico'].includes(pathname)) return 'asset'
   if (pathname === '/') return 'home'
   if (['/home', '/home/inbox', '/connect'].includes(pathname)) return 'page'
+  // GMTM entry bridge exists only on the profile surface, which has no self sign-up.
+  if (surface === 'profile' && /^\/enter(?:\/(?:callback|finish|unavailable))?$/.test(pathname)) return 'page'
+  if (surface === 'profile' && /^\/sign-up(?:\/|$)/.test(pathname)) return 'deny'
   if (/^\/sign-(?:in|up)(?:\/[A-Za-z0-9_-]+)*$/.test(pathname)) return 'page'
   if (/^\/claim\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?(?:\/redeem)?$/.test(pathname)) return 'page'
   return 'deny'

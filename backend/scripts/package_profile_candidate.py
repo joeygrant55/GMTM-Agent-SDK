@@ -28,6 +28,7 @@ SOURCES = (
     "backend/source_scope.py", "backend/start_profile_candidate.py",
     "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
     "backend/profile_admission.py", "backend/profile_owner.py",
+    "backend/junior_entry.py", "backend/junior_eligibility.py",
 )
 
 

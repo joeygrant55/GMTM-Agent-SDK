@@ -251,6 +251,10 @@ def main():
     combine_api._get_gmtm_db = lambda: combine_connection("gmtm")
 
     if surface == "profile":
+        # No gmtm-entry users in this harness; the entry gate sees an empty store.
+        import junior_entry
+        from backend.tests.junior_fakes import MemoryStore
+        junior_entry.store = MemoryStore()
         import athlete_evidence
         import athlete_materials
         import athlete_workspace

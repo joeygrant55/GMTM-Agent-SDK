@@ -106,3 +106,16 @@ def _safe_environment(monkeypatch):
     monkeypatch.setattr(openai, "OpenAI", _no_model)
     monkeypatch.setattr(openai, "AsyncOpenAI", _no_model)
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
+
+
+@pytest.fixture(autouse=True)
+def _junior_entry_offline(monkeypatch):
+    # The profile boundary asks the entry store on every authenticated request.
+    # Default to an empty in-memory store; GMTM/Clerk HTTP must be stubbed per test.
+    import junior_entry
+    import junior_eligibility
+    from backend.tests.junior_fakes import MemoryStore
+    monkeypatch.setattr(junior_entry, "store", MemoryStore())
+    monkeypatch.setattr(junior_entry, "http", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Stub junior_entry.http")))
+    monkeypatch.setattr(junior_eligibility, "reader", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Stub junior_eligibility.reader")))
+    monkeypatch.setattr(junior_eligibility, "_cache", {})

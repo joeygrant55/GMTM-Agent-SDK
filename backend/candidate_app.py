@@ -52,6 +52,7 @@ _CONFIGURATION_KEYS = (
     "OPPORTUNITY_ENGAGEMENT_PERIOD", "OPPORTUNITY_ENGAGEMENT_SECRET",
     "OPPORTUNITY_ENGAGEMENT_EXCLUDED_IDS", "OPPORTUNITY_ENGAGEMENT_PILOT_IDS",
     "PROFILE_ADMISSION_ENABLED", "PROFILE_ADMISSION_FILE",
+    "SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "CLERK_SECRET_KEY", "SPARQ_TEST_ALLOWLIST",
 )
 
 
@@ -188,19 +189,29 @@ class CandidateBoundaryMiddleware:
         # a retained call_next closure or a mutation of application middleware.
         async def admitted_app(scope, receive, send):
             admission = getattr(scope["app"].state, "profile_admission_configuration", None)
-            if self.surface != "profile" or admission is None or scope["path"] == "/health":
+            # The entry exchange authenticates the Next server with its own secret.
+            if self.surface != "profile" or scope["path"] in ("/health", "/gmtm-entry/exchange"):
+                await self.app(scope, receive, send)
+                return
+            request = Request(scope)
+            if admission is None and (scope["path"].startswith("/api/claims/")
+                                      or not request.headers.get("authorization")):
+                # Loopback-only mode (hosted origins require admission): handlers
+                # still require Clerk; a bearer request also passes the entry gate.
                 await self.app(scope, receive, send)
                 return
             from profile_admission import begin_request, reset_request
+            import junior_entry
             token = None
             try:
                 # Claims can write opened_at without authentication. They are a
                 # separate onboarding flow, never an exception to pilot admission.
                 if scope["path"].startswith("/api/claims/"):
                     raise HTTPException(403, "Account linking is unavailable in this pilot.")
-                request = Request(scope)
                 subject = await require_candidate_clerk_id(request, request.headers.get("authorization"))
-                token = begin_request(admission, subject)
+                # gmtm-entry juniors use the entry gate instead of the adult file.
+                if not await junior_entry.gate(subject, scope["path"]) and admission is not None:
+                    token = begin_request(admission, subject)
             except HTTPException as exc:
                 await JSONResponse({"detail": exc.detail}, status_code=exc.status_code)(scope, receive, send)
                 return
@@ -232,7 +243,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         from profile_owner import current_profile_recovery
         from profile_admission import validate_configuration as admission_configuration, load_admissions
+        from junior_entry import exchange, get_parent_notice, accept_parent_notice, entry_configuration
         routes = (
+            ("POST", "/gmtm-entry/exchange", exchange),
+            ("GET", "/api/athlete/parent-notice", get_parent_notice),
+            ("POST", "/api/athlete/parent-notice", accept_parent_notice),
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
             ("GET", "/api/athlete/materials", current_athlete_materials),
             ("POST", "/api/athlete/opportunities", current_athlete_opportunities),
@@ -254,6 +269,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.opportunity_engagement_configuration = engagement_configuration(os.environ)
             application.state.opportunity_engagement_limiter = RateLimit()
             application.state.profile_admission_configuration = admission_configuration(os.environ, config.origins)
+            # Entry is off when no entry key is set; partial or invalid settings stop startup.
+            entry_configuration(os.environ)
             if application.state.profile_admission_configuration is not None:
                 # Only the explicit private admission file is read at startup;
                 # no database, schema or provider work is performed.

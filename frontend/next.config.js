@@ -11,6 +11,11 @@ module.exports = {
   // Keep browser font stylesheets, but make candidate builds independent of a
   // compile-time Google Fonts download.
   ...(combine ? { images: { unoptimized: true }, optimizeFonts: false } : {}),
+  async headers() {
+    // GMTM entry routes carry one-use codes/tickets: never cache or leak a referrer.
+    const entry = [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }]
+    return [{ source: '/enter', headers: entry }, { source: '/enter/:path*', headers: entry }]
+  },
   async rewrites() {
     return combine ? [] : [{ source: '/api/:path*', destination: `${backendUrl}/api/:path*` }]
   },

@@ -229,7 +229,8 @@ expected={
 }
 if surface == 'profile':
  expected.update({('GET','/api/athlete/evidence'),('GET','/api/athlete/materials'),
-                  ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace')})
+                  ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace'),
+                  ('POST','/gmtm-entry/exchange'),('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice')})
 else:
  expected.update({('GET','/api/combine/current'),('POST','/api/combine/help')})
 assert {(method,route.path) for route in app.routes for method in route.methods} == expected
@@ -307,6 +308,7 @@ def test_separate_profile_packaging_preserves_the_original_combine_source_set():
         "backend/source_scope.py", "backend/start_profile_candidate.py",
         "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
         "backend/profile_admission.py", "backend/profile_owner.py",
+        "backend/junior_entry.py", "backend/junior_eligibility.py",
     }
     assert original_combine - set(profile_packager.SOURCES) == {
         "Dockerfile.candidate", "Dockerfile.candidate.dockerignore", "backend/start_candidate.py",

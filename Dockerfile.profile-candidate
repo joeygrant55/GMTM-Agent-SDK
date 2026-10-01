@@ -15,6 +15,8 @@ COPY backend/auth.py backend/candidate_app.py backend/claims_api.py backend/comb
 
 COPY backend/profile_admission.py backend/profile_owner.py /app/backend/
 
+COPY backend/junior_entry.py backend/junior_eligibility.py /app/backend/
+
 COPY backend/athlete_opportunities.py backend/opportunity_catalog.py backend/opportunity_engagement.py /app/backend/
 
 USER 10001:10001

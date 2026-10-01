@@ -31,3 +31,5 @@ backend/**
 !backend/opportunity_engagement.py
 !backend/profile_admission.py
 !backend/profile_owner.py
+!backend/junior_entry.py
+!backend/junior_eligibility.py
