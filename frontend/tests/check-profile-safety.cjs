@@ -108,4 +108,12 @@ check('Outreach UI on the profile surface offers Copy and Open in my email (Appr
   assert.match(source, /Open in my email/)
 })
 
+check('Junior colleges: copy or open in my email only, strict mailto, https-only links, no fit score', () => {
+  const source = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
+  assert.match(source, /\/\^\[A-Za-z0-9\._\+-\]\+@\[A-Za-z0-9-\]\+\(\\\.\[A-Za-z0-9-\]\+\)\+\$\//)
+  assert.match(source, /url\.startsWith\('https:\/\/'\)/)
+  assert.match(source, /Open in my email/)
+  assert.ok(!/fit_score|approve|Send<|sendgrid/i.test(source))
+})
+
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))

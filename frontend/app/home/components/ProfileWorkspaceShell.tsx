@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useState } from 'react'
 import { UserButton, useUser } from '@clerk/nextjs'
+import { usePathname, useRouter } from 'next/navigation'
 import SparqLogo from '@/components/SparqLogo'
 import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentNoticeGate'
 
@@ -25,7 +26,13 @@ function CareerShell({ children, userId }: { children: React.ReactNode; userId?:
   const { notice, accept } = useEntryNotice(userId)
   const blocked = notice.phase === 'ended' || (notice.required && !notice.accepted)
   const [navigation, setNavigation] = useState<{ view: CareerView; revision: number }>({ view: 'home', revision: 0 })
-  const setView = useCallback((view: CareerView) => setNavigation(previous => ({ view, revision: previous.revision + 1 })), [])
+  const pathname = usePathname()
+  const router = useRouter()
+  // Views live on /home/inbox; from another page (colleges) the nav goes back there.
+  const setView = useCallback((view: CareerView) => {
+    setNavigation(previous => ({ view, revision: previous.revision + 1 }))
+    if (pathname !== '/home/inbox') router.push('/home/inbox')
+  }, [pathname, router])
   const { view } = navigation
 
   return (

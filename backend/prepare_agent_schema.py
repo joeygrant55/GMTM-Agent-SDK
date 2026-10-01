@@ -209,6 +209,52 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
 )""",
         False,
     ),
+    # Junior pilot tables. Same reviewed DDL text as junior_entry.SCHEMA and
+    # college_programs.SCHEMA (a test keeps them equal); prepared here in one step.
+    (
+        'create_sparq_entry_refusals',
+        """CREATE TABLE IF NOT EXISTS sparq_entry_refusals (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    decision VARCHAR(32) NOT NULL,
+    decided_at DATETIME(6) NOT NULL,
+    KEY idx_entry_refusals_user (user_id)
+)""",
+        False,
+    ),
+    (
+        'create_sparq_entries',
+        """CREATE TABLE IF NOT EXISTS sparq_entries (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    clerk_id VARBINARY(255) NOT NULL,
+    user_id BIGINT NOT NULL,
+    entered_at DATETIME(6) NOT NULL,
+    KEY idx_entries_clerk (clerk_id, entered_at)
+)""",
+        False,
+    ),
+    (
+        'create_sparq_parent_notices',
+        """CREATE TABLE IF NOT EXISTS sparq_parent_notices (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    accepted_at DATETIME(6) NOT NULL,
+    attested_by_session_kind VARCHAR(16) NOT NULL
+)""",
+        False,
+    ),
+    (
+        'create_sparq_college_lists',
+        """CREATE TABLE IF NOT EXISTS sparq_college_lists (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    gmtm_gender TINYINT NULL,
+    gmtm_sport VARCHAR(100) NULL,
+    inputs_key CHAR(64) NULL,
+    programs JSON NULL,
+    built_at DATETIME(6) NULL,
+    updated_at DATETIME(6) NOT NULL
+)""",
+        False,
+    ),
 )
 
 CONVERSATION_COLUMNS = frozenset({

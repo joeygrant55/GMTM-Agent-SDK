@@ -245,6 +245,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from profile_owner import current_profile_recovery
         from profile_admission import validate_configuration as admission_configuration, load_admissions
         from junior_entry import exchange, get_parent_notice, accept_parent_notice, entry_configuration
+        import college_programs as colleges
         routes = (
             ("POST", "/gmtm-entry/exchange", exchange),
             ("GET", "/api/athlete/parent-notice", get_parent_notice),
@@ -257,6 +258,12 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("GET", "/api/athlete/workspace", current_athlete_workspace),
             ("PATCH", "/api/athlete/workspace", update_athlete_workspace),
             ("GET", "/api/profile/by-clerk/{clerk_id}", current_profile_recovery),
+            # Reviewed recruiting set (junior pilot): owner-checked by the URL clerk_id.
+            ("GET", "/api/workspace/colleges/{clerk_id}", colleges.list_colleges),
+            ("POST", "/api/workspace/trigger-matching/{clerk_id}", colleges.build_colleges),
+            ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}", colleges.college_detail),
+            ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.get_outreach_draft),
+            ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.create_outreach_draft),
             *BUSINESS_ROUTES[3:],
         )
         title = "SPARQ Profile Candidate"
@@ -275,6 +282,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.profile_admission_configuration = admission_configuration(os.environ, config.origins)
             # Entry is off when no entry key is set; partial or invalid settings stop startup.
             entry_configuration(os.environ)
+            # A bad college data file stops startup instead of showing broken cards.
+            colleges.programs()
             if application.state.profile_admission_configuration is not None:
                 # Only the explicit private admission file is read at startup;
                 # no database, schema or provider work is performed.

@@ -1,0 +1,2838 @@
+[
+  {
+    "school": "Alabama State University",
+    "city": "Montgomery",
+    "state": "AL",
+    "governing_body": "NCAA-D1",
+    "conference": "ECAC (flag football); SWAC (primary)",
+    "program_url": "https://bamastatesports.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://bamastatesports.com/news/2024/4/2/general-alabama-state-athletics-adding-womens-flag-football.aspx",
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First D1 HBCU to add varsity women's flag football (announced 2024); already competing, continues 2026-27."
+  },
+  {
+    "school": "Delaware State University",
+    "city": "Dover",
+    "state": "DE",
+    "governing_body": "NCAA-D1",
+    "conference": "MEAC",
+    "program_url": "https://dsuhornets.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://meacsports.com/news/2026/8/13/about-the-meac-meac-adds-mississippi-valley-state-gardner-webb-as-womens-flag-football-members.aspx",
+      "https://dsuhornets.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "MEAC full member for 2026-27 (spring 2027 inaugural season). DSU's own site had not yet published a dedicated varsity flag football page as of verification; confirmed via MEAC conference page."
+  },
+  {
+    "school": "Eastern Michigan University",
+    "city": "Ypsilanti",
+    "state": "MI",
+    "governing_body": "NCAA-D1",
+    "conference": "Independent (first MAC school to add the sport; MAC does not yet sponsor it)",
+    "program_url": "https://emueagles.com/news/2026/4/16/general-eastern-michigan-to-add-womens-flag-football-in-2027",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.ncaa.org/news/media-center-eastern-michigan-to-add-womens-flag-football-in-2027/",
+      "https://emueagles.com/news/2026/4/16/general-eastern-michigan-to-add-womens-flag-football-in-2027"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Varsity announced April 2026; inaugural season spring 2027 (2026-27)."
+  },
+  {
+    "school": "Fairleigh Dickinson University",
+    "city": "Teaneck",
+    "state": "NJ",
+    "governing_body": "NCAA-D1",
+    "conference": "ECAC",
+    "program_url": "https://fduknights.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://fduknights.com/sports/womens-flag-football",
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Joins ECAC Women's Flag Football League for spring 2027 (2026-27)."
+  },
+  {
+    "school": "Gardner-Webb University",
+    "city": "Boiling Springs",
+    "state": "NC",
+    "governing_body": "NCAA-D1",
+    "conference": "MEAC (associate, flag football); Big South (primary)",
+    "program_url": "https://gwusports.com/sports/flagfb",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://meacsports.com/news/2026/8/13/about-the-meac-meac-adds-mississippi-valley-state-gardner-webb-as-womens-flag-football-members.aspx",
+      "https://gwusports.com/sports/flagfb"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Big South does not sponsor flag football until 2027-28; Gardner-Webb plays 2026-27 as a MEAC associate member."
+  },
+  {
+    "school": "Long Island University",
+    "city": "Brookville",
+    "state": "NY",
+    "governing_body": "NCAA-D1",
+    "conference": "Northeast Conference",
+    "program_url": "https://www.liuathletics.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.ncaa.org/news/2025/3/28/media-center-liu-athletics-adds-triathlon-womens-flag-football.aspx",
+      "https://www.liuathletics.com/sports/womens-flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Added 2025-26; continues 2026-27. LIU Post campus."
+  },
+  {
+    "school": "Manhattan University",
+    "city": "Bronx",
+    "state": "NY",
+    "governing_body": "NCAA-D1",
+    "conference": "Independent (flag football); MAAC (primary)",
+    "program_url": "https://gojaspers.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gojaspers.com/news/2026/1/29/frank-jennaco-named-inaugural-womens-flag-football-head-coach.aspx",
+      "https://gojaspers.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural season 2026-27. Not to be confused with Manhattanville University (D3), a separate school."
+  },
+  {
+    "school": "Mercyhurst University",
+    "city": "Erie",
+    "state": "PA",
+    "governing_body": "NCAA-D1",
+    "conference": "ECAC",
+    "program_url": "https://hurstathletics.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://hurstathletics.com/news/2024/12/16/womens-flag-football-mercyhurst-adds-womens-flag-football-to-growing-sports-lineup.aspx",
+      "https://hurstathletics.com/news/2025/12/2/womens-flag-football-mercyhurst-flag-football-joins-ecac-funded-by-new-york-jets.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Added 2025-26; joined ECAC league for 2026-27."
+  },
+  {
+    "school": "Mississippi Valley State University",
+    "city": "Itta Bena",
+    "state": "MS",
+    "governing_body": "NCAA-D1",
+    "conference": "MEAC (associate, flag football); SWAC (primary)",
+    "program_url": "https://mvsusports.com/news/2026/5/28/mississippi-valley-state-athletics-names-arlo-henderson-head-womens-flag-football-coach.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://meacsports.com/news/2026/8/13/about-the-meac-meac-adds-mississippi-valley-state-gardner-webb-as-womens-flag-football-members.aspx",
+      "https://mvsusports.com/news/2026/5/28/mississippi-valley-state-athletics-names-arlo-henderson-head-womens-flag-football-coach.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Added via athletics realignment (dropped women's soccer); MEAC associate member for 2026-27, replaces discontinued women's soccer."
+  },
+  {
+    "school": "Mount St. Mary's University",
+    "city": "Emmitsburg",
+    "state": "MD",
+    "governing_body": "NCAA-D1",
+    "conference": "Conference Carolinas (affiliate, flag football postseason)",
+    "program_url": "https://mountathletics.com/news/2024/11/7/mount-st-marys-to-add-womens-flag-football-as-varsity-sport-in-2025-26.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://mountathletics.com/news/2024/11/7/mount-st-marys-to-add-womens-flag-football-as-varsity-sport-in-2025-26.aspx",
+      "https://mountathletics.com/news/2026/4/16/flag-football-competes-in-first-ever-postseason-friday-at-conference-carolinas-championship.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First D1 program in Northeastern US; varsity since 2025-26, played in Conference Carolinas championship in spring 2026."
+  },
+  {
+    "school": "Norfolk State University",
+    "city": "Norfolk",
+    "state": "VA",
+    "governing_body": "NCAA-D1",
+    "conference": "MEAC",
+    "program_url": "https://nsuspartans.com/news/2026/6/25/norfolk-state-introduces-womens-flag-football-program-inaugural-head-coach-darryl-bullock.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://meacsports.com/news/2026/8/13/about-the-meac-meac-adds-mississippi-valley-state-gardner-webb-as-womens-flag-football-members.aspx",
+      "https://nsuspartans.com/news/2026/6/25/norfolk-state-introduces-womens-flag-football-program-inaugural-head-coach-darryl-bullock.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "MEAC full member, inaugural season spring 2027 (2026-27) under head coach Darryl Bullock."
+  },
+  {
+    "school": "North Carolina Central University",
+    "city": "Durham",
+    "state": "NC",
+    "governing_body": "NCAA-D1",
+    "conference": "MEAC",
+    "program_url": "https://nccueaglepride.com/sports/flag",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://meacsports.com/news/2026/8/13/about-the-meac-meac-adds-mississippi-valley-state-gardner-webb-as-womens-flag-football-members.aspx",
+      "https://nccueaglepride.com/sports/flag"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "MEAC full member, transitioned from club to varsity for 2026-27 under head coach Jennifer King."
+  },
+  {
+    "school": "University of Maryland Eastern Shore",
+    "city": "Princess Anne",
+    "state": "MD",
+    "governing_body": "NCAA-D1",
+    "conference": "MEAC",
+    "program_url": "https://umeshawksports.com/sports/wff",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://meacsports.com/news/2026/8/13/about-the-meac-meac-adds-mississippi-valley-state-gardner-webb-as-womens-flag-football-members.aspx",
+      "https://umeshawksports.com/news/2026/6/16/general-the-university-of-maryland-eastern-shore-announces-addition-of-womens-flag-football-program.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "MEAC full member, inaugural season 2026-27."
+  },
+  {
+    "school": "University of Nebraska-Lincoln",
+    "city": "Lincoln",
+    "state": "NE",
+    "governing_body": "NCAA-D1",
+    "conference": "Independent (flag football); Big Ten (primary)",
+    "program_url": "https://huskers.com/news/2026/01/16/nebraska-announces-addition-of-womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://huskers.com/news/2026/01/16/nebraska-announces-addition-of-womens-flag-football",
+      "https://huskers.com/news/2026/08/24/husker-flag-football-will-play-inaugural-season-in-2027"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Only Power 4 school to add varsity women's flag football; inaugural season moved up to spring 2027 (2026-27)."
+  },
+  {
+    "school": "University of North Alabama",
+    "city": "Florence",
+    "state": "AL",
+    "governing_body": "NCAA-D1",
+    "conference": "Independent (flag football); ASUN (primary)",
+    "program_url": "https://roarlions.com/news/2025/9/30/general-north-alabama-to-add-womens-flag-football-and-mens-and-womens-track-in-2026.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://roarlions.com/news/2025/9/30/general-north-alabama-to-add-womens-flag-football-and-mens-and-womens-track-in-2026.aspx",
+      "https://roarlions.com/news/2026/2/20/womens-flag-football-abbi-munson-named-unas-first-womens-flag-football-coach.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Sixth D1 program nationally; inaugural season spring 2027 (2026-27)."
+  },
+  {
+    "school": "University of South Carolina Upstate",
+    "city": "Spartanburg",
+    "state": "SC",
+    "governing_body": "NCAA-D1",
+    "conference": "Big South (independent scheduling until Big South championship begins 2027-28)",
+    "program_url": "https://upstatespartans.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://upstatespartans.com/news/2026/2/4/general-usc-upstate-athletics-to-add-womens-flag-football-an-ncaa-emerging-sport-as-18th-varsity-sport-offering.aspx",
+      "https://upstatespartans.com/sports/flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "13th NCAA D1 program; varsity for 2026-27, ahead of Big South's conference-wide 2027-28 championship launch."
+  },
+  {
+    "school": "University of Texas at Arlington",
+    "city": "Arlington",
+    "state": "TX",
+    "governing_body": "NCAA-D1",
+    "conference": "Independent",
+    "program_url": "https://utamavs.com/news/2025/5/15/ut-arlington-to-add-womens-flag-football-will-begin-play-in-spring-2027.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://utamavs.com/news/2025/5/15/ut-arlington-to-add-womens-flag-football-will-begin-play-in-spring-2027.aspx",
+      "https://www.dallasnews.com/sports/college-sports/2025/05/15/football-returns-to-ut-arlington-as-university-adds-new-sports-offering/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First D1 school in Texas to add the sport; begins play spring 2027 (2026-27)."
+  },
+  {
+    "school": "Barton University",
+    "city": "Wilson",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://bartonbulldogs.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://bartonbulldogs.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Bowie State University",
+    "city": "Bowie",
+    "state": "MD",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://bsubulldogs.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://www.collegiateflagfootball.com/central-intercollegiate-athletic-association-elevatvarsity-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "CIAA elevates club standing to varsity for 2026-27 (spring 2027). Bowie State's own athletics site still listed flag football under intramural/recreation navigation as of verification; CIAA and press sources confirm varsity elevation."
+  },
+  {
+    "school": "Caldwell University",
+    "city": "Caldwell",
+    "state": "NJ",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://caldwellathletics.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://caldwellathletics.com/news/2025/11/12/caldwell-university-adds-womens-flag-football-to-athletics-offerings-for-2026-27-academic-year-names-kroncke-head-coach.aspx",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Only NCAA D2 school in New Jersey sponsoring the sport; inaugural season spring 2027 (2026-27)."
+  },
+  {
+    "school": "Chestnut Hill College",
+    "city": "Philadelphia",
+    "state": "PA",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://griffinathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://griffinathletics.com/news/2024/12/12/general-chestnut-hill-college-to-add-womens-flag-football-and-womens-golf-to-athletic-offerings-in-2025.aspx",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Began play spring 2026 in the Atlantic East Conference; moves to CACC sponsorship for 2026-27."
+  },
+  {
+    "school": "Chowan University",
+    "city": "Murfreesboro",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://gocuhawks.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://gocuhawks.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Claflin University",
+    "city": "Orangeburg",
+    "state": "SC",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://athletics.claflin.edu/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://athletics.claflin.edu/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Davenport University",
+    "city": "Grand Rapids",
+    "state": "MI",
+    "governing_body": "NCAA-D2",
+    "conference": "GLIAC",
+    "program_url": "https://davenportpanthers.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx",
+      "https://www.mininggazette.com/sports/local-sports/2026/06/gliac-announces-the-addition-of-womens-flag-football-for-2026-27/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "GLIAC full member for 2026-27; head coach Ryan Adamovich quoted in launch announcement."
+  },
+  {
+    "school": "Dominican University New York",
+    "city": "Orangeburg",
+    "state": "NY",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://www.chargerathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.chargerathletics.com/general/2025-26/releases/20251031maba3e",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural season spring 2027 (2026-27); 20th varsity sport sponsored by Dominican."
+  },
+  {
+    "school": "Edward Waters University",
+    "city": "Jacksonville",
+    "state": "FL",
+    "governing_body": "NCAA-D2",
+    "conference": "SIAC",
+    "program_url": "https://ewutigerpride.com/news/2026/2/25/edward-waters-university-announces-launch-of-womens-flag-football-program-beginning-in-2026-27.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ewutigerpride.com/news/2026/2/25/edward-waters-university-announces-launch-of-womens-flag-football-program-beginning-in-2026-27.aspx",
+      "https://www.collegiateflagfootball.com/siac-to-sponsor-flag-football-in-spring-2027/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First SIAC school to add varsity flag football; SIAC itself will sponsor the sport for 2026-27 with at least 10 committed teams, but only Edward Waters' own membership is individually confirmed here. Full SIAC roster not yet published as of verification."
+  },
+  {
+    "school": "Emmanuel University",
+    "city": "Franklin Springs",
+    "state": "GA",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://goeclions.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://goeclions.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Fayetteville State University",
+    "city": "Fayetteville",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://fsubroncos.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://hbcusports.com/2026/02/27/fayetteville-state-johnson-c-smith/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Ferrum College",
+    "city": "Ferrum",
+    "state": "VA",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://ferrumpanthers.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://ferrumpanthers.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NCAA D3 school (USA South primary) that plays flag football in Conference Carolinas. Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01. Ferrum is a full member of Conference Carolinas (an NCAA Division II conference); the D3 research pass also classed it as D2."
+  },
+  {
+    "school": "Goldey-Beacom College",
+    "city": "Wilmington",
+    "state": "DE",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://www.gbcathletics.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.gbcathletics.com/news/2025/8/7/goldey-beacom-athletics-unveils-flag-football-as-the-colleges-15th-sport-play-to-begin-in-2026-27.aspx",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "15th varsity sport; play begins 2026-27."
+  },
+  {
+    "school": "Holy Family University",
+    "city": "Philadelphia",
+    "state": "PA",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://athletics.holyfamily.edu/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://athletics.holyfamily.edu/news/2024/7/26/womens-flag-football-holy-family-university-adds-womens-flag-football-to-its-athletics-program.aspx",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First Philadelphia school with varsity women's flag football; began spring 2025 in the Atlantic East, moves to CACC for 2026-27."
+  },
+  {
+    "school": "Johnson C. Smith University",
+    "city": "Charlotte",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://goldenbullsports.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://www.wcnc.com/article/sports/college/johnson-c-smith-debuts-womens-flag-football-with-impressive-finish/275-2dd787b7-80a4-4019-987d-bedc24f41d60"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+  },
+  {
+    "school": "King University",
+    "city": "Bristol",
+    "state": "TN",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://www.kingtornado.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://www.kingtornado.com/sports/womens-flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Lees-McRae College",
+    "city": "Banner Elk",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://lmcbobcats.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://lmcbobcats.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Lewis University",
+    "city": "Romeoville",
+    "state": "IL",
+    "governing_body": "NCAA-D2",
+    "conference": "GLIAC (affiliate)",
+    "program_url": "https://lewisflyers.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "GLIAC affiliate member for flag football, 2026-27. Dedicated school sport page not yet separately confirmed; home sports site reachable."
+  },
+  {
+    "school": "Livingstone College",
+    "city": "Salisbury",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://bluebearathletics.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://www.collegiateflagfootball.com/shaw-adding-varsity-flag-football-4-clubs-joining-ncfa-hacc-keeping-program/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Mars Hill University",
+    "city": "Mars Hill",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://marshilllions.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://marshilllions.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Post University",
+    "city": "Waterbury",
+    "state": "CT",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://posteagles.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://posteagles.com/sports/womens-flag-football",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First Connecticut college with the sport (began spring 2026); CACC sponsorship for 2026-27."
+  },
+  {
+    "school": "Purdue University Northwest",
+    "city": "Hammond",
+    "state": "IN",
+    "governing_body": "NCAA-D2",
+    "conference": "GLIAC",
+    "program_url": "https://pnwathletics.com/sports/womens-flag-football/schedule/2026",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx",
+      "https://pnwathletics.com/news/2025/2/20/general-pnw-athletics-announces-additions-of-womens-ice-hockey-and-womens-flag-football.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First public Indiana institution with the sport; already fielded a team in 2026 (9-3), full GLIAC sponsorship begins spring 2027 (2026-27)."
+  },
+  {
+    "school": "Saginaw Valley State University",
+    "city": "University Center",
+    "state": "MI",
+    "governing_body": "NCAA-D2",
+    "conference": "GLIAC",
+    "program_url": "https://svsucardinals.com/sports/womens-flag-football/schedule/2027",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx",
+      "https://svsucardinals.com/sports/womens-flag-football/schedule/2027"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "GLIAC full member; inaugural season spring 2027 (2026-27)."
+  },
+  {
+    "school": "Shaw University",
+    "city": "Raleigh",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://shawbears.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/shaw-adding-varsity-flag-football-4-clubs-joining-ncfa-hacc-keeping-program/",
+      "https://shawbears.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New varsity program joining CIAA for 2026-27, bringing the conference to 8 varsity teams."
+  },
+  {
+    "school": "Spring Hill College",
+    "city": "Mobile",
+    "state": "AL",
+    "governing_body": "NCAA-D2",
+    "conference": "Independent (joins Gulf South Conference 2027-28)",
+    "program_url": "https://shcbadgers.com/news/2026/1/21/spring-hill-college-puts-the-gulf-coast-at-the-forefront-of-womens-flag-football.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.ncaa.org/media-center-spring-hill-college-to-add-womens-flag-football-in-2026-27/",
+      "https://shcbadgers.com/news/2026/1/21/spring-hill-college-puts-the-gulf-coast-at-the-forefront-of-womens-flag-football.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Only four-year institution in South Alabama/Gulf Coast sponsoring the sport; inaugural season 2026-27, joins Gulf South Conference (all sports) in 2027-28."
+  },
+  {
+    "school": "University of Bridgeport",
+    "city": "Bridgeport",
+    "state": "CT",
+    "governing_body": "NCAA-D2",
+    "conference": "CACC",
+    "program_url": "https://www.ubknights.com/sports/flagfball/2025-26/releases/20260121lzgdt4",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.ubknights.com/general/2025-26/releases/20251030nmdwiq",
+      "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "23rd varsity sport; starts competition 2026-27 in the CACC."
+  },
+  {
+    "school": "University of Mount Olive",
+    "city": "Mount Olive",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://umotrojans.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://umotrojans.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "University of Wisconsin-Parkside",
+    "city": "Kenosha",
+    "state": "WI",
+    "governing_body": "NCAA-D2",
+    "conference": "GLIAC",
+    "program_url": "https://parksiderangers.com/news/2026/1/7/uw-parkside-to-add-womens-flag-football-first-ncaa-university-in-wisconsin-to-offer-scholarships.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx",
+      "https://parksiderangers.com/news/2026/1/7/uw-parkside-to-add-womens-flag-football-first-ncaa-university-in-wisconsin-to-offer-scholarships.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First NCAA university in Wisconsin to offer the sport with scholarships; GLIAC sponsorship 2026-27."
+  },
+  {
+    "school": "Virginia Union University",
+    "city": "Richmond",
+    "state": "VA",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://vuusports.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://www.collegiateflagfootball.com/central-intercollegiate-athletic-association-elevatvarsity-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027). School athletics site showed only a store splash page at time of check; CIAA bracket page confirms participation."
+  },
+  {
+    "school": "Wingate University",
+    "city": "Wingate",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "Conference Carolinas",
+    "program_url": "https://wingatebulldogs.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://conferencecarolinas.com/standings.aspx?path=wflag",
+      "https://wingatebulldogs.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "No. 1 seed in 2026 Conference Carolinas flag football standings. Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+  },
+  {
+    "school": "Winston-Salem State University",
+    "city": "Winston-Salem",
+    "state": "NC",
+    "governing_body": "NCAA-D2",
+    "conference": "CIAA",
+    "program_url": "https://wssurams.com/news/2026/4/11/womens-flag-football-wssu-womens-flag-football-claims-back-to-back-ciaa-championship.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://theciaa.com/news/2026/4/9/about-the-ciaa-ciaa-announces-2026-womens-flag-football-championship-bracket.aspx",
+      "https://wssurams.com/news/2026/4/11/womens-flag-football-wssu-womens-flag-football-claims-back-to-back-ciaa-championship.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Back-to-back club champion; CIAA elevates to varsity for 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Albright College",
+    "city": "Reading",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Middle Atlantic Conference (Commonwealth)",
+    "program_url": "https://albrightathletics.com/news/2025/6/25/general-albright-to-add-womens-flag-football-as-varsity-sport-in-spring-2027.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gomacsports.com/news/2026/7/9/field-hockey-mac-to-sponsor-womens-flag-football-beginning-in-2026-27.aspx",
+      "https://albrightathletics.com/news/2025/6/25/general-albright-to-add-womens-flag-football-as-varsity-sport-in-spring-2027.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "MAC sponsorship begins 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Allegheny College",
+    "city": "Meadville",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Presidents' Athletic Conference",
+    "program_url": "https://alleghenygators.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
+      "https://alleghenygators.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+  },
+  {
+    "school": "Augsburg University",
+    "city": "Minneapolis",
+    "state": "MN",
+    "governing_body": "NCAA-D3",
+    "conference": "Midwest College Women's Flag Football League",
+    "program_url": "https://athletics.augsburg.edu/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gobennies.com/news/2025/10/20/flag-football-csb-to-add-flag-football-this-spring.aspx",
+      "https://athletics.augsburg.edu/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "2026 roster on official athletics site; named as a league member by Saint Benedict. Varsity status inferred from the official-site listing, not from a varsity statement."
+  },
+  {
+    "school": "Baldwin Wallace University",
+    "city": "Berea",
+    "state": "OH",
+    "governing_body": "NCAA-D3",
+    "conference": "Ohio Athletic Conference",
+    "program_url": "https://bwyellowjackets.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/baldwin-wallace-adding-womens-flag-football/",
+      "https://www.bw.edu/news/2025/12/bw-adds-womens-flag-football-as-new-varsity-sport"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First varsity women's flag football program in the OAC/Northeast Ohio; begins spring 2027 (2026-27)."
+  },
+  {
+    "school": "Batten University",
+    "city": "Virginia Beach",
+    "state": "VA",
+    "governing_body": "NCAA-D3",
+    "conference": "Old Dominion Athletic Conference",
+    "program_url": "https://www.battenathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/bridgewater-college-adding-womens-flag-football/",
+      "https://www.battenathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Formerly Virginia Wesleyan University (renamed Batten University); one of the ODAC's first two flag-football sponsors."
+  },
+  {
+    "school": "Bethany College",
+    "city": "Bethany",
+    "state": "WV",
+    "governing_body": "NCAA-D3",
+    "conference": "Presidents' Athletic Conference",
+    "program_url": "https://bethanybison.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
+      "https://bethanybison.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+  },
+  {
+    "school": "Bridgewater College",
+    "city": "Bridgewater",
+    "state": "VA",
+    "governing_body": "NCAA-D3",
+    "conference": "Old Dominion Athletic Conference",
+    "program_url": "https://www.bridgewater.edu/events-news/news/eagles-add-womens-flag-football/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/bridgewater-college-adding-womens-flag-football/",
+      "https://www.bridgewater.edu/events-news/news/eagles-add-womens-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "26th intercollegiate sport; begins competition 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Cairn University",
+    "city": "Langhorne",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "United East Conference",
+    "program_url": "https://www.cairnhighlanders.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/united-east-conference-elevates-flag-football-to-varsity-status/",
+      "https://www.cairnhighlanders.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "United East varsity sponsorship began 2025-26."
+  },
+  {
+    "school": "Cedar Crest College",
+    "city": "Allentown",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "United East Conference",
+    "program_url": "https://cedarcrestathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://cedarcrestathletics.com/news/2024/11/8/general-cedar-crest-college-announces-addition-of-womens-flag-football-program.aspx",
+      "https://cedarcrestathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "12th varsity sport; began competition spring 2026 in United East."
+  },
+  {
+    "school": "Centenary College of Louisiana",
+    "city": "Shreveport",
+    "state": "LA",
+    "governing_body": "NCAA-D3",
+    "conference": "Southern Collegiate Athletic Conference",
+    "program_url": "https://www.gocentenary.com/general/2025-26/releases/20251008r1j1qj",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
+      "https://www.gocentenary.com/general/2025-26/releases/20251008r1j1qj"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "SCAC inaugural flag-football championship is spring 2027 (2026-27)."
+  },
+  {
+    "school": "Centenary University",
+    "city": "Hackettstown",
+    "state": "NJ",
+    "governing_body": "NCAA-D3",
+    "conference": "Atlantic East Conference",
+    "program_url": "https://centenarycyclones.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://atlanticeast.com/news/2025/2/26/general-atlantic-east-conference-makes-history-with-launch-of-first-ever-ncaa-womens-flag-football-season.aspx",
+      "https://centenarycyclones.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Founding Atlantic East varsity member since spring 2025; continues through 2026-27 before conference dissolves."
+  },
+  {
+    "school": "Chatham University",
+    "city": "Pittsburgh",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Presidents' Athletic Conference",
+    "program_url": "https://gochathamcougars.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
+      "https://gochathamcougars.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+  },
+  {
+    "school": "College of Saint Benedict",
+    "city": "St. Joseph",
+    "state": "MN",
+    "governing_body": "NCAA-D3",
+    "conference": "Midwest College Women's Flag Football League",
+    "program_url": "https://gobennies.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gobennies.com/news/2025/10/20/flag-football-csb-to-add-flag-football-this-spring.aspx",
+      "https://www.collegiateflagfootball.com/saint-benedict-and-richard-bland-adding-womens-flag-football/",
+      "https://gobennies.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Varsity, inaugural spring 2026; 2027 roster page live. Partnered with the Minnesota Vikings. League is not an NCAA conference."
+  },
+  {
+    "school": "Concordia University Texas",
+    "city": "Austin",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "Southern Collegiate Athletic Conference",
+    "program_url": "https://athletics.concordia.edu/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
+      "https://athletics.concordia.edu/news/2024/8/22/general-first-in-texas-ctx-welcomes-womens-flag-football-program.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Ran pilot/club 2025-26; becomes SCAC varsity member spring 2027 (2026-27)."
+  },
+  {
+    "school": "East Texas Baptist University",
+    "city": "Marshall",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "American Southwest Conference",
+    "program_url": "https://goetbutigers.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ascsports.org/news/2025/8/1/general-american-southwest-conference-announces-plans-to-add-flag-football-as-sponsored-sport.aspx",
+      "https://goetbutigers.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Eastern Connecticut State University",
+    "city": "Willimantic",
+    "state": "CT",
+    "governing_body": "NCAA-D3",
+    "conference": "Little East Conference",
+    "program_url": "https://gowarriorathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://sports.yahoo.com/articles/now-third-ct-college-offers-100000083.html",
+      "https://gowarriorathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First NCAA Division III varsity program in New England."
+  },
+  {
+    "school": "Eastern University",
+    "city": "St. Davids",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Middle Atlantic Conference (Commonwealth)",
+    "program_url": "https://goeasterneagles.com/news/2026/7/13/mac-to-add-womens-flag-football.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gomacsports.com/news/2026/7/9/field-hockey-mac-to-sponsor-womens-flag-football-beginning-in-2026-27.aspx",
+      "https://goeasterneagles.com/news/2026/7/13/mac-to-add-womens-flag-football.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Already varsity since Atlantic East's 2025 inaugural season; flag football moves to MAC for 2026-27."
+  },
+  {
+    "school": "Elmira College",
+    "city": "Elmira",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Empire 8",
+    "program_url": "https://athletics.elmira.edu/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://empire8.com/news/2025/2/13/general-empire-8-adds-womens-flag-football-in-2025-26-partners-with-nfl-and-rcx-sports.aspx",
+      "https://athletics.elmira.edu/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural Empire 8 runner-up, spring 2026."
+  },
+  {
+    "school": "Franciscan University of Steubenville",
+    "city": "Steubenville",
+    "state": "OH",
+    "governing_body": "NCAA-D3",
+    "conference": "Presidents' Athletic Conference",
+    "program_url": "https://franciscanathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
+      "https://franciscanathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+  },
+  {
+    "school": "Gallaudet University",
+    "city": "Washington",
+    "state": "DC",
+    "governing_body": "NCAA-D3",
+    "conference": "United East Conference",
+    "program_url": "https://gallaudetbison.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/united-east-conference-elevates-flag-football-to-varsity-status/",
+      "https://gallaudetbison.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "United East varsity sponsorship began 2025-26; reached inaugural championship game."
+  },
+  {
+    "school": "Guilford College",
+    "city": "Greensboro",
+    "state": "NC",
+    "governing_body": "NCAA-D3",
+    "conference": "Old Dominion Athletic Conference",
+    "program_url": "https://guilfordquakers.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://swimswam.com/ncaa-division-iii-guilford-college-drops-swimming-adds-womens-flag-football-for-2026/",
+      "https://guilfordquakers.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Third ODAC member to add the sport; begins 2026-27."
+  },
+  {
+    "school": "Gustavus Adolphus College",
+    "city": "St. Peter",
+    "state": "MN",
+    "governing_body": "NCAA-D3",
+    "conference": "Midwest College Women's Flag Football League",
+    "program_url": "https://gogusties.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gobennies.com/news/2025/10/20/flag-football-csb-to-add-flag-football-this-spring.aspx",
+      "https://gogusties.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Sport page on official athletics site; named as a league member by Saint Benedict. Varsity status inferred from the official-site listing, not from a varsity statement."
+  },
+  {
+    "school": "Gwynedd Mercy University",
+    "city": "Gwynedd Valley",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Atlantic East Conference",
+    "program_url": "https://gwyneddathletics.com/sports/wff",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/gwynedd-mercy-and-roanoke-add-varsity-womens-flag-football/",
+      "https://gwyneddathletics.com/news/2026/8/20/womens-flag-football-gwynedd-mercy-university-to-add-womens-flag-football-to-athletic-catalog.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "19th varsity sport; begins competition spring 2027 (2026-27) in the Atlantic East."
+  },
+  {
+    "school": "Hardin-Simmons University",
+    "city": "Abilene",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "American Southwest Conference",
+    "program_url": "https://hsuathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ascsports.org/news/2025/8/1/general-american-southwest-conference-announces-plans-to-add-flag-football-as-sponsored-sport.aspx",
+      "https://hsuathletics.com/news/2025/8/7/general-hsu-to-add-womens-flag-football-as-varsity-sport.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Hartwick College",
+    "city": "Oneonta",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Empire 8",
+    "program_url": "https://www.hartwickhawks.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.binghamtonhomepage.com/sports/empire-8-adds-womens-flag-football-hartwick-college-participating/",
+      "https://www.hartwickhawks.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Empire 8 inaugural season, spring 2026."
+  },
+  {
+    "school": "Hendrix College",
+    "city": "Conway",
+    "state": "AR",
+    "governing_body": "NCAA-D3",
+    "conference": "Southern Collegiate Athletic Conference",
+    "program_url": "https://hendrixwarriors.com/news/2025/2/5/general-hendrix-announces-addition-of-womens-flag-football.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
+      "https://hendrixwarriors.com/news/2026/3/22/wff-warriors-kick-off-first-ever-intercollegiate-flag-football-games-in-arkansas.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Competed club-level spring 2026; transitions to SCAC varsity status spring 2027 (2026-27)."
+  },
+  {
+    "school": "Hobart and William Smith Colleges",
+    "city": "Geneva",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Liberty League",
+    "program_url": "https://hwsathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://unionathletics.com/news/2025/10/22/womens-flag-football-union-to-launch-womens-flag-football-in-spring-2027.aspx",
+      "https://hwsathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "William Smith College fields the team; first Liberty League flag-football program, preceding Union."
+  },
+  {
+    "school": "Hollins University",
+    "city": "Roanoke",
+    "state": "VA",
+    "governing_body": "NCAA-D3",
+    "conference": "Old Dominion Athletic Conference",
+    "program_url": "https://www.hollinssports.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/bridgewater-college-adding-womens-flag-football/",
+      "https://www.hollinssports.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of the ODAC's first two flag-football sponsors; continuing through 2025-26/2026-27."
+  },
+  {
+    "school": "Howard Payne University",
+    "city": "Brownwood",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "American Southwest Conference",
+    "program_url": "https://hpusports.com/sports/flag",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ascsports.org/news/2025/8/1/general-american-southwest-conference-announces-plans-to-add-flag-football-as-sponsored-sport.aspx",
+      "https://hpusports.com/sports/flag"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Huntingdon College",
+    "city": "Montgomery",
+    "state": "AL",
+    "governing_body": "NCAA-D3",
+    "conference": "Southern Collegiate Athletic Conference",
+    "program_url": "https://www.huntingdonhawks.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
+      "https://www.huntingdonhawks.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Joins SCAC as affiliate member for flag football beginning 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Immaculata University",
+    "city": "Immaculata",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Atlantic East Conference",
+    "program_url": "https://gomightymacs.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://atlanticeast.com/news/2025/2/26/general-atlantic-east-conference-makes-history-with-launch-of-first-ever-ncaa-womens-flag-football-season.aspx",
+      "https://www.immaculata.edu/news/immaculata-university-ushers-in-collegiate-womens-flag-football-with-aec/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Founding Atlantic East varsity member since spring 2025; continuing in 2025-26 and 2026-27."
+  },
+  {
+    "school": "John Carroll University",
+    "city": "University Heights",
+    "state": "OH",
+    "governing_body": "NCAA-D3",
+    "conference": "Ohio Athletic Conference",
+    "program_url": "https://jcusports.com/news/2026/4/21/womens-flag-football-added-as-26th-varsity-sport-at-john-carroll.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.ncaa.org/news/2026/4/27/media-center-womens-flag-football-added-as-26th-varsity-sport-at-john-carroll.aspx",
+      "https://jcusports.com/news/2026/4/21/womens-flag-football-added-as-26th-varsity-sport-at-john-carroll.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "26th varsity sport; competition begins spring 2027 (2026-27)."
+  },
+  {
+    "school": "Keystone College",
+    "city": "La Plume",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "United East Conference",
+    "program_url": "https://www.gokcgiants.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.keystone.edu/2024/10/24/keystone-college-adds-womens-flag-football/",
+      "https://www.gokcgiants.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "United East varsity sponsorship began 2025-26."
+  },
+  {
+    "school": "Marymount University",
+    "city": "Arlington",
+    "state": "VA",
+    "governing_body": "NCAA-D3",
+    "conference": "Atlantic East Conference",
+    "program_url": "https://marymountsaints.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://atlanticeast.com/news/2025/2/26/general-atlantic-east-conference-makes-history-with-launch-of-first-ever-ncaa-womens-flag-football-season.aspx",
+      "https://marymountsaints.com/news/2026/4/25/womens-flag-football-flag-champs-marymount-repeats-as-aec-champions.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Three-time defending Atlantic East champion (2024, 2025, 2026); continuing in 2026-27."
+  },
+  {
+    "school": "Marywood University",
+    "city": "Scranton",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Middle Atlantic Conference (Freedom)",
+    "program_url": "https://marywoodpacers.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gomacsports.com/news/2026/7/9/field-hockey-mac-to-sponsor-womens-flag-football-beginning-in-2026-27.aspx",
+      "https://marywoodpacers.com/news/2024/12/5/general-marywood-to-add-womens-flag-football-as-varsity-sport-in-2025-26.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Varsity since 2025-26 (as Atlantic East member); flag football moves to MAC for 2026-27."
+  },
+  {
+    "school": "McMurry University",
+    "city": "Abilene",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "American Southwest Conference",
+    "program_url": "https://mcmurrysports.com/sports/wflagfb",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ascsports.org/news/2025/8/1/general-american-southwest-conference-announces-plans-to-add-flag-football-as-sponsored-sport.aspx",
+      "https://mcm.edu/news/mcmurry-university-adds-womens-flag-football-as-25th-varsity-sport/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+  },
+  {
+    "school": "Millikin University",
+    "city": "Decatur",
+    "state": "IL",
+    "governing_body": "NCAA-D3",
+    "conference": "College Conference of Illinois and Wisconsin",
+    "program_url": "https://athletics.millikin.edu/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://herald-review.com/sports/college/millikin/article_c563df79-a02d-4334-ae8b-7fb451a8e334.html",
+      "https://athletics.millikin.edu/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Adds flag football and wrestling beginning 2026-27."
+  },
+  {
+    "school": "Millsaps College",
+    "city": "Jackson",
+    "state": "MS",
+    "governing_body": "NCAA-D3",
+    "conference": "Southern Collegiate Athletic Conference",
+    "program_url": "https://gomajors.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
+      "https://gomajors.com/news/2025/9/11/womens-flag-football-millsaps-first-in-state-to-field-womens-flag-football-program.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Club in 2026; becomes 19th varsity sport and SCAC affiliate member spring 2027 (2026-27)."
+  },
+  {
+    "school": "Neumann University",
+    "city": "Aston",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Middle Atlantic Conference (Commonwealth)",
+    "program_url": "https://www.neumannathletics.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.neumannathletics.com/news/2026/7/13/mac-to-sponsor-womens-flag-football-beginning-in-2026-27.aspx",
+      "https://www.neumannathletics.com/news/2026/1/27/womens-flag-football-womens-flag-football-named-ncaa-emerging-sport.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Varsity since Atlantic East's 2025 inaugural season; flag football moves to MAC for 2026-27."
+  },
+  {
+    "school": "Penn State Schuylkill",
+    "city": "Schuylkill Haven",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Atlantic East Conference",
+    "program_url": "https://www.psuschuylkillathletics.com/sports/flagfball/2025-26/schedule",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://atlanticeast.com/news/2025/2/26/general-atlantic-east-conference-makes-history-with-launch-of-first-ever-ncaa-womens-flag-football-season.aspx",
+      "https://www.psuschuylkillathletics.com/sports/flagfball/2025-26/schedule"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Affiliate member for flag football, competing since spring 2025."
+  },
+  {
+    "school": "Pennsylvania State University-Harrisburg",
+    "city": "Middletown",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "United East Conference",
+    "program_url": "https://psuharrisburgsports.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://harrisburg.psu.edu/story/57411/2026/04/30/harrisburg-womens-flag-football-team-wins-inaugural-united-east-title",
+      "https://psuharrisburgsports.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Won the inaugural United East championship, spring 2026."
+  },
+  {
+    "school": "Russell Sage College",
+    "city": "Troy",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Empire 8",
+    "program_url": "https://www.sagegators.com/sports/flagfball",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.sage.edu/news/russell-sage-college-launches-first-womens-flag-football-intercollegiate-program-in-the-capital-region/",
+      "https://www.sagegators.com/sports/flagfball/2025-26/releases/20260323ktm8vu"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Empire 8 inaugural season, spring 2026."
+  },
+  {
+    "school": "SUNY Brockport",
+    "city": "Brockport",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Empire 8",
+    "program_url": "https://gobrockport.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://empire8.com/news/2025/2/13/general-empire-8-adds-womens-flag-football-in-2025-26-partners-with-nfl-and-rcx-sports.aspx",
+      "https://www.brockport.edu/live/news/10230-womens-flag-football-goes-varsity"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Won inaugural Empire 8 championship, spring 2026."
+  },
+  {
+    "school": "SUNY Geneseo",
+    "city": "Geneseo",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Empire 8",
+    "program_url": "https://geneseoknights.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://empire8.com/news/2026/4/28/regular-season-champion-suny-geneseo-sweeps-individual-accolades-as-empire-8-announces-2026-womens-flag-football-all-conference-selections.aspx",
+      "https://geneseoknights.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "2026 Empire 8 regular-season champion."
+  },
+  {
+    "school": "Saint Vincent College",
+    "city": "Latrobe",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Presidents' Athletic Conference",
+    "program_url": "https://athletics.stvincent.edu/sports/2024/12/16/svc-flag-football.aspx?path=flagfootball",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
+      "https://athletics.stvincent.edu/sports/2024/12/16/svc-flag-football.aspx?path=flagfootball"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+  },
+  {
+    "school": "Schreiner University",
+    "city": "Kerrville",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "American Southwest Conference",
+    "program_url": "https://schreinermountaineers.com/general/2025-26/releases/20260119rgl9gs",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ascsports.org/news/2025/8/1/general-american-southwest-conference-announces-plans-to-add-flag-football-as-sponsored-sport.aspx",
+      "https://schreiner.edu/schreiner-university-continues-commitment-to-womens-sports-with-addition-of-womens-flag-football-beach-volleyball-and-swimming/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Club in 2026; varsity ASC competition begins spring 2027 (2026-27)."
+  },
+  {
+    "school": "Thiel College",
+    "city": "Greenville",
+    "state": "PA",
+    "governing_body": "NCAA-D3",
+    "conference": "Presidents' Athletic Conference",
+    "program_url": "https://thielathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
+      "https://thielathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Sixth PAC school to add the sport; begins spring 2026 (2025-26)."
+  },
+  {
+    "school": "Union College",
+    "city": "Schenectady",
+    "state": "NY",
+    "governing_body": "NCAA-D3",
+    "conference": "Liberty League",
+    "program_url": "https://unionathletics.com/news/2025/10/22/womens-flag-football-union-to-launch-womens-flag-football-in-spring-2027.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://unionathletics.com/news/2025/10/22/womens-flag-football-union-to-launch-womens-flag-football-in-spring-2027.aspx",
+      "https://www.union.edu/news/stories/202510/union-launch-womens-flag-football-program-spring-2027"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Second Liberty League program (after William Smith); begins spring 2027 (2026-27)."
+  },
+  {
+    "school": "University of Mary Hardin-Baylor",
+    "city": "Belton",
+    "state": "TX",
+    "governing_body": "NCAA-D3",
+    "conference": "American Southwest Conference",
+    "program_url": "https://cruathletics.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ascsports.org/news/2025/8/1/general-american-southwest-conference-announces-plans-to-add-flag-football-as-sponsored-sport.aspx",
+      "https://cruathletics.com/sports/flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+  },
+  {
+    "school": "University of Mount Union",
+    "city": "Alliance",
+    "state": "OH",
+    "governing_body": "NCAA-D3",
+    "conference": "Ohio Athletic Conference",
+    "program_url": "https://athletics.mountunion.edu/sports/wflag",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mount-union-adding-varsity-flag-football-team/",
+      "https://www.mountunion.edu/news/university-of-mount-union-announces-addition-of-varsity-womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "26th intercollegiate sport; begins spring 2027 (2026-27), third OAC school to add it."
+  },
+  {
+    "school": "University of Wisconsin-Stout",
+    "city": "Menomonie",
+    "state": "WI",
+    "governing_body": "NCAA-D3",
+    "conference": "Midwest College Women's Flag Football League",
+    "program_url": "https://stoutbluedevils.com/sports/flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://stoutbluedevils.com/news/2025/4/29/blue-devils-win-inaugural-midwest-college-womens-flag-football-league-championship.aspx",
+      "https://stoutbluedevils.com/sports/flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "2026 roster on official athletics site; 2025 league champion. Varsity status inferred from the official-site listing, not from a varsity statement."
+  },
+  {
+    "school": "Andrew College",
+    "city": "Cuthbert",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://andrewfightingtigers.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://andrewfightingtigers.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Previously NJCAA independent; joins SSAC for 2026-27."
+  },
+  {
+    "school": "Arizona Christian University",
+    "city": "Glendale",
+    "state": "AZ",
+    "governing_body": "NAIA",
+    "conference": "Great Southwest Athletic Conference (GSAC)",
+    "program_url": "https://acufirestorm.com/sports/flag-football/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
+      "https://acufirestorm.com/sports/flag-football/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full GSAC member; first varsity women's flag football program in Arizona, inaugural season 2025-26."
+  },
+  {
+    "school": "Avila University",
+    "city": "Kansas City",
+    "state": "MO",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://www.avilaathletics.com/sports/flagfball/2026-27/releases/260413-flag-football-announcement",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://www.avilaathletics.com/sports/flagfball/2026-27/releases/260413-flag-football-announcement"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program, Avila's 18th varsity sport; debuts spring 2027 as a KCAC member."
+  },
+  {
+    "school": "Baker University",
+    "city": "Baldwin City",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Heart of America Athletic Conference (HAAC)",
+    "program_url": "https://www.bakerwildcats.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://www.bakerwildcats.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Fielded team since 2023-24 as a KCAC per-sport member; moving to HAAC for 2026-27 when HAAC begins sponsoring the sport."
+  },
+  {
+    "school": "Benedictine University at Mesa",
+    "city": "Mesa",
+    "state": "AZ",
+    "governing_body": "NAIA",
+    "conference": "Great Southwest Athletic Conference (GSAC)",
+    "program_url": "https://benuredhawks.com/sports/womens-flag-football/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
+      "https://benuredhawks.com/sports/womens-flag-football/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full GSAC member; inaugural season 2025-26."
+  },
+  {
+    "school": "Bethel College",
+    "city": "North Newton",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://bethelthreshers.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://bethelthreshers.com/sports/flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full KCAC member."
+  },
+  {
+    "school": "Brewton-Parker College",
+    "city": "Mount Vernon",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://bpcuathletics.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://thesunconference.com/standings.aspx?path=flagfb",
+      "https://bpcuathletics.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Official site bpcuathletics.com (linked from Sun Conference standings)."
+  },
+  {
+    "school": "Calumet College of St. Joseph",
+    "city": "Whiting",
+    "state": "IN",
+    "governing_body": "NAIA",
+    "conference": "Independent (Chicagoland Collegiate Athletic Conference for other sports)",
+    "program_url": "https://ccsjathletics.com/sports/flagfball/2025-26/releases/20251105jw9g8n",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ccsjathletics.com/sports/flagfball/2025-26/releases/20251105jw9g8n"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program for 2026-27; first CCAC school to add flag football, competes independent for the sport."
+  },
+  {
+    "school": "Campbellsville University",
+    "city": "Campbellsville",
+    "state": "KY",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://campbellsvilletigers.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://campbellsvilletigers.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Mid-South member for flag football, 2026-27 inaugural season."
+  },
+  {
+    "school": "College of Saint Mary",
+    "city": "Omaha",
+    "state": "NE",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://csmflames.com/general/2024-25/releases/20250514omw2yn",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/news/2026/5/21/hastings-college-and-college-of-saint-mary-to-join-kcac-in-womens-flag-football-in-2027.aspx",
+      "https://csmflames.com/general/2024-25/releases/20250514omw2yn"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program; joins KCAC as a per-sport member for the 2027 season (2026-27 academic year)."
+  },
+  {
+    "school": "Cottey College",
+    "city": "Nevada",
+    "state": "MO",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://cotteycomets.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://cotteycomets.com/landing/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of the sport's original 2021 pioneer programs; only women's college in the list."
+  },
+  {
+    "school": "Cumberland University",
+    "city": "Lebanon",
+    "state": "TN",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://gocumberlandathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://en.wikipedia.org/wiki/Cumberland_University"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Mid-South member; athletics domain confirmed via Wikipedia (sport-specific page not independently fetched)."
+  },
+  {
+    "school": "Defiance College",
+    "city": "Defiance",
+    "state": "OH",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://www.defianceathletics.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://en.wikipedia.org/wiki/Defiance_Yellow_Jackets"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Mid-South affiliate member for flag football. Sport-specific subpage returned 403 on direct fetch during this research pass."
+  },
+  {
+    "school": "Florida Memorial University",
+    "city": "Miami Gardens",
+    "state": "FL",
+    "governing_body": "NAIA",
+    "conference": "The Sun Conference",
+    "program_url": "https://athletics.fmu.edu/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://thesunconference.com/standings.aspx?path=flagfb",
+      "https://athletics.fmu.edu/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Sun Conference member; one of the sport's original 2021 pioneer programs."
+  },
+  {
+    "school": "Freed-Hardeman University",
+    "city": "Henderson",
+    "state": "TN",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://gofhulions.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://gofhulions.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Mid-South member for flag football, 2026-27 inaugural season."
+  },
+  {
+    "school": "Graceland University",
+    "city": "Lamoni",
+    "state": "IA",
+    "governing_body": "NAIA",
+    "conference": "Heart of America Athletic Conference (HAAC)",
+    "program_url": "https://graceland.prestosports.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://graceland.prestosports.com/sports/flagfball/2025-26/releases/20260314seq8wx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Fielded team since 2022 as a KCAC per-sport member; moving to HAAC for 2026-27."
+  },
+  {
+    "school": "Hastings College",
+    "city": "Hastings",
+    "state": "NE",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://hastingsbroncos.com/general/2025-26/releases/20251106l019er",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/news/2026/5/21/hastings-college-and-college-of-saint-mary-to-join-kcac-in-womens-flag-football-in-2027.aspx",
+      "https://hastingsbroncos.com/general/2025-26/releases/20251106l019er"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program announced Nov. 2025; joins KCAC for the 2027 season (2026-27 academic year)."
+  },
+  {
+    "school": "Hesston College",
+    "city": "Hesston",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://hclarks.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/news/2025/8/4/hesston-college-to-join-kcac-in-womens-flag-football-in-2026.aspx",
+      "https://hclarks.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Moved from NJCAA; joined KCAC as a per-sport member for 2026-27."
+  },
+  {
+    "school": "Hope International University",
+    "city": "Fullerton",
+    "state": "CA",
+    "governing_body": "NAIA",
+    "conference": "Great Southwest Athletic Conference (GSAC)",
+    "program_url": "https://hiuroyals.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
+      "https://hiuroyals.com/sports/womens-flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full GSAC member; inaugural season spring 2026."
+  },
+  {
+    "school": "Indiana Wesleyan University",
+    "city": "Marion",
+    "state": "IN",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://iwuwildcats.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://iwuwildcats.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Mid-South affiliate member for flag football (Crossroads League for other sports)."
+  },
+  {
+    "school": "Kansas Wesleyan University",
+    "city": "Salina",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://kwucoyotes.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://kwucoyotes.com/sports/flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full KCAC member; one of the sport's original 2021 pioneer programs."
+  },
+  {
+    "school": "Keiser University",
+    "city": "West Palm Beach",
+    "state": "FL",
+    "governing_body": "NAIA",
+    "conference": "The Sun Conference",
+    "program_url": "https://kuseahawks.com/sports/flag-football/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://thesunconference.com/standings.aspx?path=flagfb",
+      "https://kuseahawks.com/sports/flag-football/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Sun Conference member."
+  },
+  {
+    "school": "La Sierra University",
+    "city": "Riverside",
+    "state": "CA",
+    "governing_body": "NAIA",
+    "conference": "Great Southwest Athletic Conference (GSAC)",
+    "program_url": "https://lsugoldeneagles.com/sports/womens-flag-football/schedule/2026",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
+      "https://lsugoldeneagles.com/sports/womens-flag-football/schedule/2026"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full GSAC member; reached 2026 GSAC championship game in inaugural season."
+  },
+  {
+    "school": "Life University",
+    "city": "Marietta",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://liferunningeagles.com/news/2025/12/18/womens-flag-football-life-university-womens-flag-football-set-to-join-ssac-in-inaugural-27-season.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://liferunningeagles.com/news/2025/12/18/womens-flag-football-life-university-womens-flag-football-set-to-join-ssac-in-inaugural-27-season.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Played 2025-26 in the Sun Conference (affiliate member); joins SSAC for inaugural 2027 season."
+  },
+  {
+    "school": "Lindsey Wilson College",
+    "city": "Columbia",
+    "state": "KY",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://lindseyathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://lindseyathletics.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Mid-South member; previously an NAIA independent for the sport."
+  },
+  {
+    "school": "Mayville State University",
+    "city": "Mayville",
+    "state": "ND",
+    "governing_body": "NAIA",
+    "conference": "Independent",
+    "program_url": "https://msucomets.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.grandforksherald.com/sports/college/mayville-state-prepares-for-inaugural-womens-flag-football-season-with-tim-salmon-at-helm",
+      "https://msucomets.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program, first in North Dakota; plans a 10-game independent schedule for spring 2027. Per reporting, NAIA championship eligibility for 2027 was still being finalized as of mid-2026."
+  },
+  {
+    "school": "McPherson College",
+    "city": "McPherson",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://macbulldogs.com/sports/womens-flag-football/schedule",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/news/2025/9/18/mcpherson-college-to-add-womens-flag-football-in-2026.aspx",
+      "https://macbulldogs.com/sports/womens-flag-football/schedule"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program announced Sept. 2025; McPherson's 20th varsity sport."
+  },
+  {
+    "school": "Midland University",
+    "city": "Fremont",
+    "state": "NE",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "http://www.midlandathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://en.wikipedia.org/wiki/Midland_Warriors"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Per-sport KCAC member. Athletics domain confirmed via Wikipedia; direct fetch of the sport page returned 403 (bot-blocked) during this research pass."
+  },
+  {
+    "school": "Midway University",
+    "city": "Midway",
+    "state": "KY",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "http://www.gomidwayeagles.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "http://www.gomidwayeagles.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Mid-South affiliate member for flag football (River States Conference for other sports); launches 2027."
+  },
+  {
+    "school": "Milligan University",
+    "city": "Milligan",
+    "state": "TN",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://milliganbuffs.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://milliganbuffs.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Previously an NAIA independent for the sport; joins SSAC for 2026-27."
+  },
+  {
+    "school": "Missouri Baptist University",
+    "city": "St. Louis",
+    "state": "MO",
+    "governing_body": "NAIA",
+    "conference": "Heart of America Athletic Conference (HAAC)",
+    "program_url": "https://mbuspartans.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://mbuspartans.com/news/2025/10/28/athletics-missouri-baptist-university-to-add-varsity-flag-football-beginning-in-2026-27.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program announced Oct. 2025; begins competition spring 2027 (2026-27 academic year)."
+  },
+  {
+    "school": "Missouri Valley College",
+    "city": "Marshall",
+    "state": "MO",
+    "governing_body": "NAIA",
+    "conference": "Heart of America Athletic Conference (HAAC)",
+    "program_url": "https://www.valleywillroll.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://www.valleywillroll.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program for 2026-27."
+  },
+  {
+    "school": "Mount Mary University",
+    "city": "Milwaukee",
+    "state": "WI",
+    "governing_body": "NAIA",
+    "conference": "Independent (Chicagoland Collegiate Athletic Conference for other sports)",
+    "program_url": "https://mtmaryathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://urbanmilwaukee.com/pressrelease/mount-mary-university-to-add-womens-flag-football-as-new-varsity-sport/",
+      "https://mtmaryathletics.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program, first NAIA school in Wisconsin to offer flag football with scholarships; debuts spring 2027, competes independent for the sport."
+  },
+  {
+    "school": "Oklahoma Wesleyan University",
+    "city": "Bartlesville",
+    "state": "OK",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://okwueagles.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/news/2025/9/18/mcpherson-college-to-add-womens-flag-football-in-2026.aspx",
+      "https://okwueagles.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program; first Oklahoma school to add flag football; debuts spring 2027 in KCAC."
+  },
+  {
+    "school": "Olivet Nazarene University",
+    "city": "Bourbonnais",
+    "state": "IL",
+    "governing_body": "NAIA",
+    "conference": "Independent (Chicagoland Collegiate Athletic Conference for other sports)",
+    "program_url": "https://olivetnazarene.prestosports.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.olivet.edu/news/olivet-nazarene-university-adds-womens-flag-football-and-pickleball-to-growing-athletics-program/",
+      "https://olivetnazarene.prestosports.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program for 2026-27; first NAIA school in Illinois to add flag football, competes independent for the sport."
+  },
+  {
+    "school": "Ottawa University (Kansas)",
+    "city": "Ottawa",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://ottawabraves.com/sports/womens-flag-football/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://ottawabraves.com/sports/womens-flag-football/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full KCAC member; reigning 2025 NAIA national champion."
+  },
+  {
+    "school": "Ottawa University-Arizona",
+    "city": "Surprise",
+    "state": "AZ",
+    "governing_body": "NAIA",
+    "conference": "Great Southwest Athletic Conference (GSAC)",
+    "program_url": null,
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
+      "https://cronkitenews.azpbs.org/2025/07/17/arizona-colleges-added-flag-football-teams-women-sports-grows/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full GSAC member (listed as OUAZ), inaugural 2025-26. Could not locate a dedicated OUAZ athletics-site URL distinct from Ottawa University-Kansas's ottawabraves.com during this pass."
+  },
+  {
+    "school": "Our Lady of the Lake University",
+    "city": "San Antonio",
+    "state": "TX",
+    "governing_body": "NAIA",
+    "conference": "Independent (Red River Athletic Conference for other sports)",
+    "program_url": "https://www.ollusaintsathletics.com/general/2025-26/releases/20260209isbvi1",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.sacurrent.com/arts/sports-and-recreation/our-lady-of-the-lake-university-becomes-second-texas-school-to-launch-womens-flag-football-program/",
+      "https://www.ollusaintsathletics.com/general/2025-26/releases/20260209isbvi1"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program for 2026-27; second Texas NAIA school to sponsor flag football, behind Texas Wesleyan."
+  },
+  {
+    "school": "Point University",
+    "city": "West Point",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://skyhawkathletics.com",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://thesunconference.com/standings.aspx?path=flagfb"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Sport-specific subpage returned 403 on direct fetch."
+  },
+  {
+    "school": "Reinhardt University",
+    "city": "Waleska",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://www.reinhardteagles.com",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://thesunconference.com/standings.aspx?path=flagfb"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Sport-specific subpage returned 403 on direct fetch."
+  },
+  {
+    "school": "Siena Heights University",
+    "city": "Adrian",
+    "state": "MI",
+    "governing_body": "NAIA",
+    "conference": "Independent (NAIA invitational 2025-26)",
+    "program_url": "https://www.shusaints.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/2026_NAIA_flag_football_season",
+      "https://www.shusaints.com/sports/flagfball/2025-26/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "2026 (2025-26) roster on official site. Listed in the 2026 NAIA flag football season field (Wikipedia); naia.org returned HTTP 500 so the NAIA page was not checked. 2026-27 status not separately confirmed."
+  },
+  {
+    "school": "Simpson University",
+    "city": "Redding",
+    "state": "CA",
+    "governing_body": "NAIA",
+    "conference": "Great Southwest Athletic Conference (GSAC)",
+    "program_url": "https://simpsonredhawks.com/sports/womens-flag-football/schedule/2026",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
+      "https://simpsonredhawks.com/sports/womens-flag-football/schedule/2026"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "GSAC associate member for flag football; first Northern California school to add the sport."
+  },
+  {
+    "school": "Southwestern College",
+    "city": "Winfield",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://buildersports.com/sports/flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://buildersports.com/sports/flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full KCAC member. Official site is buildersports.com (linked from the KCAC standings page); KCAC 2027 standings list Southwestern."
+  },
+  {
+    "school": "St. Thomas University",
+    "city": "Miami Gardens",
+    "state": "FL",
+    "governing_body": "NAIA",
+    "conference": "The Sun Conference",
+    "program_url": "https://stubobcats.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://thesunconference.com/standings.aspx?path=flagfb",
+      "https://thesunconference.com/schedule.aspx?schedule=4094"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Sun Conference member. School site served a donation splash page on direct fetch during this pass; domain confirmed via Wikipedia and conference schedule page."
+  },
+  {
+    "school": "Texas Wesleyan University",
+    "city": "Fort Worth",
+    "state": "TX",
+    "governing_body": "NAIA",
+    "conference": "Independent",
+    "program_url": "https://ramsports.net/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.houstonchronicle.com/news/houston-texas/trending/article/texas-wesleyan-womens-flag-football-20051519.php",
+      "https://ramsports.net/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First Texas NAIA school to sponsor flag football, debuted spring 2026; competes as an NAIA independent for the sport."
+  },
+  {
+    "school": "Thomas University",
+    "city": "Thomasville",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://tunighthawks.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://tunighthawks.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27."
+  },
+  {
+    "school": "University of Northwestern Ohio",
+    "city": "Lima",
+    "state": "OH",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "http://www.unohracers.com",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://en.wikipedia.org/wiki/University_of_Northwestern_Ohio"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Mid-South affiliate member for flag football. Sport-specific subpage returned 403 on direct fetch during this research pass."
+  },
+  {
+    "school": "University of Saint Francis",
+    "city": "Fort Wayne",
+    "state": "IN",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": "https://saintfranciscougars.com",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://en.wikipedia.org/wiki/Saint_Francis_Cougars_(Indiana)"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Mid-South affiliate member for flag football (Crossroads League for other sports). Sport-specific subpage returned 403 on direct fetch."
+  },
+  {
+    "school": "University of Saint Mary",
+    "city": "Leavenworth",
+    "state": "KS",
+    "governing_body": "NAIA",
+    "conference": "Kansas Collegiate Athletic Conference (KCAC)",
+    "program_url": "https://gospires.com/sports/womens-flag-football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://kcacsports.com/standings.aspx?path=wflag",
+      "https://gospires.com/sports/womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full KCAC member."
+  },
+  {
+    "school": "University of Tennessee Southern",
+    "city": "Pulaski",
+    "state": "TN",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://utsfirehawks.com/sports/womens-flag-football/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://utsouthern.edu/news/ut-southern-to-add-intercollegiate-womens-flag-football-beginning-fall-2026/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program; begins fall 2026 practice, spring 2027 competition in SSAC."
+  },
+  {
+    "school": "Warner University",
+    "city": "Lake Wales",
+    "state": "FL",
+    "governing_body": "NAIA",
+    "conference": "The Sun Conference",
+    "program_url": "https://warnerroyals.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://thesunconference.com/standings.aspx?path=flagfb",
+      "https://warnerroyals.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Sun Conference member; 2026 regular-season champion at 9-0 (24-0 overall)."
+  },
+  {
+    "school": "Washington Adventist University",
+    "city": "Takoma Park",
+    "state": "MD",
+    "governing_body": "NAIA",
+    "conference": "Independent",
+    "program_url": "https://wauathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.wau.edu/wau-announces-addition-of-womens-flag-football-team-for-spring-2026/",
+      "https://en.wikipedia.org/wiki/Washington_Adventist_University"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Debuted spring 2026; competes as an NAIA independent for the sport. Sport-specific subpage returned 403 on direct fetch."
+  },
+  {
+    "school": "Webber International University",
+    "city": "Babson Park",
+    "state": "FL",
+    "governing_body": "NAIA",
+    "conference": "The Sun Conference",
+    "program_url": "https://webberathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://thesunconference.com/standings.aspx?path=flagfb",
+      "https://webberathletics.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Full Sun Conference member."
+  },
+  {
+    "school": "Wesleyan College",
+    "city": "Macon",
+    "state": "GA",
+    "governing_body": "NAIA",
+    "conference": "Southern States Athletic Conference (SSAC)",
+    "program_url": "https://wesleyanathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://ssacsports.com/news/2025/12/10/ssac-adds-womens-flag-football-as-championship-sport-for-2026-27.aspx",
+      "https://wesleyanathletics.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program for 2026-27."
+  },
+  {
+    "school": "Wilberforce University",
+    "city": "Wilberforce",
+    "state": "OH",
+    "governing_body": "NAIA",
+    "conference": "Mid-South Conference (MSC)",
+    "program_url": null,
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/mid-south-to-sponsor-womens-flag-football-in-2026-27-meac-confirms-teams-for-2027/",
+      "https://www.daytondailynews.com/sports/wilberforce-creating-womens-flag-football-program-to-begin-next-spring/CRPCNVQ5HVAXNON3PMPGZZN4CY/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New Mid-South affiliate member, program launches spring 2027. Could not locate a dedicated athletics sports-site URL during this research pass."
+  },
+  {
+    "school": "William Penn University",
+    "city": "Oskaloosa",
+    "state": "IA",
+    "governing_body": "NAIA",
+    "conference": "Heart of America Athletic Conference (HAAC)",
+    "program_url": "https://www.statesmenathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://www.statesmenathletics.com/general/2025-26/releases/20251030o0javw"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New program; begins competition spring 2027."
+  },
+  {
+    "school": "William Woods University",
+    "city": "Fulton",
+    "state": "MO",
+    "governing_body": "NAIA",
+    "conference": "Heart of America Athletic Conference (HAAC)",
+    "program_url": "https://wwuowls.com/sports/womens-flag-football/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://wwuowls.com/sports/womens-flag-football/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Fielded team since 2025 as a KCAC per-sport member; moving to HAAC for 2026-27."
+  },
+  {
+    "school": "Alexandria Technical and Community College",
+    "city": "Alexandria",
+    "state": "MN",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA",
+    "program_url": "https://www.alextech.edu/atcc-news/2026/09/28/join-the-team--atcc-women's-flag-football-recruiting-for-spring",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://www.alextech.edu/atcc-news/2026/09/28/join-the-team--atcc-women's-flag-football-recruiting-for-spring"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Among first Minnesota community colleges to add the sport; launches spring 2027; athletics branded 'Legends' (legends.alextech.edu)."
+  },
+  {
+    "school": "Bishop State Community College",
+    "city": "Mobile",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://www.bishop.edu/athletics",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://www.bishop.edu/news/bishop-state-adds-cheerleading-and-womens-flag-football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Varsity since 2025-26 season; competes in ACCC standings."
+  },
+  {
+    "school": "Bryant & Stratton College (Wauwatosa)",
+    "city": "Wauwatosa",
+    "state": "WI",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA (independent)",
+    "program_url": "https://www.bryantstratton.edu/blog/news/womens-flag-football-first-home-games/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/2026-njcaa-womens-flag-football-invitational-field-set/",
+      "https://www.bryantstratton.edu/blog/news/womens-flag-football-first-home-games/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Wisconsin's first collegiate team (2023); qualified for 2026 NJCAA Invitational field. Distinct from Bryant & Stratton's USCAA-affiliated NY campuses."
+  },
+  {
+    "school": "Calhoun Community College",
+    "city": "Tanner",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://calhounathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://calhounathletics.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Varsity since 2025-26; 13-6 overall record cited on official site."
+  },
+  {
+    "school": "Camden County College",
+    "city": "Blackwood",
+    "state": "NJ",
+    "governing_body": "NJCAA",
+    "conference": "Garden State Athletic Conference (GSAC)",
+    "program_url": "https://www.camdenccathletics.org/navbar-sports",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://www.camdenccathletics.org/navbar-sports"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; program launches spring 2027."
+  },
+  {
+    "school": "Central Alabama Community College",
+    "city": "Alexander City",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://cacc.edu/cacc-life/athletics",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/bryant-stratton-syracuse-and-central-alabama-adding-flag-fooball-two-more-clubs-joining-nirsa/",
+      "https://cacc.edu/cacc-life/athletics"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Head coach named (Thomas Sowell) but reporting indicates program will not compete in fall 2026 season; counted as an NJCAA-sponsoring college for 2026-27 per ACCC roster growth."
+  },
+  {
+    "school": "Chattahoochee Valley Community College",
+    "city": "Phenix City",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://www.cv.edu/chattahoochee-valley-community-college-to-launch-womens-flag-football-program-in-fall-2026/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/chattahoochee-valley-and-washtenaw-adding-flag-football-stac-to-join-ecac-three-clubs-joining-nirsa/",
+      "https://www.cv.edu/chattahoochee-valley-community-college-to-launch-womens-flag-football-program-in-fall-2026/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "New for fall 2026-27; athletics site is cvpirates.com but specific sport page not individually confirmed."
+  },
+  {
+    "school": "College of DuPage",
+    "city": "Glen Ellyn",
+    "state": "IL",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA Region IV",
+    "program_url": "https://gochapsgo.com/sports/flag-football/schedule/2025-26",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.njcaa.org/sports/flagfball/2025-26/releases/20260407mpyegv",
+      "https://gochapsgo.com/sports/flag-football/schedule/2025-26"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Host of 2026 and 2026-27 (final invitational) NJCAA Women's Flag Football Invitational."
+  },
+  {
+    "school": "Dallas College Brookhaven",
+    "city": "Farmers Branch",
+    "state": "TX",
+    "governing_body": "NJCAA",
+    "conference": "Dallas Athletic Conference (DAC)",
+    "program_url": "https://www.brookhavenathletics.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://njcaaregion5.com/general/2026-27/releases/20260908r11965",
+      "https://www.brookhavenathletics.com/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+  },
+  {
+    "school": "Dallas College Cedar Valley",
+    "city": "Lancaster",
+    "state": "TX",
+    "governing_body": "NJCAA",
+    "conference": "Dallas Athletic Conference (DAC)",
+    "program_url": "https://cvcsuns.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://njcaaregion5.com/general/2026-27/releases/20260908r11965",
+      "https://cvcsuns.com/sports/flagfball/2026-27/releases/20260908r6i57w"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+  },
+  {
+    "school": "Dallas College Eastfield",
+    "city": "Mesquite",
+    "state": "TX",
+    "governing_body": "NJCAA",
+    "conference": "Dallas Athletic Conference (DAC)",
+    "program_url": "https://www.eastfieldathletics.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://njcaaregion5.com/general/2026-27/releases/20260908r11965",
+      "https://www.eastfieldathletics.com/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+  },
+  {
+    "school": "Dallas College Mountain View",
+    "city": "Dallas",
+    "state": "TX",
+    "governing_body": "NJCAA",
+    "conference": "Dallas Athletic Conference (DAC)",
+    "program_url": "https://www.mvclions.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://njcaaregion5.com/general/2026-27/releases/20260908r11965",
+      "https://www.mvclions.com/landing/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+  },
+  {
+    "school": "Dallas College North Lake",
+    "city": "Irving",
+    "state": "TX",
+    "governing_body": "NJCAA",
+    "conference": "Dallas Athletic Conference (DAC)",
+    "program_url": "https://northlakecollegeathletics.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://njcaaregion5.com/general/2026-27/releases/20260908r11965",
+      "https://northlakecollegeathletics.com/landing/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+  },
+  {
+    "school": "Dallas College Richland",
+    "city": "Dallas",
+    "state": "TX",
+    "governing_body": "NJCAA",
+    "conference": "Dallas Athletic Conference (DAC)",
+    "program_url": "https://www.rlcsports.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://njcaaregion5.com/general/2026-27/releases/20260908r11965",
+      "https://www.collegiateflagfootball.com/dallas-college-adding-womens-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First Texas junior college to announce a flag football program (club or varsity); begins 2026-27."
+  },
+  {
+    "school": "Daytona State College",
+    "city": "Daytona Beach",
+    "state": "FL",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA Region 8 - Citrus Conference",
+    "program_url": "https://dscfalcons.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/2026-njcaa-womens-flag-football-invitational-field-set/",
+      "https://dscfalcons.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Lost 2026 NJCAA national title game to Florida Gateway, 53-13; 2026 Invitational pool team."
+  },
+  {
+    "school": "Enterprise State Community College",
+    "city": "Enterprise",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://escc.prestosports.com/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://www.wtvy.com/2026/08/27/enterprise-state-flag-football-team-set-historic-debut/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Debuted fall 2026 ('Boll Weevils'); NJCAA grant recipient."
+  },
+  {
+    "school": "Florida Gateway College",
+    "city": "Lake City",
+    "state": "FL",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA Region VIII",
+    "program_url": "https://www.fgc.edu/about-fgc/news-and-events/news-archive/flag_fan_day_2026.html",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/2026-njcaa-womens-flag-football-invitational-field-set/",
+      "https://www.collegiateflagfootball.com/florida-gateway-wins-fourth-straight-njcaa-flag-football-title/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Four-time defending NJCAA national flag football champion; 2026 Invitational pool team."
+  },
+  {
+    "school": "Harcum College",
+    "city": "Bryn Mawr",
+    "state": "PA",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA Region 19",
+    "program_url": "https://www.harcum.edu/s/1044/edu/index.aspx?sid=1044&gid=1&pgid=3095",
+    "questionnaire_url": "https://www.harcum.edu/recruitment",
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://www.harcum.edu/s/1044/edu/index.aspx?sid=1044&gid=1&pgid=3095"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; practices began spring 2026."
+  },
+  {
+    "school": "Harford Community College",
+    "city": "Bel Air",
+    "state": "MD",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA",
+    "program_url": "https://harfordathletics.com/sports/womens-flag-football/schedule/2026",
+    "questionnaire_url": "https://harfordathletics.com/sb_output.aspx?form=29",
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/2026-njcaa-womens-flag-football-invitational-field-set/",
+      "https://harfordathletics.com/sports/womens-flag-football/schedule/2026"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural season spring 2026; second junior college in Maryland to offer the sport; 2026 Invitational pool team."
+  },
+  {
+    "school": "Jackson State Community College",
+    "city": "Jackson",
+    "state": "TN",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA",
+    "program_url": "https://jscc.edu/news/2025/flag-football/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://jscc.edu/news/2025/flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First two-year college in Tennessee to offer the sport; program begins spring 2027."
+  },
+  {
+    "school": "Lurleen B. Wallace Community College",
+    "city": "Andalusia",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://lbwsaints.com/sports/flagfball/2025-26/roster",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://lbwsaints.com/sports/flagfball/2025-26/roster"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural season fall 2025; one of first ACCC members to add the sport."
+  },
+  {
+    "school": "Minnesota North College - Vermilion",
+    "city": "Ely",
+    "state": "MN",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA Division III",
+    "program_url": "https://minnesotanorth.edu/minnesota-north-college-vermilion-receives-5000-grant-to-start-womens-college-flag-football-program/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://minnesotanorth.edu/minnesota-north-college-vermilion-receives-5000-grant-to-start-womens-college-flag-football-program/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; dedicated flag football roster/schedule page not yet separately confirmed on athletics site (vermilionathletics.com)."
+  },
+  {
+    "school": "Murray State College",
+    "city": "Tishomingo",
+    "state": "OK",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA",
+    "program_url": "https://mscok.edu/news/Flag-Football",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
+      "https://mscok.edu/news/Flag-Football"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First public collegiate flag football program in Oklahoma; plays out of Ardmore; begins 2026-27."
+  },
+  {
+    "school": "Northwest Shoals Community College",
+    "city": "Muscle Shoals",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://nwscc.edu/athletics/patriots-flag-football/",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://nwscc.edu/athletics/patriots-flag-football/"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural season fall 2025; roster posted on official site."
+  },
+  {
+    "school": "Richard Bland College",
+    "city": "Petersburg",
+    "state": "VA",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA",
+    "program_url": "https://www.rbcathletics.com/general/2025-26/releases/20251021eh6fqq",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/franklin-pierce-george-mason-southern-union-unt-dallas-and-westfield-adding-flag-football/",
+      "https://www.rbcathletics.com/",
+      "https://www.rbcathletics.com/general/2025-26/releases/20251021eh6fqq"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First head coach (Terence Boone) named; first season 2026-27. Site lists a Recruit Questionnaire page but exact URL not confirmed. Link taken from collegiateflagfootball.com; rbcathletics.com did not resolve (DNS) on 2026-10-01, so the page was not re-checked."
+  },
+  {
+    "school": "Rowan College of South Jersey - Cumberland",
+    "city": "Vineland",
+    "state": "NJ",
+    "governing_body": "NJCAA",
+    "conference": "Garden State Athletic Conference (GSAC)",
+    "program_url": "https://www.rcsj.edu/News/Releases/Pages/Women%E2%80%99s-Flag-Football-Coming-to-RCSJ-Roadrunner-Athletics-Spring-2027.aspx",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/rowan-college-of-south-jersey-cumberland-adding-flag-football/",
+      "https://www.rcsj.edu/News/Releases/Pages/Women%E2%80%99s-Flag-Football-Coming-to-RCSJ-Roadrunner-Athletics-Spring-2027.aspx"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; inaugural season spring 2027; NJCAA Region XIX. The rcsj.edu release URL returned HTTP 404 on 2026-10-01; program is also reported by collegiateflagfootball.com."
+  },
+  {
+    "school": "Rowan College of South Jersey - Gloucester",
+    "city": "Sewell",
+    "state": "NJ",
+    "governing_body": "NJCAA",
+    "conference": "Garden State Athletic Conference (GSAC)",
+    "program_url": "https://www.rcroadrunners.com/sports/flagfball/2026-27/releases/20260914lfbipo",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/john-carroll-enteprise-state-rcsj-gloucester-adding-varsity-flag-football/",
+      "https://www.rcroadrunners.com/sports/flagfball/2026-27/releases/20260914lfbipo"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NJCAA Region XIX; $10,000 NJCAA Foundation/NFL Flag grant; inaugural season spring 2027."
+  },
+  {
+    "school": "Roxbury Community College",
+    "city": "Boston",
+    "state": "MA",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA (independent, New England)",
+    "program_url": "https://roxburycc.prestosports.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://www.rcc.mass.edu/explore/news-updates/flagfootball.html"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "First community college in New England to field varsity women's flag football (spring 2026); NJCAA grant recipient; 2026 Invitational pool team."
+  },
+  {
+    "school": "Shelton State Community College",
+    "city": "Tuscaloosa",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://athletics.sheltonstate.edu/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://athletics.sheltonstate.edu/sports/flagfball/2025-26/releases/20250915giiakg"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Inaugural season fall 2025."
+  },
+  {
+    "school": "Snead State Community College",
+    "city": "Boaz",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://sneadathletics.com/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://sneadathletics.com/sports/flagfball/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "13-8 overall 2025-26 per official site."
+  },
+  {
+    "school": "Southern Union State Community College",
+    "city": "Opelika",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://www.susccathletics.com/landing/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/franklin-pierce-george-mason-southern-union-unt-dallas-and-westfield-adding-flag-football/",
+      "https://www.susccathletics.com/landing/index"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "Started 2-0 in 2026-27 season per reporting."
+  },
+  {
+    "school": "Triton College",
+    "city": "River Grove",
+    "state": "IL",
+    "governing_body": "NJCAA",
+    "conference": "NJCAA Region IV (independent)",
+    "program_url": "https://tritonathletics.com/sports/wflagfootball",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.collegiateflagfootball.com/seven-njcaa-schools-receive-flag-football-grants/",
+      "https://tritonathletics.com/sports/wflagfootball"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; competition began spring 2026."
+  },
+  {
+    "school": "Wallace State Community College",
+    "city": "Hanceville",
+    "state": "AL",
+    "governing_body": "NJCAA",
+    "conference": "Alabama Community College Conference (ACCC)",
+    "program_url": "https://athletics.wallacestate.edu/sports/flagfball/index",
+    "questionnaire_url": null,
+    "source_urls": [
+      "https://www.acccathletics.com/sports/flagfball/2025-26/standings",
+      "https://athletics.wallacestate.edu/sports/flagfball/2026-27/releases/20260829ve4sxo"
+    ],
+    "verified_on": "2026-10-01",
+    "notes": "ACCC's top program; 20-0 2025-26, carrying 26-game win streak into 2026-27."
+  }
+]

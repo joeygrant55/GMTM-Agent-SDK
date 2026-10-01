@@ -13,6 +13,8 @@ import AthleteOpportunities from './AthleteOpportunities'
 import { AthleteOpportunity, isOpportunityCurrent } from './opportunityEvidence'
 import { CareerDraft, CareerGoal, CareerWorkspace, useCareerWorkspace, workLabels } from './careerWorkspace'
 import { useCareerNavigation } from './ProfileWorkspaceShell'
+import { useFindColleges } from './ProfileColleges'
+import { useRouter } from 'next/navigation'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 const secondary = `inline-flex min-h-11 items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold transition-colors hover:border-white/40 disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -216,6 +218,9 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
   const setDraft = (text: string | null) => setEditor(value => ({ ...value, text }))
   const setInputsChanged = (inputs_changed: boolean) => setEditor(value => ({ ...value, inputs_changed }))
   const { view, setView, revision: navigationRevision } = useCareerNavigation()
+  const router = useRouter()
+  // Girls first: an eligible athlete's main action is finding colleges.
+  const findColleges = useFindColleges()
   const [goalOpen, setGoalOpen] = useState(false)
   const [goalForm, setGoalForm] = useState<CareerGoal>({ text: '', destination: null, timeframe: null })
   const goalDialog = useRef<HTMLDialogElement>(null)
@@ -425,8 +430,9 @@ function ProfileReadout({ profile, refreshing, onRefresh, workspace, editor, set
       <div hidden={composerOpen || guidanceOpen}>
         <AthleteCareerHome profile={profile} snapshot={materials.snapshot} loading={materials.loading} error={materials.error}
           goal={savedGoal} featuredId={workspace.snapshot?.featured_source_id || null} saving={workspace.saving || workspace.loading}
-          nextMove={nextMove} nextPending={nextPending} recent={workspace.snapshot?.recent_work || []}
-          onNext={takeNextMove} onEditGoal={editGoal} onFeature={item => void featureClip(item)}
+          nextMove={findColleges ? { title: 'Find colleges.', detail: 'See college flag football programs near you and why each one could fit.', label: 'Find colleges' } : nextMove}
+          nextPending={findColleges ? false : nextPending} recent={workspace.snapshot?.recent_work || []}
+          onNext={findColleges ? () => router.push('/home/colleges') : takeNextMove} onEditGoal={editGoal} onFeature={item => void featureClip(item)}
           onAsk={showGuidance} onBrowse={() => setProfileOpen(true)} onProgress={() => setView('progress')} />
       </div>
       <div className={`mx-auto w-full pb-12 ${composerOpen || guidanceOpen ? 'max-w-3xl pt-8 sm:pt-12' : ''}`}>

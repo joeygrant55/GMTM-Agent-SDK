@@ -1,6 +1,8 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import { isProfileSurface } from '@/lib/backend-config.cjs'
+import dynamic from 'next/dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
@@ -101,7 +103,16 @@ const DEPTH_COLORS: Record<string, string> = {
   'developmental': 'text-blue-400',
 }
 
+const ProfileCollegeDetail = dynamic(() => import('../../components/ProfileColleges').then(m => m.ProfileCollegeDetail), { ssr: false })
+
+// The junior app (profile surface) shows a sourced program; others keep the legacy detail.
 export default function CollegeDetailPage() {
+  const params = useParams()
+  if (isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE)) return <ProfileCollegeDetail programId={String(params?.id || '')} />
+  return <LegacyCollegeDetailPage />
+}
+
+function LegacyCollegeDetailPage() {
   const { user } = useUser()
   const params = useParams()
   const router = useRouter()

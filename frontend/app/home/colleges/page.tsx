@@ -1,6 +1,7 @@
 'use client'
 
 import { apiFetch } from '@/app/_lib/api'
+import { isProfileSurface } from '@/lib/backend-config.cjs'
 
 import dynamic from 'next/dynamic'
 
@@ -398,4 +399,6 @@ function CollegeSession({ clerkId }: { clerkId: string }) {
 }
 
 
-export default dynamic(() => Promise.resolve(CollegesPage), { ssr: false })
+// The junior app (profile surface) has its own sourced colleges view; others keep this one.
+const ProfileColleges = dynamic(() => import('../components/ProfileColleges').then(m => m.ProfileColleges), { ssr: false })
+export default isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE) ? ProfileColleges : dynamic(() => Promise.resolve(CollegesPage), { ssr: false })
