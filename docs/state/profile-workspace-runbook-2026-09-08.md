@@ -1,3 +1,5 @@
+Superseded 2026-10-01 by spec rev 4: GMTM sign-in only, Clerk removed. See docs/specs/sparq-on-gmtm-junior-pilot-2026-10-01.md.
+
 # Private athlete profile workspace
 
 This is the first implementation of the September 8 profile-value direction. It replaces the combine checklist in the explicitly selected `profile` surface with existing athlete facts and an editable, copyable output. The legacy and `combine` surfaces retain their separate behavior.

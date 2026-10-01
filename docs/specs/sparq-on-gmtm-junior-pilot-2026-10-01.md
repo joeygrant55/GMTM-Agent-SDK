@@ -24,6 +24,19 @@ A junior flag athlete (13–17) who has a GMTM account clicks **SPARQ** on GMTM.
   - By age (`users.dob`): 11 under 13, 140 aged 13–17, 7 aged 18+, 10 with no DOB.
   - By gender code, ages 13–17 (`users.gender`: 1 = female, 2 = male and also the column default, 0 = unknown): 18 female, 67 male-or-default, 55 unknown.
 
+## Rev 4: Clerk removed from all surfaces (Joey 2026-10-01)
+
+The app has no users, so Clerk is gone everywhere. GMTM sign-in is the only sign-in for the profile, combine and legacy surfaces.
+
+- Every backend app mounts `POST /gmtm-entry/exchange` and `/gmtm-entry/sign-out` and accepts only the SPARQ session token. `auth.require_identity` (renamed from `require_clerk_id`) is the default dependency.
+- Admission does not widen. Profile keeps the junior gate (cohort 1305/1314/1317 + age 13–17, or `SPARQ_TEST_ALLOWLIST`). Combine and legacy admit `SPARQ_TEST_ALLOWLIST` only, at exchange and on every request.
+- Deleted: Clerk JWT verification, `CLERK_*`, `AUTH_ENFORCED`/`DEV_CLERK_ID` bypass, `claims_api.py` (claim mint/open/redeem), `/api/profile/connect`, `/api/athlete/search`, MaxPreps sign-up onboarding routes, the frontend sign-in/sign-up/claim/connect/onboarding pages and `@clerk/nextjs`.
+- Renamed: `/api/profile/by-clerk/{id}` is now `/api/profile/by-owner/{id}`.
+- Kept: the Agent DB column `clerk_id` and indexes `idx_clerk`/`idx_clerk_id`. Renaming them needs a production schema migration (Joey-gated). Existing link ids stay valid as SPARQ subjects.
+- **Hosting precondition.** Every surface (profile, combine, legacy) must be served from a gmtm.com subdomain with `NEXT_PUBLIC_GMTM_WEB_URL` set. Sign-in needs the browser's `.gmtm.com` sessionId cookie; a frontend on vercel.app or another domain can never sign in. Set `ALLOWED_ORIGINS` explicitly per deployment (the backend default is `https://sparq.gmtm.com` plus localhost).
+- Tokens carry `aud` = the surface (`profile`, `combine`, `legacy`). A token for one surface gets 401 on every other surface. One active session per subject across surfaces: a new sign-in anywhere ends the old one.
+- A repo check (`backend/tests/test_no_clerk.py`) fails on any other "clerk" text in source, config, lockfile, env example, Dockerfiles or CSP.
+
 ## Design (rev 2, after adversarial review R1 on 2026-10-01)
 
 Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding this design answers.
@@ -35,7 +48,7 @@ Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding t
    - It returns a one-use 60-second code. Redis stores only `sha256(code)`, one use via `SET NX` and `GETDEL`.
    - The route has its own try/catch with fixed 401/429/500 bodies. It never rethrows into the global TrackJS handler and never logs the code. (The API's `x-source` gate is dead, `server/index.js:131`, so it protects nothing.)
    - `/enter/callback` requires the state cookie to match. It redeems the code server to server, then redirects (302) to a clean `/home` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
-   - **Session = SPARQ session token (rev 3: no Clerk, Joey 2026-10-01).** GMTM sign-in is the only sign-in on this app. The legacy and combine surfaces keep Clerk unchanged.
+   - **Session = SPARQ session token (rev 3: no Clerk, Joey 2026-10-01).** GMTM sign-in is the only sign-in on this app. ~~The legacy and combine surfaces keep Clerk unchanged.~~ Superseded by rev 4.
      - The middleware reads the `.gmtm.com` `sessionId` cookie only to compute its sha256 (`gsh`). It strips the raw value from every forwarded request and passes only `x-sparq-gsh`.
      - The callback sends `{code, state, gsh}` to `POST /gmtm-entry/exchange`. The backend redeems the code, checks eligibility and returns an HS256 token signed with `SPARQ_SESSION_SECRET` (at least 32 bytes). Claims: `sub = gmtm_<user_id>`, random `jti`, `gsh`, `iat`, `exp = iat + 24 h`.
      - The token lives only in the `__Host-sparq-session` cookie (HttpOnly, Secure, SameSite=Lax, Path=/, Max-Age 86400). Browser code never sees it.

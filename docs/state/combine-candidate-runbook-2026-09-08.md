@@ -1,3 +1,5 @@
+Superseded 2026-10-01 by spec rev 4: GMTM sign-in only, Clerk removed. See docs/specs/sparq-on-gmtm-junior-pilot-2026-10-01.md.
+
 # Focused combine candidate
 
 This package is local and not deployed. It provides a supported route boundary; configuration alone does not provide database or network isolation. The default legacy app and `main:app` keep their broader behavior. A future release must pair the combine frontend with `candidate_app:app` and verify both surfaces; the frontend flag alone does not restrict a separately deployed legacy backend.

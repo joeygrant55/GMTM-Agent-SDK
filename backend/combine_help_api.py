@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import SUPPORTED_EVENTS, load_current_combine
 from combine_context import (
     COMBINE_SYSTEM_PROMPT, build_combine_context,
@@ -162,7 +162,7 @@ async def _stream_answer(body, context, request, *, model=None):
 
 
 @router.post("/help")
-async def combine_help(body: CombineHelpRequest, request: Request, clerk_id: str = Depends(require_clerk_id)):
+async def combine_help(body: CombineHelpRequest, request: Request, clerk_id: str = Depends(require_identity)):
     if body.event_id not in SUPPORTED_EVENTS:
         raise HTTPException(status_code=404, detail="This combine is not available.")
     try:

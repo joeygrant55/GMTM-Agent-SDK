@@ -3,10 +3,10 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 
 export default function HomeClient() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedEvent = searchParams.get('event_id')
@@ -27,7 +27,7 @@ export default function HomeClient() {
     <div className="h-full min-h-screen bg-sparq-charcoal text-white flex items-center justify-center">
       <div className="text-center">
         {isLoaded && !user?.id ? (
-          <Link className="text-sparq-lime underline" href={`/sign-in?redirect_url=${encodeURIComponent(destination)}`}>
+          <Link className="text-sparq-lime underline" href="/enter">
             Sign in to your workspace
           </Link>
         ) : (

@@ -1,4 +1,4 @@
-// Isolated actual-component checks. No Next server, real Clerk, backend, model or email.
+// Isolated actual-component checks. No Next server, real session, backend, model or email.
 // Run with an existing dependency tree; never install packages or read .env here.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,9 +16,7 @@ const files = [
   'app/home/components/CombineHelpProvider.tsx', 'app/home/components/CombineHelpPanel.tsx',
   'app/home/components/ActivityRequirements.tsx', 'app/home/components/currentCombine.ts',
   'app/_lib/profileConnection.ts', 'app/quick-scan/QuickScanClient.tsx',
-  'app/home/outreach/draft/page.tsx', 'app/onboarding/_lib/types.ts',
-  'app/connect/ConnectClient.tsx', 'app/connect/CombineConnectionRecovery.tsx', 'app/connect/page.tsx', 'app/claim/[token]/page.tsx',
-  'app/claim/[token]/redeem/page.tsx', 'app/home/components/WorkspaceAIPanel.tsx',
+  'app/home/outreach/draft/page.tsx', 'app/home/components/WorkspaceAIPanel.tsx',
   'app/home/components/IterationBanner.tsx', 'app/home/components/artifactStatus.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs',
 ];
 const sourceHashes = {};
@@ -37,7 +35,7 @@ window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
 window.__tokenPending=[];window.__jsonPending=[];
 const token=async()=>{const mode=window.__tokenMode;if(mode?.pending)return new Promise(resolve=>window.__tokenPending.push(resolve));if(mode&&'value' in mode)return mode.value;return window.__identity.user?'fixture-'+window.__identity.user.id:null};
-window.Clerk={session:{getToken:token}};
+
 window.__navigation=[];const router={push:url=>window.__navigation.push(url),replace:url=>window.__navigation.push(url)};
 window.__params={token:'fixture-invitation'};
 window.__connectEventId=null;window.__searchParams={};
@@ -56,10 +54,10 @@ function reply(kind,mode){
  return new Response(mode.badJSON?'not-json':JSON.stringify(mode.body===undefined?defaults[kind]:mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});
 }
 window.fetch=async(input,init={})=>{
- const url=new URL(String(input),location.origin);if(url.origin!==location.origin)throw Error('Blocked external fetch: '+url.origin);
- const request={url:url.href,path:url.pathname,method:init.method||'GET',body:init.body?JSON.parse(init.body):null,authorization:new Headers(init.headers).get('Authorization'),signal:init.signal};window.__requests.push(request);
+ let url=new URL(String(input),location.origin);if(url.origin!==location.origin)throw Error('Blocked external fetch: '+url.origin);const __proxied=url.pathname.startsWith('/api/sparq/proxy/');const __auth=__proxied?(window.__identity.user?'Bearer fixture-'+window.__identity.user.id:null):new Headers(init.headers).get('Authorization');if(__proxied){const __o=url.pathname;url=new URL(__o.slice('/api/sparq/proxy'.length)+url.search,location.origin)}
+ const request={url:url.href,path:url.pathname,method:init.method||'GET',body:init.body?JSON.parse(init.body):null,authorization:__auth,signal:init.signal};window.__requests.push(request);
  if(url.pathname==='/api/athlete/4521')return new Response(JSON.stringify({user_id:4521,first_name:'Jordan',last_name:'Fixture'}),{headers:{'content-type':'application/json'}});
- let kind=url.pathname.includes('/workspace/profile/')?'workspaceProfile':url.pathname.includes('/workspace/colleges/')?'colleges':url.pathname.includes('/dashboard/')?'dashboard':url.pathname.includes('/profile/by-clerk/')?'profile':url.pathname.includes('/profile/connect')?'connect':url.pathname.includes('/iterate-via-agent')?'iteration':url.pathname.includes('/agent/stream')?'stream':url.pathname.includes('/agent/fork')?'fork':url.pathname.endsWith('/redeem')?'redeem':url.pathname.includes('/claims/')?'claim':null;
+ let kind=url.pathname.includes('/workspace/profile/')?'workspaceProfile':url.pathname.includes('/workspace/colleges/')?'colleges':url.pathname.includes('/dashboard/')?'dashboard':url.pathname.includes('/profile/by-owner/')?'profile':url.pathname.includes('/profile/connect')?'connect':url.pathname.includes('/iterate-via-agent')?'iteration':url.pathname.includes('/agent/stream')?'stream':url.pathname.includes('/agent/fork')?'fork':url.pathname.endsWith('/redeem')?'redeem':url.pathname.includes('/claims/')?'claim':null;
  if(!kind)throw Error('Unexpected synthetic endpoint '+url.pathname);
  const mode=window.__modes[kind]||{};
  if(mode.pending)return new Promise(resolve=>window.__pending.push({kind,resolve}));
@@ -71,7 +69,8 @@ const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefin
 function load(id,from=''){
  if(id==='react')return React;
  if(id==='react/jsx-runtime')return {jsx,jsxs:jsx,Fragment:React.Fragment};
- if(id==='@clerk/nextjs')return {useUser,useAuth:()=>{const state=useUser();return{isLoaded:state.isLoaded,isSignedIn:!!state.user,userId:state.user?.id,getToken:token}}};
+ if(id==='@/app/_lib/useSparqSession')return{useSparqSession:useUser,signOutOfSparq:async()=>{}};
+ if(id==='@/components/SignOutButton')return{__esModule:true,default:()=>React.createElement('button',{'aria-label':'Sign out'},'Sign out')};
  if(id==='next/navigation')return {useRouter:()=>router,useParams:()=>window.__params};
  if(id==='next/dynamic')return {__esModule:true,default:loader=>{let component=null,promise=null;return function Dynamic(props){const [C,setC]=React.useState(()=>component);React.useEffect(()=>{let active=true;(promise||=(loader())).then(m=>{component=m.default||m;if(active)setC(()=>component)});return()=>{active=false}},[]);return C?React.createElement(C,props):null}}};
  if(id==='next/link')return {__esModule:true,default:({children,...props})=>React.createElement('a',props,children)};
@@ -80,7 +79,7 @@ function load(id,from=''){
  if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;if(!modules[id])throw Error('Unknown module '+id);modules[id](x=>load(x,id),m,m.exports);return m.exports;
 }
 const root=ReactDOM.createRoot(document.getElementById('root'));
-window.__mount=async(kind)=>{const id={quickscan:'app/quick-scan/QuickScanClient',outreach:'app/home/outreach/draft/page',connect:'app/connect/ConnectClient',connectPage:'app/connect/page',workspace:'app/home/components/WorkspaceAIPanel',claim:'app/claim/[token]/page',redeem:'app/claim/[token]/redeem/page'}[kind];const Component=load(id).default;const props=kind==='connect'?{eventId:window.__connectEventId}:kind==='connectPage'?{searchParams:window.__searchParams}:undefined;const content=kind==='claim'?await Component({params:window.__params}):React.createElement(Component,props);root.render(window.__strictMode?React.createElement(React.StrictMode,null,content):content)};
+window.__mount=async(kind)=>{const id={quickscan:'app/quick-scan/QuickScanClient',outreach:'app/home/outreach/draft/page',workspace:'app/home/components/WorkspaceAIPanel'}[kind];const Component=load(id).default;const props=kind==='connect'?{eventId:window.__connectEventId}:kind==='connectPage'?{searchParams:window.__searchParams}:undefined;const content=kind==='claim'?await Component({params:window.__params}):React.createElement(Component,props);root.render(window.__strictMode?React.createElement(React.StrictMode,null,content):content)};
 `;
 
 const checks = [];
@@ -139,17 +138,6 @@ const assets = {
       ['unsafe athlete id', {body:{found:true,has_sparq_profile:true,user_id:9007199254740992}}],
       ['unlinked with athlete id', {body:{found:false,has_sparq_profile:false,user_id:4521}}],
     ];
-    for(const [name,mode] of connectionFailures){
-      await reset('connectPage',{profile:mode},{},undefined,false,{searchParams:{event_id:'1318'}});
-      await page.getByRole('button',{name:'Retry connection check',exact:true}).waitFor();
-      check(await page.getByRole('button',{name:/I Know My Athlete Number/}).count()===0&&await page.evaluate(()=>window.__navigation.length)===0,'Initial '+name+' does not falsely unlock search or redirect');
-      check(await page.getByRole('link',{name:/Return to.*combine/i}).getAttribute('href')==='/home/inbox?event_id=1318','Initial '+name+' keeps nonmutating selected-combine recovery');
-      if(mode.status===401)check(await page.getByRole('link',{name:/Sign in/i}).isVisible(),'401 profile lookup gives sign-in recovery');
-      await page.evaluate(()=>window.__modes.profile={body:{found:false,has_sparq_profile:false,user_id:null}});
-      await page.getByRole('button',{name:'Retry connection check',exact:true}).click();
-      await page.getByRole('button',{name:/I Know My Athlete Number/}).waitFor();
-      check(await page.evaluate(()=>window.__requests.filter(r=>r.path.includes('/profile/by-clerk/')).length===2&&window.__requests.every(r=>r.method==='GET')),'Retry after '+name+' confirms actual unlinked state using reads only');
-    }
 
     for(const kind of ['quickscan','outreach']){
       for(const [name,mode] of connectionFailures){
@@ -197,7 +185,7 @@ const assets = {
     await page.evaluate(()=>window.__modes.profile={body:{found:false,has_sparq_profile:false,user_id:null}});
     await page.getByRole('button',{name:'Retry profile check',exact:true}).click();
     await page.getByRole('heading',{name:'Connect Your Athlete Profile',exact:true}).waitFor();
-    check(await page.evaluate(()=>window.__requests.filter(r=>r.path.includes('/profile/by-clerk/')).length===2&&window.__requests.every(r=>r.method==='GET')),'QuickScan retry can confirm unlinked state without writes');
+    check(await page.evaluate(()=>window.__requests.filter(r=>r.path.includes('/profile/by-owner/')).length===2&&window.__requests.every(r=>r.method==='GET')),'QuickScan retry can confirm unlinked state without writes');
 
     await reset('outreach',{profile:{body:{found:true,has_sparq_profile:true,user_id:4521}},colleges:{body:{colleges:[{id:504,college_name:'Synthetic Clipboard College'}]}}});
     await page.getByRole('textbox',{name:'Email draft',exact:true}).waitFor();
@@ -208,88 +196,6 @@ const assets = {
     await page.getByRole('alert').waitFor();
     await page.evaluate(()=>window.__releaseClipboard());await settle();
     check(await page.evaluate(()=>!window.__requests.some(r=>r.method==='POST'))&&await page.getByRole('textbox',{name:'Email draft',exact:true}).count()===0,'Account change during clipboard wait suppresses old-account outreach POST and draft');
-
-    for (const [name, mode] of [
-      ['forbidden invitation recovery', { status: 403 }], ['unauthorized', { status: 401 }],
-      ['server failure', { status: 500 }], ['invalid JSON', { badJSON: true }],
-      ['wrong athlete', { body: { connected: true, user_id: 4522, clerk_id: 'athlete-a' } }],
-      ['wrong account', { body: { connected: true, user_id: 4521, clerk_id: 'athlete-b' } }],
-      ['unconfirmed connection', { body: { connected: false, user_id: 4521, clerk_id: 'athlete-a' } }],
-      ['network rejection', { reject: true }],
-    ]) {
-      await reset('connect', { connect: mode });await previewConnection();
-      await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-      await page.getByRole('alert').waitFor();
-      check(await page.getByRole('heading', { name: "You're Connected!" }).count() === 0 && await page.evaluate(() => window.__navigation.length) === 0, `Connect rejects ${name} without success or navigation`);
-      if (mode.status === 403) check((await page.getByRole('alert').innerText()).includes('secure invitation'), 'Forbidden connection points to organizer invitation');
-    }
-    await reset('connect');await previewConnection();await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-    await page.getByRole('heading', { name: "You're Connected!" }).waitFor();
-    await page.waitForFunction(() => window.__navigation.length === 1);
-    check(await page.evaluate(() => window.__navigation[0]) === '/home', 'Confirmed matching connection alone navigates to home');
-    await reset('connect', { connect: { pending: true } });await previewConnection();await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-    await switchAccount();await page.evaluate(() => window.__release('connect'));await settle();
-    check(await page.evaluate(() => window.__requests.find(r => r.path === '/api/profile/connect').signal.aborted), 'Connect aborts old-account request');
-    check(await page.getByRole('heading', { name: "You're Connected!" }).count() === 0 && await page.evaluate(() => window.__navigation.length) === 0, 'Late old-account connection response cannot confirm new account');
-    await reset('connect');await previewConnection();await page.getByRole('button', { name: 'Check connection', exact: true }).click();await page.getByRole('heading', { name: "You're Connected!" }).waitFor();await switchAccount();
-    await page.waitForTimeout(1600);
-    check(await page.evaluate(() => window.__navigation.length) === 0, 'Account switch cancels connection success redirect timer');
-    await switchAccount(null);check(await page.getByRole('link', { name: 'Sign in', exact: true }).isVisible(), 'Signed-out connection view asks for signin');
-
-    for (const eventId of [1317, 1318]) {
-      const searchParams={event_id:String(eventId)};
-      const destination='/home/inbox?event_id='+eventId;
-      await reset('connectPage', {}, {}, undefined, false, {searchParams});
-      await switchAccount(null);
-      const signIn=await page.getByRole('link',{name:'Sign in',exact:true}).getAttribute('href');
-      check(new URL(signIn,origin).searchParams.get('redirect_url')==='/connect?event_id='+eventId, 'Connect signin preserves supported event '+eventId);
-      await reset('connectPage', {profile:{body:{found:true,user_id:4521,has_sparq_profile:true}}}, {}, undefined, false, {searchParams});
-      await page.waitForFunction(()=>window.__navigation.length===1);
-      check(await page.evaluate(()=>window.__navigation[0])===destination, 'Existing-owner lookup preserves event '+eventId);
-      await reset('connectPage', {}, {}, undefined, false, {searchParams});await previewConnection();
-      await page.getByRole('button',{name:'Check connection',exact:true}).click();
-      await page.waitForFunction(()=>window.__navigation.length===1);
-      check(await page.evaluate(()=>window.__navigation[0])===destination, 'Confirmed existing connection preserves event '+eventId);
-      check(await page.evaluate(()=>{const r=window.__requests.find(r=>r.path==='/api/profile/connect');return JSON.stringify(r.body)===JSON.stringify({user_id:4521,clerk_id:'athlete-a'})}), 'Event '+eventId+' remains navigation context only, without changing connection payload');
-    }
-    for (const eventId of [undefined, '', '999', '01317', '1317.0', ' 1317 ', ['1317'], ['1317','1318'], 'https://example.invalid/escape']) {
-      const searchParams={...(eventId===undefined?{}:{event_id:eventId}),return_url:'https://example.invalid/escape'};
-      await reset('connectPage', {profile:{body:{found:true,user_id:4521,has_sparq_profile:true}}}, {}, undefined, false, {searchParams});
-      await page.waitForFunction(()=>window.__navigation.length===1);
-      check(await page.evaluate(()=>window.__navigation[0])==='/home', 'Missing or invalid event '+JSON.stringify(eventId)+' cannot select a division or redirect target');
-      await switchAccount(null);
-      const signIn=await page.getByRole('link',{name:'Sign in',exact:true}).getAttribute('href');
-      check(new URL(signIn,origin).searchParams.get('redirect_url')==='/connect', 'Invalid event '+JSON.stringify(eventId)+' is excluded from signin recovery');
-    }
-    await reset('connect', {profile:{body:{found:true,user_id:4521,has_sparq_profile:true}}}, {}, undefined, false, {eventId:999});
-    await page.waitForFunction(()=>window.__navigation.length===1);
-    check(await page.evaluate(()=>window.__navigation[0])==='/home', 'Direct client also rejects an unsupported event prop');
-
-    await reset('connectPage', {profile:{pending:true}}, {}, undefined, false, {searchParams:{event_id:'1317'}});
-    await page.waitForFunction(()=>window.__pending.length===1);
-    await page.evaluate(async()=>{window.__searchParams={event_id:'1318'};window.__modes.profile={body:{found:true,user_id:4521,has_sparq_profile:true}};await window.__mount('connectPage')});
-    await page.waitForFunction(()=>window.__navigation.length===1);
-    await page.evaluate(()=>window.__release('profile',{body:{found:true,user_id:4521,has_sparq_profile:true}}));await settle();
-    check(await page.evaluate(()=>window.__requests[0].signal.aborted&&window.__navigation.length===1&&window.__navigation[0]==='/home/inbox?event_id=1318'), 'Event switch cancels profile lookup and ignores a valid late junior response');
-
-    await reset('connectPage',{profile:{pending:true}},{},undefined,false,{searchParams:{event_id:'1317'}});
-    await page.waitForFunction(()=>window.__pending.length===1);
-    await page.evaluate(()=>window.__modes.profile={status:409});await switchAccount();
-    await page.getByRole('button',{name:'Retry connection check',exact:true}).waitFor();
-    await page.evaluate(()=>window.__release('profile',{body:{found:true,has_sparq_profile:true,user_id:4521}}));await settle();
-    check(await page.evaluate(()=>window.__requests[0].signal.aborted&&window.__navigation.length===0)&&await page.getByRole('button',{name:'Retry connection check',exact:true}).isVisible(),'Old-account successful lookup cannot erase new-account unknown status or redirect');
-
-    await reset('connectPage', {connect:{pending:true}}, {}, undefined, false, {searchParams:{event_id:'1317'}});await previewConnection();
-    await page.getByRole('button',{name:'Check connection',exact:true}).click();
-    await page.evaluate(async()=>{window.__searchParams={event_id:'1318'};await window.__mount('connectPage')});await settle();
-    await page.evaluate(()=>window.__release('connect'));await settle();
-    check(await page.evaluate(()=>window.__requests.find(r=>r.path==='/api/profile/connect').signal.aborted&&window.__navigation.length===0)&&await page.getByRole('heading',{name:"You're Connected!"}).count()===0, 'Event switch cancels connection confirmation and suppresses stale success');
-
-    await reset('connectPage', {}, {}, undefined, false, {searchParams:{event_id:'1317'}});await previewConnection();
-    await page.getByRole('button',{name:'Check connection',exact:true}).click();await page.getByRole('heading',{name:"You're Connected!"}).waitFor();
-    await page.evaluate(async()=>{window.__searchParams={event_id:'999'};await window.__mount('connectPage')});await settle();
-    await page.waitForTimeout(1600);
-    check(await page.evaluate(()=>window.__navigation.length)===0, 'Changing from valid to invalid event cancels the pending success redirect');
 
     await reset('workspace', { stream: { streaming: true } }, { 'sparq_conv_athlete-a': '101' });
     await send('PRIVATE REQUEST A');await page.getByText('PRIVATE STREAM A', { exact: true }).waitFor();
@@ -331,62 +237,9 @@ const assets = {
     check(await page.evaluate(() => window.__requests.filter(r => r.path.includes('/agent/stream')).length) === 1, 'Concurrent proactive events start at most one request');
     await page.evaluate(() => window.__release('stream'));await page.getByText('Synthetic answer', { exact: true }).waitFor();
 
-    await reset('claim');await page.getByRole('heading', { name: 'Hey Jordan, connect your profile for Fixture Combine.' }).waitFor();
-    check((await page.locator('body').innerText()).includes('before your first results'), 'Valid claim invitation is truthful before results');
-    await reset('claim', { claim: { status: 410 } });await page.getByRole('heading', { name: 'This link has expired' }).waitFor();
-    check((await page.locator('body').innerText()).includes('Ask your combine organizer for a new invitation') && await page.getByRole('link', { name: 'Check an existing connection' }).isVisible(), 'Expired claim directs to organizer invitation and existing-connection recovery');
-    for (const mode of [{status:503},{status:429},{reject:true}]) {
-      await reset('claim', {claim:mode});await page.getByRole('heading',{name:'We could not check this invitation',exact:true}).waitFor();
-      check(await page.getByRole('heading',{name:'This link is not valid',exact:true}).count()===0 && await page.getByRole('link',{name:'Check an existing connection',exact:true}).isVisible(), 'Unavailable invitation check stays unknown and offers recovery: '+JSON.stringify(mode));
-    }
-    await reset('redeem', { redeem: { status: 409 } });await page.getByRole('heading', { name: 'This profile could not be connected' }).waitFor();
-    check((await page.locator('body').innerText()).includes('contact your combine organizer') && !(await page.locator('body').innerText()).includes('by name') && !(await page.locator('body').innerText()).includes('already used'), 'Claim conflict copy is neutral about cause and avoids takeover recovery');
-    await page.evaluate(() => window.__modes.redeem = {});await page.getByRole('button', { name: 'Try again', exact: true }).click();await page.waitForFunction(() => window.__navigation.length === 1);
-    check(await page.evaluate(() => window.__navigation[0] === '/home/inbox' && window.__requests.length === 2), '409 retry performs a fresh redemption and confirms success');
-    for (const [name, mode, heading] of [
-      ['expired invitation', { status: 410 }, 'This link has expired'],
-      ['invalid invitation', { status: 400 }, 'This link is not valid'],
-      ['failed HTTP response', { status: 503 }, 'Something went wrong'],
-      ['malformed success', { body: { workspace_ready: true } }, 'Something went wrong'],
-      ['unconfirmed success', { body: { connected: false, clerk_id: 'athlete-a', workspace_ready: true, user_id: 4521 } }, 'Something went wrong'],
-      ['mismatched account success', { body: { connected: true, clerk_id: 'athlete-b', workspace_ready: true, user_id: 4521 } }, 'Something went wrong'],
-    ]) {
-      await reset('redeem', { redeem: mode });await page.getByRole('heading', { name: heading }).waitFor();
-      check(await page.evaluate(() => window.__navigation.length) === 0 && await page.getByRole('link', { name: 'Check an existing connection' }).isVisible(), `Redemption handles ${name} without success navigation`);
-    }
-
-    await reset('redeem', {}, {}, { value: null });await page.getByRole('heading', { name: 'Something went wrong' }).waitFor();
-    check(await page.evaluate(() => window.__requests.length) === 0, 'Missing Clerk token makes no redemption API call');
-    await reset('redeem', {}, {}, { pending: true });await page.waitForFunction(() => window.__tokenPending.length === 1);
-    await page.evaluate(() => {window.__tokenMode=undefined;window.__modes.redeem={pending:true}});await switchAccount();await page.waitForFunction(() => window.__pending.length === 1);
-    await page.evaluate(() => window.__tokenPending.shift()('fixture-athlete-a'));await settle();
-    check(await page.evaluate(() => window.__requests.length === 1 && window.__requests[0].authorization === 'Bearer fixture-athlete-b' && window.__navigation.length === 0), 'Account switch while getToken waits prevents old redemption request');
-    await page.evaluate(() => window.__release('redeem'));await page.waitForFunction(() => window.__navigation.length === 1);
-
-    await reset('redeem', { redeem: { pending: true } });await page.waitForFunction(() => window.__pending.length === 1);await switchAccount();await page.waitForFunction(() => window.__pending.length === 2);
-    await page.evaluate(() => window.__release('redeem', { body: { connected: true, clerk_id: 'athlete-a', workspace_ready: false, user_id: 4521 } }));await settle();
-    check(await page.evaluate(() => window.__requests[0].signal.aborted && window.__navigation.length === 0), 'Account switch aborts redemption fetch and ignores its late result');
-    await page.evaluate(() => window.__release('redeem'));await page.waitForFunction(() => window.__navigation.length === 1);
-
-    await reset('redeem', { redeem: { jsonPending: true } });await page.waitForFunction(() => window.__jsonPending.length === 1);
-    await page.evaluate(() => window.__modes.redeem = { pending: true });await switchAccount();await page.waitForFunction(() => window.__pending.length === 1);
-    await page.evaluate(() => window.__jsonPending.shift().resolve({ connected: true, clerk_id: 'athlete-a', workspace_ready: false, user_id: 4521 }));await settle();
-    check(await page.evaluate(() => window.__navigation.length === 0 && window.__requests[0].signal.aborted), 'Account switch during response JSON cannot navigate the new account');
-    await page.evaluate(() => window.__release('redeem'));await page.waitForFunction(() => window.__navigation.length === 1);
-
-    await reset('redeem', { redeem: { pending: true } });await page.waitForFunction(() => window.__pending.length === 1);
-    await page.evaluate(async () => {window.__params={token:'second-invitation'};await window.__mount('redeem')});await page.waitForFunction(() => window.__pending.length === 2);
-    await page.evaluate(() => window.__release('redeem', { body: { connected: true, clerk_id: 'athlete-a', workspace_ready: false, user_id: 4521 } }));await settle();
-    check(await page.evaluate(() => window.__requests[0].signal.aborted && window.__requests[1].path.includes('second-invitation') && window.__navigation.length === 0), 'Changed invitation token remounts redemption and ignores the old result');
-    await page.evaluate(() => window.__release('redeem'));await page.waitForFunction(() => window.__navigation.length === 1);
-    await reset('redeem', {}, {}, undefined, true);await page.waitForFunction(() => window.__navigation.includes('/home/inbox'));
-    check(await page.evaluate(() => window.__requests.some(r => r.path.endsWith('/redeem'))), 'StrictMode setup-cleanup-setup reaches confirmed redemption instead of staying busy');
-    await reset('redeem', { redeem: { status: 409 } }, {}, undefined, true);await page.getByRole('heading', { name: 'This profile could not be connected' }).waitFor();
-    await page.evaluate(() => window.__modes.redeem = {});await page.getByRole('button', { name: 'Try again', exact: true }).click();await page.waitForFunction(() => window.__navigation.includes('/home/inbox'));
-    check(await page.evaluate(() => window.__requests.length >= 2), 'StrictMode conflict retry can start a fresh attempt without an exactly-once client assumption');
     check(errors.length === 0, 'No component runtime errors in synthetic cases');
     fs.writeFileSync(receiptPath, JSON.stringify({ status: 'pass', checks, sourceHashes,
-      scope: 'Actual source compiled with TypeScript and rendered with React 18 in Chromium. Synthetic Clerk, Next navigation, plain-text Markdown and in-memory fetch responses; browser network intercepted. No Next middleware/layout, live identity/backend/provider, production or full-mobile acceptance.',
+      scope: 'Actual source compiled with TypeScript and rendered with React 18 in Chromium. Synthetic SPARQ session, Next navigation, plain-text Markdown and in-memory fetch responses; browser network intercepted. No Next middleware/layout, live identity/backend/provider, production or full-mobile acceptance.',
     }, null, 2) + '\n');
     console.log(JSON.stringify({ status: 'pass', count: checks.length, checks }, null, 2));
   } finally { await browser.close(); }

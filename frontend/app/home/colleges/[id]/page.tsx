@@ -5,7 +5,7 @@ import { isProfileSurface } from '@/lib/backend-config.cjs'
 import dynamic from 'next/dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -113,7 +113,7 @@ export default function CollegeDetailPage() {
 }
 
 function LegacyCollegeDetailPage() {
-  const { user } = useUser()
+  const { user } = useSparqSession()
   const params = useParams()
   const router = useRouter()
   const collegeId = params?.id as string

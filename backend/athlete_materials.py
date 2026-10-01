@@ -16,7 +16,7 @@ from source_scope import owner_scope
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import _get_agent_db, _get_gmtm_db
 from profile_owner import linked_profile_athlete as _linked_athlete
 from athlete_evidence import PRIVATE_HEADERS, _MEASUREMENTS, _UNITS, _recorded_at, _text
@@ -497,7 +497,7 @@ def _project(submissions, films, athlete_id):
 
 
 @router.get("/materials")
-def current_athlete_materials(request: Request, caller_clerk_id: str = Depends(require_clerk_id)):
+def current_athlete_materials(request: Request, caller_id: str = Depends(require_identity)):
     if request.query_params:
         return JSONResponse({"detail": "This endpoint does not accept query parameters."},
                             status_code=400, headers=PRIVATE_HEADERS)
@@ -505,12 +505,12 @@ def current_athlete_materials(request: Request, caller_clerk_id: str = Depends(r
     try:
         agent = _get_agent_db()
         try:
-            athlete_id = _linked_athlete(agent, caller_clerk_id)
+            athlete_id = _linked_athlete(agent, caller_id)
         finally:
             agent.close()
         if athlete_id is None:
             return _response("unlinked", limitations=["Connect your GMTM athlete profile to view its existing material."])
-        scope = owner_scope(caller_clerk_id, athlete_id)
+        scope = owner_scope(caller_id, athlete_id)
         source = _get_gmtm_db()
         try:
             submissions = _submission_rows(source, athlete_id)

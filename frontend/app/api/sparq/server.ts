@@ -1,7 +1,6 @@
-// Server-only helpers for the profile surface's same-origin SPARQ routes. The
+// Server-only helpers for the same-origin SPARQ routes (every surface). The
 // session token stays in its HttpOnly cookie; browser JS never sees it.
 import { NextResponse, type NextRequest } from 'next/server'
-import { isProfileSurface } from '@/lib/backend-config.cjs'
 import { GSH_HEADER, SESSION_COOKIE, clearedSessionCookie, verifySession } from '@/lib/sparq-session.cjs'
 
 export const NO_STORE = { 'Cache-Control': 'private, no-store' } as const
@@ -13,7 +12,6 @@ export function json(body: unknown, status = 200): NextResponse {
 // The session token, only when it is valid AND bound to this browser's current GMTM
 // session (x-sparq-gsh is set by the middleware from the sessionId cookie).
 export async function currentSession(request: NextRequest): Promise<{ token: string; sub: string } | null> {
-  if (!isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE)) return null
   const token = request.cookies.get(SESSION_COOKIE)?.value
   const claims = token ? await verifySession(token, process.env.SPARQ_SESSION_SECRET, request.headers.get(GSH_HEADER)) : null
   return token && claims ? { token, sub: claims.sub } : null

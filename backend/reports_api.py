@@ -12,7 +12,7 @@ import hashlib
 import base64
 import pymysql
 
-from auth import require_clerk_id, assert_owner
+from auth import require_identity, assert_owner
 
 
 router = APIRouter(prefix="/api", tags=["Reports"])
@@ -29,7 +29,7 @@ def _get_agent_db():
     )
 
 
-def _clerk_for_user_id(user_id: int) -> Optional[str]:
+def _owner_for_user_id(user_id: int) -> Optional[str]:
     """Resolve the clerk_id that owns a GMTM athlete id (via the connect mapping)."""
     db = _get_agent_db()
     try:
@@ -41,7 +41,7 @@ def _clerk_for_user_id(user_id: int) -> Optional[str]:
         db.close()
 
 
-def _clerk_for_report(report_id: int) -> Optional[str]:
+def _owner_for_report(report_id: int) -> Optional[str]:
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -51,7 +51,7 @@ def _clerk_for_report(report_id: int) -> Optional[str]:
         db.close()
     if not row:
         return None
-    return _clerk_for_user_id(row["user_id"])
+    return _owner_for_user_id(row["user_id"])
 
 
 class ReportCreate(BaseModel):
@@ -65,9 +65,9 @@ class ReportCreate(BaseModel):
 
 
 @router.get("/reports/{user_id}")
-async def list_reports(user_id: int, report_type: Optional[str] = None, caller_clerk_id: str = Depends(require_clerk_id)):
+async def list_reports(user_id: int, report_type: Optional[str] = None, caller_id: str = Depends(require_identity)):
     """List all reports for an athlete"""
-    assert_owner(_clerk_for_user_id(user_id), caller_clerk_id)
+    assert_owner(_owner_for_user_id(user_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -93,9 +93,9 @@ async def list_reports(user_id: int, report_type: Optional[str] = None, caller_c
 
 
 @router.get("/reports/{user_id}/{report_id}")
-async def get_report(user_id: int, report_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
+async def get_report(user_id: int, report_id: int, caller_id: str = Depends(require_identity)):
     """Get a full report"""
-    assert_owner(_clerk_for_user_id(user_id), caller_clerk_id)
+    assert_owner(_owner_for_user_id(user_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -113,9 +113,9 @@ async def get_report(user_id: int, report_id: int, caller_clerk_id: str = Depend
 
 
 @router.post("/reports")
-async def create_report(request: ReportCreate, caller_clerk_id: str = Depends(require_clerk_id)):
+async def create_report(request: ReportCreate, caller_id: str = Depends(require_identity)):
     """Save a new report"""
-    assert_owner(_clerk_for_user_id(request.user_id), caller_clerk_id)
+    assert_owner(_owner_for_user_id(request.user_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -138,9 +138,9 @@ async def create_report(request: ReportCreate, caller_clerk_id: str = Depends(re
 
 
 @router.delete("/reports/{report_id}")
-async def delete_report(report_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
+async def delete_report(report_id: int, caller_id: str = Depends(require_identity)):
     """Delete a report"""
-    assert_owner(_clerk_for_report(report_id), caller_clerk_id)
+    assert_owner(_owner_for_report(report_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -195,9 +195,9 @@ def _decode_share_token(token: str) -> tuple[int, int]:
 
 
 @router.get("/reports/{user_id}/{report_id}/share-token")
-async def get_share_token(user_id: int, report_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
+async def get_share_token(user_id: int, report_id: int, caller_id: str = Depends(require_identity)):
     """Generate a shareable token for a report (no DB change needed)."""
-    assert_owner(_clerk_for_user_id(user_id), caller_clerk_id)
+    assert_owner(_owner_for_user_id(user_id), caller_id)
     # Verify the report exists and belongs to this user
     db = _get_agent_db()
     try:
@@ -213,7 +213,7 @@ async def get_share_token(user_id: int, report_id: int, caller_clerk_id: str = D
         db.close()
 
     token = _make_share_token(user_id, report_id)
-    base_url = os.getenv("FRONTEND_URL", "https://sparq-agent.vercel.app")
+    base_url = os.getenv("FRONTEND_URL", "https://sparq.gmtm.com")
     return {
         "token": token,
         "url": f"{base_url}/report/{token}",

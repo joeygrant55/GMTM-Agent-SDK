@@ -18,7 +18,7 @@ from backend.tests.junior_fakes import MemoryStore
 from backend.tests.test_profile_candidate_app import session  # noqa: F401  (fixture)
 from backend.tests.test_profile_candidate_app import profile_app  # noqa: F401  (fixture)
 
-CLERK, USER_ID = "user_junior", 7301
+SUBJECT, USER_ID = "user_junior", 7301
 NAME, CITY, EMAIL = "Avery Quintero", "Plano", "avery@example.com"
 ROUTES = {
     ("GET", "/api/workspace/colleges/{clerk_id}"), ("POST", "/api/workspace/trigger-matching/{clerk_id}"),
@@ -31,12 +31,12 @@ ROUTES = {
 class CollegeStore:
     def __init__(self, state="TX"):
         self.rows, self.drafts, self.saves = {}, [], 0
-        self.profiles = {CLERK: {"clerk_id": CLERK, "name": NAME, "position": "QB", "class_year": 2028, "state": state,
+        self.profiles = {SUBJECT: {"clerk_id": SUBJECT, "name": NAME, "position": "QB", "class_year": 2028, "state": state,
                                  "city": CITY, "email": EMAIL,
                                  "combine_metrics": json.dumps({"fortyYardDash": 5.4, "vertical": 21, "weight": 120})}}
 
     def profile(self, clerk_id): return self.profiles.get(clerk_id)
-    def gmtm_user_id(self, clerk_id): return USER_ID if clerk_id == CLERK else None
+    def gmtm_user_id(self, clerk_id): return USER_ID if clerk_id == SUBJECT else None
     def load(self, clerk_id): return dict(self.rows[clerk_id]) if clerk_id in self.rows else None
 
     def save_identity(self, clerk_id, gender, sport):
@@ -74,8 +74,8 @@ class Model:
 def app(profile_app, monkeypatch, session):
     monkeypatch.setattr(auth, "_rate_buckets", {})
     entries = MemoryStore()
-    entries.record_entry(CLERK, USER_ID, datetime.now(timezone.utc))
-    entries.accept_notice(CLERK, datetime.now(timezone.utc))
+    entries.record_entry(SUBJECT, USER_ID, datetime.now(timezone.utc))
+    entries.accept_notice(SUBJECT, datetime.now(timezone.utc))
     monkeypatch.setattr(junior_entry, "store", entries)
     monkeypatch.setattr(elig, "reader", lambda uid: (True, datetime(2011, 1, 1).date()))
     store, model, identity = CollegeStore(), Model(), {"gender": 1, "sport": "Flag Football"}
@@ -83,7 +83,7 @@ def app(profile_app, monkeypatch, session):
     monkeypatch.setattr(cp, "model_json", model)
     monkeypatch.setattr(cp, "read_identity", lambda uid: dict(identity) if uid == USER_ID else None)
     with TestClient(profile_app) as client:
-        yield client, store, model, identity, session(sub=CLERK), entries
+        yield client, store, model, identity, session(sub=SUBJECT), entries
 
 
 def walk(value):
@@ -107,7 +107,7 @@ def test_owner_checks_401_and_403(app):
     client, store, model, *_ , headers, _ = app
     for method, path in ROUTES:
         url = path.replace("{program_id}", "midland-university")
-        assert client.request(method, url.replace("{clerk_id}", CLERK)).status_code == 401
+        assert client.request(method, url.replace("{clerk_id}", SUBJECT)).status_code == 401
         assert client.request(method, url.replace("{clerk_id}", "user_other"), headers=headers).status_code == 403
     assert model.calls == [] and store.saves == 0
 
@@ -115,7 +115,7 @@ def test_owner_checks_401_and_403(app):
 def test_parent_notice_still_gates_college_routes(app):
     client, store, model, _, headers, entries = app
     entries.notices.clear()
-    response = client.get(f"/api/workspace/colleges/{CLERK}", headers=headers)
+    response = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers)
     assert response.status_code == 403 and response.json()["detail"] == "parent_notice_required"
 
 
@@ -123,39 +123,39 @@ def test_parent_notice_still_gates_college_routes(app):
 def test_only_gmtm_gender_1_gets_a_list(app, gender):
     client, store, model, identity, headers, _ = app
     identity["gender"] = gender
-    for response in (client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers),
-                     client.get(f"/api/workspace/colleges/{CLERK}", headers=headers)):
+    for response in (client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers),
+                     client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers)):
         assert response.status_code == 200
         body = response.json()
         assert body["eligible"] is False and body["programs"] == [] and body["notice"] == cp.NOT_ELIGIBLE
         assert "update it on GMTM" in body["notice"]
     for method in ("GET", "POST"):
-        assert client.request(method, f"/api/workspace/colleges/{CLERK}/midland-university/outreach-draft", headers=headers).status_code == 403
-    assert client.get(f"/api/workspace/colleges/{CLERK}/midland-university", headers=headers).status_code == 403
+        assert client.request(method, f"/api/workspace/colleges/{SUBJECT}/midland-university/outreach-draft", headers=headers).status_code == 403
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}/midland-university", headers=headers).status_code == 403
     assert model.calls == [] and store.saves == 0 and store.drafts == []
 
 
 def test_gender_fix_on_gmtm_is_picked_up_by_the_next_build(app):
     client, store, model, identity, headers, _ = app
     identity["gender"] = 2
-    assert client.get(f"/api/workspace/colleges/{CLERK}", headers=headers).json()["eligible"] is False
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is False
     identity["gender"] = 1
-    assert client.get(f"/api/workspace/colleges/{CLERK}", headers=headers).json()["eligible"] is True  # GET re-reads GMTM
-    body = client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json()
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is True  # GET re-reads GMTM
+    body = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     assert body["eligible"] is True and len(body["programs"]) == 12
-    assert store.rows[CLERK]["gmtm_sport"] == "Flag Football"
+    assert store.rows[SUBJECT]["gmtm_sport"] == "Flag Football"
 
 
 def test_build_ranks_home_state_first_caps_at_12_and_caches(app):
     client, store, model, _, headers, _ = app
-    first = client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json()
+    first = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     programs = first["programs"]
     assert first["eligible"] is True and first["built"] is True and len(programs) == 12
     assert programs[0]["state"] == "TX" and sum(p["state"] == "TX" for p in programs) >= 10
     assert {p["level"] for p in programs} == {"NCAA D1", "NCAA D2", "NCAA D3", "NAIA", "NJCAA"}
     assert all(p["reason"] for p in programs) and len(model.calls) == 1
-    again = client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json()
-    listed = client.get(f"/api/workspace/colleges/{CLERK}", headers=headers).json()
+    again = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
+    listed = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()
     assert again == first == listed and len(model.calls) == 1  # cached per athlete
     assert [p["id"] for p in cp.rank("TX")] == [p["id"] for p in cp.rank("TX")]
 
@@ -173,9 +173,9 @@ def test_rank_is_deterministic_and_home_state_first_for_each_state():
 
 def test_no_numeric_fit_score_in_any_response(app):
     client, store, model, _, headers, _ = app
-    bodies = [client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json(),
-              client.get(f"/api/workspace/colleges/{CLERK}", headers=headers).json(),
-              client.get(f"/api/workspace/colleges/{CLERK}/midland-university", headers=headers).json()]
+    bodies = [client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json(),
+              client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json(),
+              client.get(f"/api/workspace/colleges/{SUBJECT}/midland-university", headers=headers).json()]
     for body in bodies:
         assert not any("score" in key.lower() or "rank" in key.lower() for key, _ in walk(body))
         assert not any(isinstance(v, (int, float)) and not isinstance(v, bool) for _, v in walk(body))
@@ -183,7 +183,7 @@ def test_no_numeric_fit_score_in_any_response(app):
 
 def test_reason_prompt_has_only_the_allowed_fields(app):
     client, store, model, _, headers, _ = app
-    client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers)
+    client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
     (system, user), = model.calls
     for secret in (NAME, "Avery", "Quintero", CITY, EMAIL, "@"):
         assert secret not in user
@@ -199,10 +199,10 @@ def test_reason_prompt_has_only_the_allowed_fields(app):
 def test_model_failure_still_returns_programs_without_reasons(app, monkeypatch):
     client, store, model, _, headers, _ = app
     model.fail = True
-    body = client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json()
+    body = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     assert len(body["programs"]) == 12 and all(p["reason"] is None for p in body["programs"])
     model.fail = False  # same inputs: a missing reason is final, no new paid call
-    assert all(p["reason"] is None for p in client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json()["programs"])
+    assert all(p["reason"] is None for p in client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()["programs"])
     assert len(model.calls) == 1
 
 
@@ -220,14 +220,14 @@ def test_unsafe_reasons_are_dropped():
 def test_links_are_https_only_and_generic_pages_are_not_confirmed(app):
     client, store, model, _, headers, _ = app
     for pid in ("midland-university", "delaware-state-university"):
-        p = client.get(f"/api/workspace/colleges/{CLERK}/{pid}", headers=headers).json()["program"]
+        p = client.get(f"/api/workspace/colleges/{SUBJECT}/{pid}", headers=headers).json()["program"]
         assert p["program_link"] is None and p["program_link_label"] == "Program link not confirmed"
         assert p["source_links"] and all(u.startswith("https://") for u in p["source_links"])
         assert p["source_checked"] == "Source checked Oct 1, 2026"
-    good = client.get(f"/api/workspace/colleges/{CLERK}/alabama-state-university", headers=headers).json()["program"]
+    good = client.get(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university", headers=headers).json()["program"]
     assert good["program_link"].startswith("https://") and "flag" in good["program_link"] and good["program_link_label"] == "Program page"
     assert good["source_links"] == []
-    q = client.get(f"/api/workspace/colleges/{CLERK}/harcum-college", headers=headers).json()["program"]
+    q = client.get(f"/api/workspace/colleges/{SUBJECT}/harcum-college", headers=headers).json()["program"]
     assert q["questionnaire_link"] == "https://www.harcum.edu/recruitment"
     for p in cp.programs():
         c = cp.card(p)
@@ -247,7 +247,7 @@ def test_contact_rules_are_sourced_and_hide_the_njcaa_date():
 
 def test_draft_uses_first_name_only_and_leaves_to_empty(app):
     client, store, model, _, headers, _ = app
-    url = f"/api/workspace/colleges/{CLERK}/alabama-state-university/outreach-draft"
+    url = f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft"
     assert client.get(url, headers=headers).json() == {"draft": None}
     created = client.post(url, headers=headers).json()["draft"]
     assert created["to_email"] == "" and created["body"] == "Hello Coach,\n\nI play QB.\n\nAvery"
@@ -263,9 +263,9 @@ def test_draft_uses_first_name_only_and_leaves_to_empty(app):
 def test_draft_model_failure_is_502_and_nothing_saved(app):
     client, store, model, _, headers, _ = app
     model.fail = True
-    response = client.post(f"/api/workspace/colleges/{CLERK}/alabama-state-university/outreach-draft", headers=headers)
+    response = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers)
     assert response.status_code == 502 and store.drafts == []
-    assert client.get(f"/api/workspace/colleges/{CLERK}/no-such-school", headers=headers).status_code == 404
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}/no-such-school", headers=headers).status_code == 404
 
 
 @pytest.mark.parametrize("bad", ["Email me at avery@mail.com", "See https://hudl.com/x", "Call 555-123-4567",
@@ -273,25 +273,25 @@ def test_draft_model_failure_is_502_and_nothing_saved(app):
 def test_draft_with_invented_contact_link_or_coach_is_rejected(app, bad):
     client, store, model, _, headers, _ = app
     model.draft = {"subject": "2028 QB", "body": f"Hello Coach,\n\n{bad}\n\nAvery"}
-    response = client.post(f"/api/workspace/colleges/{CLERK}/alabama-state-university/outreach-draft", headers=headers)
+    response = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers)
     assert response.status_code == 502 and store.drafts == []
 
 
 def test_questionnaire_link_is_inserted_by_the_server_only(app):
     client, store, model, _, headers, _ = app
     model.draft = {"subject": "2028 QB", "body": f"Hello Coach,\n\nI will fill out your questionnaire:\n{cp.QUESTIONNAIRE}\n\nAvery"}
-    body = client.post(f"/api/workspace/colleges/{CLERK}/harcum-college/outreach-draft", headers=headers).json()["draft"]["body"]
+    body = client.post(f"/api/workspace/colleges/{SUBJECT}/harcum-college/outreach-draft", headers=headers).json()["draft"]["body"]
     assert "https://www.harcum.edu/recruitment" in body and cp.QUESTIONNAIRE not in body
     assert 'recruit_questionnaire": "available"' in model.calls[-1][1] and "harcum.edu" not in model.calls[-1][1]
-    stripped = client.post(f"/api/workspace/colleges/{CLERK}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]["body"]
+    stripped = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]["body"]
     assert cp.QUESTIONNAIRE not in stripped
 
 
 def test_paid_calls_are_rate_limited_per_athlete(app):
     client, store, model, _, headers, _ = app
-    builds = [client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).status_code for _ in range(6)]
+    builds = [client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).status_code for _ in range(6)]
     assert builds == [200] * 5 + [429]
-    url = f"/api/workspace/colleges/{CLERK}/alabama-state-university/outreach-draft"
+    url = f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft"
     drafts = [client.post(url, headers=headers).status_code for _ in range(11)]
     assert drafts == [200] * 10 + [429]
     assert client.post(url, headers=headers).json()["detail"] == cp.TOO_MANY
@@ -305,9 +305,9 @@ def test_banned_reason_is_cached_not_rebuilt(app, monkeypatch):
         reply["reasons"][0]["reason"] = "It offers a scholarship."
         return reply
     monkeypatch.setattr(cp, "model_json", scholarship)
-    first = client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers).json()
+    first = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     assert first["programs"][0]["reason"] is None
-    client.post(f"/api/workspace/trigger-matching/{CLERK}", headers=headers)
+    client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
     assert len(model.calls) == 1
 
 

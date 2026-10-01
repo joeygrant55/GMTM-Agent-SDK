@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { UserButton, useAuth } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
+import SignOutButton from '@/components/SignOutButton'
 import { apiFetch } from '@/app/_lib/api'
 import { CombineResult, COMBINE_FIXTURE, readCombineResults } from './components/combineResults'
 import AgentChat from './components/AgentChat'
@@ -32,7 +33,8 @@ export default function AthleteDashboard() {
   const [viewReportId, setViewReportId] = useState<number | null>(null)
   const [autoStartMessage, setAutoStartMessage] = useState<string | null>(null)
   const [combineResults, setCombineResults] = useState<CombineResult[]>([])
-  const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth()
+  const { isLoaded: authLoaded, user } = useSparqSession()
+  const isSignedIn = Boolean(user)
 
   useEffect(() => {
     setLoading(true)
@@ -54,10 +56,7 @@ export default function AthleteDashboard() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
     ;(async () => {
       try {
-        const token = await getToken()
-        const res = await apiFetch(`${backendUrl}/api/dashboard/${athleteId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
+        const res = await apiFetch(`${backendUrl}/api/dashboard/${athleteId}`)
         if (!res.ok || cancelled) return
         const fetched = readCombineResults(await res.json())
         setCombineResults(
@@ -68,7 +67,7 @@ export default function AthleteDashboard() {
       }
     })()
     return () => { cancelled = true }
-  }, [authLoaded, isSignedIn, athleteId, getToken])
+  }, [authLoaded, isSignedIn, athleteId])
 
   const handleStartChat = () => {
     setAutoStartMessage(null)
@@ -152,7 +151,7 @@ export default function AthleteDashboard() {
                   Agent
                 </button>
               </div>
-              <UserButton afterSignOutUrl="/" />
+              {isSignedIn && <SignOutButton />}
             </div>
           </div>
         </div>

@@ -8,9 +8,7 @@
   trust tier; links the drill video. The `query_database` tool now describes the real schema (there is no
   `users.id`; it is `user_id`). Results are injected into CURRENT ATHLETE PROFILE (newest two events) and
   returned by `GET /api/dashboard/{user_id}` as `combine_results`.
-- **Claim door.** `backend/claims_api.py`: `POST /api/claims/mint` (admin, `X-Claims-Admin`), `GET /api/claims/{token}`
-  (public, stamps `opened_at`), `POST /api/claims/{token}/redeem` (Clerk-authed, links `athlete_profiles`,
-  refuses to re-point an already-linked athlete). Frontend `/claim/[token]` and `/claim/[token]/redeem`.
+- **Claim door (removed 2026-10-01).** GMTM sign-in links the athlete at `/gmtm-entry/exchange`; the claim and connect routes and pages are deleted.
 - **Combine results card** on `/athlete/[id]` (newest event, trust chip, Watch link); agent greeting names the
   first result.
 - **Env needed on Railway (not set as of 2026-09-03 12:25 ET):** `SHARE_TOKEN_SECRET` (claims 503 without it),
@@ -26,7 +24,7 @@
 - **Frontend:** https://sparq-agent.vercel.app (editorial landing + /demo + /onboarding + /home/inbox workspace)
 - **Backend:** https://focused-essence-production-9809.up.railway.app
 - **Model:** Claude Sonnet 4.6 (`claude-sonnet-4-6`) via Anthropic SDK. Tools: native `web_search_20260209` + custom read-only `query_database`.
-- **Auth:** Clerk
+- **Auth:** GMTM sign-in only (SPARQ session token, since 2026-10-01)
 - **Email send:** SendGrid via `backend/email_sender.py` (requires `SENDGRID_API_KEY` + `SPARQ_FROM_EMAIL`). If unconfigured, outreach approvals transition to `queued` instead of `sent` per outbound trust ladder.
 
 ## What's working
@@ -46,7 +44,7 @@
   - Backend artifact REST: inbox, badges, get, approve, discard, edit, iterate, iterate-via-agent, draft-outreach, seed-demo.
 
 - **Outreach send loop** (shipped 2026-05-13)
-  - `Approve & Send` on outreach_draft posts to SendGrid; reply-to set to athlete's Clerk email so coaches reply to the athlete directly.
+  - `Approve & Send` on outreach_draft posts to SendGrid; reply-to set to the athlete's email (when the frontend supplies it) so coaches reply to the athlete directly.
   - States: `sent` (real send), `queued` (no infra configured — logged in outreach_log for manual send), `send_failed` (SendGrid/network error — retryable). UI shows inline notice for queued/failed.
   - Mirrors sent + queued outreach into `outreach_log` so `/home/outreach` reflects activity.
 

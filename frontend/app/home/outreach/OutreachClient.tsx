@@ -3,7 +3,7 @@
 import { apiFetch } from '@/app/_lib/api'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
@@ -56,7 +56,7 @@ function normalizeEntry(raw: Record<string, unknown>): OutreachEntry {
 }
 
 export default function OutreachClient() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
 
   const [showForm, setShowForm] = useState(false)

@@ -21,7 +21,7 @@ CONFIG = {
     "AGENT_DB_NAME": "railway", "AGENT_DB_USER": "synthetic-user",
     "AGENT_DB_PASSWORD": "synthetic-private-password",
 }
-CLERK = "synthetic-private-clerk"
+SUBJECT = "synthetic-private-subject"
 
 
 class SyntheticCursor:
@@ -86,7 +86,7 @@ class SyntheticConnection:
 class SyntheticDriver:
     def __init__(self, on_execute=None, links=None, material_rows=None):
         self.on_execute = on_execute
-        self.links = links if links is not None else [dict(user_id=reader.OWNER, clerk_id=CLERK)]
+        self.links = links if links is not None else [dict(user_id=reader.OWNER, clerk_id=SUBJECT)]
         self.connections = []
         self.material_rows = material_rows or {}
 
@@ -192,7 +192,7 @@ def test_actual_runner_retains_only_projection_with_exact_reserved_budgets(tmp_p
     assert receipt["attempts"] == {"connections": 2, "selects": 6, "statements": 10}
     assert receipt["forbidden_attempts"] == {}
     assert receipt["stored_owner_confirmed"] is True
-    assert receipt["current_clerk_jwt_verified"] is receipt["authenticated_http_verified"] is False
+    assert receipt["current_session_verified"] is receipt["authenticated_http_verified"] is False
     assert receipt["all_connections_closed"] is True
     assert projection["response"]["state"] == "ready"
     assert projection["response"]["evidence"][0]["value"] == 4.75
@@ -204,8 +204,8 @@ def test_actual_runner_retains_only_projection_with_exact_reserved_budgets(tmp_p
 
 
 @pytest.mark.parametrize("links,reason", [
-    ([dict(user_id=999, clerk_id=CLERK)], "foreign_owner_row"),
-    ([dict(user_id=reader.OWNER, clerk_id=CLERK)] * 2, "owner_link_missing_or_ambiguous"),
+    ([dict(user_id=999, clerk_id=SUBJECT)], "foreign_owner_row"),
+    ([dict(user_id=reader.OWNER, clerk_id=SUBJECT)] * 2, "owner_link_missing_or_ambiguous"),
 ])
 def test_invalid_owner_never_connects_gmtm(tmp_path, links, reason):
     driver = SyntheticDriver(links=links)

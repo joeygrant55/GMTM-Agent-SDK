@@ -1,7 +1,7 @@
 """Bounded loopback fixture server for an explicitly chosen candidate ASGI app.
 
 This executable scrubs its environment, blocks real services, and accepts fixture
-control only on stdin. It creates no HTTP fixture routes. JWT/claim tokens are
+control only on stdin. It creates no HTTP fixture routes. SPARQ session tokens are
 synthetic IPC values; never persist stdout. No actual GMTM submission is made.
 """
 from __future__ import annotations
@@ -45,8 +45,11 @@ def main():
     os.environ.clear()
     os.environ.update({
         "PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1",
-        "AUTH_ENFORCED": "true", "CLERK_ISSUER": "https://clerk.example.invalid",
-        "CLERK_AUTHORIZED_PARTIES": origin, "ALLOWED_ORIGINS": origin,
+        "ALLOWED_ORIGINS": origin,
+        # Synthetic GMTM entry settings; the fixture mints the SPARQ session itself.
+        "SPARQ_ENTRY_SECRET": "synthetic-entry-not-a-credential", "SPARQ_HANDOFF_SECRET": "synthetic-handoff",
+        "GMTM_API_URL": "https://gmtm-api.example.invalid",
+        "SPARQ_SESSION_SECRET": "synthetic-sparq-session-secret-not-a-credential",
         "DB_HOST": "db2-dev.ckmlts6umure.us-east-1.rds.amazonaws.com",
         "DB_USER": "gmtmread", "DB_PASSWORD": "synthetic-source-not-a-credential",
         "AGENT_DB_HOST": "127.0.0.1", "AGENT_DB_PORT": "3307", "AGENT_DB_USER": "synthetic",
@@ -106,7 +109,6 @@ def main():
     import smtplib
     import urllib.request
     import uvicorn
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from fastapi import HTTPException
     for module in (dotenv, dotenv.main):
         module.load_dotenv = module.dotenv_values = blocked("dotenv.load")
@@ -142,14 +144,14 @@ def main():
     sys.path.insert(0, str(backend))
     import auth
     import candidate_app
-    import claims_api
+    import junior_entry
     import combine_api
     import combine_help_api
     import email_sender
     import model_usage
     import profile_api
     import workspace_bootstrap
-    from backend.tests.test_claims import _FakeDB as ClaimDB
+    from backend.tests.junior_fakes import MemoryStore
     from backend.tests.test_combine_requirements import (
         ATHLETE, CALLER, PUBLIC, FakeDB as CombineDB, definition_rows, submission_for,
     )
@@ -158,8 +160,8 @@ def main():
     profile_api._run_matching_thread = blocked("worker.matching")
 
     mutex = threading.RLock()
-    claims = {"claims": {}, "athlete_profiles": {}, "users": {ATHLETE}, "open_writes": 0,
-              "connections": [], "named_locks": {}, "row_locks": {}, "failures": {}, "mutex": mutex}
+    # Historical claim rows only choose the default combine event; nothing writes them.
+    claims = {"claims": {}, "athlete_profiles": {}, "connections": []}
     workspaces, shared_connections = {}, []
     source = {"profiles": [], "claims": [], "events": [deepcopy(item["event"]) for item in PUBLIC["events"]],
               "tasks": definition_rows(1317) + definition_rows(1318), "submissions": [], "queries": [], "connections": []}
@@ -189,9 +191,9 @@ def main():
                     assert normalized.split("ON DUPLICATE KEY UPDATE", 1)[1].replace(" ", "") == "id=id"
                     if workspace_fail["enabled"]:
                         raise RuntimeError("Synthetic optional bootstrap failure")
-                    clerk, name, position, school, year, city, region, metrics = params
-                    if clerk not in workspaces:
-                        self.pending[clerk] = {"id": 501, "clerk_id": clerk, "name": name,
+                    subject, name, position, school, year, city, region, metrics = params
+                    if subject not in workspaces:
+                        self.pending[subject] = {"id": 501, "clerk_id": subject, "name": name,
                             "position": position, "school": school, "class_year": year,
                             "city": city, "state": region, "combine_metrics": json.loads(metrics) if metrics else {},
                             "enrichment_complete": 0}
@@ -242,8 +244,6 @@ def main():
             db = CombineDB(source, kind)
             source["connections"].append(db)
             return db
-    claims_api._get_agent_db = lambda: ClaimDB(claims)
-    claims_api._get_gmtm_db = IdentityDB
     profile_api._get_agent_db = AgentDB
     profile_api._get_gmtm_db = IdentityDB
     workspace_bootstrap.get_combine_results = lambda user_id, factory: []
@@ -251,10 +251,6 @@ def main():
     combine_api._get_gmtm_db = lambda: combine_connection("gmtm")
 
     if surface == "profile":
-        # No gmtm-entry users in this harness; the entry gate sees an empty store.
-        import junior_entry
-        from backend.tests.junior_fakes import MemoryStore
-        junior_entry.store = MemoryStore()
         import athlete_evidence
         import athlete_materials
         import athlete_workspace
@@ -263,8 +259,8 @@ def main():
         from backend.tests.workspace_fixture_store import WorkspaceStore
 
         career_store = WorkspaceStore(mutex=mutex, link_reader=lambda: [
-            {"id": uid + 1000, "user_id": uid, "clerk_id": clerk}
-            for uid, clerk in claims["athlete_profiles"].items()])
+            {"id": uid + 1000, "user_id": uid, "clerk_id": subject}
+            for uid, subject in claims["athlete_profiles"].items()])
         athlete_workspace._get_agent_db = career_store.connect
         athlete_opportunities._get_agent_db = career_store.connect
         opportunity_engagement._get_agent_db = career_store.connect
@@ -434,23 +430,23 @@ def main():
         yield {"type": "text", "text": "Open GMTM to finish this activity. Submission is for review, not selection."}
         yield {"type": "done"}
     combine_help_api.stream_answer = synthetic_answer
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    auth._jwks_issuer = os.environ["CLERK_ISSUER"]
-    auth._jwks_client = SimpleNamespace(get_signing_key_from_jwt=lambda _: SimpleNamespace(key=key.public_key()))
-    token = jwt.encode({"sub": CALLER, "iss": os.environ["CLERK_ISSUER"], "azp": origin,
-                        "exp": int(time.time()) + 1800}, key, algorithm="RS256")
-    secret = os.environ["SHARE_TOKEN_SECRET"].encode()
-    claim_tokens = {event: claims_api.mint_token(ATHLETE, event, secret, exp=int(time.time()) + 1800) for event in (1318, 999)}
+    # GMTM entry already happened for an allow-listed athlete (parent notice accepted).
+    os.environ["SPARQ_TEST_ALLOWLIST"] = str(ATHLETE)
+    junior_entry.store = MemoryStore()
+    junior_entry.store.record_entry(CALLER, ATHLETE, datetime.now(timezone.utc))
+    junior_entry.store.accept_notice(CALLER, datetime.now(timezone.utc))
+    token = junior_entry.issue_session(CALLER, hashlib.sha256(b"synthetic-gmtm-session").hexdigest(),
+                                       datetime.now(timezone.utc), surface)
 
     def reset(*, linked=True, workspace=True, submitted=0, workspace_failure=False):
         if type(linked) is not bool or type(workspace) is not bool or type(workspace_failure) is not bool or type(submitted) is not int or submitted not in (0, 1):
             raise ValueError("Invalid reset shape")
         with mutex:
-            claims["claims"] = {claims_api.token_hash(value): {
+            claims["claims"] = {index: {
                 "id": index, "user_id": ATHLETE, "event_id": event,
                 "expires_at": datetime.now(timezone.utc), "opened_at": None,
                 "claimed_at": "synthetic-saved" if linked else None, "clerk_id": CALLER if linked else None,
-            } for index, (event, value) in enumerate(claim_tokens.items(), 1)}
+            } for index, event in enumerate((1318, 999), 1)}
             claims["athlete_profiles"] = {ATHLETE: CALLER} if linked else {}
             workspaces.clear()
             if workspace:
@@ -485,17 +481,20 @@ def main():
                 route = scope.get("route")
                 path = getattr(route, "path", "unregistered")
                 # Only source route templates are retained; no raw URL, query,
-                # header, JWT, claim token, payload, or athlete data is logged.
+                # header, session token, payload, or athlete data is logged.
                 requests[f'{scope["method"]} {path}'] += 1
 
     app = candidate_app.app if surface == "combine" else candidate_app.create_app(surface="profile")
-    expected = ({path for _, path, _ in candidate_app.BUSINESS_ROUTES} | {"/health"}
-                if surface == "combine" else {
-                    "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/{clerk_id}",
-                    "/api/athlete/debrief",
+    entry_paths = {path for _, path, _ in candidate_app.ENTRY_ROUTES}
+    expected = ({path for _, path, _ in candidate_app.BUSINESS_ROUTES} | entry_paths | {"/health"}
+                if surface == "combine" else entry_paths | {
+                    "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-owner/{clerk_id}",
+                    "/api/athlete/debrief", "/api/athlete/parent-notice",
                     "/api/athlete/workspace",
                     "/api/athlete/opportunities", "/api/athlete/opportunities/engagement",
-                    "/api/claims/{token}", "/api/claims/{token}/redeem",
+                    "/api/workspace/colleges/{clerk_id}", "/api/workspace/trigger-matching/{clerk_id}",
+                    "/api/workspace/colleges/{clerk_id}/{program_id}",
+                    "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft",
                 })
     assert set(app.openapi()["paths"]) == expected
     server = uvicorn.Server(uvicorn.Config(CountRequests(app), host="127.0.0.1", port=backend_port,
@@ -547,8 +546,7 @@ def main():
                     await task
                     raise RuntimeError("Fixture server did not start")
                 await asyncio.sleep(0.01)
-            emit({"event": "ready", "surface": surface, "token": token, "claim_token": claim_tokens[1318],
-                  "old_claim_token": claim_tokens[999], "clerk_id": CALLER, "athlete_id": ATHLETE,
+            emit({"event": "ready", "surface": surface, "token": token, "clerk_id": CALLER, "athlete_id": ATHLETE,
                   "adult_task_id": next(task["task_id"] for task in source["tasks"] if task["event_id"] == 1318)})
             await task
         finally:
@@ -573,11 +571,11 @@ def main():
             "all_synthetic_connections_closed": all(db.closed for db in all_connections),
             "fixture_connection_count": len(all_connections),
             "synthetic_workspace_commits": sum(db.commits for db in career_store.connections) if career_store else 0,
-            "live_clerk_verified": False, "live_database_verified": False,
+            "live_gmtm_sign_in_verified": False, "live_database_verified": False,
             "real_gmtm_submission_verified": False, "production_changed": False,
-            "limits": "Loopback transport, locally signed JWT/JWKS, fake database interfaces and provider output; no live integration claim.",
+            "limits": "Loopback transport, locally signed SPARQ session, fake database interfaces and provider output; no live integration claim.",
             "source_hashes": {name: hashlib.sha256((backend/name).read_bytes()).hexdigest() for name in (
-                "candidate_app.py", "claims_api.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
+                "candidate_app.py", "junior_entry.py", "workspace_bootstrap.py", "profile_api.py", "combine_api.py",
                 "combine_help_api.py", "tests/run_candidate_fixture.py",
                 *(("athlete_evidence.py", "athlete_materials.py", "profile_debrief.py", "profile_pathways.py", "combine_model.py",
                    "athlete_workspace.py", "athlete_opportunities.py", "opportunity_catalog.py", "opportunity_engagement.py", "source_scope.py", "tests/workspace_fixture_store.py") if surface == "profile" else ()))},

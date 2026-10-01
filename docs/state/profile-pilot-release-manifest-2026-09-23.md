@@ -1,3 +1,5 @@
+Superseded 2026-10-01 by spec rev 4: GMTM sign-in only, Clerk removed. See docs/specs/sparq-on-gmtm-junior-pilot-2026-10-01.md.
+
 # Profile pilot: paired release manifest
 
 Status: **local source implemented and verified; hosted release pending**. September 23, 2026. This is a fill-in release record, not deployment authorization or evidence of hosted acceptance. Initial inspection: `codex/athlete-home-first-value`, HEAD `159869c775fe51e0f4b4884bc6760f6009b2369d`, origin `joeygrant55/GMTM-Agent-SDK`; `current-state.md` was modified. Admission and catalog work are concurrent. Freeze and identify the final reviewed source before filling the release fields below.
@@ -7,7 +9,7 @@ Status: **local source implemented and verified; hosted release pending**. Septe
 | Field | Required value / present status |
 | --- | --- |
 | Release owner; decision owner; rollback owner | Codex owns this source and release preparation; Joey retains release approval. Hosted execution/rollback ownership remains to be assigned with the exact targets. |
-| Intended cohort and adult-admission reviewer | **Unresolved**; initially already-linked, human-reviewed adult self-owned accounts only. Keep account IDs, Clerk subjects and admission records in private operational configuration. |
+| Intended cohort and adult-admission reviewer | **Unresolved**; initially already-linked, human-reviewed adult self-owned accounts only. Keep account IDs, SPARQ subjects and admission records in private operational configuration. |
 | Final source commit; reviewed diff; verification receipts | **Unresolved**; the inspected HEAD above excludes this turn's work. Identify all shipped files, including any intentional uncommitted delta; prefer a committed release source. |
 | Backend platform/project/service/environment + HTTPS origin | **Unresolved**; separate explicit profile target. No existing live service or hostname has been verified here. |
 | Frontend platform/project/environment + HTTPS origin | **Unresolved**; record immutable deployment ID and its intended public origin. |
@@ -29,19 +31,20 @@ The fixed entry is `backend/start_profile_candidate.py` → `profile_candidate_a
 | --- | --- |
 | `NEXT_PUBLIC_APP_SURFACE` | `profile` |
 | `NEXT_PUBLIC_BACKEND_URL` | Exact selected HTTPS backend origin, no path/credentials/query; never a loopback or synthetic test backend. |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Correct selected Clerk instance; public key may be recorded, private keys may not. |
+| `NEXT_PUBLIC_GMTM_WEB_URL` | GMTM web origin for `/sparq/authorize`, switch and sign-out. The frontend must be served from a gmtm.com subdomain so it receives the `.gmtm.com` sessionId cookie. |
+| `SPARQ_ENTRY_SECRET`, `SPARQ_SESSION_SECRET` | Server-only (never `NEXT_PUBLIC_*`); same values as the backend. Session secret at least 32 bytes. |
 | `NEXT_PUBLIC_OPPORTUNITY_ENGAGEMENT_ENABLED` | Explicit `false` initially; `true` only for the reviewed measurement-enabled artifact/config pair below. |
-| Clerk sign-in/sign-up and redirect configuration | Verify `/sign-in`, `/sign-up`, return to `/home/inbox`, and the actual hosted origin with the selected Clerk instance. Record configured names/values rather than assuming local harness defaults. |
+| GMTM sign-in | Verify `/enter` -> GMTM `/sparq/authorize` -> `/enter/callback` -> `/home` on the actual hosted gmtm.com origin. `/sign-in`, `/sign-up`, `/connect`, `/claim`, `/onboarding` must not exist. |
 
-Inject server secrets through the selected platform's approved secret mechanism. Record references/version IDs and presence checks, never values or broad environment dumps. Confirm the selected Clerk SDK/server setup, including its private key where required, without exporting local credentials into source artifacts.
+Inject server secrets through the selected platform's approved secret mechanism. Record references/version IDs and presence checks, never values or broad environment dumps. Do not export local credentials into source artifacts.
 
 | Backend setting | Pilot requirement |
 | --- | --- |
-| `AUTH_ENFORCED` | `true` |
-| `CLERK_ISSUER` | Exact HTTPS issuer for the paired frontend's Clerk instance. |
-| `CLERK_AUTHORIZED_PARTIES`, `ALLOWED_ORIGINS` | Same explicit set containing only intended frontend origins; no wildcards. Hosted origins use HTTPS. Real JWT signature/expiry/issuer/subject and exact `azp` must pass. |
+| `SPARQ_ENTRY_SECRET`, `SPARQ_HANDOFF_SECRET`, `GMTM_API_URL`, `SPARQ_SESSION_SECRET` | All four set, or none (sign-in off, 503). `GMTM_API_URL` is HTTPS. Session secret at least 32 bytes; tokens carry `aud` = surface. |
+| `SPARQ_TEST_ALLOWLIST` | Comma-separated GMTM user_ids always admitted (profile also admits the junior gate). |
+| `ALLOWED_ORIGINS` | Explicit HTTPS gmtm.com-subdomain frontend origins only; no wildcards. |
 | `PROFILE_ADMISSION_ENABLED` | `true`; the planned implementation permits disabled mode only with loopback frontend origins and requires the gate for hosted origins. Verify that behavior on the final source. |
-| `PROFILE_ADMISSION_FILE` | Absolute private path to the bounded schema-1 admission file; mode `0600`, readable by runtime UID `10001`, outside source/image/public assets. Record private version reference and validated schema, not contents. Bind each admission to reviewed adult authority, GMTM user ID, exact Clerk subject, current link row/revision and expiry; support revocation. Analytics classification is not admission. Mount/update procedure and platform owner remain unresolved. |
+| `PROFILE_ADMISSION_FILE` | Absolute private path to the bounded schema-1 admission file; mode `0600`, readable by runtime UID `10001`, outside source/image/public assets. Record private version reference and validated schema, not contents. Bind each admission to reviewed adult authority, GMTM user ID, exact SPARQ subject, current link row/revision and expiry; support revocation. Analytics classification is not admission. Mount/update procedure and platform owner remain unresolved. |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Canonical GMTM host `db2-dev.ckmlts6umure.us-east-1.rds.amazonaws.com`, `3306`, `gmtm`, `gmtmread`, injected password. No GMTM writes or AWS/RDS changes. |
 | `AGENT_DB_HOST/PORT/NAME/USER/PASSWORD` | Explicit selected Agent database binding, separate from GMTM/RDS; service/network reachability must be verified from the hosted runtime. |
 | `SHARE_TOKEN_SECRET` | Inject existing intended secret securely. Its presence does not authorize claim issuance/redemption during this pilot. |

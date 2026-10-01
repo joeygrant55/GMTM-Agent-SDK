@@ -8,7 +8,7 @@ FastAPI backend serving the SPARQ Agent recruiting advisor:
 - Shareable reports (reports_api)
 - Optional legacy athlete search (search_api)
 
-Deployment: Railway (https://focused-essence-production-9809.up.railway.app)
+Deployment: Railway backend; frontends must be served from gmtm.com subdomains.
 """
 
 import os
@@ -26,7 +26,7 @@ from agent_api import router as agent_router
 from profile_api import router as profile_router
 from reports_api import router as reports_router
 from artifacts_api import router as artifacts_router
-from claims_api import router as claims_router
+from junior_entry import exchange as gmtm_entry_exchange, sign_out as gmtm_entry_sign_out
 from combine_api import router as combine_router
 from combine_help_api import router as combine_help_router
 
@@ -45,7 +45,9 @@ app = FastAPI(
 
 # CORS — restrict to known frontends. Set ALLOWED_ORIGINS (comma-separated) in the
 # environment; falls back to the production Vercel app + localhost for dev.
-_default_origins = "https://sparq-agent.vercel.app,http://localhost:3000,http://localhost:3001"
+# Every surface must be served from a gmtm.com subdomain (GMTM sign-in reads the
+# .gmtm.com sessionId cookie). Set ALLOWED_ORIGINS explicitly in each deployment.
+_default_origins = "https://sparq.gmtm.com,http://localhost:3000,http://localhost:3001"
 _allowed_origins = [
     o.strip() for o in os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()
 ]
@@ -62,7 +64,10 @@ app.include_router(profile_router)
 app.include_router(agent_router)
 app.include_router(reports_router)
 app.include_router(artifacts_router)
-app.include_router(claims_router)
+app.state.sparq_surface = "legacy"  # SPARQ token audience
+# GMTM sign-in is the only sign-in (allow-listed users on this app; see auth.py).
+app.add_api_route("/gmtm-entry/exchange", gmtm_entry_exchange, methods=["POST"])
+app.add_api_route("/gmtm-entry/sign-out", gmtm_entry_sign_out, methods=["POST"])
 app.include_router(combine_router)
 app.include_router(combine_help_router)
 if search_router:

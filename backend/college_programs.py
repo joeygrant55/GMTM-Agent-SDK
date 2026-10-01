@@ -33,7 +33,7 @@ import anthropic
 from fastapi import Depends, HTTPException
 
 import auth
-from auth import require_clerk_id
+from auth import require_identity
 import outreach_draft
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "college_womens_flag_2026.json"
@@ -414,8 +414,8 @@ def _listing(saved) -> dict:
             "contact_rules": contact_rules(c["governing_body"] for c in cards)}
 
 
-def list_colleges(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    _owner(clerk_id, caller_clerk_id)
+def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
+    _owner(clerk_id, caller_id)
     row = _identity(clerk_id, refresh=False)
     if row.get("gmtm_gender") != FEMALE:
         return _not_eligible()
@@ -432,8 +432,8 @@ def _limit(kind: str, clerk_id: str, calls: int) -> None:
         raise HTTPException(429, TOO_MANY)
 
 
-def build_colleges(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    _owner(clerk_id, caller_clerk_id)
+def build_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
+    _owner(clerk_id, caller_id)
     _limit("build", clerk_id, BUILDS_PER_HOUR)
     row = _identity(clerk_id, refresh=True)
     if row.get("gmtm_gender") != FEMALE:
@@ -491,8 +491,8 @@ def _eligible_program(clerk_id: str, program_id: str) -> tuple[dict, dict]:
     return row, p
 
 
-def college_detail(clerk_id: str, program_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    _owner(clerk_id, caller_clerk_id)
+def college_detail(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
+    _owner(clerk_id, caller_id)
     row, p = _eligible_program(clerk_id, program_id)
     reason = next((i.get("reason") for i in row.get("programs") or [] if isinstance(i, dict) and i.get("id") == p["id"]), None)
     return {"program": card(p, reason), "contact_rules": contact_rules([p["governing_body"]])}
@@ -506,14 +506,14 @@ def _draft_view(draft) -> dict:
                       "subject": payload.get("subject") or "", "body": payload.get("body") or ""}}
 
 
-def get_outreach_draft(clerk_id: str, program_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    _owner(clerk_id, caller_clerk_id)
+def get_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
+    _owner(clerk_id, caller_id)
     _, p = _eligible_program(clerk_id, program_id)
     return _draft_view(store.latest_draft(clerk_id, p["id"]))
 
 
-def create_outreach_draft(clerk_id: str, program_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
-    _owner(clerk_id, caller_clerk_id)
+def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
+    _owner(clerk_id, caller_id)
     row, p = _eligible_program(clerk_id, program_id)
     profile = store.profile(clerk_id)
     if profile is None:

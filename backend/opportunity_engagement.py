@@ -22,7 +22,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from auth import require_clerk_id
+from auth import require_identity
 from athlete_evidence import PRIVATE_HEADERS
 from athlete_workspace import WorkspaceError, _json, _owner, _revision, _close
 from combine_api import _get_agent_db
@@ -187,7 +187,7 @@ def enabled_configuration(request: Request):
 
 
 async def current_opportunity_engagement(request: Request,
-        config: Configuration = Depends(enabled_configuration), clerk_id: str = Depends(require_clerk_id)):
+        config: Configuration = Depends(enabled_configuration), clerk_id: str = Depends(require_identity)):
     async def read_body():
         data = bytearray()
         async for chunk in request.stream():

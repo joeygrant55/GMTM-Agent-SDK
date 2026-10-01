@@ -5,7 +5,7 @@ import { isProfileSurface } from '@/lib/backend-config.cjs'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { ARTIFACT_TYPE_LABEL, Artifact } from './artifactStatus'
 import SpecialistAvatar from './SpecialistAvatar'
 import ArtifactStatusPill from './ArtifactStatusPill'
@@ -17,7 +17,7 @@ import GenericArtifactView from './GenericArtifactView'
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 
 export default function ArtifactViewer({ artifactId }: { artifactId: number }) {
-  const { user } = useUser()
+  const { user } = useSparqSession()
   const router = useRouter()
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
 

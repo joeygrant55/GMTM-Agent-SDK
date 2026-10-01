@@ -11,7 +11,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 import pymysql
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_requirements import (
     MAX_TASKS, SourceDefinitionError, parse_activities, project_activity,
     source_int, source_text, source_timestamp,
@@ -51,7 +51,7 @@ def _linked_athlete(db, clerk_id):
     conflict = "The athlete link needs review before personal combine status can be shown."
 
     def owned_id(row):
-        # Legacy SQL collations may match another case-sensitive Clerk subject.
+        # Legacy SQL collations may match another case-sensitive owner subject.
         # Require the exact owner and an actual integer ID, as recovery does.
         athlete_id = row.get("user_id") if isinstance(row, dict) else None
         if (type(athlete_id) is not int or athlete_id <= 0
@@ -249,7 +249,7 @@ def load_current_combine(clerk_id: str, event_id: int | None = None):
 def current_combine(
     response: Response,
     event_id: int | None = Query(default=None),
-    clerk_id: str = Depends(require_clerk_id),
+    clerk_id: str = Depends(require_identity),
 ):
     response.headers["Cache-Control"] = "private, no-store"
     return load_current_combine(clerk_id, event_id)

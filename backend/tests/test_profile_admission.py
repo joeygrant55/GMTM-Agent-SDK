@@ -14,7 +14,7 @@ import profile_admission as api
 
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=timezone.utc)
-CALLER = "clerk_pilot_synthetic"
+CALLER = "sub_pilot_synthetic"
 OWNER = {"id": 191, "user_id": 8201, "clerk_id": CALLER}
 ORIGINS = ("https://pilot.example.invalid",)
 
@@ -344,7 +344,7 @@ def test_nested_disabled_context_restores_previous_request(admissions):
 
 def test_concurrent_requests_and_worker_threads_keep_their_own_admission(admissions):
     config, path = admissions
-    second = {"id": 192, "user_id": 8202, "clerk_id": "clerk_other_synthetic"}
+    second = {"id": 192, "user_id": 8202, "clerk_id": "sub_other_synthetic"}
     write(path, document(entry(), entry(second, review_ref="synthetic-review-2")))
 
     async def one(owner, other):

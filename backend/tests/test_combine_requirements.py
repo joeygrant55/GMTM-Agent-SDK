@@ -10,12 +10,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import combine_api
-from auth import require_clerk_id
+from auth import require_identity
 from combine_requirements import MAX_PAYLOAD_CHARS, MAX_TASKS, parse_activities, project_activity
 
 
 PUBLIC = json.loads((Path(__file__).parent / "fixtures/usaf_2027_combine2_public.json").read_text())
-CALLER = "clerk_owner"
+CALLER = "sub_owner"
 ATHLETE = 7201
 
 
@@ -152,7 +152,7 @@ def client(monkeypatch):
     monkeypatch.setattr(combine_api, "_get_gmtm_db", lambda: connection("gmtm"))
     app = FastAPI()
     app.include_router(combine_api.router)
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as http:
         http.store = store
         http.app_under_test = app

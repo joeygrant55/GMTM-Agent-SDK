@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 import athlete_evidence as evidence
 import athlete_materials as materials
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import _get_agent_db, _get_gmtm_db
 from profile_owner import linked_profile_athlete as _linked_athlete
 from combine_model import stream_answer
@@ -407,7 +407,7 @@ def _expired():
 
 @router.post("/debrief")
 async def current_profile_debrief(body: ProfileDebriefRequest, request: Request,
-                                  clerk_id: str = Depends(require_clerk_id)):
+                                  clerk_id: str = Depends(require_identity)):
     if request.query_params:
         return _error(400, "This endpoint does not accept query parameters.")
     try:

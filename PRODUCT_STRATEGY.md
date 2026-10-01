@@ -63,7 +63,7 @@ The first AI-powered recruiting advisor with real athlete data. Give every athle
 - **Frontend:** Next.js 14 on Vercel (sparq-agent.vercel.app)
 - **Backend:** FastAPI on Railway (focused-essence-production-9809.up.railway.app)
 - **AI:** Claude Sonnet 4.6 (Anthropic SDK) — `web_search_20250305` native tool + custom `query_database`
-- **Auth:** Clerk
+- **Auth:** GMTM sign-in (SPARQ session)
 - **Agent DB:** Railway MySQL (sparq_profiles, college_targets, conversations, messages, outreach)
 - **Athlete DB:** GMTM MySQL (READ ONLY — users, user_metrics, scholarship_offers)
 
@@ -73,7 +73,7 @@ The first AI-powered recruiting advisor with real athlete data. Give every athle
 3. ✅ Chat persistence
 4. ✅ Auto-saved reports
 5. ✅ Dashboard + links
-6. ✅ Clerk auth
+6. ✅ Auth (GMTM sign-in since 2026-10-01)
 7. 🔲 Stripe integration + usage gating
 8. 🔲 Landing page with pricing
 9. 🔲 Usage analytics

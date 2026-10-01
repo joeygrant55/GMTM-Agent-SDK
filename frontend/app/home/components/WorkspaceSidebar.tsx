@@ -4,7 +4,8 @@ import { apiFetch } from '@/app/_lib/api'
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { UserButton, useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
+import SignOutButton from '@/components/SignOutButton'
 import { useEffect, useState } from 'react'
 import { supportedCombineEvent } from './currentCombine'
 
@@ -42,7 +43,7 @@ export default function WorkspaceSidebar() {
   const params = useSearchParams()
   const rawEvent = params.get('event_id')
   const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const [badges, setBadges] = useState<Badges>({ inbox: 0, outreach_drafts: 0, active_agents: 0 })
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
@@ -116,8 +117,8 @@ export default function WorkspaceSidebar() {
 
       <div className="mt-auto border-t border-white/10 pt-4">
         <div className="flex items-center gap-3 px-1">
-          <UserButton />
-          <span className="text-sm text-gray-300 truncate">{user?.firstName || 'Athlete'}</span>
+          <SignOutButton />
+          <span className="text-sm text-gray-300 truncate">Athlete</span>
         </div>
       </div>
     </aside>

@@ -21,7 +21,7 @@ const files = [
   'app/home/components/IterationBanner.tsx', 'app/home/components/ArtifactCard.tsx',
   'app/home/components/ArtifactStatusPill.tsx', 'app/home/components/SpecialistAvatar.tsx',
   'app/home/components/artifactStatus.ts', 'app/athlete/[id]/components/CombineResultsCard.tsx',
-  'app/athlete/[id]/components/combineResults.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs', 'app/claim/[token]/redeem/page.tsx',
+  'app/athlete/[id]/components/combineResults.ts', 'app/_lib/api.ts', 'lib/backend-config.cjs',
 ];
 const sourceHashes = {}, rawSources = [];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4320'}};const modules={},cache={};\n";
@@ -45,7 +45,7 @@ window.__route={pathname:'/home/inbox',query:'event_id=1317'};window.__routeList
 window.__setRoute=url=>{const u=new URL(url,location.origin);window.__route={pathname:u.pathname,query:u.search.slice(1)};history.pushState({},'',url);window.__routeListeners.forEach(fn=>fn())};
 const useRoute=()=>React.useSyncExternalStore(fn=>{window.__routeListeners.add(fn);return()=>window.__routeListeners.delete(fn)},()=>window.__route);
 window.__navigation=[];const router={push:url=>{window.__navigation.push(url);window.__setRoute(url)},replace:url=>{window.__navigation.push(url);window.__setRoute(url)}};
-const token=async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null;window.Clerk={session:{getToken:token}};
+const token=async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null;
 window.__params={token:'fixture-claim'};window.__requests=[];window.__pending=[];window.__mode={};window.__external=[];window.__helpRequests=[];window.__helpPending=[];window.__helpStreams=[];window.__helpMode={};
 window.__nowOffset=0;const realNow=Date.now;Date.now=()=>realNow()+window.__nowOffset;
 window.__helpTimeouts=[];const realSetTimeout=window.setTimeout;window.setTimeout=(fn,ms,...args)=>{const id=realSetTimeout(fn,ms,...args);if(ms===55000)window.__helpTimeouts.push({fn,id});return id};
@@ -58,9 +58,9 @@ function snapshot(owner,eventId,mode={}){
 }
 window.__snapshot=snapshot;
 window.fetch=async(input,init={})=>{
- const url=new URL(String(input),location.origin);if(url.origin!==location.origin)throw Error('Blocked external fetch');
+ let url=new URL(String(input),location.origin);if(url.origin!==location.origin)throw Error('Blocked external fetch');const __proxied=url.pathname.startsWith('/api/sparq/proxy/');const __auth=__proxied?(window.__identity.user?'Bearer fixture-'+window.__identity.user.id:null):new Headers(init.headers).get('Authorization');if(__proxied){const __o=url.pathname;url=new URL(__o.slice('/api/sparq/proxy'.length)+url.search,location.origin)}
  if(url.pathname==='/api/combine/help'){
-  const request={body:JSON.parse(init.body),authorization:new Headers(init.headers).get('Authorization'),signal:init.signal};window.__helpRequests.push(request);
+  const request={body:JSON.parse(init.body),authorization:__auth,signal:init.signal};window.__helpRequests.push(request);
   const mode=window.__helpMode;
   const sse=events=>events.map(e=>'data: '+JSON.stringify(e)+'\\n\\n').join('');
   const reply=()=>{
@@ -77,7 +77,7 @@ window.fetch=async(input,init={})=>{
  if(!kind)throw Error('Unexpected API request '+url.pathname);
  const eventId=Number(url.searchParams.get('event_id'))||null;const mode=window.__mode[kind]||{};
  const body=mode.body!==undefined?mode.body:kind==='combine'?snapshot(owner,eventId,mode):kind==='profile'?{clerk_id:owner,combine_results:[],hudl_url:null}:kind==='inbox'?{artifacts:[]}:kind==='badges'?{}:{connected:true,clerk_id:owner,user_id:4521,workspace_ready:false,event_id:1317};
- const request={kind,eventId,owner,url:url.href,method:init.method||'GET',authorization:new Headers(init.headers).get('Authorization'),signal:init.signal};window.__requests.push(request);
+ const request={kind,eventId,owner,url:url.href,method:init.method||'GET',authorization:__auth,signal:init.signal};window.__requests.push(request);
  const reply=()=>{if(mode.reject)throw Error('Synthetic request failure');return new Response(JSON.stringify(body),{status:mode.status||200,headers:{'content-type':'application/json'}})};
  if(mode.pending)return new Promise(resolve=>window.__pending.push({request,resolve,reply}));
  if(mode.jsonPending)return{ok:true,status:200,json:()=>new Promise(resolve=>window.__pending.push({request,resolve,reply:()=>body}))};
@@ -89,16 +89,18 @@ const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefin
 function load(id,from=''){
  if(id==='react')return React;
  if(id==='react/jsx-runtime')return{jsx,jsxs:jsx,Fragment:React.Fragment};
- if(id==='@clerk/nextjs')return{useUser,UserButton:()=>React.createElement('button',{'aria-label':'Account'},'Account'),useAuth:()=>{const s=useUser();return{isLoaded:s.isLoaded,isSignedIn:!!s.user,userId:s.user?.id,getToken:token}}};
+ if(id==='@/app/_lib/useSparqSession')return{useSparqSession:useUser,signOutOfSparq:async()=>{}};
+ if(id==='@/components/SignOutButton')return{__esModule:true,default:()=>React.createElement('button',{'aria-label':'Sign out'},'Sign out')};
  if(id==='next/navigation')return{useRouter:()=>router,useParams:()=>window.__params,usePathname:()=>useRoute().pathname,useSearchParams:()=>new URLSearchParams(useRoute().query)};
  if(id==='next/link')return{__esModule:true,default:({children,...props})=>React.createElement('a',{...props,onClick:e=>{props.onClick?.(e);if(!e.defaultPrevented){e.preventDefault();router.push(props.href)}}},children)};
  if(id==='next/dynamic')return{__esModule:true,default:loader=>{let component=null,promise=null;return function Dynamic(props){const [C,setC]=React.useState(()=>component);React.useEffect(()=>{let active=true;(promise||=(loader())).then(m=>{component=m.default||m;if(active)setC(()=>component)});return()=>{active=false}},[]);return C?React.createElement(C,props):null}}};
  if(id==='react-markdown')return{__esModule:true,default:({children})=>React.createElement('div',null,children)};
  if(id.startsWith('@/'))id=id.slice(2);else if(id.startsWith('.')){const parts=(from.slice(0,from.lastIndexOf('/')+1)+id).split('/'),out=[];for(const part of parts){if(part==='..')out.pop();else if(part!=='.')out.push(part)}id=out.join('/')}
+ if(id==='app/home/components/ProfileWorkspaceShell')return{__esModule:true,default:({children})=>children}; // profile-only shell; never rendered on combine
  if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;if(!modules[id])throw Error('Unknown module '+id);modules[id](x=>load(x,id),m,m.exports);return m.exports;
 }
 const root=ReactDOM.createRoot(document.getElementById('root'));
-window.__mount=(kind='shell',strict=false)=>{const id=kind==='home'?'app/home/HomeClient':kind==='redeem'?'app/claim/[token]/redeem/page':kind==='card'?'app/home/components/CurrentCombineCard':'app/home/layout';const C=load(id).default;const child=kind==='shell'?React.createElement(load('app/home/components/InboxFeed').default):null;const content=React.createElement(C,null,child);root.render(strict?React.createElement(React.StrictMode,null,content):content)};
+window.__mount=(kind='shell',strict=false)=>{const id=kind==='home'?'app/home/HomeClient':kind==='card'?'app/home/components/CurrentCombineCard':'app/home/layout';const C=load(id).default;const child=kind==='shell'?React.createElement(load('app/home/components/InboxFeed').default):null;const content=React.createElement(C,null,child);root.render(strict?React.createElement(React.StrictMode,null,content):content)};
 `;
 
 (async () => {
@@ -229,7 +231,7 @@ window.__mount=(kind='shell',strict=false)=>{const id=kind==='home'?'app/home/Ho
     check(await main().isVisible()&&await panel().isVisible()&&await panel().getByRole('textbox').isVisible(),'Desktop keeps the activity card and contextual help alongside each other');
     const desktop=path.join(path.dirname(receiptPath),'combine-help-desktop-1440.png');await page.screenshot({path:desktop});screenshots.push(desktop);
     check(errors.length===0,'No component runtime errors during isolated combine-help journeys');
-    fs.writeFileSync(receiptPath,JSON.stringify({status:'pass',checks,sourceHashes,screenshots,viewports:[360,390,430,1440],scope:'Actual current components + React18 + generated repository Tailwind in Chromium; synthetic Clerk/Next routing/current-combine/SSE, public configuration with invented athlete data, all external network blocked. No model, backend, database or real account. Does not establish provider quality, live auth or physical-device acceptance.'},null,2)+'\n');
+    fs.writeFileSync(receiptPath,JSON.stringify({status:'pass',checks,sourceHashes,screenshots,viewports:[360,390,430,1440],scope:'Actual current components + React18 + generated repository Tailwind in Chromium; synthetic SPARQ session/Next routing/current-combine/SSE, public configuration with invented athlete data, all external network blocked. No model, backend, database or real account. Does not establish provider quality, live auth or physical-device acceptance.'},null,2)+'\n');
     process.stdout.write(JSON.stringify({status:'pass',checks:checks.length,receipt:receiptPath,screenshots})+'\n');
   }finally{await browser.close()}
 })().catch(e=>{process.stderr.write(String(e.stack||e)+'\n');process.exitCode=1});

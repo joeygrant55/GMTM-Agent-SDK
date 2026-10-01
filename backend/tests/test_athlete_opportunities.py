@@ -10,11 +10,11 @@ import pytest
 import athlete_opportunities as api
 import athlete_workspace as workspace
 import combine_api
-from auth import require_clerk_id
+from auth import require_identity
 from backend.tests.workspace_fixture_store import WorkspaceStore
 
 
-CALLER = "clerk_opportunity_owner"
+CALLER = "sub_opportunity_owner"
 LINK = {"id": 191, "user_id": 8201, "clerk_id": CALLER}
 NOW = datetime(2026, 9, 10, 12, tzinfo=timezone.utc)
 PATH = "/api/athlete/opportunities"
@@ -84,7 +84,7 @@ def store(monkeypatch):
 def client(store):
     app = FastAPI()
     app.add_api_route(PATH, api.current_athlete_opportunities, methods=["POST"])
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as instance:
         yield instance
 

@@ -3,7 +3,7 @@
 These tests deliberately do not inherit conftest's fake SDKs or loaded routers.
 Installed dependencies are real, while external effects are counted and blocked
 before importing application code. They prove ASGI composition/lifespan and
-failure boundaries, not a live Clerk login, database schema, or deployed service.
+failure boundaries, not a live GMTM sign-in, database schema, or deployed service.
 """
 
 import json
@@ -18,7 +18,6 @@ def _fresh_process(scenario):
     environment = {
         "PATH": "/usr/bin:/bin",
         "PYTHONDONTWRITEBYTECODE": "1",
-        "AUTH_ENFORCED": "true",
         "ANTHROPIC_API_KEY": "synthetic-no-network",
         "OPENAI_API_KEY": "synthetic-no-network",
         "AGENT_DB_HOST": "127.0.0.1",
@@ -29,7 +28,6 @@ def _fresh_process(scenario):
         "DB_USER": "synthetic",
         "DB_PASSWORD": "synthetic",
         "SHARE_TOKEN_SECRET": "synthetic-share-secret",
-        "CLAIMS_ADMIN_SECRET": "synthetic-admin-secret",
         "SENDGRID_API_KEY": "synthetic-no-network",
         "SPARQ_FROM_EMAIL": "sender@example.invalid",
         "FRONTEND_URL": "https://sparq-agent.test",
@@ -61,7 +59,7 @@ def test_real_registered_routes_fail_closed_before_external_work():
     result = _fresh_process("authentication")
     assert result["attempts"] == {}
     assert result["missing_bearer"] == [401] * 4
-    assert result["missing_issuer"] == [503] * 4
+    assert result["missing_session_secret"] == [503] * 4
 
 
 def test_real_registered_routes_reject_a_different_synthetic_owner():
@@ -214,8 +212,8 @@ def _run_probe(scenario):
     expected = {
         "/api/combine/current": "get",
         "/api/combine/help": "post",
-        "/api/profile/by-clerk/{clerk_id}": "get",
-        "/api/claims/{token}/redeem": "post",
+        "/api/profile/by-owner/{clerk_id}": "get",
+        "/gmtm-entry/exchange": "post",
         "/api/workspace/inbox/{clerk_id}": "get",
         "/api/agent/chat": "post",
         "/api/reports/{user_id}": "get",
@@ -235,25 +233,24 @@ def _run_probe(scenario):
         assert client.get("/").status_code == 200
         health = client.get("/health")
         assert health.status_code == 200
-        assert health.json()["checks"]["auth"]["enforced"] is True
         if scenario == "composition":
-            assert health.json()["checks"]["auth"]["clerk_issuer_configured"] is False
+            assert health.json()["checks"]["auth"]["gmtm_sign_in_configured"] is False
         elif scenario == "authentication":
             routes = [
                 ("GET", "/api/combine/current?event_id=1318", {}),
                 ("POST", "/api/combine/help", {"json": {"event_id": 1318, "message": "Help me finish"}}),
-                ("GET", "/api/profile/by-clerk/synthetic-owner", {}),
+                ("GET", "/api/profile/by-owner/synthetic-owner", {}),
                 ("GET", "/api/search", {}),
             ]
             result["missing_bearer"] = []
-            result["missing_issuer"] = []
+            result["missing_session_secret"] = []
             for method, path, kwargs in routes:
                 response = client.request(method, path, **kwargs)
                 result["missing_bearer"].append(response.status_code)
                 assert response.status_code == 401 and "bearer" in response.json()["detail"]
                 response = client.request(method, path, headers={"Authorization": "Bearer synthetic-token"}, **kwargs)
-                result["missing_issuer"].append(response.status_code)
-                assert response.status_code == 503 and "CLERK_ISSUER" in response.json()["detail"]
+                result["missing_session_secret"].append(response.status_code)
+                assert response.status_code == 503 and "SPARQ sign-in" in response.json()["detail"]
                 assert dict(attempts) == {}, f"Authentication reached external work: {dict(attempts)}"
         elif scenario == "ownership":
             result.update(_probe_ownership(client, block))
@@ -266,9 +263,9 @@ def _run_probe(scenario):
 
 
 def _probe_ownership(client, block):
-    """Use actual JWT validation and routes with an invented local signing key.
+    """Use actual SPARQ session validation and routes with an invented local secret.
 
-    The JWKS lookup is supplied locally; this is not real Clerk authentication.
+    The session store is supplied locally; this is not a real GMTM sign-in.
     Only the Agent DB interface is synthetic. GMTM and model interfaces remain
     guarded, and the application's real ownership checks must stop before them.
     """
@@ -276,20 +273,21 @@ def _probe_ownership(client, block):
     import time
     from types import SimpleNamespace
 
-    import auth
     import combine_api
+    import junior_entry
     import jwt
     import model_usage
-    from cryptography.hazmat.primitives.asymmetric import rsa
 
-    issuer = "https://clerk.example.invalid"
-    os.environ["CLERK_ISSUER"] = issuer
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    auth._jwks_issuer = issuer
-    auth._jwks_client = SimpleNamespace(
-        get_signing_key_from_jwt=lambda token: SimpleNamespace(key=key.public_key()),
-    )
-    token = jwt.encode({"sub": "synthetic-owner", "iss": issuer, "exp": int(time.time()) + 120}, key, algorithm="RS256")
+    secret = "synthetic-sparq-session-secret-32-bytes!"
+    os.environ.update({"SPARQ_ENTRY_SECRET": "synthetic", "SPARQ_HANDOFF_SECRET": "synthetic",
+                       "GMTM_API_URL": "https://gmtm-api.example.invalid", "SPARQ_SESSION_SECRET": secret,
+                       "SPARQ_TEST_ALLOWLIST": "910001"})
+    now = int(time.time())
+    junior_entry.store = SimpleNamespace(
+        session_jti=lambda sub: "synthetic-jti" if sub == "synthetic-owner" else None,
+        latest_entry=lambda sub: {"user_id": 910001} if sub == "synthetic-owner" else None)
+    token = jwt.encode({"sub": "synthetic-owner", "jti": "synthetic-jti", "gsh": "0" * 64, "aud": "legacy",
+                        "iat": now, "exp": now + 120}, secret, algorithm="HS256")
     headers = {"Authorization": f"Bearer {token}"}
     reads, closed = [], []
 
@@ -316,7 +314,7 @@ def _probe_ownership(client, block):
 
     combine_api._get_agent_db = ConflictingLink
     combine_api._get_gmtm_db = block("GMTM.source")
-    recovery = client.get("/api/profile/by-clerk/a-different-synthetic-owner", headers=headers)
+    recovery = client.get("/api/profile/by-owner/a-different-synthetic-owner", headers=headers)
     assert recovery.status_code == 403 and recovery.json()["detail"] == "Not authorized."
     status = client.get("/api/combine/current?event_id=1318", headers=headers)
     help_response = client.post("/api/combine/help", headers=headers,

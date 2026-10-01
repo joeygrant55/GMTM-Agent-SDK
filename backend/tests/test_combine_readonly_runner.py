@@ -36,7 +36,7 @@ class Cursor:
 
 class Raw:
     def __init__(self, rows=None, fail_begin=False):
-        self.rows = [{"clerk_id": "PRIVATE_CLERK"}] if rows is None else rows
+        self.rows = [{"clerk_id": "PRIVATE_SUBJECT"}] if rows is None else rows
         self.fail_begin, self.statements = fail_begin, []
         self.rollbacks = self.closes = 0
     def cursor(self):
@@ -55,19 +55,19 @@ def setup(rows=None, mapped_id=2, fail_begin=False, fail_load=False):
         raws.append(raw)
         return raw
     service = SimpleNamespace(_get_agent_db=lambda: None, _get_gmtm_db=lambda: None)
-    def linked(db, clerk):
+    def linked(db, subject):
         with db.cursor() as cursor:
-            cursor.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s LIMIT 2", (clerk,))
+            cursor.execute("SELECT user_id FROM athlete_profiles WHERE clerk_id = %s LIMIT 2", (subject,))
         return mapped_id
     service._linked_athlete = linked
-    def load(clerk, event):
+    def load(subject, event):
         agent, gmtm = service._get_agent_db(), service._get_gmtm_db()
         try:
             with gmtm.cursor() as cursor:
                 cursor.execute("SELECT event_id FROM events WHERE event_id = %s", (event,))
             if fail_load:
                 raise RuntimeError("PRIVATE_DRIVER_DETAIL")
-            return {"athlete_id": 2, "clerk_id": clerk, "state": "ready",
+            return {"athlete_id": 2, "clerk_id": subject, "state": "ready",
                     "selected_event": {"event_id": event, "name": "PRIVATE_EXTRA"},
                     "activities": [{"task_id": 4892, "event_id": event, "submission_state": "not_submitted",
                                     "evidence_state": "missing_fields", "answer": "PRIVATE_ANSWER"}],
@@ -107,7 +107,7 @@ def test_observation_is_redacted_readonly_and_factories_restored():
     receipt = runner.verify(2, 1317, config(), service=service, driver=driver)
     assert receipt["status"] == "observed" and receipt["ownership_match"]
     assert receipt["counts"]["submitted"] == 0
-    assert "PRIVATE" not in json.dumps(receipt) and "clerk" not in json.dumps(receipt)
+    assert "PRIVATE" not in json.dumps(receipt) and "subject" not in json.dumps(receipt)
     assert receipt["eligibility_verified"] is False
     assert len(receipt["projection_sha256"]) == 64
     assert (service._get_agent_db, service._get_gmtm_db) == originals
@@ -174,11 +174,11 @@ def test_actual_service_runs_through_transaction_and_select_guards():
             super().execute(sql, params)
             if "SELECT clerk_id" in sql:
                 assert params == (2,)
-                self.raw.rows = [{"clerk_id": "PRIVATE_CLERK"}]
+                self.raw.rows = [{"clerk_id": "PRIVATE_SUBJECT"}]
             elif "SELECT user_id" in sql:
                 assert sql.startswith("SELECT user_id, clerk_id FROM athlete_profiles ")
-                assert params in (("PRIVATE_CLERK",), (2,))
-                self.raw.rows = [{"user_id": 2, "clerk_id": "PRIVATE_CLERK"}]
+                assert params in (("PRIVATE_SUBJECT",), (2,))
+                self.raw.rows = [{"user_id": 2, "clerk_id": "PRIVATE_SUBJECT"}]
             elif "FROM events" in sql:
                 self.raw.rows = [public["event"]]
             elif "FROM event_tasks" in sql:

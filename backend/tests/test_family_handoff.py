@@ -1,10 +1,10 @@
 """Synthetic family handoff through actual SPARQ endpoints; no live services.
 
 The fixed actors below are invented test identities, not authorized participants.
-An authenticated child is a separate hypothetical Clerk session, not a claim that
-Clerk/GMTM child login or delegated guardian access has been established. Claims
-reuse the existing transactional fake; combine/recovery reads share its committed
-mapping and a small relational source containing deliberately competing records.
+An authenticated child is a separate hypothetical SPARQ session, not a claim that
+GMTM child login or delegated guardian access has been established. Combine and
+recovery reads share one owner mapping and a small relational source containing
+deliberately competing records.
 """
 
 from copy import deepcopy
@@ -14,12 +14,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 
-import claims_api
 import combine_api
 import combine_help_api
 import profile_api
-from auth import require_clerk_id
-from backend.tests.test_claims import _FakeDB as ClaimDB
+from auth import require_identity
 from backend.tests.test_combine_requirements import PUBLIC, definition_rows, submission_for
 
 
@@ -62,8 +60,8 @@ class FamilyReadDB:
         self.store["read_queries"].append((self.source, sql, params))
         if "FROM athlete_profiles" in sql:
             assert self.source == "agent"
-            mappings = [dict(user_id=uid, clerk_id=clerk)
-                        for uid, clerk in self.store["athlete_profiles"].items()]
+            mappings = [dict(user_id=uid, clerk_id=subject)
+                        for uid, subject in self.store["athlete_profiles"].items()]
             if "WHERE clerk_id = %s" in sql:
                 def matches(owner):
                     return (owner.casefold() == params[0].casefold()
@@ -85,10 +83,10 @@ class FamilyReadDB:
         elif "FROM claim_tokens" in sql:
             assert self.source == "agent"
             assert "clerk_id = %s AND user_id = %s AND claimed_at IS NOT NULL" in sql
-            clerk, uid, *events = params
+            subject, uid, *events = params
             self.result = [{"event_id": event} for event in sorted({
                 row["event_id"] for row in self.store["claims"].values()
-                if row["clerk_id"] == clerk and row["user_id"] == uid
+                if row["clerk_id"] == subject and row["user_id"] == uid
                 and row["claimed_at"] is not None and row["event_id"] in events
             })]
         elif "FROM events" in sql:
@@ -150,27 +148,19 @@ def family(monkeypatch):
         "read_connections": [], "read_queries": [], "case_insensitive_mapping": False,
         "model_clients": 0,
     }
-    monkeypatch.setattr(claims_api, "_get_agent_db", lambda: ClaimDB(store))
-    monkeypatch.setattr(claims_api, "_get_gmtm_db", lambda: ClaimDB(store))
     monkeypatch.setattr(profile_api, "_get_agent_db", lambda: FamilyReadDB(store, "agent"))
     monkeypatch.setattr(combine_api, "_get_agent_db", lambda: FamilyReadDB(store, "agent"))
     monkeypatch.setattr(combine_api, "_get_gmtm_db", lambda: FamilyReadDB(store, "gmtm"))
-    def bootstrap(clerk_id, user_id):
-        # Actual bootstrap can create a workspace and invoke models. This fake
-        # records the boundary only; it does not establish bootstrap acceptance.
-        store["bootstrap_calls"].append((clerk_id, user_id))
-        return {"ready": True, "created": False, "profile_id": None}
-    monkeypatch.setattr(claims_api, "ensure_workspace_profile", bootstrap)
     monkeypatch.setattr(combine_help_api, "_rate_buckets", {})
     def forbidden_model():
         store["model_clients"] += 1
         raise AssertionError("A refused family owner must never initialize a model client")
     monkeypatch.setattr(combine_help_api, "_new_client", forbidden_model)
     app = FastAPI()
-    for router in (profile_api.router, claims_api.router, combine_api.router, combine_help_api.router):
+    for router in (profile_api.router, combine_api.router, combine_help_api.router):
         app.include_router(router)
-    identity = {"clerk": PARENT_SESSION}
-    app.dependency_overrides[require_clerk_id] = lambda: identity["clerk"]
+    identity = {"subject": PARENT_SESSION}
+    app.dependency_overrides[require_identity] = lambda: identity["subject"]
     with TestClient(app) as client:
         client.store, client.identity = store, identity
         yield client
@@ -179,15 +169,8 @@ def family(monkeypatch):
     assert store["model_clients"] == 0
 
 
-def mint_child(family):
-    response = family.post("/api/claims/mint", json={"user_ids": [CHILD], "event_id": 1317},
-                           headers={"X-Claims-Admin": "test-admin-secret"})
-    assert response.status_code == 200, response.text
-    return response.json()[0]["token"]
-
-
 def recover(family):
-    return family.get(f'/api/profile/by-clerk/{family.identity["clerk"]}')
+    return family.get(f'/api/profile/by-owner/{family.identity["subject"]}')
 
 
 def progress(family, event_id=1317, **request):
@@ -210,50 +193,21 @@ def assert_combine_and_help_refuse(family):
         assert "athlete_id" not in response.json() and "user_id" not in response.json()
     assert not any(source == "gmtm" for source, _, _ in family.store["read_queries"])
     assert family.store["model_clients"] == 0
-    bucket = combine_help_api._rate_buckets[family.identity["clerk"]]
+    bucket = combine_help_api._rate_buckets[family.identity["subject"]]
     assert bucket["until"] == 0 and bucket["source_running"] is False
 
 
-def test_parent_self_link_cannot_be_repurposed_by_child_invitation_or_profile_id(family):
-    token = mint_child(family)
-    before_links = deepcopy(family.store["athlete_profiles"])
-    before_claims = deepcopy(family.store["claims"])
-    before_submissions = deepcopy(family.store["submissions"])
-    assert family.post(f"/api/claims/{token}/redeem").status_code == 409
-    for uid in (CHILD, SIBLING, DUPLICATE):
-        response = family.post("/api/profile/connect", json={"user_id": uid, "clerk_id": PARENT_SESSION})
-        assert response.status_code == 403
+def test_account_linking_routes_are_gone(family):
+    # GMTM sign-in links the athlete at entry; no claim or connect route can relink.
+    for method, path in (("POST", "/api/claims/mint"), ("GET", "/api/claims/x"), ("POST", "/api/claims/x/redeem"),
+                         ("POST", "/api/profile/connect")):
+        assert family.request(method, path).status_code in (404, 405)
     assert recover(family).json()["user_id"] == PARENT
-    body = progress(family)
-    assert body["athlete_id"] == PARENT
-    assert body["counts"] == {"activities": 9, "submitted": 1, "fields_present": 0}
-    assert family.store["athlete_profiles"] == before_links
-    assert family.store["claims"] == before_claims
-    assert family.store["submissions"] == before_submissions
-    assert family.store["bootstrap_calls"] == []
-
-
-def test_independent_child_claim_recovers_its_existing_submissions_without_moving_family_work(family):
-    token = mint_child(family)
-    family.identity["clerk"] = CHILD_SESSION
-    assert recover(family).json() == {"found": False, "user_id": None, "has_sparq_profile": False}
-    before_links = deepcopy(family.store["athlete_profiles"])
-    before_submissions = deepcopy(family.store["submissions"])
-    response = family.post(f"/api/claims/{token}/redeem")
-    assert response.status_code == 200 and response.json()["user_id"] == CHILD
-    assert family.store["athlete_profiles"] == {**before_links, CHILD: CHILD_SESSION}
-    assert recover(family).json()["user_id"] == CHILD
-    body = progress(family)
-    expected = {row["task_id"] for row in before_submissions if row["user_id"] == CHILD and row["event_id"] == 1317}
-    assert body["athlete_id"] == CHILD and submitted_tasks(body) == expected
-    assert body["counts"] == {"activities": 9, "submitted": 2, "fields_present": 2}
-    assert family.store["submissions"] == before_submissions
-    assert family.store["bootstrap_calls"] == [(CHILD_SESSION, CHILD)]
 
 
 def test_division_and_untrusted_selected_child_hints_never_change_the_authenticated_athlete(family):
     family.store["athlete_profiles"][CHILD] = CHILD_SESSION
-    family.identity["clerk"] = CHILD_SESSION
+    family.identity["subject"] = CHILD_SESSION
     before = deepcopy(family.store["athlete_profiles"])
     for event_id, count in ((1317, 2), (1318, 1), (1317, 2)):
         response = family.get("/api/combine/current", params={
@@ -274,7 +228,7 @@ def test_sibling_and_duplicate_name_profiles_do_not_inherit_child_progress(famil
     family.store["athlete_profiles"][CHILD] = CHILD_SESSION
     assert family.store["names"][CHILD] == family.store["names"][DUPLICATE]
     assert family.store["parent_ids"][CHILD] == family.store["parent_ids"][uid]
-    family.identity["clerk"] = session
+    family.identity["subject"] = session
     before = deepcopy(family.store["submissions"])
     assert recover(family).json()["user_id"] == uid
     body = progress(family)
@@ -309,7 +263,7 @@ def test_historical_parent_and_child_mapping_is_refused_without_silently_picking
 def test_case_colliding_identity_cannot_read_the_child_even_if_legacy_sql_collation_matches(family):
     family.store["athlete_profiles"][CHILD] = CHILD_SESSION
     family.store["case_insensitive_mapping"] = True
-    family.identity["clerk"] = CHILD_SESSION.upper()
+    family.identity["subject"] = CHILD_SESSION.upper()
     before = deepcopy(family.store["athlete_profiles"])
     assert recover(family).status_code == 409
     assert_combine_and_help_refuse(family)
@@ -327,7 +281,7 @@ def test_case_colliding_identity_cannot_read_the_child_even_if_legacy_sql_collat
 def test_missing_malformed_or_conflicting_reverse_owner_is_refused_before_child_progress(family, reverse_rows):
     family.store["athlete_profiles"][CHILD] = CHILD_SESSION
     family.store["reverse_override"] = reverse_rows
-    family.identity["clerk"] = CHILD_SESSION
+    family.identity["subject"] = CHILD_SESSION
     before = deepcopy(family.store["athlete_profiles"])
     assert recover(family).status_code == 409
     assert_combine_and_help_refuse(family)
@@ -337,7 +291,7 @@ def test_missing_malformed_or_conflicting_reverse_owner_is_refused_before_child_
 @pytest.mark.parametrize("bad_uid", [None, True, 0, -1, float(CHILD), str(CHILD)])
 def test_malformed_forward_athlete_never_becomes_child_progress(family, bad_uid):
     family.store["athlete_profiles"][bad_uid] = CHILD_SESSION
-    family.identity["clerk"] = CHILD_SESSION
+    family.identity["subject"] = CHILD_SESSION
     before = deepcopy(family.store["athlete_profiles"])
     assert recover(family).status_code == 409
     assert_combine_and_help_refuse(family)

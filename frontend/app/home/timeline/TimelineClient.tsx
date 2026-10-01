@@ -3,7 +3,7 @@
 import { apiFetch } from '@/app/_lib/api'
 
 import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 const getApiBase = () => process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
 
@@ -33,14 +33,14 @@ const EVENT_STYLES: Record<TimelineEvent['type'], { dot: string; icon: string }>
 }
 
 export default function TimelineClient() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const [events, setEvents] = useState<TimelineEvent[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!isLoaded || !user) return
-    const clerkId = user.id
-    apiFetch(`${getApiBase()}/api/workspace/timeline/${clerkId}`)
+    const ownerId = user.id
+    apiFetch(`${getApiBase()}/api/workspace/timeline/${ownerId}`)
       .then((r) => r.json())
       .then((data) => {
         setEvents(Array.isArray(data) ? data : [])

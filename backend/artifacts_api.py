@@ -26,13 +26,13 @@ from datetime import datetime, timezone, date
 
 from email_sender import send_outreach_email, is_valid_email
 from outreach_draft import DRAFT_OUTREACH_SYSTEM, parse_json_response as _parse_json_response, user_message as draft_user_message
-from auth import require_clerk_id, assert_owner
+from auth import require_identity, assert_owner
 
 
 router = APIRouter(prefix="/api", tags=["Artifacts"])
 
 
-def _clerk_for_artifact(artifact_id: int) -> Optional[str]:
+def _owner_for_artifact(artifact_id: int) -> Optional[str]:
     """Return the clerk_id that owns an artifact, or None if it doesn't exist."""
     db = _get_agent_db()
     try:
@@ -110,9 +110,9 @@ class IteratePayload(BaseModel):
 # ---------- endpoints ----------
 
 @router.get("/workspace/inbox/{clerk_id}")
-def get_inbox(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+def get_inbox(clerk_id: str, caller_id: str = Depends(require_identity)):
     """Triage queue — artifacts in ready_for_review for this athlete, newest first."""
-    if clerk_id != caller_clerk_id:
+    if clerk_id != caller_id:
         raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
@@ -135,9 +135,9 @@ def get_inbox(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
 
 
 @router.get("/workspace/badges/{clerk_id}")
-def get_badges(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+def get_badges(clerk_id: str, caller_id: str = Depends(require_identity)):
     """Sidebar badge counts: inbox unread, draft outreach, active agents."""
-    if clerk_id != caller_clerk_id:
+    if clerk_id != caller_id:
         raise HTTPException(status_code=403, detail="Not authorized.")
     db = _get_agent_db()
     try:
@@ -162,8 +162,8 @@ def get_badges(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
 
 
 @router.get("/artifacts/{artifact_id}")
-def get_artifact(artifact_id: int, caller_clerk_id: str = Depends(require_clerk_id)):
-    assert_owner(_clerk_for_artifact(artifact_id), caller_clerk_id)
+def get_artifact(artifact_id: int, caller_id: str = Depends(require_identity)):
+    assert_owner(_owner_for_artifact(artifact_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -205,7 +205,7 @@ def get_artifact(artifact_id: int, caller_clerk_id: str = Depends(require_clerk_
 
 
 @router.post("/artifacts/{artifact_id}/approve")
-def approve_artifact(artifact_id: int, request: Request, body: Optional[dict] = None, caller_clerk_id: str = Depends(require_clerk_id)):
+def approve_artifact(artifact_id: int, request: Request, body: Optional[dict] = None, caller_id: str = Depends(require_identity)):
     """Approve.
 
     - Non-outreach artifacts → state 'approved'.
@@ -232,7 +232,7 @@ def approve_artifact(artifact_id: int, request: Request, body: Optional[dict] = 
             row = c.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="artifact not found")
-            assert_owner(row.get("clerk_id"), caller_clerk_id)
+            assert_owner(row.get("clerk_id"), caller_id)
             if row["state"] in ("sent", "approved", "archived", "rejected"):
                 raise HTTPException(status_code=409, detail=f"artifact already {row['state']}")
 
@@ -327,8 +327,8 @@ def approve_artifact(artifact_id: int, request: Request, body: Optional[dict] = 
 
 
 @router.post("/artifacts/{artifact_id}/discard")
-def discard_artifact(artifact_id: int, body: Optional[dict] = None, caller_clerk_id: str = Depends(require_clerk_id)):
-    assert_owner(_clerk_for_artifact(artifact_id), caller_clerk_id)
+def discard_artifact(artifact_id: int, body: Optional[dict] = None, caller_id: str = Depends(require_identity)):
+    assert_owner(_owner_for_artifact(artifact_id), caller_id)
     performed_by = (body or {}).get("performed_by")
     reason = (body or {}).get("reason")
     db = _get_agent_db()
@@ -343,9 +343,9 @@ def discard_artifact(artifact_id: int, body: Optional[dict] = None, caller_clerk
 
 
 @router.post("/artifacts/{artifact_id}/edit")
-def edit_artifact(artifact_id: int, body: EditPayload, caller_clerk_id: str = Depends(require_clerk_id)):
+def edit_artifact(artifact_id: int, body: EditPayload, caller_id: str = Depends(require_identity)):
     """Inline edit — overwrite payload, keep state, log the action."""
-    assert_owner(_clerk_for_artifact(artifact_id), caller_clerk_id)
+    assert_owner(_owner_for_artifact(artifact_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -364,9 +364,9 @@ def edit_artifact(artifact_id: int, body: EditPayload, caller_clerk_id: str = De
 
 
 @router.post("/artifacts/{artifact_id}/iterate")
-def iterate_artifact(artifact_id: int, body: IteratePayload, caller_clerk_id: str = Depends(require_clerk_id)):
+def iterate_artifact(artifact_id: int, body: IteratePayload, caller_id: str = Depends(require_identity)):
     """Create a revision: new artifact row with parent_artifact_id set, same type, ready_for_review."""
-    assert_owner(_clerk_for_artifact(artifact_id), caller_clerk_id)
+    assert_owner(_owner_for_artifact(artifact_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -452,9 +452,9 @@ class IterateViaAgentBody(BaseModel):
 
 
 @router.post("/artifacts/{artifact_id}/iterate-via-agent")
-def iterate_artifact_via_agent(artifact_id: int, body: IterateViaAgentBody, caller_clerk_id: str = Depends(require_clerk_id)):
+def iterate_artifact_via_agent(artifact_id: int, body: IterateViaAgentBody, caller_id: str = Depends(require_identity)):
     """Mode B chat → Claude rewrites the artifact payload per the instruction. Creates a revision."""
-    assert_owner(_clerk_for_artifact(artifact_id), caller_clerk_id)
+    assert_owner(_owner_for_artifact(artifact_id), caller_id)
     db = _get_agent_db()
     try:
         with db.cursor() as c:
@@ -605,9 +605,9 @@ def _load_college_target(college_target_id: int) -> Optional[dict]:
 
 
 @router.post("/artifacts/draft-outreach")
-def draft_outreach(body: DraftOutreachBody, caller_clerk_id: str = Depends(require_clerk_id)):
+def draft_outreach(body: DraftOutreachBody, caller_id: str = Depends(require_identity)):
     """Generate a real outreach_draft artifact for the athlete + college via Claude."""
-    if body.athlete_id != caller_clerk_id:
+    if body.athlete_id != caller_id:
         raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     profile = _load_athlete_profile_for_artifacts(body.athlete_id)
     if not profile:
@@ -678,9 +678,9 @@ def draft_outreach(body: DraftOutreachBody, caller_clerk_id: str = Depends(requi
 # ---------- demo seeding (Phase 1 visible value before Coordinator is wired) ----------
 
 @router.post("/artifacts/seed-demo/{clerk_id}")
-def seed_demo_artifacts(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+def seed_demo_artifacts(clerk_id: str, caller_id: str = Depends(require_identity)):
     """Seed the inbox with 3 demo artifacts so the V2 UX is demoable before Managed Agents lands."""
-    if clerk_id != caller_clerk_id:
+    if clerk_id != caller_id:
         raise HTTPException(status_code=403, detail="Not authorized.")
     now = datetime.now(timezone.utc).isoformat()
     demos = [

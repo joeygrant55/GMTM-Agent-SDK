@@ -1,6 +1,6 @@
-"""GMTM -> SPARQ junior entry: code exchange, SPARQ session, entry gate, parent notice.
+"""GMTM -> SPARQ entry: code exchange, SPARQ session, entry gate, parent notice.
 
-No Clerk (Joey, 2026-10-01): GMTM sign-in is the only sign-in on the profile surface.
+GMTM sign-in is the only sign-in on every surface (Joey, 2026-10-01).
 
 Inert on import. Every outside effect goes through a module-level seam that tests
 replace: ``http`` (GMTM redeem), ``store`` (Agent DB) and
@@ -8,14 +8,16 @@ replace: ``http`` (GMTM redeem), ``store`` (Agent DB) and
 
 Flow: the Next server calls ``POST /gmtm-entry/exchange`` with the shared
 ``SPARQ_ENTRY_SECRET`` and ``gsh`` = sha256 hex of the browser's GMTM sessionId.
-We redeem the one-use GMTM code, check eligibility, use the athlete's existing link
-id as the subject (an older Clerk id keeps all its rows reachable) or link
+We redeem the one-use GMTM code, check admission (profile: the junior gate; legacy
+and combine: SPARQ_TEST_ALLOWLIST only), use the athlete's existing link id as the
+subject (an id linked before October 2026 keeps all its rows reachable) or link
 ``gmtm_<user_id>`` for a new athlete, record the entry and return a 24 h HS256 SPARQ session token
 (sub, jti, gsh, iat, exp) signed with ``SPARQ_SESSION_SECRET``. Only the newest
 jti per user is active; a new entry or sign-out ends the old one.
 
-``require_identity`` is the profile surface's only authentication: a valid,
-unexpired, active SPARQ token. Clerk tokens are refused there.
+``require_identity`` is the profile surface's authentication: a valid, unexpired,
+active SPARQ token. ``require_allowlisted_identity`` (``auth.require_identity``) adds
+the allow-list check for legacy and combine. Any other token is refused.
 
 Each personal request from a gmtm-entry user passes ``gate``: entry is at
 most 24 h old, eligibility still holds (10 min cache) and the parent notice is
@@ -42,7 +44,6 @@ import jwt
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from auth import require_clerk_id
 import junior_eligibility
 
 EXCHANGE_PATH = "/gmtm-entry/exchange"
@@ -51,7 +52,8 @@ NOTICE_PATH = "/api/athlete/parent-notice"
 SESSION_MAX = timedelta(hours=24)
 _OPAQUE = re.compile(r"[A-Za-z0-9_-]{16,512}\Z")
 _GSH = re.compile(r"[0-9a-f]{64}\Z")
-_CLAIMS = ("sub", "jti", "gsh", "iat", "exp")
+_CLAIMS = ("sub", "jti", "gsh", "iat", "exp", "aud")
+SURFACES = ("profile", "combine", "legacy")
 
 SCHEMA = (
     """CREATE TABLE IF NOT EXISTS sparq_entry_refusals (
@@ -66,7 +68,7 @@ SCHEMA = (
     clerk_id VARBINARY(255) NOT NULL,
     user_id BIGINT NOT NULL,
     entered_at DATETIME(6) NOT NULL,
-    KEY idx_entries_clerk (clerk_id, entered_at)
+    KEY idx_entries_owner (clerk_id, entered_at)
 )""",
     """CREATE TABLE IF NOT EXISTS sparq_parent_notices (
     clerk_id VARBINARY(255) PRIMARY KEY,
@@ -174,24 +176,35 @@ def subject_for(user_id: int) -> str:
     return f"gmtm_{user_id}"
 
 
-def issue_session(sub: str, gsh: str, now: datetime) -> str:
-    """Sign a 24 h token and make its jti the only active one for ``sub``."""
+def surface_of(app) -> str:
+    """The app's token audience. Only create_app/main set it; anything else is legacy."""
+    surface = getattr(app.state, "sparq_surface", "legacy")
+    return surface if surface in SURFACES else "legacy"
+
+
+def issue_session(sub: str, gsh: str, now: datetime, audience: str = "profile") -> str:
+    """Sign a 24 h token for one surface (``aud``) and make its jti the only active one for ``sub``."""
+    if audience not in SURFACES:
+        raise ValueError("Unknown SPARQ surface")
     jti = secrets.token_urlsafe(32)
     iat = int(now.timestamp())
-    token = jwt.encode({"sub": sub, "jti": jti, "gsh": gsh, "iat": iat, "exp": iat + int(SESSION_MAX.total_seconds())},
+    token = jwt.encode({"sub": sub, "jti": jti, "gsh": gsh, "aud": audience, "iat": iat,
+                        "exp": iat + int(SESSION_MAX.total_seconds())},
                        _setting("SPARQ_SESSION_SECRET"), algorithm="HS256")
     store.set_session(sub, jti, now)
     return token
 
 
-def session_claims(token: str) -> dict:
-    """Signature, expiry and shape only (no store read). 401 on any failure."""
+def session_claims(token: str, audience: str) -> dict:
+    """Signature, expiry, audience (surface) and shape only (no store read). 401 on any failure.
+    A token issued for one surface is refused on every other surface."""
     try:
         secret = _setting("SPARQ_SESSION_SECRET")
     except EntryUnavailable:
         raise HTTPException(503, "SPARQ sign-in is temporarily unavailable.") from None
     try:
-        claims = jwt.decode(token, secret, algorithms=["HS256"], options={"require": list(_CLAIMS)})
+        claims = jwt.decode(token, secret, algorithms=["HS256"], audience=audience,
+                            options={"require": list(_CLAIMS)})
     except jwt.PyJWTError:
         raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.") from None
     if not all(isinstance(claims.get(k), str) and claims[k] for k in ("sub", "jti", "gsh")) \
@@ -209,12 +222,29 @@ def _active(claims: dict) -> str:
 
 async def require_identity(authorization: str | None = Header(default=None)) -> str:
     """Profile surface authentication: ONLY an active SPARQ session token. Returns sub."""
+    return await _identity(authorization, "profile", _active)
+
+
+def _allowlisted(claims: dict) -> str:
+    sub = _active(claims)
+    entry = store.latest_entry(sub)
+    if entry is None or entry["user_id"] not in junior_eligibility.allowlist(os.environ):
+        raise HTTPException(403, "SPARQ is not open to this account here.")
+    return sub
+
+
+async def require_allowlisted_identity(authorization: str | None, audience: str) -> str:
+    """Legacy and combine: an active SPARQ session for this surface whose GMTM user is allow-listed."""
+    return await _identity(authorization, audience, _allowlisted)
+
+
+async def _identity(authorization, audience, check) -> str:
     parts = (authorization or "").split(" ", 1)
     if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1].strip():
         raise HTTPException(401, "Missing Authorization bearer token.")
-    claims = session_claims(parts[1].strip())
+    claims = session_claims(parts[1].strip(), audience)
     try:
-        return await run_in_threadpool(_active, claims)
+        return await run_in_threadpool(check, claims)
     except HTTPException:
         raise
     except Exception:
@@ -296,7 +326,7 @@ class MySQLStore:
         self._run(lambda c: c.execute("DELETE FROM sparq_sessions WHERE clerk_id = %s AND jti = %s",
                                       (clerk_id.encode(), jti)))
 
-    def linked_clerk_id(self, user_id):
+    def linked_owner_id(self, user_id):
         def read(c):
             c.execute("SELECT clerk_id FROM athlete_profiles WHERE user_id = %s LIMIT 1", (user_id,))
             row = c.fetchone()
@@ -304,7 +334,7 @@ class MySQLStore:
         return self._run(read)
 
     def ensure_link(self, clerk_id, user_id):
-        """Same lock name and no-overwrite insert as claim redemption (claims_api)."""
+        """Lock per subject and a no-overwrite insert: one athlete per subject, never repointed."""
         lock = "sparq.claim." + hashlib.sha256(clerk_id.encode()).hexdigest()[:48]
         db = self._db()
         locked = False
@@ -344,7 +374,7 @@ store = MySQLStore()
 
 # ── Exchange route (Next server only) ──────────────────────────────────────────
 
-def _exchange(code: str, state: str, gsh: str) -> dict:
+def _exchange(code: str, state: str, gsh: str, junior: bool = True, audience: str = "profile") -> dict:
     # Validate every setting before redeem: a missing one must not burn the one-use code.
     try:
         if entry_configuration(os.environ) is None:
@@ -353,17 +383,19 @@ def _exchange(code: str, state: str, gsh: str) -> dict:
         raise EntryUnavailable() from None
     user_id = redeem(code, state)
     try:
-        eligible = junior_eligibility.is_eligible(user_id)
+        # Profile: the junior gate. Legacy and combine: the allow-list only.
+        eligible = (junior_eligibility.is_eligible(user_id) if junior
+                    else user_id in junior_eligibility.allowlist(os.environ))
     except Exception:
         raise EntryUnavailable() from None
     now = _now()
     if not eligible:
         store.record_refusal(user_id, "ineligible", now)
         return {"eligible": False}
-    # The GMTM session proves the person. An athlete already linked (e.g. an older
-    # Clerk id) keeps that id as the subject, so every row keyed by it stays reachable.
-    # It is accepted only inside a SPARQ-signed token; profile has no Clerk JWT path.
-    sub = store.linked_clerk_id(user_id) or subject_for(user_id)
+    # The GMTM session proves the person. An athlete already linked (an id from
+    # before October 2026) keeps that id as the subject, so every row keyed by it
+    # stays reachable. It is accepted only inside a SPARQ-signed token.
+    sub = store.linked_owner_id(user_id) or subject_for(user_id)
     store.ensure_link(sub, user_id)
     try:
         from workspace_bootstrap import ensure_workspace_profile
@@ -371,7 +403,7 @@ def _exchange(code: str, state: str, gsh: str) -> dict:
     except Exception:
         print("[gmtm-entry] workspace bootstrap failed")  # never log codes or tokens
     store.record_entry(sub, user_id, now)
-    return {"eligible": True, "token": issue_session(sub, gsh, now)}
+    return {"eligible": True, "token": issue_session(sub, gsh, now, audience)}
 
 
 async def exchange(request: Request):
@@ -391,15 +423,17 @@ async def exchange(request: Request):
     if not all(isinstance(v, str) and _OPAQUE.fullmatch(v) for v in (code, state)) \
             or not isinstance(gsh, str) or not _GSH.fullmatch(gsh):
         raise HTTPException(400, "Invalid entry request.")
-    return JSONResponse(await run_in_threadpool(_exchange, code, state, gsh))
+    # Only the profile app sets entry_admission = "junior"; every other app is allow-list only.
+    junior = getattr(request.app.state, "entry_admission", None) == "junior"
+    return JSONResponse(await run_in_threadpool(_exchange, code, state, gsh, junior, surface_of(request.app)))
 
 
-async def sign_out(authorization: str | None = Header(default=None)):
+async def sign_out(request: Request, authorization: str | None = Header(default=None)):
     """Next server only: end the caller's active jti. Idempotent; never needs the gate."""
     parts = (authorization or "").split(" ", 1)
     if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1].strip():
         raise HTTPException(401, "Missing Authorization bearer token.")
-    claims = session_claims(parts[1].strip())
+    claims = session_claims(parts[1].strip(), surface_of(request.app))
     await run_in_threadpool(store.end_session, claims["sub"], claims["jti"])
     return {"signed_out": True}
 
@@ -439,9 +473,9 @@ def _notice(clerk_id: str, accept: bool) -> dict:
     return {"required": True, "accepted": store.notice_accepted(clerk_id)}
 
 
-async def get_parent_notice(caller_clerk_id: str = Depends(require_clerk_id)):
-    return await run_in_threadpool(_notice, caller_clerk_id, False)
+async def get_parent_notice(caller_id: str = Depends(require_identity)):
+    return await run_in_threadpool(_notice, caller_id, False)
 
 
-async def accept_parent_notice(caller_clerk_id: str = Depends(require_clerk_id)):
-    return await run_in_threadpool(_notice, caller_clerk_id, True)
+async def accept_parent_notice(caller_id: str = Depends(require_identity)):
+    return await run_in_threadpool(_notice, caller_id, True)

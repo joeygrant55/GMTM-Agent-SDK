@@ -1,7 +1,7 @@
 'use client'
 
-// Profile surface identity (no Clerk). {sub} comes from GET /api/sparq/session; the
-// token itself stays in its HttpOnly cookie. Same shape as Clerk's useUser
+// SPARQ identity on every surface (GMTM is the only sign-in). {sub} comes from
+// GET /api/sparq/session; the token itself stays in its HttpOnly cookie. Shape:
 // ({ isLoaded, user: { id } }) so profile components read user.id unchanged.
 import { useEffect, useState } from 'react'
 

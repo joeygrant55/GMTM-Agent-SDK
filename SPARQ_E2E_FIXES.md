@@ -38,8 +38,8 @@ _Generated: 2026-02-26 after live E2E browser test_
 
 Build a coach email draft page at `frontend/app/home/outreach/draft/page.tsx`:
 
-1. Athlete selects a college from their match list (dropdown from `GET /api/workspace/colleges/{clerk_id}` using `useUser()` clerk_id)
-2. Pre-populated email template using athlete's profile data (loaded from `GET /api/profile/by-clerk/{clerk_id}` + their sparq_profile stored in onboarding — name, position, class_year, school, city, state, hudl_url, maxpreps stats)
+1. Athlete selects a college from their match list (dropdown from `GET /api/workspace/colleges/{clerk_id}` using the session clerk_id)
+2. Pre-populated email template using athlete's profile data (loaded from `GET /api/profile/by-owner/{clerk_id}` + their sparq_profile stored in onboarding — name, position, class_year, school, city, state, hudl_url, maxpreps stats)
 3. Template:
 ```
 Subject: [Name] | [Position] | Class of [Year] | [High School]
@@ -78,7 +78,7 @@ Also in `frontend/app/home/HomeClient.tsx`: change the "Draft Coach Emails" card
 - TypeScript, no type errors
 - No new npm packages
 - Keep existing Tailwind dark theme (bg-sparq-charcoal, text-sparq-lime, border-white/10)
-- Clerk useUser() for auth throughout
+- Session identity for auth throughout (GMTM sign-in since 2026-10-01)
 - Don't touch backend, auth, or routing config
 - Commit everything with one descriptive message when done
 

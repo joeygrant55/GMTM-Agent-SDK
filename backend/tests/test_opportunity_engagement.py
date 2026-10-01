@@ -14,12 +14,12 @@ import pytest
 import athlete_workspace as workspace
 import combine_api
 import opportunity_engagement as api
-from auth import require_clerk_id
+from auth import require_identity
 from backend.tests.test_athlete_opportunities import record, contact_record
 from backend.tests.workspace_fixture_store import WorkspaceStore
 
 
-CALLER = "clerk_engagement_private_owner"
+CALLER = "sub_engagement_private_owner"
 LINK = {"id": 519, "user_id": 8201, "clerk_id": CALLER}
 NOW = datetime(2026, 9, 10, 12, tzinfo=timezone.utc)
 PATH = "/api/athlete/opportunity-engagement"
@@ -84,7 +84,7 @@ def app(config, *, caller=CALLER):
     instance.state.opportunity_engagement_limiter = api.RateLimit()
     instance.add_api_route(PATH, api.current_opportunity_engagement, methods=["POST"])
     if caller is not None:
-        instance.dependency_overrides[require_clerk_id] = lambda: caller
+        instance.dependency_overrides[require_identity] = lambda: caller
     return instance
 
 
@@ -184,7 +184,7 @@ def test_disabled_endpoint_returns_404_before_auth_and_database(store, emitted):
         auth_calls.append(True)
         raise AssertionError("Disabled collector should precede authentication")
 
-    application.dependency_overrides[require_clerk_id] = forbidden_auth
+    application.dependency_overrides[require_identity] = forbidden_auth
     with TestClient(application) as instance:
         assert instance.post(PATH, json=event()).status_code == 404
     assert not auth_calls and not store.connections and not emitted
@@ -358,7 +358,7 @@ def test_account_key_is_stable_across_actions_but_separate_for_period_cohort_sec
                     {"OPPORTUNITY_ENGAGEMENT_SECRET": "b2" * 32}):
         other = api.validate_configuration(environment(**changes))
         api.capture(CALLER, event(), other, limiter, now=NOW)
-    different_link = {**LINK, "id": 520, "user_id": 8202, "clerk_id": "clerk_different_owner"}
+    different_link = {**LINK, "id": 520, "user_id": 8202, "clerk_id": "sub_different_owner"}
     store.links = [different_link]
     api.capture(different_link["clerk_id"], event(link_revision=api._revision(different_link)), config, limiter, now=NOW)
     assert len({base, *(x["account"] for x in emitted[3:])}) == 5

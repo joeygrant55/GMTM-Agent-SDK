@@ -1,7 +1,7 @@
-// Profile surface SPARQ session (no Clerk): token verification, middleware GMTM
-// binding, same-origin proxy, session/sign-out routes, CSP and Clerk reachability.
-// Compiled actual sources with real next/server; fetch and Clerk are stubs. No
-// server, credentials or network.
+// SPARQ session on every surface (GMTM is the only sign-in): token verification,
+// middleware GMTM binding, same-origin proxy, session/sign-out routes, CSP and the
+// absence of any third-party sign-in package. Compiled actual sources with real
+// next/server; fetch is a stub. No server, credentials or network.
 // Run: SPARQ_TEST_NODE_MODULES=<frontend/node_modules> node frontend/tests/check-sparq-session.cjs
 const assert = require('node:assert/strict')
 const crypto = require('node:crypto')
@@ -32,15 +32,14 @@ const env = {
   NEXT_PUBLIC_APP_SURFACE: 'profile', NEXT_PUBLIC_BACKEND_URL: 'https://backend.example', NODE_ENV: 'production',
   NEXT_PUBLIC_GMTM_WEB_URL: 'https://gmtm.example', SPARQ_SESSION_SECRET: SECRET,
 }
-let fetchCalls = [], fetchReply = null, clerkCalls = 0
-const clerkStub = { clerkMiddleware: () => { clerkCalls++; throw Error('Clerk must not run on profile') }, createRouteMatcher: () => () => false }
-function load(rel, modules = {}) {
+let fetchCalls = [], fetchReply = null
+function load(rel, modules = {}, moduleEnv = env) {
   const file = path.resolve(root, rel)
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const module = { exports: {} }
-  const known = { 'next/server': nextServer, '@/lib/backend-config.cjs': policy, './lib/backend-config.cjs': policy, '@/lib/sparq-session.cjs': session, './lib/sparq-session.cjs': session, '@clerk/nextjs/server': clerkStub, ...modules }
+  const known = { 'next/server': nextServer, '@/lib/backend-config.cjs': policy, './lib/backend-config.cjs': policy, '@/lib/sparq-session.cjs': session, './lib/sparq-session.cjs': session, ...modules }
   const req = id => id in known ? known[id] : assert.fail('unexpected import ' + id + ' in ' + rel)
-  new Function('exports', 'require', 'module', 'process', 'fetch', code)(module.exports, req, module, { env }, async (...args) => { fetchCalls.push(args); return fetchReply })
+  new Function('exports', 'require', 'module', 'process', 'fetch', code)(module.exports, req, module, { env: moduleEnv }, async (...args) => { fetchCalls.push(args); return fetchReply })
   return module.exports
 }
 const cookieOf = (res, name) => res.headers.getSetCookie().find(c => c.startsWith(name + '='))
@@ -119,9 +118,47 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
     const res = await run(request('https://sparq.example/api/sparq/session', { raw: null, gsh: 'f'.repeat(64) }))
     assert.equal(res.headers.get('x-middleware-request-x-sparq-gsh'), null, 'forged hash dropped')
   })
-  await check('Middleware denies Clerk sign-in/up and connect pages; never builds or calls Clerk on profile', async () => {
-    for (const p of ['/sign-in', '/sign-up', '/connect']) assert.equal((await run(request('https://sparq.example' + p, { token: sign() }))).status, 404, p)
-    assert.equal(clerkCalls, 0)
+  await check('Middleware denies sign-in/up, claim and connect pages on profile', async () => {
+    for (const p of ['/sign-in', '/sign-up', '/connect', '/claim/abc', '/onboarding/search']) assert.equal((await run(request('https://sparq.example' + p, { token: sign() }))).status, 404, p)
+  })
+  const combineMw = load('middleware.ts', {}, { ...env, NEXT_PUBLIC_APP_SURFACE: 'combine' }).default
+  await check('Combine middleware uses the same GMTM-bound session', async () => {
+    let res = await combineMw(request('https://combine.example/home/inbox', { token: sign() }), {})
+    assert.equal(res.headers.get('location'), null)
+    assert.equal(res.headers.get('x-middleware-request-x-sparq-gsh'), GSH)
+    res = await combineMw(request('https://combine.example/home/inbox', { token: sign(), raw: 'another-gmtm-user' }), {})
+    assert.equal(res.headers.get('location'), 'https://combine.example/enter')
+    assert.ok(cleared(res))
+    for (const p of ['/sign-in', '/connect', '/claim/abc']) assert.equal((await combineMw(request('https://combine.example' + p, { token: sign() }), {})).status, 404, p)
+    assert.equal((await combineMw(request('https://combine.example/enter', {}), {})).headers.get('location'), null)
+  })
+  const legacyEnv = { ...env, NEXT_PUBLIC_APP_SURFACE: '' }
+  const legacyMw = load('middleware.ts', {}, legacyEnv).default
+  await check('Legacy middleware: public pages need no session, every other page needs the GMTM-bound session', async () => {
+    for (const p of ['/', '/demo', '/quick-scan', '/athlete/12', '/report/tok', '/enter', '/enter/callback?code=c&state=s', '/api/sparq/session']) {
+      const res = await legacyMw(request('https://legacy.example' + p, {}), {})
+      assert.equal(res.headers.get('location'), null, p)
+      assert.match(res.headers.get('content-security-policy'), /connect-src 'self' https:\/\/backend\.example;/)
+    }
+    for (const p of ['/home', '/home/inbox', '/home/profile', '/sign-in', '/onboarding/search']) {
+      const res = await legacyMw(request('https://legacy.example' + p, {}), {})
+      assert.equal(res.headers.get('location'), 'https://legacy.example/enter', p)
+    }
+    assert.equal((await legacyMw(request('https://legacy.example/home', { token: sign() }), {})).headers.get('location'), null)
+    assert.equal((await legacyMw(request('https://legacy.example/home', { raw: null }), {})).headers.get('location'), 'https://gmtm.example/')
+  })
+  await check('Legacy proxy forwards legacy routes (incl. PUT/DELETE) with the session bearer', async () => {
+    const legacyServer = load('app/api/sparq/server.ts', {}, legacyEnv)
+    const legacyProxy = load('app/api/sparq/proxy/[...path]/route.ts', { '../../server': legacyServer }, legacyEnv)
+    const token = sign()
+    for (const [method, p] of [['GET', '/api/workspace/inbox/gmtm_7301'], ['PUT', '/api/workspace/outreach/3/status'], ['DELETE', '/api/links/4']]) {
+      fetchCalls = []; fetchReply = new Response('{}', { status: 200 })
+      const res = await legacyProxy[method](request('https://legacy.example/api/sparq/proxy' + p, { token, gsh: GSH, method }))
+      assert.equal(res.status, 200, method + p)
+      assert.equal(fetchCalls[0][0], 'https://backend.example' + p)
+      assert.equal(fetchCalls[0][1].headers.Authorization, 'Bearer ' + token)
+      if (method !== 'PUT') assert.equal(fetchCalls[0][1].body, undefined)
+    }
   })
 
   // ── Same-origin routes ────────────────────────────────────────────────────────
@@ -204,11 +241,11 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
     assert.ok(cleared(await signOut.POST(request('https://sparq.example/api/sparq/sign-out', { method: 'POST' }))))
     assert.equal(fetchCalls.length, 0)
   })
-  await check('Browser API helper on profile calls only the same-origin proxy, with no token', async () => {
+  await check('Browser API helper calls only the same-origin proxy, with no token', async () => {
     const calls = []
     const code = ts.transpileModule(fs.readFileSync(path.join(root, 'app/_lib/api.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
     const module = { exports: {} }
-    new Function('exports', 'require', 'module', 'process', 'fetch', 'window', code)(module.exports, () => policy, module, { env }, async (...args) => { calls.push(args); return { ok: true } }, { Clerk: { session: { getToken: () => assert.fail('no Clerk token on profile') } } })
+    new Function('exports', 'require', 'module', 'process', 'fetch', 'window', code)(module.exports, () => policy, module, { env }, async (...args) => { calls.push(args); return { ok: true } }, {})
     await module.exports.apiFetch('https://backend.example/api/athlete/workspace', { method: 'PATCH', body: '{}' })
     assert.equal(calls[0][0], '/api/sparq/proxy/api/athlete/workspace')
     assert.equal(calls[0][1].credentials, 'same-origin')
@@ -217,49 +254,26 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
     assert.equal(calls.length, 1)
   })
 
-  // ── CSP and Clerk reachability ───────────────────────────────────────────────
-  await check('Profile CSP has no Clerk or Turnstile host and connects only to self', () => {
+  // ── CSP and sign-in package reachability ─────────────────────────────────────
+  await check('Profile CSP has no third-party sign-in or Turnstile host and connects only to self', () => {
     const csp = policy.profileContentSecurityPolicy({ nonce: 'c3ludGhldGljLW5vbmNlLXZhbHVl' })
-    assert.ok(!/clerk|challenges\.cloudflare/i.test(csp))
+    assert.ok(!/challenges\.cloudflare|accounts\./i.test(csp))
     assert.ok(csp.includes("connect-src 'self';"))
   })
-  // Static import closure from the modules only the profile surface renders.
-  const roots = ['app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileColleges.tsx',
-    'app/home/components/ParentNoticeGate.tsx', 'app/_lib/api.ts', 'app/_lib/useSparqSession.ts', 'app/enter/route.ts', 'app/enter/callback/route.ts',
-    'app/enter/unavailable/page.tsx', 'app/api/sparq/session/route.ts', 'app/api/sparq/sign-out/route.ts', 'app/api/sparq/proxy/[...path]/route.ts']
-  function resolveImport(from, spec) {
-    const base = spec.startsWith('@/') ? path.join(root, spec.slice(2)) : spec.startsWith('.') ? path.resolve(path.dirname(from), spec) : null
-    if (!base) return null
-    for (const candidate of [base, ...['.tsx', '.ts', '.cjs', '.js'].map(ext => base + ext), ...['index.tsx', 'index.ts'].map(f => path.join(base, f))]) if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate
-    return assert.fail('unresolved ' + spec + ' from ' + from)
-  }
-  await check('No @clerk import is reachable from profile-surface modules', () => {
-    const seen = new Set(), clerk = []
-    const walk = file => {
-      if (seen.has(file)) return
-      seen.add(file)
-      const source = fs.readFileSync(file, 'utf8')
-      for (const [, spec] of source.matchAll(/(?:import|export)[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|require\(\s*['"]([^'"]+)['"]\s*\)/g).map(m => [m[0], m[1] || m[2] || m[3]])) {
-        if (spec.startsWith('@clerk/')) clerk.push(path.relative(root, file))
-        const next = resolveImport(file, spec)
-        if (next) walk(next)
-      }
-    }
-    roots.forEach(r => walk(path.join(root, r)))
-    assert.ok(seen.size > 20, 'walked ' + seen.size)
-    assert.deepEqual(clerk, [])
+  await check('No source file, package.json or lockfile names a third-party sign-in package', () => {
+    const banned = new RegExp('cle' + 'rk', 'i'), allowed = new RegExp('\\b' + 'cle' + 'rk_id\\b', 'g'), hits = []
+    const walk = dir => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (['node_modules', '.next'].includes(entry.name)) continue
+      const file = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(file)
+      else if (/\.(?:tsx?|cjs|js|mjs|json|md|css)$/.test(entry.name) && banned.test(fs.readFileSync(file, 'utf8').replace(allowed, ''))) hits.push(path.relative(root, file))
+    } }
+    walk(root)
+    assert.deepEqual(hits, [])
+    for (const d of ['app/sign-in', 'app/sign-up', 'app/claim', 'app/connect', 'app/onboarding', 'app/api/onboarding']) assert.ok(!fs.existsSync(path.join(root, d)), d)
   })
-  await check('Shared entry files send the profile surface to Clerk-free modules before any Clerk use', () => {
-    const read = rel => fs.readFileSync(path.join(root, rel), 'utf8')
-    assert.match(read('app/layout.tsx'), /if \(profile\) \{\s*headers\(\)\s*return body\s*\}\s*if \(clerkKey\) return <ClerkProvider/)
-    assert.match(read('app/home/layout.tsx'), /if \(isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) \{\s*return <ProfileWorkspaceShell>/)
-    assert.match(read('app/home/page.tsx'), /if \(isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) redirect\('\/home\/inbox'\)\s*return <HomeClient \/>/)
-    assert.match(read('app/home/inbox/page.tsx'), /if \(isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) return <ProfileWorkspace \/>/)
-    assert.match(read('app/home/colleges/page.tsx'), /export default isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\) \? ProfileColleges :/)
-    assert.match(read('app/home/colleges/[id]/page.tsx'), /if \(isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) return <ProfileCollegeDetail /)
-    const mw = read('middleware.ts')
-    assert.match(mw, /const authenticatedMiddleware = profile \? null : clerkMiddleware\(/)
-    assert.ok(mw.indexOf('if (profile) return profileMiddleware(request, policy)') < mw.indexOf('return authenticatedMiddleware!(request, event)'))
+  await check('Every page renders per request so scripts carry the CSP nonce', () => {
+    assert.match(fs.readFileSync(path.join(root, 'app/layout.tsx'), 'utf8'), /headers\(\)\s*return \(/)
   })
   console.log(JSON.stringify({ status: 'passed', checks: checks.length }))
 })().catch(error => { console.error(error); process.exit(1) })

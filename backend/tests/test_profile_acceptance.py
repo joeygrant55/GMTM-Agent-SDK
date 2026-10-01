@@ -21,7 +21,7 @@ from backend.tests.workspace_fixture_store import WorkspaceStore
 from backend.tests.test_profile_candidate_app import ENTRY_ENV, GSH, SESSION_SECRET
 import junior_entry
 
-ORIGIN, HOST, SUBJECT = "http://localhost:3218", "127.0.0.1:8118", "clerk_owner"
+ORIGIN, HOST, SUBJECT = "http://localhost:3218", "127.0.0.1:8118", "sub_owner"
 LINK = {"id": 1, "user_id": 2, "clerk_id": SUBJECT}
 GOAL = {"text": "Understand my flag opportunities", "destination": None, "timeframe": None}
 DRAFT = {"kind": "summary", "text": "Exact edit.\n\tMy words.", "goal": GOAL["text"], "destination": "",
@@ -71,17 +71,16 @@ class Raw:
 
 @pytest.fixture
 def setup(monkeypatch, tmp_path):
-    # No Clerk on profile (rev 3): the owner carries a SPARQ session token.
+    # GMTM sign-in only: the owner carries a SPARQ session token.
     env = {**BASE_ENV, **ENTRY_ENV, "ALLOWED_ORIGINS": ORIGIN, "PROFILE_DEBRIEF_ENABLED": "false",
            "AGENT_DB_HOST": "fixture.proxy.rlwy.net"}
-    env.pop("CLERK_ISSUER", None); env.pop("CLERK_AUTHORIZED_PARTIES", None)
     for name in candidate_app._CONFIGURATION_KEYS: monkeypatch.delenv(name, raising=False)
     for key, value in env.items(): monkeypatch.setenv(key, value)
     jti = "owner-acceptance-session-jti"
     junior_entry.store.set_session(SUBJECT, jti, None)
     def headers(*, secret=SESSION_SECRET, **overrides):
         now = int(time.time())
-        claims = {"sub": SUBJECT, "jti": jti, "gsh": GSH, "iat": now, "exp": now + 120, **overrides}
+        claims = {"sub": SUBJECT, "jti": jti, "gsh": GSH, "aud": "profile", "iat": now, "exp": now + 120, **overrides}
         claims = {k: v for k, v in claims.items() if v is not None}
         return {"Origin": ORIGIN, "Authorization": "Bearer " + jwt.encode(claims, secret, algorithm="HS256")}
     store = WorkspaceStore([LINK])
@@ -132,7 +131,7 @@ def test_disallowed_routes_are_rejected_before_any_connection(setup, method, pat
     assert not setup.store.connections
 
 
-@pytest.mark.parametrize("headers", ["missing", "wrong_origin", "wrong_host", "expired", "inactive_jti", "wrong_secret", "clerk_jwt", "wrong_subject_path"])
+@pytest.mark.parametrize("headers", ["missing", "wrong_origin", "wrong_host", "expired", "inactive_jti", "wrong_secret", "foreign_rs256_jwt", "wrong_subject_path"])
 def test_actual_auth_and_http_boundaries_precede_personal_reads(setup, headers):
     values, path = setup.headers(), "/api/athlete/workspace"
     if headers == "missing": values.pop("Authorization")
@@ -141,10 +140,10 @@ def test_actual_auth_and_http_boundaries_precede_personal_reads(setup, headers):
     elif headers == "expired": values = setup.headers(exp=int(time.time()) - 60)
     elif headers == "inactive_jti": values = setup.headers(jti="replaced-by-a-newer-entry")
     elif headers == "wrong_secret": values = setup.headers(secret="w" * 40)
-    elif headers == "clerk_jwt":
+    elif headers == "foreign_rs256_jwt":
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         values["Authorization"] = "Bearer " + jwt.encode({"sub": SUBJECT, "exp": int(time.time()) + 120}, key, algorithm="RS256")
-    else: path = "/api/profile/by-clerk/other"
+    else: path = "/api/profile/by-owner/other"
     with TestClient(setup.app, base_url="http://" + HOST) as client:
         assert client.get(path, headers=values).status_code in (401, 403)
     assert not setup.store.connections
@@ -152,7 +151,7 @@ def test_actual_auth_and_http_boundaries_precede_personal_reads(setup, headers):
 
 def test_profile_evidence_and_materials_use_current_real_routes_with_owned_fixture(setup):
     with TestClient(setup.app, base_url="http://" + HOST) as client:
-        assert client.get("/api/profile/by-clerk/" + SUBJECT, headers=setup.headers()).json()["user_id"] == 2
+        assert client.get("/api/profile/by-owner/" + SUBJECT, headers=setup.headers()).json()["user_id"] == 2
         evidence = client.get("/api/athlete/evidence", headers=setup.headers())
         assert evidence.status_code == 200 and evidence.json()["state"] == "ready"
         materials = client.get("/api/athlete/materials", headers=setup.headers())
@@ -230,7 +229,7 @@ def test_read_only_keeps_owned_source_gets_and_rejects_patch_before_auth_or_db(s
         assert client.options("/api/athlete/workspace", headers=preflight).status_code == 403
         assert not setup.store.connections
         assert all(value == 0 for value in app.ledger.data["attempts"].values())
-        assert client.get("/api/profile/by-clerk/" + SUBJECT, headers=setup.headers()).json()["user_id"] == 2
+        assert client.get("/api/profile/by-owner/" + SUBJECT, headers=setup.headers()).json()["user_id"] == 2
         for path in ("evidence", "materials", "workspace"):
             response = client.get("/api/athlete/" + path, headers=setup.headers())
             assert response.status_code == 200 and response.json()["state"] == "ready"

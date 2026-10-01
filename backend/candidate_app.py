@@ -2,9 +2,9 @@
 
 Imports are inert. Lifespan validates process configuration without connecting or
 initializing a model ledger. This is a route boundary, not a network sandbox.
-Claim preview/redemption can write Agent data; GMTM access must use gmtmread.
+GMTM sign-in (/gmtm-entry/exchange) can write Agent data; GMTM access must use gmtmread.
 
-Launch with access logging disabled: claim URLs contain bearer-like invitations.
+Launch with access logging disabled.
 Shared profile connectors use finite socket timeouts. These do not establish
 an overall request deadline or cancel an executing database query.
 """
@@ -19,28 +19,30 @@ import os
 import re
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import auth
-from claims_api import get_claim, redeem_claim
 from combine_api import current_combine
 from combine_help_api import combine_help
 from model_usage import MODELS, _configuration as model_limit_configuration
-from profile_api import get_profile_by_clerk
+from profile_api import get_profile_by_owner
+from junior_entry import exchange, sign_out, entry_configuration
 
 
 GMTM_HOST = "db2-dev.ckmlts6umure.us-east-1.rds.amazonaws.com"
 BUSINESS_ROUTES = (
     ("GET", "/api/combine/current", current_combine),
     ("POST", "/api/combine/help", combine_help),
-    ("GET", "/api/profile/by-clerk/{clerk_id}", get_profile_by_clerk),
-    ("GET", "/api/claims/{token}", get_claim),
-    ("POST", "/api/claims/{token}/redeem", redeem_claim),
+    ("GET", "/api/profile/by-owner/{clerk_id}", get_profile_by_owner),
+)
+ENTRY_ROUTES = (
+    ("POST", "/gmtm-entry/exchange", exchange),
+    ("POST", "/gmtm-entry/sign-out", sign_out),
 )
 _CONFIGURATION_KEYS = (
-    "AUTH_ENFORCED", "CLERK_ISSUER", "CLERK_AUTHORIZED_PARTIES", "ALLOWED_ORIGINS",
+    "ALLOWED_ORIGINS",
     "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD",
     "AGENT_DB_HOST", "AGENT_DB_PORT", "AGENT_DB_NAME", "AGENT_DB_USER", "AGENT_DB_PASSWORD",
     "SHARE_TOKEN_SECRET", "COMBINE_HELP_MODEL", "COMBINE_HELP_TEST_MODE",
@@ -64,7 +66,6 @@ class CandidateConfigurationError(ValueError):
 @dataclass(frozen=True)
 class CandidateConfiguration:
     origins: tuple[str, ...]
-    authorized_parties: tuple[str, ...]
     signature: str
     help_provider_configured: bool
 
@@ -116,16 +117,13 @@ def _origins(env: Mapping[str, str], name: str) -> tuple[str, ...]:
 def validate_configuration(env: Mapping[str, str], surface: str = "combine") -> CandidateConfiguration:
     """Validate declarations only: no file reads, services, or usage-ledger resets.
 
-    The profile surface has no Clerk (GMTM entry + SPARQ session), so no Clerk settings."""
-    if env.get("AUTH_ENFORCED") != "true":
-        raise CandidateConfigurationError("Candidate AUTH_ENFORCED must be explicitly true.")
+    GMTM sign-in is the only sign-in (SPARQ session). Entry settings are off when
+    none is set (every request then gets 503); partial or invalid settings stop startup."""
     origins = _origins(env, "ALLOWED_ORIGINS")
-    parties: tuple[str, ...] = ()
-    if surface != "profile":
-        _origin(_required(env, "CLERK_ISSUER"), loopback_http=False)
-        parties = _origins(env, "CLERK_AUTHORIZED_PARTIES")
-        if set(parties) != set(origins):
-            raise CandidateConfigurationError("Candidate authorized parties and CORS origins must match.")
+    try:
+        entry_configuration(env)
+    except ValueError as exc:
+        raise CandidateConfigurationError(str(exc)) from None
     if env.get("DB_HOST") != GMTM_HOST or env.get("DB_USER") != "gmtmread":
         raise CandidateConfigurationError("Candidate GMTM must use the reviewed db2-dev host and gmtmread account.")
     if env.get("DB_PORT", "3306") != "3306" or env.get("DB_NAME", "gmtm") != "gmtm":
@@ -152,23 +150,7 @@ def validate_configuration(env: Mapping[str, str], surface: str = "combine") -> 
     except ValueError:
         raise CandidateConfigurationError("Candidate combine-help limits are invalid.") from None
     key_name = "OPENAI_API_KEY" if MODELS[model] == "openai" else "ANTHROPIC_API_KEY"
-    return CandidateConfiguration(origins, parties, _signature(env), bool(env.get(key_name, "").strip()))
-
-
-async def require_candidate_clerk_id(request: Request, authorization: str | None = Header(default=None)) -> str:
-    """Reuse signature verification, with candidate-only mandatory azp/subject rules."""
-    config = getattr(request.app.state, "candidate_configuration", None)
-    if config is None:
-        raise HTTPException(status_code=503, detail="Combine service configuration is not ready.")
-    token = auth._bearer_token(authorization)
-    if not token:
-        raise HTTPException(status_code=401, detail="Missing Authorization bearer token.")
-    claims = auth._verify_token(token)
-    subject = claims.get("sub")
-    if (not isinstance(subject, str) or not subject.strip() or subject != subject.strip()
-            or len(subject) > 255 or claims.get("azp") not in config.authorized_parties):
-        raise HTTPException(status_code=401, detail="Session is not authorized for this combine application.")
-    return subject
+    return CandidateConfiguration(origins, _signature(env), bool(env.get(key_name, "").strip()))
 
 
 class CandidateBoundaryMiddleware:
@@ -199,8 +181,7 @@ class CandidateBoundaryMiddleware:
                 await self.app(scope, receive, send)
                 return
             request = Request(scope)
-            if admission is None and (scope["path"].startswith("/api/claims/")
-                                      or not request.headers.get("authorization")):
+            if admission is None and not request.headers.get("authorization"):
                 # Loopback-only mode (hosted origins require admission): handlers
                 # still require a SPARQ session; a bearer request also passes the entry gate.
                 await self.app(scope, receive, send)
@@ -209,11 +190,7 @@ class CandidateBoundaryMiddleware:
             import junior_entry
             token = None
             try:
-                # Claims can write opened_at without authentication. They are a
-                # separate onboarding flow, never an exception to pilot admission.
-                if scope["path"].startswith("/api/claims/"):
-                    raise HTTPException(403, "Account linking is unavailable in this pilot.")
-                # Profile accepts ONLY a SPARQ session token (no Clerk on this surface).
+                # Profile accepts ONLY a SPARQ session token.
                 subject = await junior_entry.require_identity(request.headers.get("authorization"))
                 # gmtm-entry juniors use the entry gate instead of the adult file.
                 if not await junior_entry.gate(subject, scope["path"]) and admission is not None:
@@ -238,7 +215,7 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         raise ValueError("Unsupported candidate surface")
     # Explicit entry-point choice only, never inferred from a request or env.
     # The default combine package keeps its existing import/source manifest.
-    routes = BUSINESS_ROUTES
+    routes = BUSINESS_ROUTES + ENTRY_ROUTES
     title = "SPARQ Combine Candidate"
     if surface == "profile":
         from athlete_evidence import current_athlete_evidence
@@ -249,11 +226,10 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         from profile_owner import current_profile_recovery
         from profile_admission import validate_configuration as admission_configuration, load_admissions
-        from junior_entry import exchange, sign_out, get_parent_notice, accept_parent_notice, entry_configuration
+        from junior_entry import get_parent_notice, accept_parent_notice
         import college_programs as colleges
         routes = (
-            ("POST", "/gmtm-entry/exchange", exchange),
-            ("POST", "/gmtm-entry/sign-out", sign_out),
+            *ENTRY_ROUTES,
             ("GET", "/api/athlete/parent-notice", get_parent_notice),
             ("POST", "/api/athlete/parent-notice", accept_parent_notice),
             ("GET", "/api/athlete/evidence", current_athlete_evidence),
@@ -263,14 +239,13 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("POST", "/api/athlete/debrief", current_profile_debrief),
             ("GET", "/api/athlete/workspace", current_athlete_workspace),
             ("PATCH", "/api/athlete/workspace", update_athlete_workspace),
-            ("GET", "/api/profile/by-clerk/{clerk_id}", current_profile_recovery),
+            ("GET", "/api/profile/by-owner/{clerk_id}", current_profile_recovery),
             # Reviewed recruiting set (junior pilot): owner-checked by the URL clerk_id.
             ("GET", "/api/workspace/colleges/{clerk_id}", colleges.list_colleges),
             ("POST", "/api/workspace/trigger-matching/{clerk_id}", colleges.build_colleges),
             ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}", colleges.college_detail),
             ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.get_outreach_draft),
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.create_outreach_draft),
-            *BUSINESS_ROUTES[3:],
         )
         title = "SPARQ Profile Candidate"
 
@@ -286,8 +261,6 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.opportunity_engagement_configuration = engagement_configuration(os.environ)
             application.state.opportunity_engagement_limiter = RateLimit()
             application.state.profile_admission_configuration = admission_configuration(os.environ, config.origins)
-            # Entry is off when no entry key is set; partial or invalid settings stop startup.
-            entry_configuration(os.environ)
             # A bad college data file stops startup instead of showing broken cards.
             colleges.programs()
             if application.state.profile_admission_configuration is not None:
@@ -309,13 +282,15 @@ def create_app(*, surface: str = "combine") -> FastAPI:
                           docs_url=None, redoc_url=None, openapi_url=None,
                           lifespan=lifespan, redirect_slashes=False)
     application.state.candidate_configuration = None
+    application.state.sparq_surface = surface  # SPARQ token audience
     # Read by artifacts_api approve if outreach routes are ever mounted here.
     application.state.outreach_send_disabled = surface == "profile"
     if surface == "profile":
+        # Profile: SPARQ session + the junior gate (middleware). Combine keeps the
+        # default auth.require_identity: SPARQ session + SPARQ_TEST_ALLOWLIST only.
         import junior_entry
-        application.dependency_overrides[auth.require_clerk_id] = junior_entry.require_identity
-    else:
-        application.dependency_overrides[auth.require_clerk_id] = require_candidate_clerk_id
+        application.state.entry_admission = "junior"
+        application.dependency_overrides[auth.require_identity] = junior_entry.require_identity
     for method, path, endpoint in routes:
         application.add_api_route(path, endpoint, methods=[method])
 
@@ -334,6 +309,11 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             "schema_verified": False, "provider_delivery_verified": False,
             "help_provider_configured": config.help_provider_configured if ready and surface == "combine" else False,
         }
+        if surface == "combine":
+            try:
+                body["gmtm_sign_in_configured"] = bool(ready and entry_configuration(os.environ) is not None)
+            except ValueError:
+                body["gmtm_sign_in_configured"] = False
         if surface == "profile":
             debrief = getattr(application.state, "profile_debrief_configuration", None)
             body["debrief_enabled"] = bool(ready and debrief is not None)

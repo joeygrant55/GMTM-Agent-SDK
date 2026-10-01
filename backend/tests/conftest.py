@@ -3,7 +3,7 @@
 Install these guards before test collection imports application modules, even
 though ordinary app startup no longer performs schema setup. Tests supply explicit
 fake connections/HTTP/model interfaces; a missing mock must fail, not hit a real
-GMTM, Agent, Clerk, model or email service. This is not DB integration coverage.
+GMTM, Agent, model or email service. This is not DB integration coverage.
 """
 import os
 from pathlib import Path
@@ -84,14 +84,11 @@ def _block_network(event, args):
 sys.addaudithook(_block_network)
 os.environ["ANTHROPIC_API_KEY"] = "test-key-no-network"
 os.environ["SHARE_TOKEN_SECRET"] = "test-share-secret"
-os.environ["CLAIMS_ADMIN_SECRET"] = "test-admin-secret"
-os.environ["AUTH_ENFORCED"] = "true"
 os.environ["FRONTEND_URL"] = "https://sparq-agent.test"
 
 
 @pytest.fixture(autouse=True)
 def _safe_environment(monkeypatch):
-    monkeypatch.setenv("AUTH_ENFORCED", "true")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-no-network")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key-no-network")
     for name in ("COMBINE_HELP_MODEL", "COMBINE_HELP_TEST_MODE", "COMBINE_HELP_MAX_MODEL_CALLS",
@@ -111,7 +108,7 @@ def _safe_environment(monkeypatch):
 @pytest.fixture(autouse=True)
 def _junior_entry_offline(monkeypatch):
     # The profile boundary asks the entry store on every authenticated request.
-    # Default to an empty in-memory store; GMTM/Clerk HTTP must be stubbed per test.
+    # Default to an empty in-memory store; GMTM HTTP must be stubbed per test.
     import junior_entry
     import junior_eligibility
     from backend.tests.junior_fakes import MemoryStore

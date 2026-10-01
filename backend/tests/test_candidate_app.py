@@ -1,4 +1,4 @@
-"""Actual candidate ASGI boundaries; synthetic services and local JWT keys only."""
+"""Actual candidate ASGI boundaries; synthetic services and local SPARQ sessions only."""
 from copy import deepcopy
 import json
 import os
@@ -6,22 +6,23 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from types import SimpleNamespace
+from datetime import datetime, timezone
 
-from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
-import jwt
 import pytest
 
 import auth
 import candidate_app
+import junior_entry
 import model_usage
 import profile_api
+from backend.tests.junior_fakes import ENTRY_ENV, mint_session
+
+ALLOWED_USER = 7201
 
 
 ENV = {
-    "AUTH_ENFORCED": "true", "CLERK_ISSUER": "https://clerk.example.invalid",
-    "CLERK_AUTHORIZED_PARTIES": "http://127.0.0.1:3218", "ALLOWED_ORIGINS": "http://127.0.0.1:3218",
+    "ALLOWED_ORIGINS": "http://127.0.0.1:3218",
     "DB_HOST": candidate_app.GMTM_HOST, "DB_USER": "gmtmread", "DB_PASSWORD": "synthetic-source",
     "AGENT_DB_HOST": "127.0.0.1", "AGENT_DB_PORT": "3307", "AGENT_DB_USER": "synthetic",
     "AGENT_DB_PASSWORD": "synthetic-agent", "AGENT_DB_NAME": "sparq_fixture",
@@ -41,30 +42,32 @@ def configured(monkeypatch):
 
 @pytest.fixture
 def signed(monkeypatch):
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    monkeypatch.setattr(auth, "_jwks_issuer", ENV["CLERK_ISSUER"])
-    monkeypatch.setattr(auth, "_jwks_client", SimpleNamespace(
-        get_signing_key_from_jwt=lambda _: SimpleNamespace(key=key.public_key())))
-    def token(**overrides):
-        claims = {"sub": "clerk_owner", "iss": ENV["CLERK_ISSUER"], "exp": int(time.time()) + 120,
-                  "azp": ENV["CLERK_AUTHORIZED_PARTIES"]}
-        claims.update(overrides)
-        if claims.get("azp") is None:
-            del claims["azp"]
-        return {"Authorization": "Bearer " + jwt.encode(claims, key, algorithm="RS256")}
+    """SPARQ session headers for legacy/combine: GMTM entry recorded for an allow-listed
+    user unless ``allowlisted=False``. Other options as junior_fakes.mint_session."""
+    for name, value in ENTRY_ENV.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("SPARQ_TEST_ALLOWLIST", str(ALLOWED_USER))
+    def token(sub="sub_owner", *, allowlisted=True, **options):
+        user_id = ALLOWED_USER if allowlisted else ALLOWED_USER + 1
+        junior_entry.store.record_entry(sub, user_id, datetime.now(timezone.utc))
+        return mint_session(sub, **{"aud": "combine", **options})
     return token
 
 
 def test_exact_manifest_reuses_source_handlers_without_legacy_routes(configured):
     schema = configured.openapi()
-    expected = {path: method.lower() for method, path, _ in candidate_app.BUSINESS_ROUTES}
+    routes = candidate_app.BUSINESS_ROUTES + candidate_app.ENTRY_ROUTES
+    expected = {path: method.lower() for method, path, _ in routes}
     assert set(schema["paths"]) == set(expected) | {"/health"}
-    for method, path, endpoint in candidate_app.BUSINESS_ROUTES:
+    for method, path, endpoint in routes:
         assert set(schema["paths"][path]) == {method.lower()}
         assert any(route.path == path and route.endpoint is endpoint for route in configured.routes)
     import main
-    assert auth.require_clerk_id not in main.app.dependency_overrides
-    assert "/api/workspace/trigger-matching/{clerk_id}" in main.app.openapi()["paths"]
+    assert auth.require_identity not in main.app.dependency_overrides
+    assert auth.require_identity not in configured.dependency_overrides
+    paths = main.app.openapi()["paths"]
+    assert "/api/workspace/trigger-matching/{clerk_id}" in paths and "/gmtm-entry/exchange" in paths
+    assert not any(path.startswith("/api/claims") or path == "/api/profile/connect" for path in paths)
 
 
 def test_configuration_validation_does_not_initialize_usage_ledger(configured):
@@ -79,15 +82,14 @@ def test_configuration_validation_does_not_initialize_usage_ledger(configured):
             "service": "SPARQ Combine Candidate", "surface": "combine_candidate",
             "configuration_ready": True, "connectivity_verified": False, "schema_verified": False,
             "provider_delivery_verified": False, "help_provider_configured": False,
+            "gmtm_sign_in_configured": False,
         }
     assert model_usage._ledger is None
 
 
 @pytest.mark.parametrize("name,value", [
-    ("AUTH_ENFORCED", None), ("AUTH_ENFORCED", "false"),
-    ("CLERK_ISSUER", "http://clerk.example.invalid"), ("CLERK_ISSUER", "https://clerk.example.invalid/path"),
-    ("CLERK_ISSUER", "https://user:pass@clerk.example.invalid"),
-    ("CLERK_AUTHORIZED_PARTIES", "*"), ("ALLOWED_ORIGINS", "https://evil.example.invalid"),
+    ("ALLOWED_ORIGINS", None), ("ALLOWED_ORIGINS", "*"), ("ALLOWED_ORIGINS", "https://evil.example.invalid/path"),
+    ("SPARQ_ENTRY_SECRET", "partial-entry-settings"),
     ("ALLOWED_ORIGINS", "http://127.0.0.1:3218,"),
     ("DB_HOST", "127.0.0.1"), ("DB_HOST", "pre-prod"), ("DB_USER", "root"), ("DB_PASSWORD", ""),
     ("DB_PORT", "3307"), ("DB_NAME", "other"),
@@ -112,7 +114,7 @@ def test_invalid_configuration_fails_pure_validation(name, value):
 
 
 def test_import_factory_does_not_require_config_but_lifespan_does(monkeypatch):
-    monkeypatch.delenv("AUTH_ENFORCED", raising=False)
+    monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
     app = candidate_app.create_app()
     with pytest.raises(candidate_app.CandidateConfigurationError):
         with TestClient(app):
@@ -126,24 +128,25 @@ def test_unstarted_app_and_drifted_config_fail_before_source_work(configured, mo
         assert client.get("/health").status_code == 503
         assert client.get("/api/combine/current?event_id=1318").status_code == 503
     client = TestClient(candidate_app.create_app())
-    assert client.get("/api/claims/synthetic-token").status_code == 503
+    assert client.get("/api/combine/current?event_id=1318").status_code == 503
 
 
-def test_missing_auth_and_bad_azp_fail_before_services(configured, signed):
+def test_missing_auth_and_unadmitted_sessions_fail_before_services(configured, signed):
     with TestClient(configured) as client:
         routes = [("GET", "/api/combine/current?event_id=1318", {}),
                   ("POST", "/api/combine/help", {"json": {"event_id": 1318, "message": "Help"}}),
-                  ("GET", "/api/profile/by-clerk/clerk_owner", {}),
-                  ("POST", "/api/claims/synthetic-token/redeem", {})]
+                  ("GET", "/api/profile/by-owner/sub_owner", {})]
         for method, path, kwargs in routes:
             assert client.request(method, path, **kwargs).status_code == 401
-            for headers in (signed(azp=None), signed(azp="https://another.example.invalid"), signed(sub=" ")):
-                assert client.request(method, path, headers=headers, **kwargs).status_code == 401
+            for headers, status in ((signed(active=False), 401), (signed(secret="w" * 40), 401),
+                                    (signed(exp=1), 401), (signed(jti=None), 401),
+                                    (signed("sub_outsider", allowlisted=False), 403)):
+                assert client.request(method, path, headers=headers, **kwargs).status_code == status
 
 
 def test_local_signed_auth_reaches_real_recovery_owner_guard(configured, signed):
     with TestClient(configured) as client:
-        response = client.get("/api/profile/by-clerk/another_owner", headers=signed())
+        response = client.get("/api/profile/by-owner/another_owner", headers=signed())
         assert response.status_code == 403
         assert response.json()["detail"] == "Not authorized."
 
@@ -159,11 +162,11 @@ def test_actual_recovery_handler_reads_only_synthetic_owned_rows(configured, sig
             calls.append((sql, params))
             self.workspace = "FROM sparq_profiles" in sql
         def fetchall(self):
-            return [{"id": 11, "clerk_id": "clerk_owner"}] if self.workspace else [{"user_id": 7201, "clerk_id": "clerk_owner"}]
+            return [{"id": 11, "clerk_id": "sub_owner"}] if self.workspace else [{"user_id": 7201, "clerk_id": "sub_owner"}]
         def close(self): calls.append("closed")
     monkeypatch.setattr(profile_api, "_get_agent_db", Database)
     with TestClient(configured) as client:
-        response = client.get("/api/profile/by-clerk/clerk_owner", headers=signed())
+        response = client.get("/api/profile/by-owner/sub_owner", headers=signed())
         assert response.status_code == 200
         assert response.json() == {"found": True, "user_id": 7201, "has_sparq_profile": True}
     assert len(calls) == 4 and calls[-1] == "closed"
@@ -172,9 +175,10 @@ def test_actual_recovery_handler_reads_only_synthetic_owned_rows(configured, sig
 def test_excluded_routes_are_unreachable_even_with_valid_auth(configured, signed):
     with TestClient(configured) as client:
         for method, path in [
-            ("GET", "/api/workspace/inbox/clerk_owner"), ("GET", "/api/workspace/profile/clerk_owner"),
+            ("GET", "/api/workspace/inbox/sub_owner"), ("GET", "/api/workspace/profile/sub_owner"),
             ("POST", "/api/profile/connect"), ("POST", "/api/claims/mint"),
-            ("POST", "/api/workspace/trigger-matching/clerk_owner"),
+            ("GET", "/api/claims/token"), ("POST", "/api/claims/token/redeem"),
+            ("POST", "/api/workspace/trigger-matching/sub_owner"),
             ("POST", "/api/artifacts/1/approve"), ("POST", "/api/agent/chat"),
             ("GET", "/api/search"), ("GET", "/api/reports/7201"),
             ("GET", "/docs"), ("GET", "/redoc"), ("GET", "/openapi.json"),

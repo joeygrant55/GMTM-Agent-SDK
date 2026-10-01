@@ -15,7 +15,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import _get_agent_db
 from athlete_evidence import PRIVATE_HEADERS
 from athlete_workspace import WorkspaceError, _json, _owner, _revision, _close
@@ -211,7 +211,7 @@ def search_opportunities(clerk_id, query):
             "generated_at": now.isoformat(), "items": items, "limitations": limitations}
 
 
-async def current_athlete_opportunities(request: Request, clerk_id: str = Depends(require_clerk_id)):
+async def current_athlete_opportunities(request: Request, clerk_id: str = Depends(require_identity)):
     async def read_body():
         data = bytearray()
         async for part in request.stream():

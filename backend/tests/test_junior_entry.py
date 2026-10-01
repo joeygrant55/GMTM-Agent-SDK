@@ -1,6 +1,6 @@
 """Junior GMTM entry: eligibility, code exchange, SPARQ session, per-request gate.
 
-No Clerk on the profile surface (Joey, 2026-10-01). Every outside service is
+GMTM sign-in is the only sign-in (Joey, 2026-10-01). Every outside service is
 stubbed: GMTM redeem goes through junior_entry.http, GMTM facts through junior_eligibility.reader, Agent rows
 through MemoryStore / WorkspaceStore. conftest blocks real DB/network.
 """
@@ -22,6 +22,7 @@ import junior_entry
 import workspace_bootstrap
 from backend.tests.junior_fakes import MemoryStore
 from backend.tests.test_candidate_app import signed  # noqa: F401  (fixture)
+import asyncio
 from backend.tests.test_profile_candidate_app import ENTRY_ENV, SESSION_SECRET, profile_app, session  # noqa: F401  (fixtures)
 from backend.tests.workspace_fixture_store import WorkspaceStore
 
@@ -29,7 +30,7 @@ TODAY = date.today()
 SECRET = "synthetic-entry-secret"
 CODE, STATE = "c" * 32, "s" * 32
 USER_ID = 7301
-CLERK = f"gmtm_{USER_ID}"  # the SPARQ session subject, same shape as the old Clerk username
+SUBJECT = f"gmtm_{USER_ID}"  # the SPARQ session subject for a new athlete
 GSH = hashlib.sha256(b"synthetic-gmtm-session-id").hexdigest()
 
 
@@ -69,7 +70,7 @@ def test_allowlist_admits_without_reading_gmtm(monkeypatch):
 # ── Exchange ─────────────────────────────────────────────────────────────────────
 
 class FakeServices:
-    """Stub for junior_entry.http: GMTM redeem only (no Clerk)."""
+    """Stub for junior_entry.http: GMTM redeem only."""
     def __init__(self, *, redeem=(200, {"user_id": USER_ID})):
         self.redeem, self.calls = redeem, []
 
@@ -113,20 +114,20 @@ def test_eligible_junior_gets_a_24_hour_session_token_and_link(entry):
     assert set(body) == {"eligible", "token"} and body["eligible"] is True
     assert response.headers["cache-control"] == "private, no-store"
     assert services.calls[0][3] == {"code": CODE, "state": STATE}  # gsh never goes to GMTM
-    claims = jwt.decode(body["token"], SESSION_SECRET, algorithms=["HS256"])
-    assert set(claims) == {"sub", "jti", "gsh", "iat", "exp"}
-    assert claims["sub"] == CLERK and claims["gsh"] == GSH
+    claims = jwt.decode(body["token"], SESSION_SECRET, algorithms=["HS256"], audience="profile")
+    assert set(claims) == {"sub", "jti", "gsh", "aud", "iat", "exp"} and claims["aud"] == "profile"
+    assert claims["sub"] == SUBJECT and claims["gsh"] == GSH
     assert claims["exp"] - claims["iat"] == 24 * 3600
-    assert store.sessions == {CLERK: claims["jti"]} and len(claims["jti"]) >= 43
-    assert store.links == {USER_ID: CLERK}
-    assert bootstraps == [(CLERK, USER_ID)]
-    assert [(e["clerk_id"], e["user_id"]) for e in store.entries] == [(CLERK, USER_ID)]
+    assert store.sessions == {SUBJECT: claims["jti"]} and len(claims["jti"]) >= 43
+    assert store.links == {USER_ID: SUBJECT}
+    assert bootstraps == [(SUBJECT, USER_ID)]
+    assert [(e["clerk_id"], e["user_id"]) for e in store.entries] == [(SUBJECT, USER_ID)]
     assert store.refusals == []
 
 
 def test_new_entry_replaces_the_old_session(entry):
     app, store, *_ = entry
-    store.accept_notice(CLERK, datetime.now(timezone.utc))
+    store.accept_notice(SUBJECT, datetime.now(timezone.utc))
     with TestClient(app) as client:
         first = post_exchange(client).json()["token"]
         assert client.get("/api/athlete/parent-notice", headers=bearer(first)).status_code == 200
@@ -147,7 +148,7 @@ def test_sign_out_ends_the_session_and_is_idempotent(entry):
         assert client.post(junior_entry.SIGN_OUT_PATH, headers=bearer(token)).status_code == 200
 
 
-def test_session_token_verification(entry, session, signed):
+def test_session_token_verification(entry, session):
     app, *_ = entry
     now = int(time.time())
     with TestClient(app) as client:
@@ -158,7 +159,6 @@ def test_session_token_verification(entry, session, signed):
         assert get(session(sub="user_any", active=False)) == 401                     # jti not active
         assert get(session(sub="user_any", jti=None)) == 401                         # no jti
         assert get(session(sub="user_any", gsh="A" * 64)) == 401                     # gsh not sha256 hex
-        assert get(signed(sub="user_any")) == 401                                    # Clerk token refused
         none_alg = jwt.encode({"sub": "user_any", "jti": "x", "gsh": GSH, "iat": now, "exp": now + 60}, None, algorithm="none")
         assert get(bearer(none_alg)) == 401
 
@@ -171,18 +171,64 @@ def test_short_session_secret_disables_entry(entry, monkeypatch):
     assert services.calls == []
 
 
-def test_legacy_and_combine_surfaces_still_verify_clerk(configured_combine, signed, session):
-    # Combine keeps the Clerk dependency; the legacy app has no override at all.
-    assert configured_combine.dependency_overrides[auth.require_clerk_id] is candidate_app.require_candidate_clerk_id
+def test_legacy_and_combine_admit_only_allowlisted_sparq_sessions(configured_combine, signed, session):
+    # Neither app overrides auth.require_identity: SPARQ session + SPARQ_TEST_ALLOWLIST.
+    assert auth.require_identity not in configured_combine.dependency_overrides
     import main
-    assert auth.require_clerk_id not in main.app.dependency_overrides
-    sparq = session(sub="user_any")["Authorization"]
-    assert auth.require_clerk_id(signed(sub="user_clerk")["Authorization"]) == "user_clerk"
-    with pytest.raises(HTTPException) as caught:
-        auth.require_clerk_id(sparq)
-    assert caught.value.status_code == 401
+    assert auth.require_identity not in main.app.dependency_overrides
+    allowed = signed("user_allowed")["Authorization"]
+    assert asyncio.run(junior_entry.require_allowlisted_identity(allowed, "combine")) == "user_allowed"
     with TestClient(configured_combine) as client:
-        assert client.get("/api/profile/by-clerk/user_any", headers={"Authorization": sparq}).status_code == 401
+        get = lambda headers: client.get("/api/profile/by-owner/user_any", headers=headers).status_code
+        assert get(signed("user_any", allowlisted=False)) == 403      # GMTM user not allow-listed
+        assert get(session(sub="user_junior", aud="combine")) == 403  # no recorded entry
+        assert get(session(sub="user_junior")) == 401                 # profile token on combine
+        assert get({"Authorization": "Bearer not-a-token"}) == 401
+
+
+@pytest.mark.parametrize("issued, accepted_by", [("profile", "combine"), ("combine", "legacy"),
+                                                 ("legacy", "profile"), ("combine", "profile")])
+def test_a_token_for_one_surface_is_refused_on_every_other(entry, signed, issued, accepted_by):
+    # Same secret, same active jti, allow-listed user: only the audience differs.
+    headers = signed("user_cross", aud=issued)["Authorization"]
+    with pytest.raises(HTTPException) as caught:
+        if accepted_by == "profile":
+            asyncio.run(junior_entry.require_identity(headers))
+        else:
+            asyncio.run(junior_entry.require_allowlisted_identity(headers, accepted_by))
+    assert caught.value.status_code == 401
+    same = signed("user_same", aud=accepted_by)["Authorization"]
+    if accepted_by == "profile":
+        assert asyncio.run(junior_entry.require_identity(same)) == "user_same"
+    else:
+        assert asyncio.run(junior_entry.require_allowlisted_identity(same, accepted_by)) == "user_same"
+
+
+def test_cross_surface_token_is_401_over_http(configured_combine, signed, session):
+    import main
+    profile_token = session(sub="user_cross")              # aud=profile, active jti
+    with TestClient(configured_combine) as client:
+        assert client.get("/api/profile/by-owner/user_cross", headers=profile_token).status_code == 401
+    combine_token = signed("user_cross2")                  # aud=combine, allow-listed
+    with TestClient(main.app) as client:
+        assert client.get("/api/profile/by-owner/user_cross2", headers=combine_token).status_code == 401
+
+
+@pytest.mark.parametrize("allowed, eligible", [("", False), (str(USER_ID), True)])
+def test_combine_exchange_admits_only_the_allowlist(configured_combine, monkeypatch, allowed, eligible):
+    monkeypatch.setenv("SPARQ_ENTRY_SECRET", SECRET)
+    monkeypatch.setenv("SPARQ_TEST_ALLOWLIST", allowed)
+    store = MemoryStore()
+    monkeypatch.setattr(junior_entry, "store", store)
+    monkeypatch.setattr(junior_entry, "http", FakeServices())
+    monkeypatch.setattr(elig, "reader", lambda uid: (True, years_ago(15)))  # a junior, but not allow-listed
+    monkeypatch.setattr(workspace_bootstrap, "ensure_workspace_profile", lambda c, u: None)
+    with TestClient(configured_combine) as client:
+        body = post_exchange(client).json()
+    assert body["eligible"] is eligible and ("token" in body) is eligible
+    if eligible:
+        assert jwt.decode(body["token"], SESSION_SECRET, algorithms=["HS256"], audience="combine")["sub"]
+    assert [r["decision"] for r in store.refusals] == ([] if eligible else ["ineligible"])
 
 
 @pytest.fixture
@@ -193,23 +239,22 @@ def configured_combine(monkeypatch, session):
     return candidate_app.create_app()
 
 
-def test_athlete_linked_to_an_old_clerk_id_keeps_it_and_its_rows(entry, monkeypatch, signed):
+def test_athlete_linked_to_an_old_owner_id_keeps_it_and_its_rows(entry, monkeypatch):
     # No repoint: the existing link id becomes the SPARQ subject, so rows keyed by it
     # (workspace, college list, notices) stay reachable. It works only inside a
-    # SPARQ-signed token; a Clerk JWT for the same id is still refused on profile.
+    # SPARQ-signed token.
     app, store, *_ = entry
-    old = "user_old_clerk"
+    old = "user_old_subject"
     store.links[USER_ID] = old
     store.accept_notice(old, datetime.now(timezone.utc))
     monkeypatch.setattr(workspace, "_get_agent_db", WorkspaceStore([{"id": 93, "user_id": USER_ID, "clerk_id": old}]).connect)
     with TestClient(app) as client:
         token = post_exchange(client).json()["token"]
-        assert jwt.decode(token, SESSION_SECRET, algorithms=["HS256"])["sub"] == old
-        assert store.links == {USER_ID: old} and store.sessions == {old: jwt.decode(token, SESSION_SECRET, algorithms=["HS256"])["jti"]}
+        assert jwt.decode(token, SESSION_SECRET, algorithms=["HS256"], audience="profile")["sub"] == old
+        assert store.links == {USER_ID: old} and store.sessions == {old: jwt.decode(token, SESSION_SECRET, algorithms=["HS256"], audience="profile")["jti"]}
         assert [e["clerk_id"] for e in store.entries] == [old]
         assert client.get("/api/athlete/workspace", headers=bearer(token)).status_code == 200
-        assert client.get(f"/api/workspace/colleges/{CLERK}", headers=bearer(token)).status_code == 403
-        assert client.get("/api/athlete/workspace", headers=signed(sub=old)).status_code == 401
+        assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=bearer(token)).status_code == 403
     # Owner check passes for the old id (the handler then needs the college DB, blocked offline).
     with TestClient(app, raise_server_exceptions=False) as client:
         assert client.get(f"/api/workspace/colleges/{old}", headers=bearer(token)).status_code not in (401, 403)
@@ -233,14 +278,14 @@ def test_mysql_link_never_overwrites_an_existing_owner(monkeypatch):
         def commit(self): self.committed = True
         def rollback(self): pass
         def close(self): pass
-    for owner, ok in (({"clerk_id": CLERK}, True), ({"clerk_id": "user_someone_else"}, False)):
+    for owner, ok in (({"clerk_id": SUBJECT}, True), ({"clerk_id": "user_someone_else"}, False)):
         db = DB(owner)
         monkeypatch.setattr(junior_entry.MySQLStore, "_db", lambda self: db)
         if ok:
-            junior_entry.MySQLStore().ensure_link(CLERK, USER_ID)
+            junior_entry.MySQLStore().ensure_link(SUBJECT, USER_ID)
         else:
             with pytest.raises(junior_entry.LinkConflict):
-                junior_entry.MySQLStore().ensure_link(CLERK, USER_ID)
+                junior_entry.MySQLStore().ensure_link(SUBJECT, USER_ID)
         assert db.committed is ok
         assert not any(q.startswith("UPDATE") for q in db.sql)
         assert any(q.startswith("INSERT INTO athlete_profiles") and "ON DUPLICATE KEY UPDATE user_id = user_id" in q for q in db.sql)
@@ -312,7 +357,7 @@ def test_gmtm_rejection_including_state_mismatch_gets_no_ticket(entry, redeem):
 
 # ── Per-request gate ─────────────────────────────────────────────────────────────
 
-LINK = {"id": 93, "user_id": USER_ID, "clerk_id": CLERK}
+LINK = {"id": 93, "user_id": USER_ID, "clerk_id": SUBJECT}
 
 
 @pytest.fixture
@@ -332,8 +377,8 @@ def test_parent_notice_blocks_personal_routes_until_accepted(junior):
         assert client.get("/api/athlete/parent-notice", headers=headers).json() == {"required": True, "accepted": False}
         assert client.post("/api/athlete/parent-notice", headers=headers).json() == {"required": True, "accepted": True}
         assert client.get("/api/athlete/workspace", headers=headers).status_code == 200
-    assert store.notices[CLERK]["attested_by_session_kind"] == "unknown"
-    assert set(store.notices[CLERK]) == {"accepted_at", "attested_by_session_kind"}
+    assert store.notices[SUBJECT]["attested_by_session_kind"] == "unknown"
+    assert set(store.notices[SUBJECT]) == {"accepted_at", "attested_by_session_kind"}
 
 
 def test_non_entry_user_has_no_notice_requirement(profile_app, session):
@@ -343,7 +388,7 @@ def test_non_entry_user_has_no_notice_requirement(profile_app, session):
 
 def test_session_older_than_24_hours_is_denied(junior):
     app, store, headers = junior
-    store.accept_notice(CLERK, datetime.now(timezone.utc))
+    store.accept_notice(SUBJECT, datetime.now(timezone.utc))
     with TestClient(app) as client:
         assert client.get("/api/athlete/workspace", headers=headers).status_code == 200
         store.entries[-1]["entered_at"] -= timedelta(hours=24, seconds=1)
@@ -353,7 +398,7 @@ def test_session_older_than_24_hours_is_denied(junior):
 
 def test_dob_change_is_denied_on_recheck_after_cache_window(junior, monkeypatch):
     app, store, headers = junior
-    store.accept_notice(CLERK, datetime.now(timezone.utc))
+    store.accept_notice(SUBJECT, datetime.now(timezone.utc))
     clock = [1000.0]
     monkeypatch.setattr(elig.time, "monotonic", lambda: clock[0])
     with TestClient(app) as client:
@@ -376,7 +421,7 @@ def test_store_failure_fails_closed(junior, monkeypatch):
 
 def test_junior_bypasses_adult_file_but_others_still_need_it(junior, monkeypatch, tmp_path, session):
     app, store, headers = junior
-    store.accept_notice(CLERK, datetime.now(timezone.utc))
+    store.accept_notice(SUBJECT, datetime.now(timezone.utc))
     path = (tmp_path / "admission.json").resolve()
     path.write_text(json.dumps({"schema": 1, "admissions": []}))
     path.chmod(0o600)
@@ -406,10 +451,10 @@ def test_every_personal_route_requires_auth_and_owner(profile_app, session, monk
         monkeypatch.setenv("PROFILE_ADMISSION_ENABLED", "true")
         monkeypatch.setenv("PROFILE_ADMISSION_FILE", str(path))
     store = MemoryStore()
-    store.record_entry(CLERK, USER_ID, datetime.now(timezone.utc))
-    store.accept_notice(CLERK, datetime.now(timezone.utc))
+    store.record_entry(SUBJECT, USER_ID, datetime.now(timezone.utc))
+    store.accept_notice(SUBJECT, datetime.now(timezone.utc))
     monkeypatch.setattr(junior_entry, "store", store)
-    headers = session(sub=CLERK)
+    headers = session(sub=SUBJECT)
     monkeypatch.setattr(elig, "reader", lambda uid: (True, years_ago(15)))
     routes = list(_personal_routes(profile_app))
     assert len(routes) >= 10
@@ -417,7 +462,7 @@ def test_every_personal_route_requires_auth_and_owner(profile_app, session, monk
     assert owned, "expected at least one clerk_id route"
     with TestClient(profile_app) as client:
         for method, route_path in routes:
-            url = route_path.replace("{clerk_id}", CLERK)
+            url = route_path.replace("{clerk_id}", SUBJECT)
             response = client.request(method, url, json={})
             # Loopback mode only: a disabled feature answers 404 before auth (no data).
             disabled = admission == "loopback" and response.status_code == 404 and "disabled" in response.text

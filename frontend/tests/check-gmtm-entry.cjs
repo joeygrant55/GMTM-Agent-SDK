@@ -93,7 +93,7 @@ const reply = (status, body) => ({ ok: status === 200, status, json: async () =>
     assert.equal(res.headers.get('location'), 'https://sparq.example/enter/unavailable')
     assert.ok(!res.headers.getSetCookie().some(c => c.startsWith('__Host-sparq-session=')))
   })
-  for (const r of [reply(401, { detail: 'x' }), reply(503, null), reply(200, { eligible: true }), reply(200, { eligible: true, ticket: 'old-clerk-ticket' })]) await check('Backend failure ' + r.status + ' asks to retry', async () => {
+  for (const r of [reply(401, { detail: 'x' }), reply(503, null), reply(200, { eligible: true }), reply(200, { eligible: true, ticket: 'old-ticket' })]) await check('Backend failure ' + r.status + ' asks to retry', async () => {
     fetchReply = r
     const res = await callback.GET(request('https://sparq.example/enter/callback?code=thecode&state=mine', '__Host-sparq-tx=mine'))
     assert.equal(res.headers.get('location'), 'https://sparq.example/enter/unavailable?reason=retry')
@@ -105,7 +105,7 @@ const reply = (status, body) => ({ ok: status === 200, status, json: async () =>
     assert.equal(res.headers.get('location'), 'https://sparq.example/enter/unavailable?reason=linked')
     assert.ok(!res.headers.getSetCookie().some(c => c.startsWith('__Host-sparq-session=')))
   })
-  await check('Clerk ticket completion is gone', () => {
+  await check('Ticket completion is gone', () => {
     assert.ok(!fs.existsSync(path.resolve(__dirname, '../app/enter/finish')))
     assert.ok(!/TICKET|ticket/.test(fs.readFileSync(path.resolve(__dirname, '../app/enter/entry.ts'), 'utf8')))
   })
@@ -113,11 +113,11 @@ const reply = (status, body) => ({ ok: status === 200, status, json: async () =>
     for (const p of ['/enter', '/enter/callback', '/enter/unavailable']) assert.equal(policy.candidatePagePolicy(p, 'GET', 'profile'), 'page')
     for (const p of ['/enter/other', '/enter/', '/enter/finish', '/enter/finish/x']) assert.equal(policy.candidatePagePolicy(p, 'GET', 'profile'), 'deny')
     assert.equal(policy.candidatePagePolicy('/enter', 'POST', 'profile'), 'deny')
-    for (const p of ['/enter', '/enter/callback']) assert.equal(policy.candidatePagePolicy(p, 'GET', 'combine'), 'deny')
+    for (const p of ['/enter', '/enter/callback']) assert.equal(policy.candidatePagePolicy(p, 'GET', 'combine'), 'page')
   })
-  await check('Profile surface has no Clerk sign-in, sign-up or connect pages; combine keeps them', () => {
-    for (const p of ['/sign-up', '/sign-up/verify-email-address', '/sign-in', '/sign-in/factor-one', '/connect']) assert.equal(policy.candidatePagePolicy(p, 'GET', 'profile'), 'deny', p)
-    for (const p of ['/sign-in', '/sign-up', '/connect']) assert.equal(policy.candidatePagePolicy(p, 'GET'), 'page', p)
+  await check('No surface has sign-in, sign-up, claim or connect pages (GMTM is the only sign-in)', () => {
+    for (const s of ['profile', 'combine']) for (const p of ['/sign-up', '/sign-up/verify-email-address', '/sign-in', '/sign-in/factor-one', '/connect', '/claim/abc', '/claim/abc/redeem']) assert.equal(policy.candidatePagePolicy(p, 'GET', s), 'deny', s + p)
+    for (const d of ['sign-in', 'sign-up', 'claim', 'connect', 'onboarding']) assert.ok(!fs.existsSync(path.resolve(__dirname, '../app', d)), d)
   })
   await check('Parent notice API is profile-only GET/POST', () => {
     for (const m of ['GET', 'POST']) assert.equal(policy.resolveAPIRequest('/api/athlete/parent-notice', 'https://backend.example', 'profile', m), 'https://backend.example/api/athlete/parent-notice')

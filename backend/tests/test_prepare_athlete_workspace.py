@@ -125,7 +125,7 @@ def test_forbids_gmtm_rds_targets_even_when_acknowledged(host):
     assert not db.queries
 
 
-@pytest.mark.parametrize("defect", ["missing", "engine", "identity", "subject", "unique_user", "clerk_index", "workspace_columns", "workspace_index"])
+@pytest.mark.parametrize("defect", ["missing", "engine", "identity", "subject", "unique_user", "sub_index", "workspace_columns", "workspace_index"])
 def test_incompatible_preexisting_schema_is_not_repaired(defect):
     db = FakeDB()
     if defect == "missing": db.tables.clear()
@@ -133,7 +133,7 @@ def test_incompatible_preexisting_schema_is_not_repaired(defect):
     elif defect == "identity": db.columns["athlete_profiles"]["user_id"] = ("varchar(255)", "NO")
     elif defect == "subject": db.columns["athlete_profiles"]["clerk_id"] = ("text", "YES")
     elif defect == "unique_user": db.indexes["athlete_profiles"] = [("PRIMARY", 0, "id"), ("idx_clerk", 1, "clerk_id")]
-    elif defect == "clerk_index": db.indexes["athlete_profiles"] = [("PRIMARY", 0, "id"), ("user_id", 0, "user_id")]
+    elif defect == "sub_index": db.indexes["athlete_profiles"] = [("PRIMARY", 0, "id"), ("user_id", 0, "user_id")]
     else:
         db.tables["athlete_workspaces"] = {"kind": "BASE TABLE", "engine": "InnoDB"}
         if defect == "workspace_columns": db.columns["athlete_workspaces"]["clerk_id"] = ("varchar(255)", "NO")

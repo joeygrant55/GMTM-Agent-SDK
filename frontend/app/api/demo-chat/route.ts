@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveBackendOrigin } from '@/lib/backend-config.cjs'
 
-const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
 const FALLBACK_ERROR = 'Our AI is taking a quick break. Try again in a moment.'
 const DEMO_CHAT_SYSTEM_INSTRUCTION = `You are SPARQ AI, a recruiting intelligence assistant for high school football athletes.
 Answer questions directly and concisely.
@@ -46,7 +46,13 @@ export async function POST(request: NextRequest) {
     ? `${DEMO_CHAT_SYSTEM_INSTRUCTION}\n\nConversation so far:\n${contextLines.join('\n')}\n\nLatest user question: ${userMessage}`
     : `${DEMO_CHAT_SYSTEM_INSTRUCTION}\n\nUser question: ${userMessage}`
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || DEFAULT_BACKEND_URL
+  // No hard-coded default: the backend origin must be configured explicitly.
+  let backendUrl: string
+  try {
+    backendUrl = resolveBackendOrigin(process.env.NEXT_PUBLIC_BACKEND_URL)
+  } catch {
+    return NextResponse.json({ error: FALLBACK_ERROR }, { status: 503 })
+  }
   const params = new URLSearchParams({
     athlete_id: `demo-${Math.random().toString(36).slice(2, 10)}`,
     message: contextualMessage,
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
       headers: {
         Accept: 'text/event-stream',
         // Server-side shared secret authorizes the public demo to reach the agent
-        // without a Clerk token. Never exposed to the browser.
+        // without a SPARQ session. Never exposed to the browser.
         ...(process.env.DEMO_PROXY_SECRET ? { 'X-Demo-Secret': process.env.DEMO_PROXY_SECRET } : {}),
       },
       cache: 'no-store',

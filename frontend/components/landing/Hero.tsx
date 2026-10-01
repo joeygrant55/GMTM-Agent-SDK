@@ -87,7 +87,7 @@ export function Hero() {
           <Reveal delay={0.3}>
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link
-                href="/onboarding/search"
+                href="/enter"
                 className="group inline-flex items-center gap-2 rounded-full bg-sparq-lime px-6 py-3.5 text-base font-semibold text-sparq-charcoal shadow-lime-glow transition-all hover:bg-sparq-lime-light hover:shadow-lime-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sparq-lime focus-visible:ring-offset-2 focus-visible:ring-offset-sparq-charcoal"
               >
                 Start free

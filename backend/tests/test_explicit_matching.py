@@ -9,7 +9,7 @@ import pytest
 import profile_api
 
 
-CLERK = "athlete_alpha"
+SUBJECT = "athlete_alpha"
 
 
 class FakeDatabase:
@@ -42,7 +42,7 @@ class FakeDatabase:
 def context(monkeypatch):
     state = {"connections": [], "constructed": [], "started": [], "worker_calls": []}
     state["profile"] = {
-        "id": 41, "clerk_id": CLERK, "position": "QB", "state": "FL",
+        "id": 41, "clerk_id": SUBJECT, "position": "QB", "state": "FL",
         "maxpreps_data": {"sports": ["Girls Flag Football"], "classYear": 2027,
                           "statsPreview": [["Passing yards", "1400"]]},
         "recruiting_goals": {"targetLevel": "D2"},
@@ -72,8 +72,8 @@ def context(monkeypatch):
     assert state["worker_calls"] == []
 
 
-def call(clerk=CLERK, caller=CLERK):
-    return asyncio.run(profile_api.trigger_matching(clerk, caller))
+def call(subject=SUBJECT, caller=SUBJECT):
+    return asyncio.run(profile_api.trigger_matching(subject, caller))
 
 
 @pytest.mark.parametrize("maxpreps,expected", [
@@ -127,7 +127,7 @@ def test_missing_or_malformed_sport_fails_before_worker_construction(context, ma
 
 def test_foreign_request_owner_fails_before_any_database_or_worker(context):
     with pytest.raises(HTTPException) as caught:
-        call(clerk="another_athlete")
+        call(subject="another_athlete")
     assert caught.value.status_code == 403
     assert context["connections"] == []
     assert context["constructed"] == context["started"] == []
@@ -143,7 +143,7 @@ def test_missing_profile_closes_database_without_worker(context):
 
 
 def test_case_colliding_stored_owner_fails_before_worker(context):
-    context["profile"]["clerk_id"] = CLERK.upper()
+    context["profile"]["clerk_id"] = SUBJECT.upper()
     with pytest.raises(HTTPException) as caught:
         call()
     assert caught.value.status_code == 403

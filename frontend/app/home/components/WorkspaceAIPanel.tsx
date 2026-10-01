@@ -4,7 +4,7 @@ import { apiFetch } from '@/app/_lib/api'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import ReactMarkdown from 'react-markdown'
 import IterationBanner from './IterationBanner'
 import { ARTIFACT_TYPE_LABEL, ArtifactType } from './artifactStatus'
@@ -55,7 +55,7 @@ const ARTIFACT_QUICK_ITERATIONS: Partial<Record<ArtifactType, { emoji: string; l
 const WELCOME_MESSAGE = 'Your recruiting AI is ready. Ask about your profile, your next step, or a program you want to explore.'
 
 export default function WorkspaceAIPanel() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const combineHelp = useCombineHelp()
   // Combine help never inherits recruiting conversation IDs, forks or artifact state.
   if (combineHelp?.enabled) return <CombineHelpPanel />
@@ -67,10 +67,10 @@ export default function WorkspaceAIPanel() {
     )
   }
   // Remount all owner-bound state before rendering a different account's panel.
-  return <WorkspaceAISession key={user.id} clerkId={user.id} />
+  return <WorkspaceAISession key={user.id} ownerId={user.id} />
 }
 
-function WorkspaceAISession({ clerkId }: { clerkId: string }) {
+function WorkspaceAISession({ ownerId }: { ownerId: string }) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -107,7 +107,7 @@ function WorkspaceAISession({ clerkId }: { clerkId: string }) {
   useEffect(() => {
     mountedRef.current = true
     try {
-      const stored = Number(localStorage.getItem(`sparq_conv_${clerkId}`))
+      const stored = Number(localStorage.getItem(`sparq_conv_${ownerId}`))
       mainConversationIdRef.current = Number.isSafeInteger(stored) && stored > 0 ? stored : null
     } catch {
       mainConversationIdRef.current = null
@@ -117,7 +117,7 @@ function WorkspaceAISession({ clerkId }: { clerkId: string }) {
       requestRef.current?.abort()
       requestRef.current = null
     }
-  }, [clerkId])
+  }, [ownerId])
 
   const stopRequest = useCallback(() => {
     requestRef.current?.abort()
@@ -208,7 +208,7 @@ function WorkspaceAISession({ clerkId }: { clerkId: string }) {
             method: 'POST',
             signal: request.signal,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ instruction: userMessage, performed_by: clerkId }),
+            body: JSON.stringify({ instruction: userMessage, performed_by: ownerId }),
           }
         )
         const data = await res.json()
@@ -252,7 +252,7 @@ function WorkspaceAISession({ clerkId }: { clerkId: string }) {
 
     const activeConversationId = forkConversationId ?? mainConversationIdRef.current
     const params = new URLSearchParams({
-      athlete_id: clerkId,
+      athlete_id: ownerId,
       message: userMessage,
       ...(activeConversationId ? { conversation_id: String(activeConversationId) } : {}),
       ...(forkScenario ? { fork_scenario: forkScenario } : {}),
@@ -295,7 +295,7 @@ function WorkspaceAISession({ clerkId }: { clerkId: string }) {
               if (Number.isSafeInteger(cid) && cid > 0) {
                 mainConversationIdRef.current = cid
                 try {
-                  localStorage.setItem(`sparq_conv_${clerkId}`, String(cid))
+                  localStorage.setItem(`sparq_conv_${ownerId}`, String(cid))
                 } catch {
                   // Conversation still works when browser storage is unavailable.
                 }
@@ -355,7 +355,7 @@ function WorkspaceAISession({ clerkId }: { clerkId: string }) {
         signal: request.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          athlete_id: clerkId,
+          athlete_id: ownerId,
           scenario,
           parent_conversation_id: mainConversationIdRef.current,
         }),

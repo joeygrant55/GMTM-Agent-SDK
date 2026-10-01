@@ -162,7 +162,7 @@ def test_apply_requires_both_exact_target_acknowledgments(ack):
     ({"table_type": "VIEW"}, "existing_conversation_table_required"),
     ({"columns": {"id", "clerk_id"}}, "existing_conversation_columns_required"),
     ({"indexes": [{"index_name": "arbitrary_name", "non_unique": 0, "column_name": "clerk_id"}]},
-     "unique_conversation_clerk_index_incompatible_with_forks"),
+     "unique_conversation_owner_index_incompatible_with_forks"),
 ])
 def test_missing_or_incompatible_conversation_baseline_fails_before_any_ddl(kwargs, reason):
     db = FakeConnection(**kwargs)
@@ -202,7 +202,7 @@ def test_success_keeps_original_definitions_and_orders_preflight_before_ddl():
     assert len([sql for sql in db.ddl if sql.startswith("ALTER")]) == 3
 
 
-def test_composite_unique_index_does_not_mean_one_conversation_per_clerk():
+def test_composite_unique_index_does_not_mean_one_conversation_per_subject():
     db = FakeConnection(indexes=[
         {"index_name": "composite", "non_unique": 0, "column_name": "clerk_id"},
         {"index_name": "composite", "non_unique": 0, "column_name": "id"},

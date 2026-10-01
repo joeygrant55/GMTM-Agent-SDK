@@ -1,3 +1,5 @@
+Superseded 2026-10-01 by spec rev 4: GMTM sign-in only, Clerk removed. See docs/specs/sparq-on-gmtm-junior-pilot-2026-10-01.md.
+
 # SPARQ Agent current work
 
 Updated: 2026-09-23. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.

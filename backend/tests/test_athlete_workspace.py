@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 import pytest
 
 import athlete_workspace as api
-from auth import require_clerk_id
+from auth import require_identity
 from backend.tests.workspace_fixture_store import DriverError, WorkspaceStore
 
 
-CALLER = "clerk_workspace_owner"
+CALLER = "sub_workspace_owner"
 OWNER = 7201
 LINK = {"id": 91, "user_id": OWNER, "clerk_id": CALLER}
 GOAL = {"text": "Play flag football", "destination": "A coach I know", "timeframe": None}
@@ -35,7 +35,7 @@ def client(store):
     app = FastAPI()
     app.add_api_route("/api/athlete/workspace", api.current_athlete_workspace, methods=["GET"])
     app.add_api_route("/api/athlete/workspace", api.update_athlete_workspace, methods=["PATCH"])
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as instance:
         yield instance
 

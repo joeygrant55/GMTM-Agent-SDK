@@ -11,12 +11,8 @@ import pytest
 import candidate_app
 import junior_entry
 import model_usage
+from backend.tests.junior_fakes import ENTRY_ENV, GSH, SESSION_SECRET, mint_session
 from backend.tests.test_candidate_app import ENV, signed
-
-SESSION_SECRET = "synthetic-sparq-session-secret-32-bytes!"
-GSH = hashlib.sha256(b"synthetic-gmtm-session").hexdigest()
-ENTRY_ENV = {"SPARQ_ENTRY_SECRET": "synthetic-entry-secret", "SPARQ_HANDOFF_SECRET": "synthetic-handoff",
-             "GMTM_API_URL": "https://gmtm-api.example.invalid", "SPARQ_SESSION_SECRET": SESSION_SECRET}
 
 
 @pytest.fixture
@@ -36,26 +32,18 @@ def session(profile_app, monkeypatch):
     for name, value in ENTRY_ENV.items():
         monkeypatch.setenv(name, value)
 
-    def token(sub="clerk_owner", *, active=True, secret=SESSION_SECRET, **claims):
-        now = int(time.time())
-        body = {"sub": sub, "jti": secrets.token_urlsafe(32), "gsh": GSH, "iat": now, "exp": now + 86400, **claims}
-        body = {k: v for k, v in body.items() if v is not None}
-        if active:
-            junior_entry.store.set_session(sub, body.get("jti"), datetime.now(timezone.utc))
-        return {"Authorization": "Bearer " + jwt.encode(body, secret, algorithm="HS256")}
-    return token
+    return mint_session
 
 
 def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profile_app):
     schema = profile_app.openapi()
     expected = {
-        "/api/athlete/evidence": "get", "/api/profile/by-clerk/{clerk_id}": "get",
+        "/api/athlete/evidence": "get", "/api/profile/by-owner/{clerk_id}": "get",
         "/api/athlete/materials": "get",
         "/api/athlete/debrief": "post",
         "/api/athlete/opportunities": "post",
         "/api/athlete/opportunities/engagement": "post",
         "/api/athlete/workspace": ("get", "patch"),
-        "/api/claims/{token}": "get", "/api/claims/{token}/redeem": "post",
         "/health": "get",
         "/gmtm-entry/exchange": "post", "/gmtm-entry/sign-out": "post", "/api/athlete/parent-notice": ("get", "post"),
         "/api/workspace/colleges/{clerk_id}": "get", "/api/workspace/trigger-matching/{clerk_id}": "post",

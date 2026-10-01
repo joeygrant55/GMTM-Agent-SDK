@@ -54,7 +54,7 @@ def build_combine_context(snapshot, clerk_id, event_id, task_id=None):
     for activity in activities:
         if activity.get("event_id") != event_id:
             raise HTTPException(status_code=503, detail="Combine context could not be confirmed.")
-        # No user/clerk identifier, answer value, contact detail, or submission
+        # No user/subject identifier, answer value, contact detail, or submission
         # payload is sent to the model. Public task IDs identify only activities.
         item = {key: deepcopy(activity[key]) for key in (
             "task_id", "event_id", "title", "kind", "order", "continuation_url",

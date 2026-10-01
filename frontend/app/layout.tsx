@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { ClerkProvider } from '@clerk/nextjs'
 import { headers } from 'next/headers'
 import './globals.css'
 import { isCombineSurface, isProfileSurface } from '@/lib/backend-config.cjs'
@@ -18,9 +17,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-
-  const body = (
+  // Every surface renders per request (headers() opts in) so Next's scripts carry
+  // the CSP nonce. GMTM is the only sign-in (Joey, 2026-10-01).
+  headers()
+  return (
     <html lang="en" className="bg-sparq-charcoal">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -33,13 +33,4 @@ export default function RootLayout({
       <body className="bg-sparq-charcoal text-white antialiased">{children}</body>
     </html>
   )
-
-  // Profile (sparq.gmtm.com) has no Clerk: GMTM is the only sign-in (Joey, 2026-10-01).
-  // It renders per request (headers() opts in) so Next's scripts carry the CSP nonce.
-  if (profile) {
-    headers()
-    return body
-  }
-  if (clerkKey) return <ClerkProvider publishableKey={clerkKey}>{body}</ClerkProvider>
-  return body
 }

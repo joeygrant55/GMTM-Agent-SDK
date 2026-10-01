@@ -210,7 +210,7 @@ In `frontend/app/onboarding/profile/page.tsx`, find the redirect after successfu
 - TypeScript, no errors
 - No new npm packages
 - Dark theme: bg-sparq-charcoal, text-sparq-lime, border-white/10
-- Clerk useUser() for auth
+- Session identity for auth (GMTM sign-in since 2026-10-01)
 - Same streaming SSE pattern as WorkspaceAIPanel for demo chat
 - Graceful fallbacks everywhere — if API fails, degrade nicely
 - Commit all changes with one descriptive message at end

@@ -2,7 +2,7 @@
 // one-use GMTM code server to server. The backend returns a 24 h SPARQ session token
 // bound to the browser's GMTM session (gsh = sha256 of sessionId, computed by the
 // middleware; the raw value never leaves it). The token goes only into an HttpOnly
-// cookie, never a URL. No Clerk on this surface.
+// cookie, never a URL.
 import { type NextRequest } from 'next/server'
 import { resolveBackendOrigin } from '@/lib/backend-config.cjs'
 import { GSH_HEADER, sessionCookie } from '@/lib/sparq-session.cjs'

@@ -8,11 +8,11 @@ from fastapi.testclient import TestClient
 import pytest
 
 import athlete_materials as api
-from auth import require_clerk_id
+from auth import require_identity
 
 
 OWNER = 7201
-CALLER = "clerk_material_owner"
+CALLER = "sub_material_owner"
 LEGACY_THUMBNAIL = "users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg"
 
 
@@ -157,7 +157,7 @@ def source(monkeypatch):
     monkeypatch.setattr(api, "_get_gmtm_db", source_db)
     app = FastAPI()
     app.include_router(api.router)
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as client:
         yield client, agent, gmtm, calls
 
@@ -190,7 +190,7 @@ def test_actual_route_owner_projection_and_query_budget(source):
     assert len(source[1].queries) == 2 and len(source[2].queries) == 4
     for db in source[1:3]:
         assert db.close_count == 1 and db.opened == db.closed
-    for forbidden in ("user_id", "clerk_material_owner", "suggested_by", "approved", "task_submission_id"):
+    for forbidden in ("user_id", "sub_material_owner", "suggested_by", "approved", "task_submission_id"):
         assert forbidden not in json.dumps(body)
 
 

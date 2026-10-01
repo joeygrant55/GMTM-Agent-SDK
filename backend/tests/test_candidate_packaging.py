@@ -224,13 +224,13 @@ else:
 import model_usage
 assert model_usage._ledger is None
 expected={
- ('GET','/api/profile/by-clerk/{clerk_id}'),('GET','/api/claims/{token}'),
- ('POST','/api/claims/{token}/redeem'),('GET','/health'),
+ ('GET','/api/profile/by-owner/{clerk_id}'),('GET','/health'),
+ ('POST','/gmtm-entry/exchange'),('POST','/gmtm-entry/sign-out'),
 }
 if surface == 'profile':
  expected.update({('GET','/api/athlete/evidence'),('GET','/api/athlete/materials'),
                   ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace'),
-                  ('POST','/gmtm-entry/exchange'),('POST','/gmtm-entry/sign-out'),('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice'),
+                  ('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice'),
                   ('GET','/api/workspace/colleges/{clerk_id}'),('POST','/api/workspace/trigger-matching/{clerk_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
@@ -255,7 +255,7 @@ async def run():
    assert response.json()['surface']==surface+'_candidate'
    assert all(response.json()[key] is False for key in ('connectivity_verified','schema_verified','provider_delivery_verified'))
    denied=[('GET','/docs'),('GET','/openapi.json'),('POST','/api/profile/connect'),
-           ('POST','/api/claims/mint'),('GET','/api/reports/public/token')]
+           ('POST','/api/claims/mint'),('GET','/api/claims/token'),('GET','/api/reports/public/token')]
    if surface == 'profile':
     assert response.json()['debrief_enabled'] is False
     assert response.json()['debrief_provider_configured'] is False
@@ -283,8 +283,8 @@ assert attempts==[],attempts
 print(json.dumps({'attempts':attempts,'surface':surface+'_candidate','configuration_ready':True}))
 '''
     env = {
-        "PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1", "AUTH_ENFORCED": "true",
-        "CLERK_ISSUER": "https://clerk.example.invalid", "CLERK_AUTHORIZED_PARTIES": "http://127.0.0.1:3218", "ALLOWED_ORIGINS": "http://127.0.0.1:3218",
+        "PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1",
+        "ALLOWED_ORIGINS": "http://127.0.0.1:3218",
         "DB_HOST": "db2-dev.ckmlts6umure.us-east-1.rds.amazonaws.com", "DB_USER": "gmtmread", "DB_PASSWORD": "synthetic-only",
         "AGENT_DB_HOST": "127.0.0.1", "AGENT_DB_PORT": "3307", "AGENT_DB_NAME": "sparq_fixture", "AGENT_DB_USER": "fixture", "AGENT_DB_PASSWORD": "synthetic-only",
         "SHARE_TOKEN_SECRET": "synthetic-only", "COMBINE_HELP_MAX_MODEL_CALLS": "2", "COMBINE_HELP_MAX_CONCURRENT_CALLS": "1",
@@ -298,7 +298,7 @@ def test_separate_profile_packaging_preserves_the_original_combine_source_set():
     original_combine = {
         "Dockerfile.candidate", "Dockerfile.candidate.dockerignore",
         "backend/requirements-candidate.txt", "backend/constraints-candidate.txt",
-        "backend/auth.py", "backend/candidate_app.py", "backend/claims_api.py",
+        "backend/auth.py", "backend/candidate_app.py", "backend/junior_entry.py", "backend/junior_eligibility.py",
         "backend/combine_api.py", "backend/combine_context.py", "backend/combine_help_api.py",
         "backend/combine_model.py", "backend/combine_requirements.py", "backend/combine_results.py",
         "backend/model_usage.py", "backend/profile_api.py", "backend/workspace_bootstrap.py",
@@ -312,7 +312,6 @@ def test_separate_profile_packaging_preserves_the_original_combine_source_set():
         "backend/source_scope.py", "backend/start_profile_candidate.py",
         "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
         "backend/profile_admission.py", "backend/profile_owner.py",
-        "backend/junior_entry.py", "backend/junior_eligibility.py",
         "backend/college_programs.py", "backend/outreach_draft.py", "backend/data/college_womens_flag_2026.json",
     }
     assert original_combine - set(profile_packager.SOURCES) == {

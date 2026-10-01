@@ -2,7 +2,7 @@
 
 Credentials must already be injected into this process; never loads dotenv,
 starts Railway, or starts a web server. Direct handler invocation proves a
-stored ownership link and source projection, NOT a current Clerk JWT/session.
+stored ownership link and source projection, NOT a current SPARQ session.
 """
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ class Ledger:
             "statement_counter_scope": "guarded_selects_and_explicit_transaction_setup_not_driver_protocol",
             "forbidden_attempts": {}, "source_hashes_before": hashes,
             "scope": SCOPES[scope]["receipt_scope"], "requested_scope": scope,
-            "stored_owner_confirmed": False, "current_clerk_jwt_verified": False,
+            "stored_owner_confirmed": False, "current_session_verified": False,
             "authenticated_http_verified": False, "historical_submissions_read": False,
             "provider_calls": 0, "application_data_writes": False,
             "connections_created": 0, "connections_closed": 0,
@@ -207,11 +207,11 @@ class ReadCursor:
     def execute(self, sql, params):
         owner = self.connection
         key = normalized(sql)
-        allowed = ({normalized(OWNER_SQL): (OWNER,), normalized(FORWARD_SQL): (owner.clerk,)}
+        allowed = ({normalized(OWNER_SQL): (OWNER,), normalized(FORWARD_SQL): (owner.subject,)}
                    if owner.kind == "agent" else owner.queries)
         if key not in allowed or not isinstance(params, tuple) or params != allowed[key]:
             owner.ledger.deny("query_scope")
-        if key == normalized(FORWARD_SQL) and not owner.clerk:
+        if key == normalized(FORWARD_SQL) and not owner.subject:
             owner.ledger.deny("owner_unresolved")
         owner.ledger.reserve("selects")
         owner.ledger.reserve("statements")
@@ -238,7 +238,7 @@ class ReadCursor:
                 for name in ("user_id", "direct_user_id", "career_user_id", "submission_user_id"):
                     if row.get(name) is not None and (type(row[name]) is not int or row[name] != OWNER):
                         self.connection.ledger.deny("foreign_owner_row")
-            if self.connection.kind == "agent" and self.connection.clerk is not None and row.get("clerk_id") != self.connection.clerk:
+            if self.connection.kind == "agent" and self.connection.subject is not None and row.get("clerk_id") != self.connection.subject:
                 self.connection.ledger.deny("case_or_reverse_owner_conflict")
         if material_source:
             path = {"user_id": "submissions", "submission_user_id": "submitted_films",
@@ -254,7 +254,7 @@ class ReadConnection:
     def __init__(self, raw, kind, ledger, queries):
         self.raw, self.kind, self.ledger, self.queries = raw, kind, ledger, queries
         self.owner_columns = {sql: value[1] for sql, value in reviewed_query_specs(ledger.scope).items()}
-        self.clerk, self.closed = None, False
+        self.subject, self.closed = None, False
 
     def start(self):
         with self.raw.cursor() as cursor:
@@ -411,15 +411,15 @@ def read_projection(config, ledger, *, driver=None):
                     rows = cursor.fetchall()
                 if len(rows) != 1 or not isinstance(rows[0].get("clerk_id"), str) or not rows[0]["clerk_id"].strip():
                     raise Blocked("owner_link_missing_or_ambiguous")
-                clerk = rows[0]["clerk_id"]
-                agent.clerk = clerk
+                subject = rows[0]["clerk_id"]
+                agent.subject = subject
                 service._get_agent_db = lambda: agent
                 service._get_gmtm_db = lambda: connect("gmtm")
                 endpoint = service.current_athlete_materials if scope == "materials" else service.current_athlete_evidence
                 path = "/api/athlete/materials" if scope == "materials" else "/api/athlete/evidence"
                 response = endpoint(
                     Request({"type": "http", "method": "GET", "path": path,
-                             "query_string": b"", "headers": []}), caller_clerk_id=clerk)
+                             "query_string": b"", "headers": []}), caller_id=subject)
                 if ledger.data["forbidden_attempts"]:
                     raise Blocked("forbidden_operation_attempted")
                 body = json.loads(response.body)
@@ -433,7 +433,7 @@ def read_projection(config, ledger, *, driver=None):
                 expected = ({"state", "items", "limitations", "fetched_at"} if scope == "materials"
                             else {"state", "athlete", "evidence", "observations", "limitations", "fetched_at"})
                 if "owner_scope" in body:
-                    if body["owner_scope"] != service.owner_scope(clerk, OWNER):
+                    if body["owner_scope"] != service.owner_scope(subject, OWNER):
                         raise Blocked("unexpected_owner_scope")
                     expected.add("owner_scope")
                 elif body.get("state") == "ready":

@@ -110,7 +110,7 @@ class Ledger:
         with self.lock:
             if (not isinstance(value, dict) or value.get("state") != "ready"
                     or value.get("link_revision") != workspace._revision(ctx.owner)
-                    or value.get("owner_scope") != workspace.owner_scope(ctx.clerk, 2)
+                    or value.get("owner_scope") != workspace.owner_scope(ctx.subject, 2)
                     or type(value.get("version")) is not int or not 0 <= value["version"] <= workspace.MAX_VERSION):
                 self.deny("workspace_response_scope", 503)
             if patch:
@@ -151,12 +151,12 @@ class GuardCursor:
             spec = db.sources.get(key)
             if not ctx.owner or spec is None or params != spec[0]: db.ledger.deny("gmtm_sql_scope")
         else:
-            allowed = {LINK_FORWARD: (ctx.clerk,), LINK_REVERSE: (2,), PAIR_FORWARD: (ctx.clerk,), PAIR_REVERSE: (2,)}
+            allowed = {LINK_FORWARD: (ctx.subject,), LINK_REVERSE: (2,), PAIR_FORWARD: (ctx.subject,), PAIR_REVERSE: (2,)}
             if ctx.owner:
-                allowed.update({PROFILE_SQL: (ctx.clerk,), WORKSPACE_SQL: (ctx.clerk.encode(),)})
+                allowed.update({PROFILE_SQL: (ctx.subject,), WORKSPACE_SQL: (ctx.subject.encode(),)})
             if db.transaction:
-                allowed.update({LINK_FORWARD + " FOR UPDATE": (ctx.clerk,), LINK_REVERSE + " FOR UPDATE": (2,),
-                                WORKSPACE_SQL + " FOR UPDATE": (ctx.clerk.encode(),)})
+                allowed.update({LINK_FORWARD + " FOR UPDATE": (ctx.subject,), LINK_REVERSE + " FOR UPDATE": (2,),
+                                WORKSPACE_SQL + " FOR UPDATE": (ctx.subject.encode(),)})
             if key in allowed:
                 if params != allowed[key]: db.ledger.deny("agent_sql_owner")
             elif key == "SET SESSION innodb_lock_wait_timeout = 3":
@@ -170,7 +170,7 @@ class GuardCursor:
                     expected = 0
                 else:
                     version, payload, updated, subject, link, athlete, expected = params
-                if (subject != ctx.clerk.encode() or type(link) is not int or link != ctx.owner["id"]
+                if (subject != ctx.subject.encode() or type(link) is not int or link != ctx.owner["id"]
                         or type(athlete) is not int or athlete != 2 or type(expected) is not int
                         or expected != ctx.expected_version or type(version) is not int or version != expected + 1):
                     db.ledger.deny("workspace_write_owner")
@@ -201,15 +201,15 @@ class GuardCursor:
                 for field in ("user_id", "direct_user_id", "career_user_id", "submission_user_id"):
                     if row.get(field) is not None and (type(row[field]) is not int or row[field] != 2): db.ledger.deny("foreign_source_row")
             elif "FROM athlete_profiles" in self.query:
-                if row.get("clerk_id") != ctx.clerk or type(row.get("user_id")) is not int or row["user_id"] != 2:
+                if row.get("clerk_id") != ctx.subject or type(row.get("user_id")) is not int or row["user_id"] != 2:
                     db.ledger.deny("foreign_link_row", 409)
                 if self.query.startswith("SELECT id,") and (not workspace._positive(row.get("id")) or (ctx.owner and row["id"] != ctx.owner["id"])):
                     db.ledger.deny("changed_link_row", 409)
             elif "FROM athlete_workspaces" in self.query:
-                if (row.get("clerk_id") != ctx.clerk.encode() or row.get("gmtm_user_id") != 2
+                if (row.get("clerk_id") != ctx.subject.encode() or row.get("gmtm_user_id") != 2
                         or type(row.get("gmtm_user_id")) is not int or row.get("athlete_link_id") != ctx.owner["id"]):
                     db.ledger.deny("foreign_workspace_row", 409)
-            elif row.get("clerk_id") != ctx.clerk: db.ledger.deny("foreign_profile_row", 409)
+            elif row.get("clerk_id") != ctx.subject: db.ledger.deny("foreign_profile_row", 409)
         if self.query == LINK_REVERSE + " FOR UPDATE" and len(rows) == 1: db.locked_owner = True
         if self.query == WORKSPACE_SQL + " FOR UPDATE": db.locked_workspace = True
         return rows
@@ -272,7 +272,7 @@ def _settings(settings, prefix):
 
 def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, backend_host, run_dir, read_only: bool = False):
     if type(read_only) is not bool: raise ValueError("Acceptance read_only must be a boolean")
-    # Profile has no Clerk (rev 3): the owner authenticates with a SPARQ session token,
+    # GMTM sign-in only: the owner authenticates with a SPARQ session token,
     # so GMTM entry (incl. SPARQ_SESSION_SECRET) must be fully configured.
     config = candidate_app.validate_configuration(os.environ, "profile")
     try:
@@ -304,20 +304,20 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
     async def verified_subject():
         ctx = CONTEXT.get()
         if ctx is None or ctx.owner is None: ledger.deny("missing_verified_subject")
-        return ctx.clerk
-    inner.dependency_overrides[auth.require_clerk_id] = verified_subject
+        return ctx.subject
+    inner.dependency_overrides[auth.require_identity] = verified_subject
 
     def resolve_owner():
         db = connection("agent")
         try:
-            with db.cursor() as cursor: owner = workspace._owner(cursor, CONTEXT.get().clerk)
+            with db.cursor() as cursor: owner = workspace._owner(cursor, CONTEXT.get().subject)
             ledger.pin(owner)
             return owner
         finally: db.close()
 
     def install():
-        import athlete_evidence, athlete_materials, athlete_opportunities, combine_api, profile_api, claims_api, profile_debrief, profile_owner
-        for module in (athlete_evidence, athlete_materials, athlete_opportunities, workspace, combine_api, profile_api, claims_api, profile_debrief, profile_owner):
+        import athlete_evidence, athlete_materials, athlete_opportunities, combine_api, profile_api, profile_debrief, profile_owner
+        for module in (athlete_evidence, athlete_materials, athlete_opportunities, workspace, combine_api, profile_api, profile_debrief, profile_owner):
             for name, kind in (("_get_agent_db", "agent"), ("_get_gmtm_db", "gmtm")):
                 if hasattr(module, name):
                     patches.append((module, name, getattr(module, name)))
@@ -329,7 +329,7 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
         if path in ("/api/athlete/evidence", "/api/athlete/materials") and method == "GET": return path.rsplit("/", 1)[1]
         if path == "/api/athlete/opportunities" and method == "POST": return "opportunities"
         if path == "/api/athlete/workspace" and method in ("GET", "PATCH"): return "workspace_" + method.lower()
-        if re.fullmatch(r"/api/profile/by-clerk/[A-Za-z0-9_-]{1,255}", path) and method == "GET": return "profile_link"
+        if re.fullmatch(r"/api/profile/by-owner/[A-Za-z0-9_-]{1,255}", path) and method == "GET": return "profile_link"
         return None
 
     class AcceptanceApp:
@@ -371,11 +371,11 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
                     return
                 if config.signature != candidate_app._signature(os.environ): ledger.deny("configuration_drift", 503)
                 stage = "authentication"
-                clerk = await junior_entry.require_identity(headers.get("authorization"))
-                if name == "profile_link" and path.rsplit("/", 1)[1] != clerk: ledger.deny("profile_subject")
+                subject = await junior_entry.require_identity(headers.get("authorization"))
+                if name == "profile_link" and path.rsplit("/", 1)[1] != subject: ledger.deny("profile_subject")
                 ledger.reserve("personal_requests")
                 if method == "PATCH": ledger.reserve("patch_attempts")
-                ctx = SimpleNamespace(clerk=clerk, method=method, owner=None, connections=[], expected_version=None, write_attempts=0)
+                ctx = SimpleNamespace(subject=subject, method=method, owner=None, connections=[], expected_version=None, write_attempts=0)
                 marker = CONTEXT.set(ctx)
                 stage = "owner_link"
                 ctx.owner = await run_in_threadpool(resolve_owner)

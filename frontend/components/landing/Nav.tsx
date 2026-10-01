@@ -16,14 +16,14 @@ function AuthButtons({ onClick }: { onClick?: () => void }) {
   return (
     <>
       <Link
-        href="/sign-in"
+        href="/enter"
         onClick={onClick}
         className="text-sm text-white/70 hover:text-white transition-colors"
       >
         Sign in
       </Link>
       <Link
-        href="/onboarding/search"
+        href="/enter"
         onClick={onClick}
         className="group inline-flex items-center gap-1.5 rounded-full bg-sparq-lime px-4 py-2 text-sm font-semibold text-sparq-charcoal transition-all hover:bg-sparq-lime-light hover:shadow-lime-glow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sparq-lime focus-visible:ring-offset-2 focus-visible:ring-offset-sparq-charcoal"
       >

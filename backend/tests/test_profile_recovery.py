@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 import profile_api
-from auth import require_clerk_id
+from auth import require_identity
 
 
 CALLER = "user_alpha"
@@ -86,7 +86,7 @@ def client(monkeypatch):
     monkeypatch.setitem(sys.modules, "workspace_bootstrap", bootstrap)
     app = FastAPI()
     app.include_router(profile_api.router)
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as http:
         http.store = store
         yield http
@@ -95,7 +95,7 @@ def client(monkeypatch):
 
 
 def get(client, clerk_id=CALLER):
-    return client.get(f"/api/profile/by-clerk/{clerk_id}")
+    return client.get(f"/api/profile/by-owner/{clerk_id}")
 
 
 def linked(client):

@@ -7,7 +7,7 @@ import { CombineResult, readCombineResults } from '@/app/athlete/[id]/components
 import dynamic from 'next/dynamic'
 
 import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
@@ -38,8 +38,8 @@ function ChipGroup<T extends string>({ options, value, onChange }: { options: re
 const inp = "w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-white placeholder:text-gray-500 focus:outline-none focus:border-sparq-lime/50"
 
 function WorkspaceProfilePage() {
-  const { user } = useUser()
-  const clerkId = user?.id
+  const { user } = useSparqSession()
+  const ownerId = user?.id
 
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
@@ -62,8 +62,8 @@ function WorkspaceProfilePage() {
   const [wt, setWt]           = useState('')
 
   useEffect(() => {
-    if (!clerkId) return
-    apiFetch(`${backendUrl}/api/workspace/profile/${clerkId}`)
+    if (!ownerId) return
+    apiFetch(`${backendUrl}/api/workspace/profile/${ownerId}`)
       .then(r => r.json())
       .then(d => {
         setMaxpreps((d.maxpreps_data as Record<string, unknown>) || {})
@@ -85,15 +85,15 @@ function WorkspaceProfilePage() {
       })
       .catch(() => setError('Could not load profile'))
       .finally(() => setLoading(false))
-  }, [clerkId])
+  }, [ownerId])
 
   const n = (s: string) => { const v = parseFloat(s); return Number.isFinite(v) ? v : undefined }
 
   const save = async () => {
-    if (!clerkId) return
+    if (!ownerId) return
     setSaving(true); setError('')
     try {
-      const res = await apiFetch(`${backendUrl}/api/workspace/profile/${clerkId}`, {
+      const res = await apiFetch(`${backendUrl}/api/workspace/profile/${ownerId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +161,7 @@ function WorkspaceProfilePage() {
               )}
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-3">Linked from MaxPreps · <a href="/onboarding/search" className="text-sparq-lime hover:underline">Re-link →</a></p>
+          <p className="text-xs text-gray-500 mt-3">Linked from MaxPreps</p>
         </section>
       )}
 

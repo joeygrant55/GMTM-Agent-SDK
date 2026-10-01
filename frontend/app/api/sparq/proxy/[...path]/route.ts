@@ -1,5 +1,5 @@
-// /api/sparq/proxy/<backend path>: the profile browser's only route to the backend.
-// Refuses any operation candidateAPIAllowed does not allow for the profile surface
+// /api/sparq/proxy/<backend path>: the browser's only authenticated route to the backend.
+// Refuses any operation the selected surface does not allow
 // BEFORE reading the session, then forwards with the HttpOnly session as a bearer.
 import { NextResponse, type NextRequest } from 'next/server'
 import { resolveAPIRequest } from '@/lib/backend-config.cjs'
@@ -13,7 +13,7 @@ async function forward(request: NextRequest): Promise<NextResponse> {
   try {
     // Raw pathname (no decoding); resolveAPIRequest refuses encoded dots/slashes.
     const path = request.nextUrl.pathname.slice(PREFIX.length)
-    url = resolveAPIRequest(path + request.nextUrl.search, process.env.NEXT_PUBLIC_BACKEND_URL || '', 'profile', request.method)
+    url = resolveAPIRequest(path + request.nextUrl.search, process.env.NEXT_PUBLIC_BACKEND_URL || '', process.env.NEXT_PUBLIC_APP_SURFACE, request.method)
   } catch {
     return json({ detail: 'Not found' }, 404)
   }
@@ -26,7 +26,7 @@ async function forward(request: NextRequest): Promise<NextResponse> {
   try {
     const res = await fetch(url, {
       method: request.method, headers, cache: 'no-store', redirect: 'error',
-      body: request.method === 'GET' ? undefined : await request.arrayBuffer(),
+      body: request.method === 'GET' || request.method === 'DELETE' ? undefined : await request.arrayBuffer(),
     })
     const out: Record<string, string> = { ...NO_STORE }
     const resType = res.headers.get('content-type')
@@ -40,3 +40,5 @@ async function forward(request: NextRequest): Promise<NextResponse> {
 export const GET = forward
 export const POST = forward
 export const PATCH = forward
+export const PUT = forward
+export const DELETE = forward

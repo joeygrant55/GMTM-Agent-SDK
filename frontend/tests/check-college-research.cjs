@@ -1,5 +1,5 @@
 // Actual college component with React in an isolated browser. No Next server,
-// live Clerk, backend, models, database, dotenv loading, or package installation.
+// live GMTM sign-in, backend, models, database, dotenv loading, or package installation.
 // Timer controls exercise polling deterministically; no visual/layout claim.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -25,7 +25,7 @@ bundle += `
 window.__identity={isLoaded:true,user:{id:'athlete-a'}};window.__listeners=new Set();
 window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(fn=>fn())};
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
-window.Clerk={session:{getToken:async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null}};
+
 window.__now=1000000;Date.now=()=>window.__now;window.__timers=new Map();let timerId=0;
 window.setTimeout=(fn,ms=0,...args)=>{const id=++timerId;window.__timers.set(id,{at:window.__now+ms,fn:()=>fn(...args)});return id};
 window.clearTimeout=id=>window.__timers.delete(id);
@@ -36,13 +36,14 @@ window.__advance=async ms=>{const end=window.__now+ms;let count=0;while(true){co
 window.__requests=[];window.__pending=[];window.__modes={};window.__proactive=[];
 window.addEventListener('sparq:proactive-prompt',e=>window.__proactive.push(e.detail));
 function reply(kind,mode={}){if(mode.reject)throw Error('Synthetic network rejection');const defaults={colleges:{colleges:[]},trigger:{status:'matching started',profile_id:51},status:{complete:false},update:{updated:true}};return new Response(mode.badJSON?'invalid-json':JSON.stringify(mode.body===undefined?defaults[kind]:mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}})}
-window.fetch=async(input,init={})=>{const u=new URL(String(input),location.origin);if(u.origin!==location.origin)throw Error('Blocked external fetch');const kind=u.pathname.includes('/trigger-matching/')?'trigger':u.pathname.includes('/enrichment-status/')?'status':u.pathname.endsWith('/status')?'update':u.pathname.includes('/workspace/colleges/')?'colleges':null;if(!kind)throw Error('Unexpected endpoint '+u.pathname);const request={kind,path:u.pathname,method:init.method||'GET',signal:init.signal,authorization:new Headers(init.headers).get('Authorization')};window.__requests.push(request);const mode=window.__modes[kind]||{};if(mode.pending)return new Promise(resolve=>window.__pending.push({kind,request,resolve}));return reply(kind,mode)};
+window.fetch=async(input,init={})=>{let u=new URL(String(input),location.origin);if(u.origin!==location.origin)throw Error('Blocked external fetch');const __proxied=u.pathname.startsWith('/api/sparq/proxy/');const __auth=__proxied?(window.__identity.user?'Bearer fixture-'+window.__identity.user.id:null):new Headers(init.headers).get('Authorization');if(__proxied){const __o=u.pathname;u=new URL(__o.slice('/api/sparq/proxy'.length)+u.search,location.origin)}const kind=u.pathname.includes('/trigger-matching/')?'trigger':u.pathname.includes('/enrichment-status/')?'status':u.pathname.endsWith('/status')?'update':u.pathname.includes('/workspace/colleges/')?'colleges':null;if(!kind)throw Error('Unexpected endpoint '+u.pathname);const request={kind,path:u.pathname,method:init.method||'GET',signal:init.signal,authorization:__auth};window.__requests.push(request);const mode=window.__modes[kind]||{};if(mode.pending)return new Promise(resolve=>window.__pending.push({kind,request,resolve}));return reply(kind,mode)};
 window.__release=(kind,mode={})=>{const i=window.__pending.findIndex(p=>p.kind===kind);if(i<0)throw Error('No pending '+kind);window.__pending.splice(i,1)[0].resolve(reply(kind,mode))};
 const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefined?{key}:{})});
 function load(id,from=''){
  if(id==='react')return React;
  if(id==='react/jsx-runtime')return{jsx,jsxs:jsx,Fragment:React.Fragment};
- if(id==='@clerk/nextjs')return{useUser};
+ if(id==='@/app/_lib/useSparqSession')return{useSparqSession:useUser,signOutOfSparq:async()=>{}};
+ if(id==='@/components/SignOutButton')return{__esModule:true,default:()=>React.createElement('button',{'aria-label':'Sign out'},'Sign out')};
  if(id==='next/navigation')return{useSearchParams:()=>new URLSearchParams(window.__query||'')};
  if(id==='next/link')return{__esModule:true,default:({children,...props})=>React.createElement('a',props,children)};
  if(id==='next/dynamic')return{__esModule:true,default:loader=>{let component=null,promise=null;return function Dynamic(props){const[C,setC]=React.useState(()=>component);React.useEffect(()=>{let active=true;(promise||=loader()).then(m=>{component=m.default||m;if(active)setC(()=>component)});return()=>{active=false}},[]);return C?React.createElement(C,props):null}}};
@@ -163,7 +164,7 @@ const checks=[], errors=[];
     await release('status',{body:{complete:true}});await advance(240000);
     check(await count('status')===1&&await count('colleges')===1,'Unmounted requests cannot schedule more work or reload saved matches');
     check(errors.length===0,'No browser runtime errors');
-    fs.writeFileSync(receiptPath,JSON.stringify({status:'pass',checks,sourceHashes,scope:'Actual React component and API helper with synthetic Clerk/Next/API, fully intercepted browser networking and controlled timers. No layout/full Next/real service acceptance.'},null,2)+'\n');
+    fs.writeFileSync(receiptPath,JSON.stringify({status:'pass',checks,sourceHashes,scope:'Actual React component and API helper with synthetic SPARQ session/Next/API, fully intercepted browser networking and controlled timers. No layout/full Next/real service acceptance.'},null,2)+'\n');
     process.stdout.write(JSON.stringify({status:'pass',checks:checks.length,receipt:receiptPath})+'\n');
   } finally {await browser.close()}
 })().catch(error=>{fs.writeFileSync(receiptPath,JSON.stringify({status:'failed',checks,error:String(error.stack||error),sourceHashes},null,2)+'\n');process.stderr.write(String(error.stack||error)+'\n');process.exitCode=1});

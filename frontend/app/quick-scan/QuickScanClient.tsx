@@ -4,7 +4,7 @@ import { apiFetch } from '@/app/_lib/api'
 import { ProfileConnectionError, readProfileConnectionResponse } from '@/app/_lib/profileConnection'
 
 import { useState, useEffect, useRef } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import Link from 'next/link'
 
 // ── Types ────────────────────────────────────────────────────
@@ -218,13 +218,13 @@ function LoadingSkeleton() {
 // ── MAIN PAGE ────────────────────────────────────────────────
 
 export default function QuickScanClient() {
-  const { user, isLoaded: clerkLoaded } = useUser()
-  if (!clerkLoaded) return <LoadingSkeleton />
+  const { user, isLoaded: sessionLoaded } = useSparqSession()
+  if (!sessionLoaded) return <LoadingSkeleton />
   if (!user?.id) return <p role="status" className="p-8 text-gray-300">Sign in to view your Quick Scan.</p>
-  return <QuickScanSession key={user.id} clerkId={user.id} />
+  return <QuickScanSession key={user.id} ownerId={user.id} />
 }
 
-function QuickScanSession({ clerkId }: { clerkId: string }) {
+function QuickScanSession({ ownerId }: { ownerId: string }) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [athleteId, setAthleteId] = useState<number | null>(null)
   const [state, setState] = useState<'loading' | 'no-athlete' | 'ready' | 'error'>('loading')
@@ -275,10 +275,9 @@ function QuickScanSession({ clerkId }: { clerkId: string }) {
     setData(null)
     setAthleteId(null)
 
-    // Look up linked athlete via Clerk ID
     setState('loading')
     setErrorMsg('')
-    apiFetch(`${backendUrl}/api/profile/by-clerk/${clerkId}`, { signal: controller.signal })
+    apiFetch(`${backendUrl}/api/profile/by-owner/${ownerId}`, { signal: controller.signal })
       .then(readProfileConnectionResponse)
       .then(async linkData => {
         if (controller.signal.aborted) return
@@ -303,7 +302,7 @@ function QuickScanSession({ clerkId }: { clerkId: string }) {
         setErrorMsg(err instanceof ProfileConnectionError ? err.message : 'We could not load your athlete information. Please try again.')
       })
     return () => controller.abort()
-  }, [clerkId, backendUrl, lookupAttempt])
+  }, [ownerId, backendUrl, lookupAttempt])
 
   // Filter to recognized metrics only
   const displayMetrics = (data?.metrics ?? []).filter(m => METRIC_CONFIG[m.title])
@@ -358,7 +357,7 @@ function QuickScanSession({ clerkId }: { clerkId: string }) {
               Link your MaxPreps athlete profile to see your personalized Quick Scan with real metrics and percentile rankings.
             </p>
             <Link
-              href="/onboarding/search"
+              href="/enter"
               className="inline-flex items-center gap-2 px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105"
             >
               Find My Profile →
@@ -371,7 +370,7 @@ function QuickScanSession({ clerkId }: { clerkId: string }) {
           <div className="text-center py-16">
             <p role="alert" className="text-gray-400 mb-4">{errorMsg}</p>
             <button type="button" onClick={() => setLookupAttempt(value => value + 1)} className="mx-auto mb-4 block min-h-11 rounded-lg bg-sparq-lime px-4 font-bold text-sparq-charcoal">Retry profile check</button>
-            <Link href="/sign-in" className="text-sparq-lime hover:underline">Sign in →</Link>
+            <Link href="/enter" className="text-sparq-lime hover:underline">Sign in →</Link>
           </div>
         )}
 

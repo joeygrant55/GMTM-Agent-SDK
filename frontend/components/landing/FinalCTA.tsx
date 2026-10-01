@@ -26,8 +26,7 @@ export function FinalCTA() {
 
   function submit(e?: React.FormEvent) {
     e?.preventDefault()
-    const query = (q || PLACEHOLDERS[idx]).trim()
-    router.push(`/onboarding/search?intent=ask&q=${encodeURIComponent(query)}`)
+    router.push('/enter')
   }
 
   return (

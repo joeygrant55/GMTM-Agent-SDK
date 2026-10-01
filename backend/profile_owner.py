@@ -6,7 +6,7 @@ do no I/O until called, and disabled local previews retain existing behavior.
 from fastapi import Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import _linked_athlete as legacy_linked_athlete, _get_agent_db
 from profile_admission import is_active, recheck_admission
 
@@ -48,10 +48,10 @@ def _recovery(clerk_id):
         db.close()
 
 
-async def current_profile_recovery(clerk_id: str, caller_clerk_id: str = Depends(require_clerk_id)):
+async def current_profile_recovery(clerk_id: str, caller_id: str = Depends(require_identity)):
     if not is_active():
-        from profile_api import get_profile_by_clerk
-        return await get_profile_by_clerk(clerk_id, caller_clerk_id)
-    if clerk_id != caller_clerk_id:
+        from profile_api import get_profile_by_owner
+        return await get_profile_by_owner(clerk_id, caller_id)
+    if clerk_id != caller_id:
         raise HTTPException(403, "Not authorized.")
-    return await run_in_threadpool(_recovery, caller_clerk_id)
+    return await run_in_threadpool(_recovery, caller_id)

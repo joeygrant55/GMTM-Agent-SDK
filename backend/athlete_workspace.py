@@ -16,7 +16,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import _get_agent_db, _get_gmtm_db
 from athlete_evidence import PRIVATE_HEADERS
 from source_scope import owner_scope
@@ -352,11 +352,11 @@ def _response(call):
         return JSONResponse({"detail": exc.detail, "code": exc.code}, status_code=exc.status, headers=PRIVATE_HEADERS)
 
 
-def current_athlete_workspace(request: Request, caller_clerk_id: str = Depends(require_clerk_id)):
-    return _response(lambda: (_ for _ in ()).throw(_invalid()) if request.query_params else read_workspace(caller_clerk_id))
+def current_athlete_workspace(request: Request, caller_id: str = Depends(require_identity)):
+    return _response(lambda: (_ for _ in ()).throw(_invalid()) if request.query_params else read_workspace(caller_id))
 
 
-async def update_athlete_workspace(request: Request, caller_clerk_id: str = Depends(require_clerk_id)):
+async def update_athlete_workspace(request: Request, caller_id: str = Depends(require_identity)):
     async def body():
         data = bytearray()
         async for part in request.stream():
@@ -371,4 +371,4 @@ async def update_athlete_workspace(request: Request, caller_clerk_id: str = Depe
         _request(value)
     except (WorkspaceError, asyncio.TimeoutError, ValueError):
         return _response(lambda: (_ for _ in ()).throw(_invalid()))
-    return await run_in_threadpool(lambda: _response(lambda: save_workspace(caller_clerk_id, value)))
+    return await run_in_threadpool(lambda: _response(lambda: save_workspace(caller_id, value)))

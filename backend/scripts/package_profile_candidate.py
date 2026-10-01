@@ -19,7 +19,7 @@ else:
 SOURCES = (
     "Dockerfile.profile-candidate", "Dockerfile.profile-candidate.dockerignore",
     "backend/requirements-candidate.txt", "backend/constraints-candidate.txt",
-    "backend/auth.py", "backend/candidate_app.py", "backend/claims_api.py",
+    "backend/auth.py", "backend/candidate_app.py",
     "backend/combine_api.py", "backend/combine_context.py", "backend/combine_help_api.py",
     "backend/combine_model.py", "backend/combine_requirements.py", "backend/combine_results.py",
     "backend/model_usage.py", "backend/profile_api.py", "backend/workspace_bootstrap.py",

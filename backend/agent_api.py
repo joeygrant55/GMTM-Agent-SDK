@@ -22,7 +22,7 @@ import pymysql
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from auth import optional_clerk_id, require_clerk_id, demo_secret_ok, rate_limit, assert_owner
+from auth import optional_identity, require_identity, demo_secret_ok, rate_limit, assert_owner
 from combine_results import get_combine_results, format_for_prompt
 from athlete_context import CURRENT_ATHLETE_TOOL, current_athlete_tool_result
 
@@ -144,7 +144,7 @@ def _load_athlete_profile(athlete_id: str) -> Optional[dict]:
             }
     except Exception:
         pass
-    # Legacy GMTM athlete: resolve only through the authenticated Clerk mapping.
+    # Legacy GMTM athlete: resolve only through the authenticated owner mapping.
     gmtm_user_id: Optional[int] = None
     if athlete_id:
         try:
@@ -334,7 +334,7 @@ async def stream_agent(
     session_id: Optional[str] = None,
     fork_scenario: Optional[str] = None,
     conversation_id: Optional[int] = None,
-    caller_clerk_id: Optional[str] = Depends(optional_clerk_id),
+    caller_id: Optional[str] = Depends(optional_identity),
     x_demo_secret: Optional[str] = Header(default=None),
 ):
     """
@@ -342,15 +342,15 @@ async def stream_agent(
     - web_search: Anthropic native tool (web_search_20250305) — server-side, no client handling
     - get_current_athlete: returns the authenticated request's already-loaded profile
 
-    Auth: either a valid Clerk token whose subject matches athlete_id (the athlete
+    Auth: either a valid SPARQ session whose subject matches athlete_id (the athlete
     chatting about their own profile), or the demo path — a request carrying the
     DEMO_PROXY_SECRET (injected by the Next.js /api/demo-chat proxy) which is
     rate-limited by client IP and never loads any real athlete's profile or history.
     """
     is_demo = False
-    if caller_clerk_id:
+    if caller_id:
         # Authenticated user — may only run the agent as themselves.
-        if athlete_id != caller_clerk_id:
+        if athlete_id != caller_id:
             raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     else:
         # No token → public demo path. Require the shared proxy secret + rate limit.
@@ -358,7 +358,7 @@ async def stream_agent(
             raise HTTPException(status_code=401, detail="Authentication required.")
         client_ip = (request.client.host if request.client else "unknown")
         if not rate_limit(f"demo:{client_ip}", max_calls=20, window_seconds=3600):
-            raise HTTPException(status_code=429, detail="Demo limit reached. Sign up to keep going.")
+            raise HTTPException(status_code=429, detail="Demo limit reached. Sign in with GMTM to keep going.")
         is_demo = True
 
     conversation_id = _conversation_id(conversation_id)
@@ -368,12 +368,12 @@ async def stream_agent(
         profile, history = None, []
     else:
         if conversation_id is not None:
-            _require_conversation_owner(caller_clerk_id, conversation_id)
-        history = _load_conversation(caller_clerk_id, conversation_id)
+            _require_conversation_owner(caller_id, conversation_id)
+        history = _load_conversation(caller_id, conversation_id)
         # Persist before returning an SSE response so storage/ownership failures
         # have an ordinary HTTP error and never start paid model work.
-        conversation_id = _save_message(caller_clerk_id, "user", message, conversation_id)
-        profile = _load_athlete_profile(caller_clerk_id)
+        conversation_id = _save_message(caller_id, "user", message, conversation_id)
+        profile = _load_athlete_profile(caller_id)
 
     async def generate():
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -531,19 +531,19 @@ CURRENT ATHLETE PROFILE (use this — do not ask for info you already have):
 
 
 @router.post("/api/agent/chat")
-async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk_id)):
+async def chat_agent(request: dict, caller_id: str = Depends(require_identity)):
     """Non-streaming legacy endpoint."""
     athlete_id = str(request.get("athlete_id", ""))
-    if athlete_id != caller_clerk_id:
+    if athlete_id != caller_id:
         raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     message = request.get("message", "")
     conversation_id = _conversation_id(request.get("conversation_id"))
     if conversation_id is not None:
-        _require_conversation_owner(caller_clerk_id, conversation_id)
-    history = _load_conversation(caller_clerk_id, conversation_id)
-    conversation_id = _save_message(caller_clerk_id, "user", message, conversation_id)
+        _require_conversation_owner(caller_id, conversation_id)
+    history = _load_conversation(caller_id, conversation_id)
+    conversation_id = _save_message(caller_id, "user", message, conversation_id)
 
-    profile = _load_athlete_profile(caller_clerk_id)
+    profile = _load_athlete_profile(caller_id)
     profile_context = f"\n\nAthlete profile:\n{json.dumps(profile, default=str)}\n" if profile else ""
     messages = history + [{"role": "user", "content": message}]
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -588,7 +588,7 @@ async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk
         else:
             break
 
-    _save_message(caller_clerk_id, "assistant", full_text, conversation_id)
+    _save_message(caller_id, "assistant", full_text, conversation_id)
     return {
         "session_id": str(conversation_id),
         "response": full_text,
@@ -600,10 +600,10 @@ async def chat_agent(request: dict, caller_clerk_id: str = Depends(require_clerk
 # ── Session Forking ────────────────────────────────────────────────────────────
 
 @router.post("/api/agent/fork")
-async def fork_session(request: dict, caller_clerk_id: str = Depends(require_clerk_id)):
+async def fork_session(request: dict, caller_id: str = Depends(require_identity)):
     """Copy one owned parent atomically. Schema changes belong in a separate migration."""
     athlete_id = str(request.get("athlete_id", ""))
-    if athlete_id != caller_clerk_id:
+    if athlete_id != caller_id:
         raise HTTPException(status_code=403, detail="Not authorized for this athlete.")
     scenario = str(request.get("scenario", "")).strip()[:500]
     parent_conv_id = _conversation_id(request.get("parent_conversation_id"))
@@ -643,7 +643,7 @@ async def fork_session(request: dict, caller_clerk_id: str = Depends(require_cle
     except Exception as exc:
         if db:
             db.rollback()
-        # Some existing schemas still enforce one conversation per Clerk. Do not
+        # Some existing schemas still enforce one conversation per owner. Do not
         # mask that incompatibility as success or alter schema during a request.
         raise HTTPException(status_code=503, detail="What-If forks are unavailable. Your existing conversation is unchanged.") from exc
     finally:

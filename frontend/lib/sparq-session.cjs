@@ -1,4 +1,4 @@
-// SPARQ session (profile surface, sparq.gmtm.com). No Clerk: GMTM sign-in is the
+// SPARQ session (every surface). GMTM sign-in is the
 // only sign-in (Joey, 2026-10-01). The backend signs an HS256 token
 // {sub, jti, gsh, iat, exp} with SPARQ_SESSION_SECRET; gsh = sha256 hex of the GMTM
 // sessionId the user entered with. Web Crypto only, so Edge middleware, route

@@ -16,12 +16,12 @@ from backend.tests.test_profile_candidate_app import profile_app, session
 from backend.tests.workspace_fixture_store import WorkspaceStore, WorkspaceDB
 
 
-LINK = {"id": 91, "user_id": 7201, "clerk_id": "clerk_owner"}
+LINK = {"id": 91, "user_id": 7201, "clerk_id": "sub_owner"}
 PATHS = (
     ("GET", "/api/athlete/evidence"), ("GET", "/api/athlete/materials"),
     ("POST", "/api/athlete/opportunities"), ("POST", "/api/athlete/opportunities/engagement"),
     ("POST", "/api/athlete/debrief"), ("GET", "/api/athlete/workspace"),
-    ("PATCH", "/api/athlete/workspace"), ("GET", "/api/profile/by-clerk/clerk_owner"),
+    ("PATCH", "/api/athlete/workspace"), ("GET", "/api/profile/by-owner/sub_owner"),
 )
 
 
@@ -62,11 +62,11 @@ def test_all_personal_operations_deny_before_source_work(pilot, session, change)
     assert not admission.is_active()
 
 
-def test_claim_routes_never_open_or_redeem_in_pilot(pilot, session):
+def test_claim_routes_do_not_exist_in_pilot(pilot, session):
     with TestClient(pilot[0]) as client:
         for headers in ({}, session()):
-            assert client.get("/api/claims/synthetic-token", headers=headers).status_code == 403
-            assert client.post("/api/claims/synthetic-token/redeem", headers=headers).status_code == 403
+            assert client.get("/api/claims/synthetic-token", headers=headers).status_code in (401, 403, 404)
+            assert client.post("/api/claims/synthetic-token/redeem", headers=headers).status_code in (401, 403, 404)
 
 
 def test_missing_and_invalid_auth_still_deny_before_admission(pilot, session):
@@ -116,13 +116,13 @@ def test_admitted_workspace_save_reload_revocation_and_context_cleanup(pilot, se
     assert sum(db.commits for db in store.connections) == 1
 
 
-@pytest.mark.parametrize("change", [{"id": 92}, {"user_id": 7202}, {"clerk_id": "Clerk_owner"}])
+@pytest.mark.parametrize("change", [{"id": 92}, {"user_id": 7202}, {"clerk_id": "Sub_owner"}])
 def test_changed_or_recreated_link_denies_all_read_adapters(pilot, session, monkeypatch, change):
     store = WorkspaceStore([{**LINK, **change}])
     for module in (workspace, profile_owner, athlete_evidence, athlete_materials):
         monkeypatch.setattr(module, "_get_agent_db", store.connect)
     with TestClient(pilot[0]) as client:
-        for path in ("/api/athlete/workspace", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-clerk/clerk_owner"):
+        for path in ("/api/athlete/workspace", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-owner/sub_owner"):
             response = client.get(path, headers=session())
             assert response.status_code in (403, 409), (path, response.text)
             assert "7202" not in response.text
@@ -150,8 +150,7 @@ def test_revocation_after_write_before_commit_rolls_back(pilot, session, monkeyp
 
 
 def test_hosted_profile_refuses_disabled_gate(profile_app, monkeypatch):
-    for name in ("ALLOWED_ORIGINS", "CLERK_AUTHORIZED_PARTIES"):
-        monkeypatch.setenv(name, "https://pilot.example.invalid")
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://pilot.example.invalid")
     with pytest.raises(ValueError, match="admission"):
         with TestClient(profile_app):
             pass

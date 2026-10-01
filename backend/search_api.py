@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from datetime import datetime
 
-from auth import require_clerk_id
+from auth import require_identity
 
 # Add agents to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'agents'))
@@ -47,7 +47,7 @@ async def search_athletes(
     graduation_year: Optional[int] = Query(None, description="Graduation year"),
     sport: Optional[str] = Query(None, description="Sport name"),
     limit: int = Query(10, le=50, description="Max results"),
-    caller_clerk_id: str = Depends(require_clerk_id),
+    caller_id: str = Depends(require_identity),
 ):
     """
     Search for athletes with verified SPARQ metrics.

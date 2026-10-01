@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiFetch } from '@/app/_lib/api'
@@ -12,16 +12,16 @@ import ActivityRequirements from './ActivityRequirements'
 const button = 'inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-3 text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 
 export default function CurrentCombineCard({ showProfileNextStep = true }: { showProfileNextStep?: boolean } = {}) {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   const params = useSearchParams()
   const rawEvent = params.get('event_id')
   const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
   if (!isLoaded) return <p role="status">Loading your account…</p>
   if (!user?.id) return null
-  return <CombineSession key={`${user.id}:${rawEvent ?? ''}`} clerkId={user.id} eventId={eventId} invalidEvent={rawEvent !== null && eventId === null} showProfileNextStep={showProfileNextStep} />
+  return <CombineSession key={`${user.id}:${rawEvent ?? ''}`} ownerId={user.id} eventId={eventId} invalidEvent={rawEvent !== null && eventId === null} showProfileNextStep={showProfileNextStep} />
 }
 
-function CombineSession({ clerkId, eventId, invalidEvent, showProfileNextStep }: { clerkId: string; eventId: number | null; invalidEvent: boolean; showProfileNextStep: boolean }) {
+function CombineSession({ ownerId, eventId, invalidEvent, showProfileNextStep }: { ownerId: string; eventId: number | null; invalidEvent: boolean; showProfileNextStep: boolean }) {
   const router = useRouter()
   const [snapshot, setSnapshot] = useState<CurrentCombine | null>(null)
   const [refreshing, setRefreshing] = useState(true)
@@ -49,7 +49,7 @@ function CombineSession({ clerkId, eventId, invalidEvent, showProfileNextStep }:
       if (!res.ok) throw new Error(res.status === 401 ? 'Sign in again to refresh your combine progress.' : 'We could not refresh your combine progress. Try again or check your entry in GMTM.')
       const data = await res.json()
       if (controller.signal.aborted || !mounted.current) return
-      const confirmed = readCurrentCombine(data, clerkId, eventId)
+      const confirmed = readCurrentCombine(data, ownerId, eventId)
       // An invalid URL must show the public choices, even if a saved claim suggests an event.
       setSnapshot(invalidEvent ? { ...confirmed, state: confirmed.athlete_id === null ? 'link_required' : 'choose_event', selected_event: null, activities: [], counts: { activities: 0, submitted: null, fields_present: null } } : confirmed)
     } catch (e) {
@@ -60,7 +60,7 @@ function CombineSession({ clerkId, eventId, invalidEvent, showProfileNextStep }:
         if (mounted.current) setRefreshing(false)
       }
     }
-  }, [clerkId, eventId, invalidEvent])
+  }, [ownerId, eventId, invalidEvent])
 
   useEffect(() => {
     mounted.current = true
@@ -123,7 +123,6 @@ function CombineSession({ clerkId, eventId, invalidEvent, showProfileNextStep }:
         <div className="mt-4 rounded-xl border border-white/15 p-4 text-sm">
           <p>Personal progress is unavailable until your GMTM athlete profile is connected. You can still read each activity’s required fields, ask for help here, and continue in GMTM.</p>
           <p className="mt-2 text-gray-300">Use your organizer’s secure invitation to link a profile.</p>
-          <Link href={event ? `/connect?event_id=${event.event_id}` : '/connect'} className="mt-2 inline-flex min-h-11 items-center font-bold text-sparq-lime underline">Check an existing connection</Link>
         </div>
       )}
       {snapshot && event && (

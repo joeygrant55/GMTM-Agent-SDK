@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { supportedCombineEvent } from '../components/currentCombine'
 
 interface College {
@@ -72,10 +72,10 @@ const TIER_CONFIG: Record<Tier, { label: string; emoji: string; description: str
 }
 
 function CollegesPage() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   if (!isLoaded) return <p role="status" className="p-8 text-gray-400">Loading your account…</p>
   if (!user?.id) return <p className="p-8 text-gray-400">Sign in to see your saved college matches.</p>
-  return <CollegeSession key={user.id} clerkId={user.id} />
+  return <CollegeSession key={user.id} ownerId={user.id} />
 }
 
 interface ResearchRequest {
@@ -84,7 +84,7 @@ interface ResearchRequest {
   deadlineTimer?: ReturnType<typeof setTimeout>
 }
 
-function CollegeSession({ clerkId }: { clerkId: string }) {
+function CollegeSession({ ownerId }: { ownerId: string }) {
   const params = useSearchParams()
   const rawEvent = params.get('event_id')
   const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
@@ -118,7 +118,7 @@ function CollegeSession({ clerkId }: { clerkId: string }) {
     const isCurrentRead = () => !signal.aborted && readGeneration.current === generation
     setLoadError('')
     try {
-      const res = await apiFetch(`${backendUrl}/api/workspace/colleges/${clerkId}`, { signal })
+      const res = await apiFetch(`${backendUrl}/api/workspace/colleges/${ownerId}`, { signal })
       if (!res.ok) throw new Error('Saved matches unavailable')
       const data = await res.json()
       if (!isCurrentRead()) return 'superseded'
@@ -137,7 +137,7 @@ function CollegeSession({ clerkId }: { clerkId: string }) {
     } finally {
       if (isCurrentRead()) setLoading(false)
     }
-  }, [backendUrl, clerkId])
+  }, [backendUrl, ownerId])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -168,7 +168,7 @@ function CollegeSession({ clerkId }: { clerkId: string }) {
     // A hung acceptance request must not leave this page permanently busy.
     active.deadlineTimer = setTimeout(() => finish('', 'We could not confirm whether your research request was accepted. Reload saved matches before making another request.'), 30000)
     try {
-      const res = await apiFetch(`${backendUrl}/api/workspace/trigger-matching/${clerkId}`, { method: 'POST', signal: active.controller.signal })
+      const res = await apiFetch(`${backendUrl}/api/workspace/trigger-matching/${ownerId}`, { method: 'POST', signal: active.controller.signal })
       if (!isCurrent()) return
       if (!res.ok) {
         finish('', res.status === 422
@@ -189,7 +189,7 @@ function CollegeSession({ clerkId }: { clerkId: string }) {
       const poll = async () => {
         if (!isCurrent()) return
         try {
-          const status = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${clerkId}`, { signal: active.controller.signal })
+          const status = await apiFetch(`${backendUrl}/api/workspace/enrichment-status/${ownerId}`, { signal: active.controller.signal })
           if (!isCurrent()) return
           if (!status.ok) throw new Error('Research status unavailable')
           const result = await status.json()

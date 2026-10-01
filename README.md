@@ -9,7 +9,7 @@ Athlete workspace connecting GMTM combine evidence with recruiting assistance. T
 
 - **Frontend:** Next.js 14 (app router) on Vercel — `frontend/`
 - **Backend:** FastAPI + Uvicorn on Railway — `backend/`
-- **Auth:** Clerk (`@clerk/nextjs`)
+- **Auth:** GMTM sign-in only. `/enter` sends the athlete to GMTM; the backend exchanges the one-use code for a 24 h SPARQ session token (HttpOnly cookie bound to the GMTM session). No other sign-in exists. Settings: `.env.example` AUTH section.
 - **LLM:** Claude Sonnet 4.6 via Anthropic SDK with `web_search_20250305` + a no-argument `get_current_athlete` tool bound to the authenticated request's profile. Model-selected SQL and athlete IDs are not accepted.
 - **Databases:**
   - Railway MySQL — `sparq_profiles`, `college_targets`, `agent_conversations`, `agent_messages`, `outreach_log` (read/write)
@@ -28,7 +28,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --env-file /absolute/pat
 # → http://localhost:8000  (docs at /docs)
 ```
 
-Choose isolated Agent/GMTM database and Clerk settings before exercising requests; importing the app does not validate connectivity or prepare schema. Existing legacy request handlers can write Agent data, run matching or send outreach. `/health` reports process/configuration state, not database readiness. A separate focused entry point is `candidate_app:app`; its contract and required settings are documented in the [candidate runbook](docs/state/combine-candidate-runbook-2026-09-08.md). Neither command authorizes production requests.
+Choose isolated Agent/GMTM database and GMTM sign-in (`SPARQ_*`) settings before exercising requests; importing the app does not validate connectivity or prepare schema. Existing legacy request handlers can write Agent data, run matching or send outreach. `/health` reports process/configuration state, not database readiness. A separate focused entry point is `candidate_app:app`; its contract and required settings are documented in the [candidate runbook](docs/state/combine-candidate-runbook-2026-09-08.md). Neither command authorizes production requests.
 
 Schema preparation is a separate explicit operator step. See [Agent schema preparation](docs/state/agent-schema-preparation-2026-09-07.md) for dry-run/apply commands, the required existing conversation baseline and failure behavior. Nothing applies DDL during import or FastAPI startup.
 
@@ -39,12 +39,13 @@ cd frontend
 npm install
 # .env.local:
 #   NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
-#   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+#   NEXT_PUBLIC_GMTM_WEB_URL=https://gmtm.com
+#   SPARQ_ENTRY_SECRET=...   SPARQ_SESSION_SECRET=...   (server-only, same as backend)
 npm run dev
 # → http://localhost:3001
 ```
 
-An explicit `NEXT_PUBLIC_BACKEND_URL` origin is required; missing or invalid configuration fails startup/build. For the focused combine candidate also set `NEXT_PUBLIC_APP_SURFACE=combine` and an explicit Clerk publishable key. The private profile workspace uses `NEXT_PUBLIC_APP_SURFACE=profile` with `profile_candidate_app:app`; see its [runbook and acceptance limits](docs/state/profile-workspace-runbook-2026-09-08.md). The default `legacy` surface retains the broader app. The effective Next 14 configuration is `frontend/next.config.js`; the ignored duplicate TypeScript config has been removed.
+An explicit `NEXT_PUBLIC_BACKEND_URL` origin is required; missing or invalid configuration fails startup/build. For the focused combine candidate also set `NEXT_PUBLIC_APP_SURFACE=combine`. The private profile workspace uses `NEXT_PUBLIC_APP_SURFACE=profile` with `profile_candidate_app:app`; see its [runbook and acceptance limits](docs/state/profile-workspace-runbook-2026-09-08.md). The default `legacy` surface retains the broader app. The effective Next 14 configuration is `frontend/next.config.js`; the ignored duplicate TypeScript config has been removed.
 
 ## Product docs
 

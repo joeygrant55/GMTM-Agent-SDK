@@ -17,7 +17,7 @@ const FREE = {
     'Camp & combine finder',
     '1 saved report',
   ],
-  cta: { label: 'Get started', href: '/onboarding/search' },
+  cta: { label: 'Get started', href: '/enter' },
 }
 
 const PREMIUM = {
@@ -32,7 +32,7 @@ const PREMIUM = {
     'Unlimited saved reports',
     'Priority research queue',
   ],
-  cta: { label: 'Start free trial', href: '/onboarding/search' },
+  cta: { label: 'Start free trial', href: '/enter' },
 }
 
 export function Pricing() {

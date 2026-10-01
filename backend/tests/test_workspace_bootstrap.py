@@ -1,8 +1,8 @@
-"""Creation-only onboarding and synthetic claim/submission-return acceptance.
+"""Creation-only onboarding and synthetic entry-link/submission-return acceptance.
 
-The real bootstrap, identity projection, claim handler, and registered combine
+The real bootstrap, identity projection, and registered combine
 routes run against explicit fake interfaces. This is not MySQL transaction,
-Clerk login, or a real GMTM submission test. Fixture submission updates below
+GMTM login, or a real GMTM submission test. Fixture submission updates below
 represent a saved source observation; no platform write endpoint is invoked.
 """
 
@@ -14,14 +14,12 @@ from fastapi.testclient import TestClient
 import pytest
 
 import anthropic
-import claims_api
 import combine_api
 import main
 import openai
 import profile_api
 import workspace_bootstrap
-from auth import require_clerk_id
-from backend.tests.test_claims import _FakeDB as ClaimDB
+from auth import require_identity
 from backend.tests.test_combine_requirements import (
     ATHLETE, CALLER, PUBLIC, FakeDB as CombineDB, definition_rows, submission_for,
 )
@@ -234,7 +232,7 @@ def test_existing_workspace_returns_without_gmtm_or_model_work(bootstrap):
     {"id": 88, "clerk_id": None},
 ])
 def test_unconfirmed_existing_owner_fails_before_gmtm_or_writes(bootstrap, row):
-    # A legacy case-insensitive lookup can return a different Clerk subject.
+    # A legacy case-insensitive lookup can return a different owner subject.
     bootstrap["workspaces"][CALLER] = deepcopy(row)
     with pytest.raises(ValueError, match="Workspace ownership could not be confirmed"):
         workspace_bootstrap.ensure_workspace_profile(CALLER, ATHLETE)
@@ -303,13 +301,8 @@ def test_write_failure_closes_connections_without_research(bootstrap, failure):
 
 @pytest.fixture
 def journey(bootstrap, monkeypatch):
-    claims = {"claims": {}, "athlete_profiles": {}, "users": {ATHLETE}, "open_writes": 0,
-              "connections": [], "named_locks": {}, "row_locks": {}, "failures": {},
-              "mutex": threading.RLock()}
-    monkeypatch.setattr(claims_api, "_get_agent_db", lambda: ClaimDB(claims))
-    monkeypatch.setattr(claims_api, "_get_gmtm_db", lambda: ClaimDB(claims))
-    # Use the real helper, not test_claims' fake ready=True bootstrap.
-    monkeypatch.setattr(claims_api, "ensure_workspace_profile", workspace_bootstrap.ensure_workspace_profile)
+    # GMTM entry (junior_entry._exchange) links the athlete, then runs the real bootstrap.
+    claims = {"claims": {}, "athlete_profiles": {}, "connections": [], "named_locks": {}, "row_locks": {}}
     source = {"profiles": [], "claims": [], "events": [deepcopy(item["event"]) for item in PUBLIC["events"]],
               "tasks": definition_rows(1317) + definition_rows(1318), "submissions": [],
               "queries": [], "connections": []}
@@ -325,35 +318,18 @@ def journey(bootstrap, monkeypatch):
     monkeypatch.setattr(combine_api, "_get_agent_db", lambda: combine_connection("agent"))
     monkeypatch.setattr(combine_api, "_get_gmtm_db", lambda: combine_connection("gmtm"))
     identity = {"clerk_id": CALLER}
-    monkeypatch.setitem(main.app.dependency_overrides, require_clerk_id, lambda: identity["clerk_id"])
+    monkeypatch.setitem(main.app.dependency_overrides, require_identity, lambda: identity["clerk_id"])
     with TestClient(main.app) as client:
         yield client, claims, source, identity
     assert all(db.closed for db in claims["connections"] + source["connections"])
     assert claims["named_locks"] == claims["row_locks"] == {}
 
 
-def _mint_adult(client):
-    response = client.post("/api/claims/mint", headers={"X-Claims-Admin": "test-admin-secret"},
-                           json={"user_ids": [ATHLETE], "event_id": 1318})
-    assert response.status_code == 200, response.text
-    return response.json()[0]["token"]
-
-
-def _redeem(client, token):
-    response = client.post(f"/api/claims/{token}/redeem")
-    assert response.status_code == 200, response.text
-    return response.json()
-
-
-def test_actual_claim_creates_workspace_then_reports_saved_fixture_submission(journey, bootstrap):
+def test_gmtm_entry_link_creates_workspace_then_reports_saved_fixture_submission(journey, bootstrap):
     client, claims, source, _ = journey
-    token = _mint_adult(client)
-    assert _redeem(client, token) == {
-        "connected": True, "user_id": ATHLETE, "event_id": 1318, "clerk_id": CALLER,
-        "workspace_ready": True, "workspace_created": True,
-    }
-    assert claims["athlete_profiles"] == {ATHLETE: CALLER}
-    first = client.get("/api/combine/current")
+    claims["athlete_profiles"][ATHLETE] = CALLER
+    assert workspace_bootstrap.ensure_workspace_profile(CALLER, ATHLETE)["created"] is True
+    first = client.get("/api/combine/current?event_id=1318")
     assert first.status_code == 200 and first.headers["Cache-Control"] == "private, no-store"
     first = first.json()
     assert first["clerk_id"] == CALLER and first["athlete_id"] == ATHLETE
@@ -378,31 +354,6 @@ def test_actual_claim_creates_workspace_then_reports_saved_fixture_submission(jo
     submitted = [item for item in refreshed["activities"] if item["submission_state"] == "submitted"]
     assert len(submitted) == 1 and submitted[0]["task_id"] == adult["task_id"]
     assert submitted[0]["evidence_state"] == "fields_present"
-    assert _redeem(client, token)["workspace_created"] is False
+    assert workspace_bootstrap.ensure_workspace_profile(CALLER, ATHLETE)["created"] is False
     assert len(bootstrap["workspaces"]) == bootstrap["commits"] == 1
     assert all(sql.startswith("SELECT ") for _, sql, _ in source["queries"])
-
-
-@pytest.mark.parametrize("failure", ["insert", "commit"])
-def test_failed_bootstrap_keeps_successful_claim_retryable(journey, bootstrap, failure):
-    client, claims, _, identity = journey
-    token = _mint_adult(client)
-    bootstrap["failure"] = failure
-    first = _redeem(client, token)
-    assert first == {"connected": True, "user_id": ATHLETE, "event_id": 1318, "clerk_id": CALLER,
-                     "workspace_ready": False, "workspace_created": False}
-    assert claims["athlete_profiles"] == {ATHLETE: CALLER} and bootstrap["workspaces"] == {}
-    claim = deepcopy(claims["claims"][claims_api.token_hash(token)])
-    assert claim["clerk_id"] == CALLER and claim["claimed_at"] is not None
-    assert claim["event_id"] == 1318
-
-    bootstrap["failure"] = None
-    retry = _redeem(client, token)
-    assert retry == {**first, "workspace_ready": True, "workspace_created": True}
-    assert claims["claims"][claims_api.token_hash(token)] == claim
-    assert _redeem(client, token) == {**retry, "workspace_created": False}
-    assert len(bootstrap["workspaces"]) == bootstrap["commits"] == 1
-    identity["clerk_id"] = "a-different-synthetic-owner"
-    assert client.post(f"/api/claims/{token}/redeem").status_code == 409
-    assert claims["athlete_profiles"] == {ATHLETE: CALLER}
-    assert claims["claims"][claims_api.token_hash(token)] == claim

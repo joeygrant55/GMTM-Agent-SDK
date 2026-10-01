@@ -1,7 +1,7 @@
 """
 Bootstrap a workspace (`sparq_profiles`) row for a GMTM-linked athlete.
 
-Claim redemption can prepare a workspace from GMTM identity and metric data after
+GMTM entry (junior_entry) prepares a workspace from GMTM identity and metric data after
 establishing the athlete link. This helper only creates the missing workspace;
 it never starts college matching, research, or provider work. Combine entry and
 progress remain available independently of this optional preparation.
@@ -69,12 +69,12 @@ def _num(v) -> Optional[float]:
 
 
 def ensure_workspace_profile(clerk_id: str, user_id: int) -> dict:
-    """Create the sparq_profiles row for this Clerk user from their GMTM record if missing.
+    """Create the sparq_profiles row for this signed-in user from their GMTM record if missing.
     Returns {"ready": bool, "created": bool, "profile_id": int|None}."""
     from profile_api import _get_agent_db, _get_gmtm_db  # lazy
 
     def owned_profile_id(row):
-        # Older SQL collations may match a different case-sensitive Clerk subject.
+        # Older SQL collations may match a different case-sensitive owner subject.
         profile_id = row.get("id") if isinstance(row, dict) else None
         if (type(profile_id) is not int or profile_id <= 0
                 or row.get("clerk_id") != clerk_id):

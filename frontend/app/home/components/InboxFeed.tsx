@@ -2,7 +2,7 @@
 
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
 import { useEffect, useRef, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import Link from 'next/link'
 import ArtifactCard from './ArtifactCard'
 import { Artifact } from './artifactStatus'
@@ -10,10 +10,10 @@ import AthleteStartingPoint, { AthleteHomeProfile } from './AthleteStartingPoint
 import CurrentCombineCard from './CurrentCombineCard'
 
 export default function InboxFeed() {
-  const { user, isLoaded } = useUser()
-  const clerkId = user?.id
-  const activeClerkId = useRef(clerkId)
-  activeClerkId.current = clerkId
+  const { user, isLoaded } = useSparqSession()
+  const subject = user?.id
+  const activeSubject = useRef(subject)
+  activeSubject.current = subject
   const [ownerId, setOwnerId] = useState<string>()
   const [profile, setProfile] = useState<AthleteHomeProfile | null>(null)
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
@@ -25,9 +25,9 @@ export default function InboxFeed() {
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
-    if (!isLoaded || !clerkId) return
+    if (!isLoaded || !subject) return
     const controller = new AbortController()
-    setOwnerId(clerkId)
+    setOwnerId(subject)
     setLoading(true)
     setProfile(null)
     setArtifacts([])
@@ -42,59 +42,59 @@ export default function InboxFeed() {
     }
     // Independent reads: an inbox failure must not hide the athlete's results.
     Promise.allSettled([
-      read(`/api/workspace/profile/${clerkId}`),
-      read(`/api/workspace/inbox/${clerkId}`),
+      read(`/api/workspace/profile/${subject}`),
+      read(`/api/workspace/inbox/${subject}`),
     ]).then(([profileResult, inboxResult]) => {
       if (controller.signal.aborted) return
-      if (profileResult.status === 'fulfilled' && profileResult.value?.clerk_id === clerkId) {
+      if (profileResult.status === 'fulfilled' && profileResult.value?.clerk_id === subject) {
         setProfile(profileResult.value)
       } else {
         setProfileError(true)
       }
       if (inboxResult.status === 'fulfilled' && Array.isArray(inboxResult.value?.artifacts)) {
-        setArtifacts(inboxResult.value.artifacts.filter((a: Artifact) => a?.clerk_id === clerkId))
+        setArtifacts(inboxResult.value.artifacts.filter((a: Artifact) => a?.clerk_id === subject))
       } else {
         setInboxError(true)
       }
       setLoading(false)
     })
     return () => controller.abort()
-  }, [clerkId, isLoaded, reload])
+  }, [subject, isLoaded, reload])
 
   const act = async (id: number, kind: 'approve' | 'discard') => {
-    if (!clerkId || pendingId !== null) return
-    const actionOwner = clerkId
+    if (!subject || pendingId !== null) return
+    const actionOwner = subject
     setPendingId(id)
     setActionError('')
     try {
       const res = await apiFetch(`${BACKEND_URL}/api/artifacts/${id}/${kind}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ performed_by: clerkId }),
+        body: JSON.stringify({ performed_by: subject }),
       })
       if (!res.ok) throw new Error(`Action failed: ${res.status}`)
       const result = await res.json()
       if (!result.ok || result.state !== (kind === 'approve' ? 'approved' : 'rejected')) {
         throw new Error('Action outcome was not confirmed')
       }
-      if (activeClerkId.current === actionOwner) setArtifacts(prev => prev.filter(a => a.id !== id))
+      if (activeSubject.current === actionOwner) setArtifacts(prev => prev.filter(a => a.id !== id))
     } catch {
-      if (activeClerkId.current === actionOwner) {
+      if (activeSubject.current === actionOwner) {
         setActionError('We could not confirm that action. Open the item to check its status before trying again.')
       }
     } finally {
-      if (activeClerkId.current === actionOwner) setPendingId(null)
+      if (activeSubject.current === actionOwner) setPendingId(null)
     }
   }
 
-  if (isLoaded && !clerkId) return <p className="p-6 text-gray-300">Sign in to see your athlete workspace.</p>
-  const busy = !isLoaded || loading || ownerId !== clerkId
+  if (isLoaded && !subject) return <p className="p-6 text-gray-300">Sign in to see your athlete workspace.</p>
+  const busy = !isLoaded || loading || ownerId !== subject
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 text-white sm:px-8 space-y-7">
       <header>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-sparq-lime">Your SPARQ workspace</p>
-        <h1 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight">Your next move{user?.firstName ? `, ${user.firstName}` : ''}.</h1>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-black tracking-tight">Your next move.</h1>
         <p className="mt-3 max-w-xl text-gray-400">Continue your combine, keep your evidence together, and build your next step.</p>
       </header>
       {/* Combine context loads independently of profile bootstrap and saved AI work. */}

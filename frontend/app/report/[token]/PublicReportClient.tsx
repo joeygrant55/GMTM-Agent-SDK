@@ -123,7 +123,7 @@ export default function PublicReportClient({ token }: { token: string }) {
             </button>
 
             <Link
-              href="/sign-up"
+              href="/enter"
               className="px-4 py-1.5 bg-sparq-lime text-sparq-charcoal font-bold text-sm rounded-lg hover:bg-sparq-lime-dark transition-all"
             >
               Get My Report →
@@ -184,7 +184,7 @@ export default function PublicReportClient({ token }: { token: string }) {
               College recruiters charge $5,000+ for this level of analysis. SPARQ does it instantly, for free.
             </p>
             <Link
-              href="/sign-up"
+              href="/enter"
               className="inline-flex items-center gap-2 px-8 py-4 bg-sparq-lime text-sparq-charcoal text-base font-black rounded-xl hover:bg-sparq-lime-dark transition-all hover:scale-105 shadow-lg shadow-sparq-lime/20"
             >
               Generate My Report →

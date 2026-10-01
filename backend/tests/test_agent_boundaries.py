@@ -147,8 +147,8 @@ def client(monkeypatch):
         store["connections"].append(db)
         return db
 
-    def profile_factory(clerk):
-        store["profile_calls"].append(clerk)
+    def profile_factory(subject):
+        store["profile_calls"].append(subject)
         return {"name": "Synthetic Alpha", "source": "sparq_profile", "combine_results": []}
 
     def model_factory(**_):
@@ -167,9 +167,9 @@ def client(monkeypatch):
     monkeypatch.setattr(agent_api, "rate_limit", lambda *_a, **_k: True)
     app = FastAPI()
     app.include_router(agent_api.router)
-    identity = {"clerk": "user_alpha"}
-    app.dependency_overrides[agent_api.require_clerk_id] = lambda: identity["clerk"]
-    app.dependency_overrides[agent_api.optional_clerk_id] = lambda: identity["clerk"]
+    identity = {"subject": "user_alpha"}
+    app.dependency_overrides[agent_api.require_identity] = lambda: identity["subject"]
+    app.dependency_overrides[agent_api.optional_identity] = lambda: identity["subject"]
     with TestClient(app) as tc:
         tc.store, tc.identity = store, identity
         yield tc
@@ -307,7 +307,7 @@ def test_old_sql_tool_call_gets_error_without_database_execution(client):
 
 
 def test_demo_never_loads_database_profile_or_history_even_with_numeric_athlete_id(client):
-    client.identity["clerk"] = None
+    client.identity["subject"] = None
     client.store["responses"] = [tool_response(), text_response()]
     before = copy.deepcopy(client.store["messages"])
     res = client.get("/api/agent/stream", params={"athlete_id": "2", "message": "Tell me about this athlete"}, headers={"X-Demo-Secret": "isolated-demo-secret"})
@@ -322,7 +322,7 @@ def test_demo_never_loads_database_profile_or_history_even_with_numeric_athlete_
 
 
 def test_demo_rejects_saved_conversation_without_data_or_model_work(client):
-    client.identity["clerk"] = None
+    client.identity["subject"] = None
     res = client.get("/api/agent/stream", params={"athlete_id": "demo-test", "message": "Hi", "conversation_id": 1}, headers={"X-Demo-Secret": "isolated-demo-secret"})
     assert res.status_code == 400
     assert client.store["queries"] == []
@@ -381,10 +381,10 @@ def test_conversation_storage_failure_stops_before_profile_and_model(client, mon
 def test_assistant_save_failure_emits_stream_error_not_success(client, monkeypatch):
     original_save = agent_api._save_message
 
-    def save(clerk, role, content, conversation_id=None):
+    def save(subject, role, content, conversation_id=None):
         if role == "assistant":
             raise HTTPException(status_code=503, detail="Your reply could not be saved.")
-        return original_save(clerk, role, content, conversation_id)
+        return original_save(subject, role, content, conversation_id)
 
     monkeypatch.setattr(agent_api, "_save_message", save)
     res = stream_request(client, 1)
@@ -414,10 +414,10 @@ def test_provider_failure_after_text_emits_generic_error_not_done(client, monkey
 def test_ownership_change_during_generation_rejects_assistant_write(client, monkeypatch):
     original_save = agent_api._save_message
 
-    def save(clerk, role, content, conversation_id=None):
+    def save(subject, role, content, conversation_id=None):
         if role == "assistant":
             client.store["conversations"][conversation_id]["clerk_id"] = "user_beta"
-        return original_save(clerk, role, content, conversation_id)
+        return original_save(subject, role, content, conversation_id)
 
     monkeypatch.setattr(agent_api, "_save_message", save)
     res = stream_request(client, 1)
@@ -427,7 +427,7 @@ def test_ownership_change_during_generation_rejects_assistant_write(client, monk
     assert client.store["messages"][-1]["role"] == "user"
 
 
-def test_numeric_athlete_identity_does_not_bypass_clerk_mapping(monkeypatch):
+def test_numeric_athlete_identity_does_not_bypass_owner_mapping(monkeypatch):
     queries, gmtm_calls = [], []
 
     class EmptyAgentDB:

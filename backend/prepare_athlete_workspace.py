@@ -82,7 +82,7 @@ def _prerequisite(cursor, database):
         if nullable != "NO" or not isinstance(kind, str) or not re.fullmatch(r"(?:int|bigint)(?:\([0-9]+\))?(?: unsigned)?", kind):
             raise _guard("existing_athlete_link_identity_types_required")
     # The live legacy link table uses nullable VARCHAR(100); NULL means no
-    # current owner. Runtime resolution still requires one exact non-null Clerk
+    # current owner. Runtime resolution still requires one exact non-null owner
     # subject in both directions before reading or writing any workspace.
     if columns["clerk_id"] not in {(f"varchar({width})", nullable) for width in (100, 255) for nullable in ("YES", "NO")}:
         raise _guard("existing_athlete_link_subject_type_required")

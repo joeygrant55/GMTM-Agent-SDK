@@ -14,7 +14,7 @@ import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from auth import require_clerk_id
+from auth import require_identity
 from combine_api import _get_agent_db, _get_gmtm_db
 from profile_owner import linked_profile_athlete as _linked_athlete
 from source_scope import owner_scope
@@ -246,7 +246,7 @@ def _response(state, *, athlete=None, evidence=None, observations=None, limitati
 
 
 @router.get("/evidence")
-def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(require_clerk_id)):
+def current_athlete_evidence(request: Request, caller_id: str = Depends(require_identity)):
     """Derive ownership on the server; user/event selectors are not supported."""
     if request.query_params:
         return JSONResponse({"detail": "This endpoint does not accept query parameters."},
@@ -255,12 +255,12 @@ def current_athlete_evidence(request: Request, caller_clerk_id: str = Depends(re
     try:
         agent = _get_agent_db()
         try:
-            athlete_id = _linked_athlete(agent, caller_clerk_id)
+            athlete_id = _linked_athlete(agent, caller_id)
         finally:
             agent.close()
         if athlete_id is None:
             return _response("unlinked", limitations=["Connect your GMTM athlete profile to view its recorded evidence."])
-        scope = owner_scope(caller_clerk_id, athlete_id)
+        scope = owner_scope(caller_id, athlete_id)
         source = _get_gmtm_db()
         try:
             athlete = _identity(source, athlete_id)

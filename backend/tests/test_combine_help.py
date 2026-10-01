@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from auth import require_clerk_id
+from auth import require_identity
 import combine_help_api as help_api
 from model_usage import get_usage_snapshot
 from combine_context import (
@@ -22,7 +22,7 @@ from combine_context import (
 from combine_requirements import parse_activities, project_activity
 
 
-CALLER = "clerk_current_owner"
+CALLER = "sub_current_owner"
 EVENT = 1317
 PUBLIC = json.loads((Path(__file__).parent / "fixtures/usaf_2027_combine2_public.json").read_text())
 
@@ -129,7 +129,7 @@ def client(monkeypatch):
     monkeypatch.setattr(help_api, "_new_client", new_client)
     app = FastAPI()
     app.include_router(help_api.router)
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as http:
         http.store = store
         http.app_under_test = app

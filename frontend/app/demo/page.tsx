@@ -224,7 +224,7 @@ export default function DemoPage() {
                 <p className="text-sparq-lime font-semibold">You&apos;ve used your 3 free questions.</p>
                 <p className="text-sm text-gray-200 mt-1">Create your profile to get answers personalized to YOUR stats and matches.</p>
                 <Link
-                  href="/onboarding/search"
+                  href="/enter"
                   className="inline-flex mt-3 bg-sparq-lime text-sparq-charcoal px-4 py-2 rounded-lg font-black"
                 >
                   Get Started Free →

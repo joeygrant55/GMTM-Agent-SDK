@@ -1,5 +1,29 @@
-"""In-memory stand-in for junior_entry.MySQLStore (offline suite only)."""
+"""In-memory stand-in for junior_entry.MySQLStore and SPARQ session minting (offline suite only)."""
+from datetime import datetime, timezone
+import hashlib
+import secrets
+import time
+
+import jwt
+
+import junior_entry
 from junior_entry import LinkConflict
+
+SESSION_SECRET = "synthetic-sparq-session-secret-32-bytes!"
+GSH = hashlib.sha256(b"synthetic-gmtm-session").hexdigest()
+ENTRY_ENV = {"SPARQ_ENTRY_SECRET": "synthetic-entry-secret", "SPARQ_HANDOFF_SECRET": "synthetic-handoff",
+             "GMTM_API_URL": "https://gmtm-api.example.invalid", "SPARQ_SESSION_SECRET": SESSION_SECRET}
+
+
+def mint_session(sub="sub_owner", *, active=True, secret=SESSION_SECRET, aud="profile", **claims):
+    """SPARQ session headers. ``active`` makes the jti the current one for ``sub`` in
+    junior_entry.store. Claim overrides replace token claims; None removes one."""
+    now = int(time.time())
+    body = {"sub": sub, "jti": secrets.token_urlsafe(32), "gsh": GSH, "aud": aud, "iat": now, "exp": now + 86400, **claims}
+    body = {k: v for k, v in body.items() if v is not None}
+    if active:
+        junior_entry.store.set_session(sub, body.get("jti"), datetime.now(timezone.utc))
+    return {"Authorization": "Bearer " + jwt.encode(body, secret, algorithm="HS256")}
 
 
 class MemoryStore:
@@ -34,7 +58,7 @@ class MemoryStore:
         if self.sessions.get(clerk_id) == jti:
             del self.sessions[clerk_id]
 
-    def linked_clerk_id(self, user_id):
+    def linked_owner_id(self, user_id):
         return self.links.get(user_id)
 
     def ensure_link(self, clerk_id, user_id):

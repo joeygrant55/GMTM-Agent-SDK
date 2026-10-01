@@ -53,10 +53,10 @@ function validEvent(event: CombineEvent): boolean {
 }
 
 // Treat malformed or foreign-account snapshots as failed reads, never as empty progress.
-export function readCurrentCombine(value: unknown, clerkId: string, eventId: number | null): CurrentCombine {
+export function readCurrentCombine(value: unknown, ownerId: string, eventId: number | null): CurrentCombine {
   const data = value as CurrentCombine
   const count = (v: unknown) => Number.isSafeInteger(v) && Number(v) >= 0
-  if (!data || data.schema_version !== 1 || data.clerk_id !== clerkId
+  if (!data || data.schema_version !== 1 || data.clerk_id !== ownerId
     || !['ready', 'choose_event', 'link_required'].includes(data.state)
     || !(data.athlete_id === null || (count(data.athlete_id) && data.athlete_id > 0))
     || !Array.isArray(data.events) || !data.events.every(validEvent)

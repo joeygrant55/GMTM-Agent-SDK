@@ -229,7 +229,7 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
     clerk_id VARBINARY(255) NOT NULL,
     user_id BIGINT NOT NULL,
     entered_at DATETIME(6) NOT NULL,
-    KEY idx_entries_clerk (clerk_id, entered_at)
+    KEY idx_entries_owner (clerk_id, entered_at)
 )""",
         False,
     ),
@@ -361,7 +361,7 @@ def _check_conversations(cursor, database: str) -> None:
         if isinstance(row, dict) and row.get("non_unique") == 0:
             indexes[row.get("index_name")].append(row.get("column_name"))
     if any(columns == ["clerk_id"] for columns in indexes.values()):
-        raise _guard("unique_conversation_clerk_index_incompatible_with_forks")
+        raise _guard("unique_conversation_owner_index_incompatible_with_forks")
 
 
 def prepare_schema(*, environ: Mapping[str, str], expected_host: str,
@@ -417,7 +417,7 @@ def prepare_schema(*, environ: Mapping[str, str], expected_host: str,
         raise PreparationError({**failure, **report}) from None
     return {
         "status": "preparation_applied", "conversation_prerequisites": "passed",
-        "limitation": "Required conversation table/column names and Clerk-only uniqueness were checked; existing column definitions and other constraints remain unverified.",
+        "limitation": "Required conversation table/column names and owner-only uniqueness were checked; existing column definitions and other constraints remain unverified.",
         **report,
     }
 
@@ -426,7 +426,7 @@ def plan() -> dict[str, Any]:
     """Safe default: list the fixed operations without reading environment values."""
     return {
         "status": "dry_run", "connected": False, "ddl_is_atomic": False,
-        "prerequisite": "Existing conversation table/columns without a unique Clerk-only index; checked only on apply.",
+        "prerequisite": "Existing conversation table/columns without a unique owner-only index; checked only on apply.",
         "statements": [name for name, _, _ in STATEMENTS],
         "limitation": "Preparation for an existing Agent installation, not a fresh database migration or full schema validation.",
     }

@@ -30,9 +30,7 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}(?:\/[a-z0-9-]{1,80})?$/.test(pathname)) return method === 'GET'
   if (surface === 'profile' && /^\/api\/workspace\/trigger-matching\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'POST'
   if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}\/outreach-draft$/.test(pathname)) return method === 'GET' || method === 'POST'
-  if (/^\/api\/profile\/by-clerk\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
-  if (/^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?\/redeem$/.test(pathname)) return method === 'POST'
-  return /^\/api\/claims\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?$/.test(pathname) && pathname !== '/api/claims/mint' && method === 'GET'
+  return /^\/api\/profile\/by-owner\/[A-Za-z0-9_-]{1,256}$/.test(pathname) && method === 'GET'
 }
 function resolveAPIRequest(input, origin, surface, method = 'GET') {
   if (typeof input !== 'string' || !input || /[\\\s]/.test(input) || /%(?:2e|2f|5c)/i.test(input) || /(?:^|\/)\.\.?(?:\/|$)/.test(input)) throw new Error('Invalid backend request URL')
@@ -43,28 +41,25 @@ function resolveAPIRequest(input, origin, surface, method = 'GET') {
   return url.href
 }
 function candidatePagePolicy(pathname, method, surface = 'combine') {
-  // Profile same-origin SPARQ routes: session read, sign-out and the backend proxy.
+  // Same-origin SPARQ routes: session read, sign-out and the backend proxy.
   // Each handler checks its own method, session and (proxy) candidateAPIAllowed.
-  if (surface === 'profile' && /^\/api\/sparq\/(?:session|sign-out|proxy\/[^?#]*)$/.test(pathname)) return 'api'
+  if (/^\/api\/sparq\/(?:session|sign-out|proxy\/[^?#]*)$/.test(pathname)) return 'api'
   // No generic filename exemption: dynamic legacy paths can have static suffixes.
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) return 'deny'
   if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico'].includes(pathname)) return 'asset'
   if (pathname === '/') return 'home'
-  // Profile has no Clerk: GMTM is the only sign-in, so no sign-in/up or connect pages.
-  if (surface === 'profile' && /^\/(?:sign-(?:in|up)|connect)(?:\/|$)/.test(pathname)) return 'deny'
-  if (['/home', '/home/inbox', '/connect'].includes(pathname)) return 'page'
-  // GMTM entry bridge exists only on the profile surface, which has no self sign-up.
-  if (surface === 'profile' && /^\/enter(?:\/(?:callback|unavailable))?$/.test(pathname)) return 'page'
+  if (['/home', '/home/inbox'].includes(pathname)) return 'page'
+  // GMTM entry bridge: GMTM is the only sign-in (no self sign-up) on every surface.
+  if (/^\/enter(?:\/(?:callback|unavailable))?$/.test(pathname)) return 'page'
   if (surface === 'profile' && /^\/home\/colleges(?:\/[a-z0-9-]{1,80})?$/.test(pathname)) return 'page'
-  if (/^\/sign-(?:in|up)(?:\/[A-Za-z0-9_-]+)*$/.test(pathname)) return 'page'
-  if (/^\/claim\/[A-Za-z0-9_-]{1,384}(?:\.[A-Za-z0-9_-]{1,128})?(?:\/redeem)?$/.test(pathname)) return 'page'
   return 'deny'
 }
-// Profile surface (sparq.gmtm.com) CSP: GMTM's .gmtm.com sessionId cookie is
-// script-readable, so scripts run only with the per-request nonce. No Clerk hosts:
-// the profile surface has no Clerk, and the browser talks only to its own origin
-// (the /api/sparq proxy). Styles keep 'unsafe-inline' (Next inline styles).
-function profileContentSecurityPolicy({ nonce, dev = false }) {
+// CSP for every surface: GMTM's .gmtm.com sessionId cookie is script-readable, so
+// scripts run only with the per-request nonce. No third-party sign-in hosts: the
+// browser talks to its own origin (the /api/sparq proxy) plus, on the legacy
+// surface only, `connect` (the backend origin its public pages read directly).
+// Styles keep 'unsafe-inline' (Next inline styles).
+function profileContentSecurityPolicy({ nonce, dev = false, connect = '' }) {
   if (!/^[A-Za-z0-9+/=_-]{16,}$/.test(nonce || '')) throw new Error('A random CSP nonce is required')
   return [
     "default-src 'self'",
@@ -73,7 +68,7 @@ function profileContentSecurityPolicy({ nonce, dev = false }) {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
-    "connect-src 'self'",
+    `connect-src 'self'${connect ? ' ' + resolveBackendOrigin(connect) : ''}`,
     "frame-src 'none'",
     "worker-src 'self' blob:",
     "object-src 'none'",

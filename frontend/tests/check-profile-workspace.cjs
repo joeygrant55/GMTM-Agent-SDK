@@ -81,7 +81,7 @@ async function cleanupBrowser() {
 const ts = require(path.join(deps, 'typescript'));
 const { chromium } = require(playwrightPath);
 const sourceHashes = {};
-const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/AthleteOpportunities.tsx', 'app/home/components/opportunityEvidence.ts', 'app/home/components/opportunityEngagement.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/ProfileColleges.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
+const files = ['app/home/components/ProfileWorkspace.tsx', 'app/home/components/ProfileWorkspaceShell.tsx', 'app/home/components/ParentNoticeGate.tsx', 'app/home/components/AthleteShowcase.tsx', 'app/home/components/AthleteCareerHome.tsx', 'app/home/components/careerWorkspace.ts', 'app/home/components/AthleteDebriefPanel.tsx', 'app/home/components/athleteDebrief.ts', 'app/home/components/AthleteOpportunities.tsx', 'app/home/components/opportunityEvidence.ts', 'app/home/components/opportunityEngagement.ts', 'app/home/components/profileEvidence.ts', 'app/home/components/ProfileMaterialsPanel.tsx', 'app/home/components/ProfileColleges.tsx', 'app/home/components/profileMaterials.ts', 'app/_lib/api.ts', 'components/SparqLogo.tsx', 'lib/backend-config.cjs'];
 let bundle = "const process={env:{NODE_ENV:'development',NEXT_PUBLIC_APP_SURFACE:'profile',NEXT_PUBLIC_BACKEND_URL:'http://127.0.0.1:4321'}};const modules={},cache={};\n";
 for (const file of files) {
   const source = fs.readFileSync(path.join(frontend, file), 'utf8');
@@ -93,7 +93,7 @@ bundle += `
 window.__identity={isLoaded:true,user:{id:'athlete-a'}};window.__listeners=new Set();
 window.__setIdentity=value=>{window.__identity=value;window.__listeners.forEach(fn=>fn())};
 const useUser=()=>React.useSyncExternalStore(fn=>{window.__listeners.add(fn);return()=>window.__listeners.delete(fn)},()=>window.__identity);
-window.Clerk={session:{getToken:async()=>window.__identity.user?'fixture-'+window.__identity.user.id:null}};
+
 window.__requests=[];window.__sourceRequests=()=>window.__requests.filter(r=>r.path!=='/api/athlete/workspace');window.__pending=[];window.__mode={};window.__materialsMode={};window.__workspaceMode=null;window.__workspaceStore={};window.__workspaceRevision='a'.repeat(64);window.__debriefMode={status:503,body:{detail:'Fixture disabled'}};window.__opportunityMode={status:503,body:{detail:'Fixture opportunity search not configured'}};window.__clipboard=[];window.__clipboardMode='success';window.__copyPending=[];
 window.__engagementMode={status:200,body:{state:'recorded'}};window.__setEngagementFlag=value=>{process.env.NEXT_PUBLIC_OPPORTUNITY_ENGAGEMENT_ENABLED=value};
 window.__visibility='visible';Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>window.__visibility});
@@ -118,9 +118,10 @@ window.__advance=async ms=>{const end=window.__now+ms;for(const[id,t]of [...wind
 function reply(mode={},request){if(mode.reject)throw Error('Fixture network failure');const response=new Response(mode.badJSON?'malformed-json':JSON.stringify(mode.body),{status:mode.status||200,headers:{'content-type':'application/json'}});if(mode.bodyPending)response.json=()=>new Promise(resolve=>window.__pending.push({stage:'body',resolve,request}));return response}
 window.__emptyWorkspace=()=>({state:'ready',owner_scope:window.__identity.user?.id==='athlete-b'?'c'.repeat(64):'b'.repeat(64),link_revision:window.__identity.user?.id==='athlete-b'?'b'.repeat(64):window.__workspaceRevision,version:0,goal:null,featured_source_id:null,draft:null,recent_work:[],updated_at:null});
 window.fetch=async(input,init={})=>{
- const u=new URL(String(input),location.origin),isDebrief=u.pathname==='/api/athlete/debrief',isOpportunity=u.pathname==='/api/athlete/opportunities',isEngagement=u.pathname==='/api/athlete/opportunities/engagement',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
+ let __u=new URL(String(input),location.origin);const __proxied=__u.pathname.startsWith('/api/sparq/proxy/');const __auth=__proxied?(window.__identity.user?'Bearer fixture-'+window.__identity.user.id:null):new Headers(init.headers).get('Authorization');if(__proxied)__u=new URL(__u.pathname.slice('/api/sparq/proxy'.length)+__u.search,location.origin);
+ const u=__u,isDebrief=u.pathname==='/api/athlete/debrief',isOpportunity=u.pathname==='/api/athlete/opportunities',isEngagement=u.pathname==='/api/athlete/opportunities/engagement',isWorkspace=u.pathname==='/api/athlete/workspace',method=init.method||'GET';
  if(u.origin!==location.origin||!['/api/athlete/evidence','/api/athlete/materials','/api/athlete/debrief','/api/athlete/workspace','/api/athlete/opportunities','/api/athlete/opportunities/engagement'].includes(u.pathname)||u.search||!(isWorkspace?['GET','PATCH'].includes(method):method===(isDebrief||isOpportunity||isEngagement?'POST':'GET')))throw Error('Unexpected endpoint '+u);
- const headers=new Headers(init.headers),request={path:u.pathname,method,signal:init.signal,authorization:headers.get('Authorization'),contentType:headers.get('Content-Type'),body:init.body,cache:init.cache};window.__requests.push(request);
+ const headers=new Headers(init.headers),request={path:u.pathname,method,signal:init.signal,authorization:__auth,contentType:headers.get('Content-Type'),body:init.body,cache:init.cache};window.__requests.push(request);
  let mode=isEngagement?window.__engagementMode:isOpportunity?window.__opportunityMode:isDebrief?window.__debriefMode:u.pathname==='/api/athlete/materials'?window.__materialsMode:window.__mode;
  if(isWorkspace){
    const actor=window.__identity.user?.id;if(!actor)return reply({status:401,body:{detail:'Fixture signed out'}},request);
@@ -148,7 +149,8 @@ const jsx=(type,props,key)=>React.createElement(type,{...props,...(key!==undefin
 function load(id,from=''){
  if(id==='react')return React;
  if(id==='react/jsx-runtime')return{jsx,jsxs:jsx,Fragment:React.Fragment};
- if(id==='@clerk/nextjs')return{useUser,UserButton:()=>React.createElement('button',{'aria-label':'Fixture account'},'Account')};
+ if(id==='@/app/_lib/useSparqSession')return{useSparqSession:useUser,signOutOfSparq:async()=>{}};
+ if(id==='@/components/SignOutButton')return{__esModule:true,default:()=>React.createElement('button',{'aria-label':'Sign out'},'Sign out')};
  if(id==='next/link')return{__esModule:true,default:({children,...props})=>React.createElement('a',props,children)};
  if(id==='next/navigation')return{usePathname:()=>'/home/inbox',useRouter:()=>({push(){}})};
  if(id.startsWith('@/'))id=id.slice(2);else if(id.startsWith('.')){const parts=(from.slice(0,from.lastIndexOf('/')+1)+id).split('/'),out=[];for(const part of parts){if(part==='..')out.pop();else if(part!=='.')out.push(part)}id=out.join('/')}
@@ -633,7 +635,7 @@ const work = (async()=>{
     await reset({pending:true});await switchAccount(null);await release({body:profile('PRIVATE LOGGED OUT ATHLETE')});
     check(await page.getByRole('heading',{name:'Your profile is private.',exact:true}).isVisible()&&await page.getByText('PRIVATE LOGGED OUT ATHLETE',{exact:true}).count()===0,'Logout cancels the read and hides private profile evidence');
     await reset({body:profile()},{isLoaded:false,user:null});
-    check(await page.getByText('Loading your account…',{exact:true}).isVisible()&&await page.evaluate(()=>window.__sourceRequests().length)===0,'No profile fetch occurs before Clerk account readiness');
+    check(await page.getByText('Loading your account…',{exact:true}).isVisible()&&await page.evaluate(()=>window.__sourceRequests().length)===0,'No profile fetch occurs before session readiness');
 
     for (const [status,title] of [[401,'Please sign in again.'],[403,'This profile is not available to this account.'],[409,'Your profile connection needs review.'],[503,'Your profile is temporarily unavailable.']]) {
       await reset({status,body:{detail:'PRIVATE SERVER DETAIL'}});
@@ -646,7 +648,7 @@ const work = (async()=>{
     check(await draft().count()===0&&await page.getByText('Recovered Fixture',{exact:true}).count()===0,'A denied refresh removes formerly visible evidence and draft');
 
     await reset({body:emptyState('unlinked')});
-    check(await page.getByRole('heading',{name:'Bring your GMTM profile with you.',exact:true}).isVisible()&&await page.getByRole('link',{name:'Check connection',exact:true}).getAttribute('href')==='/connect'&&await goal().count()===0,'Unlinked state offers existing connection recovery without fabricated athlete data');
+    check(await page.getByRole('heading',{name:'Bring your GMTM profile with you.',exact:true}).isVisible()&&await page.getByRole('link',{name:'Reconnect from GMTM',exact:true}).getAttribute('href')==='/enter'&&await goal().count()===0,'Unlinked state offers existing connection recovery without fabricated athlete data');
     await reset({body:emptyState('source_unavailable')});
     check(await page.getByText('We could not read your source profile. This does not mean your results are missing.',{exact:true}).isVisible()&&await goal().count()===0,'Source unavailable is different from an empty metric list');
     const noMetrics={...profile(),evidence:[],observations:[]};await reset({body:noMetrics});await ready();await fillGoal('Prepare my profile for a real application');await prepare();
@@ -1280,7 +1282,7 @@ const work = (async()=>{
     check(errors.length===0,'No browser runtime errors');check(denied.length===0,'No attempted browser requests outside intercepted fixture assets and the one inert poster');
     const changed=files.filter(file=>crypto.createHash('sha256').update(fs.readFileSync(path.join(frontend,file))).digest('hex')!==sourceHashes[file]);check(changed.length===0,'Captured application inputs remain unchanged during the check');
     assertRunning();
-    outcome = {status:'pass',checks,sourceHashes,errors,denied,posterRequests,scope:'Actual source components and API transport with synthetic Clerk/evidence/clipboard and one inert 1-pixel poster served by exact URL interception; no full Next, CSS/layout, real media, identity/data/provider or system clipboard acceptance.'};
+    outcome = {status:'pass',checks,sourceHashes,errors,denied,posterRequests,scope:'Actual source components and API transport with synthetic SPARQ session/evidence/clipboard and one inert 1-pixel poster served by exact URL interception; no full Next, CSS/layout, real media, identity/data/provider or system clipboard acceptance.'};
 })();
 Promise.race([work, interrupted]).catch(error => {
   outcome = {status:'failed',checks,error:String(error.stack||error),sourceHashes,errors,denied,posterRequests}; process.exitCode = 1;

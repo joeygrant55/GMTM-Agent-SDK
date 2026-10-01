@@ -7,7 +7,6 @@ save budget and private before-state. --launch is explicit and single use.
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -29,11 +28,9 @@ else:
 
 ROOT = Path(__file__).resolve().parents[2]
 NODE = Path("/Users/joey/.nvm/versions/node/v24.13.0/bin/node")
-VERCEL = NODE.with_name("vercel")
 MODULES = Path("/Users/joey/GMTM-Agent-SDK/frontend/node_modules")
-TEAM = "team_MWkBYZjV9ioig70uN2z1aXFe"
-PROJECT = "prj_sJqoTAT5ncQV8fCDktWCM27I1mbD"
-ISSUER_HOST = "fit-bonefish-6.clerk.accounts.dev"
+# GMTM sign-in settings forwarded to the local Next server (from the backend config).
+ENTRY_KEYS = ("SPARQ_ENTRY_SECRET", "SPARQ_SESSION_SECRET", "NEXT_PUBLIC_GMTM_WEB_URL")
 EXTRA = (
     "backend/verification/profile_acceptance.py",
     "backend/scripts/run_profile_acceptance.py",
@@ -126,70 +123,26 @@ def verify(directory):
                 raise owner.Blocked("snapshot_unreviewed_file")
 
 
-def vercel_api(path, runner=owner.run_bounded):
-    result = runner([str(VERCEL), "api", path, "--method", "GET", "--raw"],
-                    {"HOME": "/Users/joey", "PATH": str(NODE.parent) + ":/usr/bin:/bin"}, 30)
-    owner.require_process(result)
-    try:
-        value = json.loads(result.stdout)
-    except (ValueError, UnicodeError):
-        raise owner.Blocked("clerk_configuration_response_invalid") from None
-    if not isinstance(value, dict):
-        raise owner.Blocked("clerk_configuration_response_invalid")
-    return value
-
-
-def clerk_settings(api=vercel_api):
-    alias = api("/v4/aliases/sparq-agent.vercel.app?teamId=" + TEAM)
-    if alias.get("projectId") != PROJECT or alias.get("alias") != "sparq-agent.vercel.app":
-        raise owner.Blocked("frontend_identity_changed")
-    records = api("/v10/projects/" + PROJECT + "/env?teamId=" + TEAM).get("envs", [])
-    result = {}
-    for key in ("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"):
-        matches = [r for r in records if isinstance(r, dict) and r.get("key") == key
-                   and "production" in r.get("target", []) and not r.get("gitBranch")]
-        if len(matches) != 1 or not isinstance(matches[0].get("id"), str):
-            raise owner.Blocked("clerk_configuration_ambiguous")
-        value = api("/v1/projects/" + PROJECT + "/env/" + matches[0]["id"] + "?teamId=" + TEAM)
-        if value.get("key") != key or not isinstance(value.get("value"), str):
-            raise owner.Blocked("clerk_configuration_missing")
-        result[key] = value["value"].strip()
-    public = result["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"]
-    if not public.startswith("pk_test_") or not result["CLERK_SECRET_KEY"].startswith("sk_test_"):
-        raise owner.Blocked("existing_development_clerk_required")
-    encoded = public.split("_", 2)[2]
-    try:
-        decoded = base64.b64decode(encoded + "=" * (-len(encoded) % 4), validate=True).decode()
-    except (ValueError, UnicodeError):
-        raise owner.Blocked("clerk_issuer_invalid") from None
-    if decoded != ISSUER_HOST + "$":
-        raise owner.Blocked("clerk_issuer_mismatch")
-    return result
-
-
 def free_port(host):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind((host, 0))
         return sock.getsockname()[1]
 
 
-def environments(config, clerk, frontend_port, backend_port, directory, *, read_only=False):
+def environments(config, frontend_port, backend_port, directory, *, read_only=False):
     origin = f"http://localhost:{frontend_port}"
     host = f"127.0.0.1:{backend_port}"
     base = {"HOME": "/Users/joey", "PATH": str(NODE.parent) + ":/usr/bin:/bin",
             "LANG": "en_US.UTF-8", "PYTHONDONTWRITEBYTECODE": "1"}
-    backend = {**base, **config, "AUTH_ENFORCED": "true",
-               "CLERK_ISSUER": "https://" + ISSUER_HOST,
-               "CLERK_AUTHORIZED_PARTIES": origin, "ALLOWED_ORIGINS": origin,
+    backend = {**base, **config, "ALLOWED_ORIGINS": origin,
                "SHARE_TOKEN_SECRET": secrets.token_urlsafe(32),
                "COMBINE_HELP_TEST_MODE": "1", "COMBINE_HELP_MAX_MODEL_CALLS": "1",
                "COMBINE_HELP_MAX_CONCURRENT_CALLS": "1", "PROFILE_DEBRIEF_ENABLED": "false",
                "ACCEPTANCE_RUN_DIR": str(directory), "ACCEPTANCE_BACKEND_HOST": host,
                "ACCEPTANCE_READ_ONLY": "1" if read_only else "0"}
-    frontend = {**base, **clerk, "NEXT_PUBLIC_APP_SURFACE": "profile",
-                "NEXT_PUBLIC_BACKEND_URL": "http://" + host, "NEXT_TELEMETRY_DISABLED": "1",
-                "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in", "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/sign-up",
-                "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/home/inbox"}
+    frontend = {**base, **{key: config[key] for key in ENTRY_KEYS if key in config},
+                "NEXT_PUBLIC_APP_SURFACE": "profile",
+                "NEXT_PUBLIC_BACKEND_URL": "http://" + host, "NEXT_TELEMETRY_DISABLED": "1"}
     return backend, frontend
 
 
@@ -224,14 +177,13 @@ def launch(directory, seconds, *, read_only=False):
     try:
         config = owner.configuration(owner.variables(owner.BACKEND_SERVICE),
                                      owner.variables(owner.MYSQL_SERVICE), owner.fable_credentials())
-        clerk = clerk_settings()
         verify(directory)
         if interrupted:
             raise owner.Blocked("launch_interrupted")
         frontend_port, backend_port = free_port("127.0.0.1"), free_port("127.0.0.1")
         if frontend_port == backend_port:
             raise owner.Blocked("ports_collided")
-        backend_env, frontend_env = environments(config, clerk, frontend_port, backend_port, directory, read_only=read_only)
+        backend_env, frontend_env = environments(config, frontend_port, backend_port, directory, read_only=read_only)
         deadline = time.monotonic() + seconds
         for name, command, env, cwd in (
             ("backend", [str(owner.PYTHON), "-c", CHILD], backend_env, directory / "source/backend"),

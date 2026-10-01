@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { UserButton, useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
+import SignOutButton from '@/components/SignOutButton'
 import CombineHelpProvider, { useCombineHelp } from './CombineHelpProvider'
 import CombineHelpPanel from './CombineHelpPanel'
 import { supportedCombineEvent } from './currentCombine'
@@ -19,7 +20,7 @@ function CombineWorkspaceFrame({ children }: { children: React.ReactNode }) {
   const params = useSearchParams()
   const rawEvent = params.get('event_id')
   const eventId = rawEvent && /^\d+$/.test(rawEvent) ? supportedCombineEvent(Number(rawEvent)) : null
-  const { user } = useUser()
+  const { user } = useSparqSession()
   const navigationButton = useRef<HTMLButtonElement>(null)
   const helpButton = useRef<HTMLButtonElement>(null)
   const helpHeading = useRef<HTMLDivElement>(null)
@@ -65,8 +66,8 @@ function CombineWorkspaceFrame({ children }: { children: React.ReactNode }) {
             <Link href={nextMove} aria-current="page" onClick={() => setPanel(null)} className="flex min-h-11 items-center rounded-lg bg-white/10 px-3 text-sm font-semibold">My next move</Link>
           </nav>
           <div className="mt-auto flex items-center gap-3 border-t border-white/10 pt-4">
-            <UserButton />
-            <span className="truncate text-sm text-gray-300">{user?.firstName || 'Athlete'}</span>
+            <SignOutButton />
+            <span className="truncate text-sm text-gray-300">Athlete</span>
           </div>
         </aside>
         <main id="combine-workspace-main" className={`${panel ? 'hidden lg:block' : 'block'} min-w-0 flex-1 overflow-y-auto`}>{children}</main>

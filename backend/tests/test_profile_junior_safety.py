@@ -139,7 +139,7 @@ def test_outreach_draft_prompt_has_first_name_only_and_minor_rules(monkeypatch):
     monkeypatch.setattr(artifacts_api, "_get_agent_db", lambda: FakeDB())
     monkeypatch.setattr(artifacts_api.anthropic, "Anthropic", FakeModel)
     body = artifacts_api.DraftOutreachBody(athlete_id="user_123", college_name="State College")
-    artifacts_api.draft_outreach(body, caller_clerk_id="user_123")
+    artifacts_api.draft_outreach(body, caller_id="user_123")
     assert len(FakeModel.calls) == 1
     prompt = _prompt_text(FakeModel.calls[0])
     assert "Jordan" in prompt
@@ -179,7 +179,7 @@ def test_deep_research_prompt_and_web_search_have_no_athlete_name(monkeypatch):
 
     monkeypatch.setattr(profile_api.threading, "Thread", InlineThread)
     import asyncio
-    asyncio.run(profile_api.run_deep_research("user_123", 2, background_tasks=None, caller_clerk_id="user_123"))
+    asyncio.run(profile_api.run_deep_research("user_123", 2, background_tasks=None, caller_id="user_123"))
     assert len(FakeModel.calls) == 1
     prompt = _prompt_text(FakeModel.calls[0])
     for value in ("Jordan", "Smithfield", "Tampa"):

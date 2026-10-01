@@ -27,17 +27,17 @@ function httpMessage(status: number): string {
 export default function CombineHelpPanel() {
   const context = useCombineHelp()
   const event = context?.snapshot?.selected_event
-  if (!context?.clerkId || !event || !context.snapshot) {
+  if (!context?.ownerId || !event || !context.snapshot) {
     return (
       <div className="flex h-full min-w-0 flex-col border-l border-white/10 bg-sparq-charcoal p-4 text-white">
         <h2 tabIndex={-1} className="font-bold">Combine help</h2>
-        <p className="mt-3 text-sm text-gray-300">{context?.clerkId ? 'Choose a combine and load its activities to ask about your next step. No results are needed.' : 'Sign in to ask about your combine.'}</p>
+        <p className="mt-3 text-sm text-gray-300">{context?.ownerId ? 'Choose a combine and load its activities to ask about your next step. No results are needed.' : 'Sign in to ask about your combine.'}</p>
         <p className="mt-3 text-xs text-gray-400">Your combine card remains the place to choose an event or retry a failed refresh.</p>
       </div>
     )
   }
   const activity = context.snapshot.activities.find(a => a.task_id === context.taskId) ?? null
-  return <CombineHelpSession key={`${context.clerkId}:${event.event_id}:${activity?.task_id ?? 'event'}`} snapshot={context.snapshot} activity={activity} />
+  return <CombineHelpSession key={`${context.ownerId}:${event.event_id}:${activity?.task_id ?? 'event'}`} snapshot={context.snapshot} activity={activity} />
 }
 
 function CombineHelpSession({ snapshot, activity }: { snapshot: CurrentCombine; activity: CombineActivity | null }) {

@@ -10,7 +10,7 @@ import pytest
 
 import profile_debrief as api
 import combine_model
-from auth import require_clerk_id
+from auth import require_identity
 from model_usage import ModelCallLimitError, UsageLedger
 from backend.tests.test_athlete_evidence import Database, Cursor as EvidenceCursor, ATHLETE, CALLER, metric
 from backend.tests.test_athlete_materials import Cursor as MaterialsCursor, film, submission
@@ -85,7 +85,7 @@ def setup(monkeypatch):
     monkeypatch.setattr(api, "stream_answer", stream)
     app = FastAPI()
     app.include_router(api.router)
-    app.dependency_overrides[require_clerk_id] = lambda: CALLER
+    app.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(app) as client:
         yield client, agent, source, opened, calls, plan
     assert not api._source_leases

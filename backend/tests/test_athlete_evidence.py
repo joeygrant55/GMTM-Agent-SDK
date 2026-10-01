@@ -9,11 +9,11 @@ from fastapi.testclient import TestClient
 import pytest
 
 import athlete_evidence as api
-from auth import require_clerk_id
+from auth import require_identity
 
 
 ATHLETE = 7201
-CALLER = "clerk_owner"
+CALLER = "sub_owner"
 
 
 def metric(**overrides):
@@ -118,7 +118,7 @@ def source(monkeypatch):
     monkeypatch.setattr(api, "_get_gmtm_db", open_source)
     application = FastAPI()
     application.include_router(api.router)
-    application.dependency_overrides[require_clerk_id] = lambda: CALLER
+    application.dependency_overrides[require_identity] = lambda: CALLER
     with TestClient(application) as client:
         yield client, agent, gmtm, opened
 
@@ -144,7 +144,7 @@ def test_actual_route_projects_only_owned_evidence_and_parameterizes_selects(sou
     assert "40-Yard Dash" in body["observations"][0]["detail"]
     assert datetime.fromisoformat(body["fetched_at"]).utcoffset().total_seconds() == 0
     serialized = json.dumps(body)
-    for forbidden in ("PRIVATE", "clerk_owner", '"user_id"', '"athlete_id"', '"email"', '"phone"'):
+    for forbidden in ("PRIVATE", "sub_owner", '"user_id"', '"athlete_id"', '"email"', '"phone"'):
         assert forbidden not in serialized
     assert opened == ["agent", "gmtm"]
     assert len(agent.queries) == 2 and len(gmtm.queries) == 3
@@ -181,7 +181,7 @@ def test_unlinked_is_distinct_and_never_reads_gmtm(source):
 
 
 @pytest.mark.parametrize("links,reverse", [
-    ([dict(user_id=ATHLETE, clerk_id="CLERK_OWNER")], None),
+    ([dict(user_id=ATHLETE, clerk_id="SUB_OWNER")], None),
     ([dict(user_id=str(ATHLETE), clerk_id=CALLER)], None),
     ([dict(user_id=True, clerk_id=CALLER)], None),
     ([dict(user_id=ATHLETE, clerk_id=CALLER)] * 2, None),

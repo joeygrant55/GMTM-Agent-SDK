@@ -1,6 +1,6 @@
 // Real Next production compile and unauthenticated next-start smoke.
-// Copies allowlisted, byte-identical source outside the checkout. Real Clerk
-// packages stay intact; all configuration is synthetic and outbound I/O blocked.
+// Copies allowlisted, byte-identical source outside the checkout. GMTM is the only
+// sign-in; all configuration is synthetic and outbound I/O blocked.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -11,12 +11,12 @@ const { spawn } = require('node:child_process');
 const frontend = path.resolve(__dirname, '..');
 const repo = path.dirname(frontend);
 const surface = process.env.SPARQ_BUILD_SURFACE || 'combine';
-if (!['combine', 'profile'].includes(surface)) throw Error('Unsupported build surface');
+if (!['combine', 'profile', 'legacy'].includes(surface)) throw Error('Unsupported build surface');
 const output = process.env.SPARQ_PRODUCTION_BUILD_ARTIFACT_DIR;
 if (!output || !path.isAbsolute(output) || fs.existsSync(output)) throw Error('Set a new absolute SPARQ_PRODUCTION_BUILD_ARTIFACT_DIR.');
 const realOutput = path.join(fs.realpathSync(path.dirname(output)), path.basename(output));
 if (!path.relative(fs.realpathSync(repo), realOutput).startsWith('..' + path.sep)) throw Error('Build artifacts must remain outside the checkout.');
-const deps = '/Users/joey/GMTM-Agent-SDK/frontend/node_modules';
+const deps = process.env.SPARQ_TEST_NODE_MODULES || path.join(frontend, 'node_modules');
 const snapshotRoot = path.join(output, 'frontend');
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const sourceHashes = {}, children = [], log = { build: '', start: '' }, smoke = [];
@@ -140,10 +140,10 @@ async function portClosed() {
   port = await unusedPort();
   writeJSON('source-hashes.json', sourceHashes);
   const versions = {};
-  for (const name of ['next', 'react', 'react-dom', '@clerk/nextjs', 'tailwindcss', 'postcss', 'typescript']) versions[name] = JSON.parse(fs.readFileSync(path.join(deps, name, 'package.json'))).version;
+  for (const name of ['next', 'react', 'react-dom', 'tailwindcss', 'postcss', 'typescript']) versions[name] = JSON.parse(fs.readFileSync(path.join(deps, name, 'package.json'))).version;
   writeJSON('runtime.json', { node: process.version, executable: process.execPath, dependencies: deps, versions, originalConfigHash: sourceHashes['next.config.js'], harnessSha256: sha(harness), authOverlays: false, port });
   const guardPath = path.join(output, 'guard.cjs'); fs.writeFileSync(guardPath, guardSource()); require(guardPath);
-  const env = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'production', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: surface, NEXT_PUBLIC_BACKEND_URL: 'https://candidate-backend.example.invalid', NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_' + Buffer.from('clerk.example.invalid$').toString('base64'), CLERK_SECRET_KEY: 'sk_test_synthetic_build_only_not_a_credential' };
+  const env = { PATH: path.dirname(process.execPath) + ':/usr/bin:/bin', NODE_ENV: 'production', NODE_OPTIONS: `--require=${guardPath}`, NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_APP_SURFACE: surface, NEXT_PUBLIC_BACKEND_URL: 'https://candidate-backend.example.invalid', NEXT_PUBLIC_GMTM_WEB_URL: 'https://gmtm.example.invalid', SPARQ_SESSION_SECRET: 'synthetic-build-only-session-secret-not-a-credential' };
   process.stdout.write('PRODUCTION_BUILD_STAGE compile-started\n');
   const build = startChild('build', ['build'], env);
   const buildExit = await waitExit(build, 240000);
@@ -155,20 +155,59 @@ async function portClosed() {
     const file = path.join(snapshotRoot, '.next', name); assert(fs.existsSync(file), 'Missing production output ' + name); manifests[name] = sha(fs.readFileSync(file));
   }
   result.productionManifests = manifests;
+  // Legacy keeps Next font optimization, which tries Google Fonts at build time. The guard
+  // blocks it and Next skips the font; record those build-only denials separately.
+  const denialFile = path.join(output, 'denials.jsonl');
+  if (surface === 'legacy' && fs.existsSync(denialFile)) {
+    const buildDenials = fs.readFileSync(denialFile, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+    assert.ok(buildDenials.every(item => item.kind === 'fetch') && /Failed to download the stylesheet for https:\/\/fonts\.googleapis\.com/.test(log.build), 'Unexpected legacy build denial');
+    result.legacyBuildFontDenials = buildDenials.length;
+    fs.renameSync(denialFile, path.join(output, 'build-font-denials.jsonl'));
+  }
   process.stdout.write('PRODUCTION_BUILD_STAGE compile-passed; unauthenticated-smoke-started\n');
-  // Bound as localhost (loopback): Clerk rewrites pages to the URL Next sees, and a
-  // 127.0.0.1 hostname would make Next treat that rewrite as external and proxy it.
+  // Bound as localhost (loopback).
   server = startChild('start', ['start', '--hostname', 'localhost', '--port', String(port)], env);
   await waitReady(server);
-  const origin = `http://127.0.0.1:${port}`;
-  for (const route of ['/home/colleges', '/home/artifact/123.jpg', '/api/combine/current', '/api/demo-chat', '/_next/image?url=%2Fsparq-logo.jpg&w=64&q=75']) {
+  const origin = `http://localhost:${port}`;
+  // Legacy keeps its broader pages; bare backend /api paths must 404 (no rewrite to the backend).
+  const notFound = surface === 'legacy' ? ['/api/combine/current', '/api/workspace/inbox/someone', '/api/health']
+    : [...(surface === 'profile' ? [] : ['/home/colleges']), '/home/artifact/123.jpg', '/api/combine/current', '/api/demo-chat', '/_next/image?url=%2Fsparq-logo.jpg&w=64&q=75']
+  for (const route of notFound) {
     const response = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
     smoke.push({ path: route, status: response.status }); assert.equal(response.status, 404, 'Production route boundary: ' + route);
   }
-  const response = await fetch(origin + '/home/inbox?event_id=1318', { redirect: 'manual', signal: AbortSignal.timeout(10000) });
-  const location = response.headers.get('location');
-  smoke.push({ path: '/home/inbox?event_id=1318', status: response.status, redirectPath: location ? new URL(location, origin).pathname : null });
-  if (![302, 303, 307, 308].includes(response.status) || !location || new URL(location, origin).pathname !== '/sign-in') throw Error('Real Clerk unauthenticated redirect unconfirmed; inspect start.log and denials.');
+  // No SPARQ session: back to GMTM (no GMTM cookie) or to the /enter bridge (GMTM cookie).
+  for (const [cookie, expected] of [[null, 'https://gmtm.example.invalid/'], ['sessionId=synthetic-gmtm-session', origin + '/enter']]) {
+    const response = await fetch(origin + '/home/inbox?event_id=1318', { redirect: 'manual', headers: cookie ? { cookie } : {}, signal: AbortSignal.timeout(10000) });
+    const location = response.headers.get('location');
+    smoke.push({ path: '/home/inbox?event_id=1318', gmtmCookie: !!cookie, status: response.status, location });
+    const target = location ? new URL(location, origin) : null;
+    if (![302, 303, 307, 308].includes(response.status) || !target || (cookie ? target.pathname !== '/enter' : target.href !== expected)) throw Error('Unauthenticated GMTM redirect unconfirmed; inspect start.log and denials.');
+  }
+  // The same-origin proxy is the only browser route to the backend. Without a session it
+  // answers itself (401 JSON) and never forwards; a path outside the surface policy is 404.
+  const proxied = { legacy: '/api/workspace/inbox/someone', combine: '/api/combine/current?event_id=1318', profile: '/api/athlete/workspace' }[surface]
+  for (const [cookie, label] of [[null, 'no cookies'], ['sessionId=synthetic-gmtm-session', 'GMTM cookie only']]) {
+    const response = await fetch(origin + '/api/sparq/proxy' + proxied, { redirect: 'manual', headers: cookie ? { cookie } : {}, signal: AbortSignal.timeout(10000) });
+    const type = response.headers.get('content-type') || '';
+    const body = type.includes('application/json') ? await response.json() : await response.text();
+    smoke.push({ path: '/api/sparq/proxy' + proxied, cookies: label, status: response.status, type });
+    assert.equal(response.status, 401, 'Proxy without a SPARQ session answers 401 itself: ' + label);
+    assert.ok(type.includes('application/json') && /SPARQ session ended/.test(body.detail || ''), 'Proxy 401 is its own JSON, not a rewrite or proxy error');
+  }
+  if (surface !== 'legacy') {
+    const denied = await fetch(origin + '/api/sparq/proxy/api/claims/mint', { redirect: 'manual', signal: AbortSignal.timeout(10000) });
+    smoke.push({ path: '/api/sparq/proxy/api/claims/mint', status: denied.status });
+    assert.equal(denied.status, 404, 'Proxy refuses paths outside the surface policy');
+  }
+  for (const route of ['/sign-in', '/sign-up', '/connect', '/claim/abc', '/onboarding/search']) {
+    const gone = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
+    const location = gone.headers.get('location');
+    smoke.push({ path: route, status: gone.status, location });
+    // Legacy gates unknown pages behind the session, so a signed-out visit goes to GMTM, never a sign-up page.
+    const toGmtm = surface === 'legacy' && [302, 303, 307, 308].includes(gone.status) && location && new URL(location, origin).origin === 'https://gmtm.example.invalid';
+    assert.ok(gone.status === 404 || toGmtm, 'No sign-up/claim route: ' + route);
+  }
   if (surface === 'profile') {
     // Minors are never publicly exposed on the profile surface.
     for (const route of ['/athlete/123', '/report/sometoken', '/api/athlete/123', '/api/reports/public/sometoken']) {
@@ -176,14 +215,14 @@ async function portClosed() {
       smoke.push({ path: route, status: denied.status }); assert.equal(denied.status, 404, 'Profile public exposure: ' + route);
     }
     // A real rendered page: nonce CSP without script 'unsafe-inline', and every script carries the nonce.
-    const page = await fetch(origin + '/sign-in', { redirect: 'manual', headers: { cookie: 'sessionId=synthetic-gmtm-session' }, signal: AbortSignal.timeout(20000) });
+    const page = await fetch(origin + '/enter/unavailable', { redirect: 'manual', headers: { cookie: 'sessionId=synthetic-gmtm-session' }, signal: AbortSignal.timeout(20000) });
     const csp = page.headers.get('content-security-policy') || '';
     const html = await page.text();
     const scriptSrc = (csp.split(';').map(part => part.trim()).find(part => part.startsWith('script-src ')) || '');
     const nonce = (/'nonce-([^']+)'/.exec(scriptSrc) || [])[1];
     const scripts = html.match(/<script\b[^>]*>/g) || [];
-    smoke.push({ path: '/sign-in', status: page.status, scripts: scripts.length, scriptsWithNonce: scripts.filter(tag => nonce && tag.includes(`nonce="${nonce}"`)).length, scriptSrc });
-    assert.equal(page.status, 200, 'Profile sign-in page renders');
+    smoke.push({ path: '/enter/unavailable', status: page.status, scripts: scripts.length, scriptsWithNonce: scripts.filter(tag => nonce && tag.includes(`nonce="${nonce}"`)).length, scriptSrc });
+    assert.equal(page.status, 200, 'Profile entry page renders');
     assert.ok(nonce && !scriptSrc.includes("'unsafe-inline'"), 'Profile CSP uses a nonce without script unsafe-inline');
     assert.ok(scripts.length > 0 && scripts.every(tag => tag.includes(`nonce="${nonce}"`)), 'Every rendered script carries the CSP nonce');
     assert.ok(!html.includes('synthetic-gmtm-session'), 'GMTM sessionId never reaches rendered output');
@@ -198,7 +237,7 @@ async function portClosed() {
   const denialPath = path.join(output, 'denials.jsonl');
   result.denials = fs.existsSync(denialPath) ? fs.readFileSync(denialPath, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : [];
   if (result.denials.length || result.sourceChangedDuringRun.length || result.snapshotInputsChangedByBuild.length || result.portClosedAfterCleanup === false || result.cleanup.some(item => item.status === 'rejected' || !item.value.dead || !item.value.groupDead)) { result.status = 'failed'; process.exitCode = 1; }
-  result.limits = ['Real Next production build/start with real Clerk packages and synthetic configuration; no signed-in production journey or live identity/database/provider acceptance.', 'Network instrumentation is not an OS firewall. The retained build points to a deliberately nonexistent backend and is not a deployment artifact.', 'Uses the existing explicitly recorded dependency tree, not a fresh lockfile installation.'];
+  result.limits = ['Real Next production build/start with synthetic configuration; no signed-in production journey or live identity/database/provider acceptance.', 'Network instrumentation is not an OS firewall. The retained build points to a deliberately nonexistent backend and is not a deployment artifact.', 'Uses the existing explicitly recorded dependency tree, not a fresh lockfile installation.'];
   if (fs.existsSync(output)) { fs.writeFileSync(path.join(output, 'build.log'), log.build); fs.writeFileSync(path.join(output, 'start.log'), log.start); writeJSON('receipt.json', result); }
   process.stdout.write('PRODUCTION_BUILD_RESULT ' + JSON.stringify({ status: result.status, buildExit: result.buildExit, receipt: path.join(output, 'receipt.json') }) + '\n');
 });

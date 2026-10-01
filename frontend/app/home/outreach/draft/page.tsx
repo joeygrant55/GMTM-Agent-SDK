@@ -6,7 +6,7 @@ import { ProfileConnectionError, readProfileConnectionResponse } from '@/app/_li
 import dynamic from 'next/dynamic'
 
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const DEFAULT_BACKEND_URL = 'https://focused-essence-production-9809.up.railway.app'
@@ -102,7 +102,7 @@ ${profile.name}
 }
 
 function DraftCoachEmailPage() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded } = useSparqSession()
   if (!isLoaded || !user?.id) {
     return <p role="status" className="p-8 text-gray-300">{isLoaded ? 'Sign in to draft outreach emails.' : 'Loading your account…'}</p>
   }
@@ -149,7 +149,7 @@ function DraftCoachEmailSession({ user }: { user: { id: string; firstName?: stri
       setError('')
 
       try {
-        const profileRes = await apiFetch(`${backendUrl}/api/profile/by-clerk/${user.id}`, { signal })
+        const profileRes = await apiFetch(`${backendUrl}/api/profile/by-owner/${user.id}`, { signal })
         const profileData = await readProfileConnectionResponse(profileRes)
         if (signal.aborted) return
         if (!profileData.has_sparq_profile) {
