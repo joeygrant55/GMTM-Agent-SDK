@@ -346,6 +346,13 @@ check('B6: the level ("NCAA D1") stays on one line on cards, saved colleges and 
   assert.match(fs.readFileSync(path.join(root, 'app/home/components/AthleteCareerHome.tsx'), 'utf8'), /<span className="whitespace-nowrap">\{program\.level\}<\/span>/)
 })
 
+check('Header uses the real SPARQ logo file, not typed text (Joey 2026-10-02)', () => {
+  const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
+  assert.match(shell, /aria-label="SPARQ home"[^>]*><SparqLogo /)
+  assert.doesNotMatch(shell, />SPARQ<\/Link>/)
+  assert.match(fs.readFileSync(path.join(root, 'components/SparqLogo.tsx'), 'utf8'), /src="\/sparq-wordmark\.png"/)
+})
+
 check('GMTM users/undefined posters: only the exact legacy UUID form (CDN serves it, measured 2026-10-02)', () => {
   const { isProfileThumbnail } = transpile('app/home/components/profileMaterials.ts')
   assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg'), true)

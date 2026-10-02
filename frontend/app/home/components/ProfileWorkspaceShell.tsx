@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOutOfSparq, useSparqSession } from '@/app/_lib/useSparqSession'
 import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentNoticeGate'
+import SparqLogo from '@/components/SparqLogo'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 
@@ -35,7 +36,7 @@ function CareerShell({ children, sessionLoaded, userId }: { children: React.Reac
       <header className="border-b border-jr-line">
         <div className="mx-auto flex min-h-[72px] max-w-[1344px] items-center justify-between gap-6 px-4 md:px-8 lg:px-12">
           <div className="flex items-center gap-12">
-            <Link href="/home" aria-label="SPARQ home" className={`text-[22px] font-bold tracking-[1px] md:text-[26px] ${focus}`}>SPARQ</Link>
+            <Link href="/home" aria-label="SPARQ home" className={`inline-flex min-h-11 shrink-0 items-center ${focus}`}><SparqLogo className="w-[112px] md:w-[128px]" /></Link>
             <nav aria-label="Athlete workspace" className="hidden gap-2 md:flex">
               {TABS.map(tab => <Link key={tab.href} href={tab.href} prefetch={false} aria-current={active === tab.href ? 'page' : undefined}
                 className={`rounded-full px-4 py-2.5 text-[15px] ${focus} ${active === tab.href ? 'bg-jr-raised font-semibold text-white' : 'text-jr-muted hover:text-white'}`}>{tab.label}</Link>)}
