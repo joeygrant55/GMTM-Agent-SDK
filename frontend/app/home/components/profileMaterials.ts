@@ -28,7 +28,8 @@ const text = (value: unknown, max: number): value is string => typeof value === 
 export function isProfileThumbnail(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 2048 || /[^\x21-\x7e]|[\\%?#]/.test(value)) return false
   const cdn = /^https:\/\/cdn\.gmtm\.com\/(?:videos\/film\/thumbnails\/|videos\/events\/([1-9][0-9]*)\/edited-thumbnails\/|users\/([1-9][0-9]*)\/uploads\/)([^/]+)$/.exec(value)
-  // GMTM's users/undefined upload keys are never requested (2026-10-02 live smoke); the poster placeholder shows.
+  // GMTM's legacy users/undefined/uploads/<UUID>.<raster> posters serve from the CDN (measured 2026-10-02).
+  if (/^https:\/\/cdn\.gmtm\.com\/users\/undefined\/uploads\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(?:png|jpg|jpeg|webp)$/i.test(value)) return true
   const youtube = /^https:\/\/i\.ytimg\.com\/vi\/[A-Za-z0-9_-]{11}\/([^/]+)$/.exec(value)
   const file = cdn?.[3] || youtube?.[1]
   return !!file && /^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?:png|jpg|jpeg|webp)$/i.test(file)

@@ -346,9 +346,13 @@ check('B6: the level ("NCAA D1") stays on one line on cards, saved colleges and 
   assert.match(fs.readFileSync(path.join(root, 'app/home/components/AthleteCareerHome.tsx'), 'utf8'), /<span className="whitespace-nowrap">\{program\.level\}<\/span>/)
 })
 
-check('B3: GMTM users/undefined upload keys are never requested', () => {
+check('GMTM users/undefined posters: only the exact legacy UUID form (CDN serves it, measured 2026-10-02)', () => {
   const { isProfileThumbnail } = transpile('app/home/components/profileMaterials.ts')
-  assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg'), false)
+  assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg'), true)
+  for (const bad of ['https://cdn.gmtm.com/users/undefined/uploads/a.jpg', 'https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.svg',
+    'https://cdn.gmtm.com/users/undefined/uploads/x/11111111-2222-4333-8444-555555555555.jpg', 'https://evil.example/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg',
+    'http://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg', 'https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg?x'])
+    assert.equal(isProfileThumbnail(bad), false, bad)
   assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/7201/uploads/clip.jpg'), true)
 })
 
@@ -417,6 +421,15 @@ check('My card picker: tap adds or removes, keeps order, max 3; response check d
   assert.ok(isCardVideo('https://cdn.gmtm.com/users/7301/uploads/My%20Clip%20%281%29.mp4'))
   // Junior Highlight Reels: extensionless GMTM uploads under videos/ (served as video/mp4).
   assert.ok(isCardVideo('https://cdn.gmtm.com/videos/events/1305/pre-edit-uploads/0b7c2d1e-4f5a-4b6c-9d8e-112233445566'))
+  // Parity with backend tests/test_college_programs.py test_video_url_accepts_gmtm_processed_uploads (same literal URLs).
+  for (const ok of ['https://cdn.gmtm.com/films/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2-processed',
+    'https://cdn.gmtm.com/users/2/uploads/metrics/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2-processed',
+    'https://cdn.gmtm.com/films/3CD91CB4-C033-8B81-DD42-BED0E29FB1C2-processed']) assert.ok(isCardVideo(ok), ok)
+  for (const bad of ['https://cdn.gmtm.com/films/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2', 'https://cdn.gmtm.com/films/x-processed',
+    'https://cdn.gmtm.com/users/0/uploads/metrics/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2-processed',
+    'https://cdn.gmtm.com/users/undefined/uploads/metrics/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2-processed',
+    'https://cdn.gmtm.com/users/2/uploads/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2-processed']) assert.equal(isCardVideo(bad), false, bad)
+  assert.ok(isCardPoster('https://cdn.gmtm.com/users/undefined/uploads/3cd91cb4-c033-8b81-dd42-bed0e29fb1c2.jpg'))
   for (const bad of ['https://cdn.gmtm.com/users/7301/uploads/abc', 'https://cdn.gmtm.com/videos/x', 'https://cdn.gmtm.com/videos/a/../b',
     'https://cdn.gmtm.com/videos//a/b', 'https://cdn.gmtm.com/videos/a/b?x=1', 'https://cdn.gmtm.com/videos/a/b%2e']) assert.equal(isCardVideo(bad), false, bad)
   for (const bad of ['https://evil.example/a.mp4', 'http://cdn.gmtm.com/a.mp4', 'https://cdn.gmtm.com/a.m3u8', 'https://cdn.gmtm.com//a.mp4',

@@ -371,6 +371,10 @@ _VIDEO_PATH = re.compile(r"[A-Za-z0-9_+()][A-Za-z0-9 _.+()/-]{0,250}\.(?i:mp4|m4
 # videos/events/<id>/pre-edit-uploads/<uuid>; the CDN serves them as video/mp4, and "+.mp4" is 403).
 # GMTM-hosted keys under videos/ only, with no dot, space or other punctuation.
 _RAW_VIDEO_PATH = re.compile(r"videos/[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){1,8}")
+# GMTM-processed uploads have no extension either (measured 2026-10-02: film 8236487
+# films/<uuid>-processed and 8243185 users/2/uploads/metrics/<uuid>-processed, both HTTP 200 video/mp4).
+_PROCESSED_VIDEO_PATH = re.compile(
+    r"(?:films|users/[1-9][0-9]{0,15}/uploads/metrics)/[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}-processed")
 
 
 def video_url(service, uri) -> Optional[str]:
@@ -380,7 +384,7 @@ def video_url(service, uri) -> Optional[str]:
     path = uri[len("https://cdn.gmtm.com/"):] if uri.startswith("https://cdn.gmtm.com/") else uri
     path = path[1:] if path.startswith("/") else path  # some GMTM rows store one leading "/"
     segments = path.split("/")
-    playable = _VIDEO_PATH.fullmatch(path) or (service == "gmtm" and _RAW_VIDEO_PATH.fullmatch(path))
+    playable = _VIDEO_PATH.fullmatch(path) or (service == "gmtm" and (_RAW_VIDEO_PATH.fullmatch(path) or _PROCESSED_VIDEO_PATH.fullmatch(path)))
     if not playable or any(s in ("", ".", "..") for s in segments) or "undefined" in segments:
         return None
     return "https://cdn.gmtm.com/" + quote(path, safe="/")

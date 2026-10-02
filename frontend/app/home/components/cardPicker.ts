@@ -18,8 +18,9 @@ export interface CardData {
 
 const FILM_PAGE = /^https:\/\/gmtm\.com\/film\/[1-9][0-9]{0,15}$/
 // A direct clip file on GMTM's CDN (the backend path-encodes it): a video file, or an
-// extensionless GMTM upload under videos/ (junior Highlight Reels). Nothing else plays inline.
-const VIDEO = /^https:\/\/cdn\.gmtm\.com\/(?:[A-Za-z0-9_+()%][A-Za-z0-9_.+()%/-]*\.(?:mp4|m4v|mov|webm)|videos(?:\/[A-Za-z0-9_-]+){2,9})$/i
+// extensionless GMTM upload under videos/ (junior Highlight Reels), or a GMTM-processed upload
+// (films/<uuid>-processed, users/<id>/uploads/metrics/<uuid>-processed; measured 2026-10-02). Nothing else plays inline.
+const VIDEO = /^https:\/\/cdn\.gmtm\.com\/(?:[A-Za-z0-9_+()%][A-Za-z0-9_.+()%/-]*\.(?:mp4|m4v|mov|webm)|videos(?:\/[A-Za-z0-9_-]+){2,9}|(?:films|users\/[1-9][0-9]{0,15}\/uploads\/metrics)\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}-processed)$/i
 const PROFILE = /^https:\/\/gmtm\.com\/athletes\/[1-9][0-9]{0,15}$/
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value)
 

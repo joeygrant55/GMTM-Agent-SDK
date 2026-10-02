@@ -1111,6 +1111,19 @@ def test_home_lead_endpoint_returns_only_the_lead_and_skips_the_visibility_read(
     assert client.get(f"{CARD_URL}/lead").status_code == 401
 
 
+def test_video_url_accepts_gmtm_processed_uploads():
+    u = "3cd91cb4-c033-8b81-dd42-bed0e29fb1c2"
+    for key in (f"films/{u}-processed", f"users/2/uploads/metrics/{u}-processed"):
+        assert cp.video_url("gmtm", key) == "https://cdn.gmtm.com/" + key
+        assert cp.video_url("s3", key) is None and cp.video_url("youtube", key) is None
+    # Same literal URLs as the frontend isCardVideo parity check (check-profile-safety.cjs).
+    assert cp.video_url("gmtm", f"users/2/uploads/metrics/{u}-processed") == f"https://cdn.gmtm.com/users/2/uploads/metrics/{u}-processed"
+    assert cp.video_url("gmtm", f"films/{u.upper()}-processed") == f"https://cdn.gmtm.com/films/{u.upper()}-processed"
+    for key in (f"films/{u}", f"films/{u}-processed/x", f"films/x-processed", f"users/undefined/uploads/metrics/{u}-processed",
+                f"users/0/uploads/metrics/{u}-processed", f"users/2/uploads/{u}-processed", f"films/../{u}-processed"):
+        assert cp.video_url("gmtm", key) is None, key
+
+
 def test_video_url_is_a_plain_cdn_file_only():
     ok = cp.video_url("gmtm", "users/7301/uploads/My Clip (1).mp4")
     assert ok == "https://cdn.gmtm.com/users/7301/uploads/My%20Clip%20%281%29.mp4"

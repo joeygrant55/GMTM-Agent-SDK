@@ -608,12 +608,17 @@ def test_safe_thumbnail_does_not_bypass_foreign_owner_reference(source, thumbnai
     assert thumbnail.rsplit("/", 1)[1] not in json.dumps(failed)
 
 
-def test_users_undefined_upload_keys_are_omitted():
-    """GMTM stored some keys under users/undefined; SPARQ never requests that path (B3, live smoke 2026-10-02)."""
-    for stored in (LEGACY_THUMBNAIL, LEGACY_THUMBNAIL.replace("jpg", "png"), "https://cdn.gmtm.com/" + LEGACY_THUMBNAIL,
-                   "users/undefined/uploads/arbitrary.jpg"):
+def test_users_undefined_upload_keys_keep_only_the_exact_legacy_uuid_form():
+    """GMTM stored some posters under users/undefined; the CDN serves them (measured 2026-10-02)."""
+    for stored in (LEGACY_THUMBNAIL, LEGACY_THUMBNAIL.replace("jpg", "png"), "https://cdn.gmtm.com/" + LEGACY_THUMBNAIL):
         for service in ("gmtm", "s3"):
-            assert api._thumbnail_url({"service": service, "thumbnail_uri": stored}) is None
+            assert api._thumbnail_url({"service": service, "thumbnail_uri": stored}) == "https://cdn.gmtm.com/" + LEGACY_THUMBNAIL.replace(
+                "jpg", "png" if stored.endswith("png") else "jpg")
+    for stored in ("users/undefined/uploads/arbitrary.jpg", "users/undefined/uploads/x/" + LEGACY_THUMBNAIL.rsplit("/", 1)[1],
+                   LEGACY_THUMBNAIL.replace(".jpg", ".gif"), LEGACY_THUMBNAIL + "?x=1", "users/undefined/" + LEGACY_THUMBNAIL.rsplit("/", 1)[1]):
+        assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": stored}) is None, stored
+    assert api._thumbnail_url({"service": "youtube", "thumbnail_uri": LEGACY_THUMBNAIL}) is None
+    assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": "/" + LEGACY_THUMBNAIL}) is None
     assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": "users/7201/uploads/clip.jpg"}) == "https://cdn.gmtm.com/users/7201/uploads/clip.jpg"
 
 
