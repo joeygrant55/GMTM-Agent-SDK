@@ -116,7 +116,10 @@ check('Outreach UI on the profile surface offers Copy and Open in my email (Appr
 
 check('Junior colleges: copy or open in my email only, strict mailto, https-only links, no fit score', () => {
   const source = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
-  assert.match(source, /\/\^\[A-Za-z0-9\._\+-\]\+@\[A-Za-z0-9-\]\+\(\\\.\[A-Za-z0-9-\]\+\)\+\$\//)
+  assert.match(fs.readFileSync(path.join(root, 'app/home/components/emailKit.ts'), 'utf8'), /\/\^\[A-Za-z0-9\._\+-\]\+@\[A-Za-z0-9-\]\+\(\\\.\[A-Za-z0-9-\]\+\)\+\$\//)
+  assert.match(source, /const open = draft \? openLink\(\{ to, cc: ccAddress, subject: draft\.subject, body: draft\.body \}\) : null/)
+  assert.match(source, /<a href=\{open\.href\}/)
+  assert.ok(!/mailto:/.test(source), 'the only mailto builder is emailKit.mailtoURL')
   assert.match(source, /url\.startsWith\('https:\/\/'\)/)
   assert.match(source, /Open in my email/)
   assert.ok(!/fit_score|approve|Send<|sendgrid/i.test(source))
@@ -142,7 +145,8 @@ check('Coach email: a new draft asks before replacing edits; Copy is off while w
   const source = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
   assert.match(source, /if \(edited && !replace\) \{ setConfirmReplace\(true\); return \}/)
   assert.match(source, /Replace your edits\?/)
-  assert.match(source, /onClick=\{\(\) => void copy\(\)\} disabled=\{busy\}/)
+  assert.match(source, /onClick=\{\(\) => void copy\(\)\} disabled=\{busy \|\| !draft\}/)
+  assert.match(source.slice(source.indexOf('export function ProfileCollegeDetail(')), /<HeartButton program=\{program\}/)
 })
 
 check('Drill results: GMTM spellings share one key; height and weight are hidden everywhere on the profile', () => {
@@ -214,7 +218,7 @@ check('Map window: fits her city + listed programs, padded, minimum zoom, 8:5 sh
   for (const p of tall) assert.ok(p.y > t.y && p.y < t.y + t.h, 'tall list fits vertically')
 })
 
-check('Pages: /home is the journey; Home, Colleges, Emails (progress), My card (footage) tabs; active tab per URL; profile-only', () => {
+check('Pages: /home is the journey; Home, Colleges, Emails, My card (footage) tabs; active tab per URL; profile-only', () => {
   const home = fs.readFileSync(path.join(root, 'app/home/page.tsx'), 'utf8')
   assert.match(home, /<ProfileWorkspace view="home" \/>/)
   assert.match(fs.readFileSync(path.join(root, 'app/home/inbox/page.tsx'), 'utf8'), /isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) redirect\('\/home'\)/)
@@ -226,7 +230,12 @@ check('Pages: /home is the journey; Home, Colleges, Emails (progress), My card (
     assert.equal(policy.candidatePagePolicy(`/home/${page}`, 'GET', 'combine'), 'deny')
   }
   const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
-  for (const [href, label] of [['/home', 'Home'], ['/home/colleges', 'Colleges'], ['/home/progress', 'Emails'], ['/home/footage', 'My card']]) assert.ok(shell.includes(`{ href: '${href}', label: '${label}'`), label)
+  for (const [href, label] of [['/home', 'Home'], ['/home/colleges', 'Colleges'], ['/home/emails', 'Emails'], ['/home/footage', 'My card']]) assert.ok(shell.includes(`{ href: '${href}', label: '${label}'`), label)
+  const emails = fs.readFileSync(path.join(root, 'app/home/emails/page.tsx'), 'utf8')
+  assert.match(emails, /if \(!isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) notFound\(\)/)
+  assert.match(emails, /m\.ProfileEmails/)
+  assert.equal(policy.candidatePagePolicy('/home/emails', 'GET', 'profile'), 'page')
+  assert.equal(policy.candidatePagePolicy('/home/emails', 'GET', 'combine'), 'deny')
   assert.match(shell, /match: \(path: string\) => path\.startsWith\('\/home\/colleges'\)/)
   assert.match(shell, /md:hidden/)
   assert.match(shell, /aria-current=\{active === tab\.href \? 'page' : undefined\}/)
@@ -246,12 +255,99 @@ check('No map tile server or third-party geocoder: local SVG map, CSP connect-sr
   assert.equal(policy.candidatePagePolicy('/us-states.svg', 'GET', 'profile'), 'asset')
 })
 
-check('Colleges UI: no coach contact yet, "I sent it" only marks a date, saves are POST {saved}', () => {
+check('Colleges UI: coach contact only in the email kit, "I sent it" only marks a date, saves are POST {saved}', () => {
   const source = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
-  assert.ok(!/coach_email|head_coach|staff_page/.test(source))
+  const kitAt = source.indexOf('export function ProfileCollegeDetail(')
+  const emailsAt = source.indexOf('export function ProfileEmails(')
+  assert.ok(kitAt > 0 && emailsAt > kitAt)
+  // The list, cards, map and Emails page never read coach fields; only the kit does.
+  const kitSection = source.indexOf('// Sourced coach contact (detail route only)')
+  assert.ok(kitSection > 0 && kitSection < kitAt)
+  for (const part of [source.slice(0, kitSection), source.slice(emailsAt)]) assert.ok(!/coach_email|head_coach|staff_page|\bcoach\.|\.coach\b|\bCoach\b[^ ]/.test(part), 'coach field outside the kit')
+  assert.match(source.slice(kitAt, emailsAt), /setTo\(saved\.draft\?\.to_email \|\| d\.coach\.email \|\| ''\)/)
+  assert.match(source.slice(kitAt, emailsAt), /disabled=\{busy \|\| !draft\}/)
   assert.match(source, /JSON_POST\(\{ sent \}\)/)
   assert.match(source, /JSON_POST\(\{ saved: next \}\)/)
   assert.match(source, /← Colleges/)
+})
+
+check('Email kit mailto: one plain To and CC, cc only when on, header injection dropped', () => {
+  const { mailtoURL, plainEmail } = transpile('app/home/components/emailKit.ts')
+  const base = { subject: 'Class of 2028 QB', body: 'Hello Coach,\n\nHi & bye?\n\nAvery' }
+  const plain = mailtoURL({ to: 'coach@school.edu', ...base })
+  assert.equal(plain, 'mailto:coach@school.edu?subject=Class%20of%202028%20QB&body=Hello%20Coach%2C%0A%0AHi%20%26%20bye%3F%0A%0AAvery')
+  assert.ok(!plain.includes('cc='))
+  assert.ok(!mailtoURL({ to: 'coach@school.edu', cc: '', ...base }).includes('cc='), 'toggle off: no cc')
+  assert.equal(mailtoURL({ to: 'coach@school.edu', cc: 'mom@example.com', ...base }), 'mailto:coach@school.edu?cc=mom%40example.com&' + plain.split('?')[1])
+  for (const bad of ['a@x.edu,b@y.com', 'a@x.edu;b@y.com', 'a@x.edu?bcc=evil@y.com', 'a@x.edu&bcc=evil@y.com', 'a%0D%0ABcc:x@y.com@x.edu',
+    'a@x.edu\r\nBcc: evil@y.com', 'a@x', 'a b@x.edu', 'javascript:alert(1)//@x.edu', 'x'.repeat(250) + '@a.edu']) {
+    assert.equal(plainEmail(bad), '', bad)
+    const url = mailtoURL({ to: bad, cc: bad, ...base })
+    assert.ok(url.startsWith('mailto:?subject=') && !/bcc|cc=|evil/i.test(url), url)
+  }
+  assert.equal(plainEmail('  coach@school.edu '), 'coach@school.edu')
+})
+
+check('Long notes: past 2000 characters Copy leads and Open in my email carries To, CC and subject only', () => {
+  const { openLink, MAILTO_LIMIT } = transpile('app/home/components/emailKit.ts')
+  assert.equal(MAILTO_LIMIT, 2000)
+  const fields = { to: 'coach@school.edu', cc: 'mom@example.com', subject: 'Class of 2028 QB' }
+  const short = openLink({ ...fields, body: 'Hello Coach,' })
+  assert.ok(!short.long && short.href.includes('body=Hello%20Coach%2C'))
+  const long = openLink({ ...fields, body: 'x'.repeat(1990) })
+  assert.ok(long.long && long.href.length <= MAILTO_LIMIT && long.href.endsWith('&body=') && long.href.includes('cc=mom%40example.com'))
+  const source = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
+  assert.match(source, /Your note is long\. Use Copy, then open your email and paste it\./)
+  assert.match(source, /\{open\?\.long && <button type="button" onClick=\{\(\) => void copy\(\)\} disabled=\{busy\} className=\{primary\}>Copy<\/button>\}/)
+  assert.ok(!/—/.test(source), 'no em dash in UI copy')
+})
+
+check('What\'s in your note: ticks only what the current text includes', () => {
+  const { noteChecklist } = transpile('app/home/components/emailKit.ts')
+  const kit = { grad_year: 2028, position: 'QB', hometown: 'Plano, TX', highlight_url: 'https://gmtm.com/film/301', highlight_reel: true,
+    profile_url: 'https://gmtm.com/athletes/7301', drills: ['20-Yard Dash 3.42 s', '5-10-5 Shuttle 5.1 s'] }
+  const full = 'Class of 2028 QB from Plano, TX\nMy highlight reel: https://gmtm.com/film/301\nMy GMTM profile: https://gmtm.com/athletes/7301\nMy combine results: 20-Yard Dash 3.42 s, 5-10-5 Shuttle 5.1 s'
+  assert.deepEqual(noteChecklist(full, kit, 'mom@example.com').map(i => [i.label, i.done]), [
+    ['Grad year, position, hometown', true], ['Your highlight reel link', true], ['Your GMTM profile link', true],
+    ['Your best 2 combine numbers', true], ['Your parent in CC', true]])
+  const edited = noteChecklist(full.replace('https://gmtm.com/film/301', ''), kit, '')
+  assert.deepEqual(edited.map(i => i.done), [true, false, true, true, false])
+  const none = noteChecklist('Hello Coach,', { ...kit, grad_year: null, hometown: null, highlight_url: null, drills: [] }, 'bad,a@b.co')
+  assert.deepEqual(none.map(i => [i.label, i.done]), [['Position', false], ['Your highlight video (none public on GMTM yet)', false],
+    ['Your GMTM profile link', false], ['Your combine numbers (none on GMTM yet)', false], ['Your parent in CC', false]])
+})
+
+check('B1: the shell never remounts the page on session load; tabs do not prefetch', () => {
+  const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
+  assert.ok(!/<CareerShell key=/.test(shell), 'no session key on the shell (it remounted the page after the first render)')
+  assert.match(shell, /const waiting = !sessionLoaded \|\| \(!!userId && notice\.phase === 'loading'\)/)
+  assert.match(shell, /\{waiting \? <p role="status"/)
+  assert.equal((shell.match(/<Link key=\{tab\.href\} href=\{tab\.href\} prefetch=\{false\}/g) || []).length, 2)
+})
+
+check('B5: map labels never sit on the "You" pin or its text, nor on each other', () => {
+  const { chooseLabels } = transpile('app/home/components/journey.ts')
+  const view = { w: 30, h: 30 }
+  const you = { x: 82, y: 78 }  // Orlando-like
+  const p = (id, x, y) => ({ id, map: { x, y } })
+  const placed = [p('WU', 83, 78.5), p('FM', 85, 79), p('left', 70, 78), p('above', 82, 70), p('near-above', 83, 69.5), p('far', 90, 88), p('x', 60, 60)]
+  const ids = chooseLabels(placed, you, view).map(q => q.id)
+  assert.ok(!ids.includes('WU') && !ids.includes('FM'), 'labels next to You are dots: ' + ids)
+  assert.deepEqual(ids, ['left', 'above', 'far', 'x'])
+  assert.equal(chooseLabels(placed, null, view).length, 4)
+  assert.equal(chooseLabels([p('a', 50, 50), p('b', 51, 50)], null, view).length, 1)
+})
+
+check('B6: the level ("NCAA D1") stays on one line on cards, saved colleges and Emails', () => {
+  const colleges = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
+  assert.equal((colleges.match(/<span className="whitespace-nowrap">\{(program|row)\.level\}<\/span>/g) || []).length, 2)
+  assert.match(fs.readFileSync(path.join(root, 'app/home/components/AthleteCareerHome.tsx'), 'utf8'), /<span className="whitespace-nowrap">\{program\.level\}<\/span>/)
+})
+
+check('B3: GMTM users/undefined upload keys are never requested', () => {
+  const { isProfileThumbnail } = transpile('app/home/components/profileMaterials.ts')
+  assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg'), false)
+  assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/7201/uploads/clip.jpg'), true)
 })
 
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))

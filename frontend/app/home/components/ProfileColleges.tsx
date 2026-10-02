@@ -1,13 +1,14 @@
 'use client'
 
 // Junior colleges (profile surface only). Sourced programs, why each fits, distance
-// from her GMTM city, saves, contact rules with their sources, and a draft she copies
-// or opens in her own email. SPARQ never sends. No fit score is shown or received.
+// from her GMTM city, saves, contact rules with their sources, the coach email kit
+// (copy or open in her own email) and the Emails list. SPARQ never sends. No fit score.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
-import { badgeColors, initials, mapWindow } from './journey'
+import { badgeColors, chooseLabels, initials, mapWindow } from './journey'
+import { noteChecklist, openLink, plainEmail, type CheckItem, type NoteKit } from './emailKit'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 export const primary = `inline-flex min-h-12 items-center justify-center rounded-[14px] bg-jr-lime px-6 py-3 text-base font-bold text-jr-ground hover:bg-jr-lime-hover disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -29,10 +30,11 @@ export interface CollegeList {
   origin: Origin | null; saved_count: number; sent_count: number
 }
 export interface SavedColleges { eligible: boolean; notice: string | null; built: boolean; found: number; saved: CollegeProgram[]; saved_count: number; sent_count: number; origin: Origin | null }
-interface Draft { id: number; to_email: string; school: string | null; subject: string; body: string }
+interface Draft { id: number; to_email: string; school: string | null; subject: string; body: string; kit: NoteKit | null }
 
 const https = (url: string | null | undefined): string | null => (typeof url === 'string' && url.startsWith('https://') ? url : null)
 const collegesURL = (userId: string, rest = '') => `${BACKEND_URL}/api/workspace/colleges/${encodeURIComponent(userId)}${rest}`
+const parentURL = (userId: string) => `${BACKEND_URL}/api/workspace/parent-contact/${encodeURIComponent(userId)}`
 export const savedURL = (userId: string, rest = '') => `${BACKEND_URL}/api/workspace/saved-colleges/${encodeURIComponent(userId)}${rest}`
 const JSON_POST = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
@@ -102,7 +104,7 @@ function ProgramLinks({ program }: { program: CollegeProgram }) {
 
 function Meta({ program }: { program: CollegeProgram }) {
   return <p className="text-sm text-jr-muted">
-    {program.city}, {program.state}{program.distance_mi !== null && <> · <b className="font-semibold text-jr-text">{aboutMiles(program.distance_mi)}</b></>} · {program.level}
+    {program.city}, {program.state}{program.distance_mi !== null && <> · <b className="font-semibold text-jr-text">{aboutMiles(program.distance_mi)}</b></>} · <span className="whitespace-nowrap">{program.level}</span>
     {program.starts && <span className="ml-2 inline-block rounded-full bg-jr-track px-2.5 py-0.5 text-xs text-jr-text">{program.starts}</span>}
   </p>
 }
@@ -133,12 +135,8 @@ function CollegeMap({ programs, origin }: { programs: CollegeProgram[]; origin: 
   const view = mapWindow([...placed.map(p => p.map!), ...(origin?.map ? [origin.map] : [])])
   // Percent of the whole map -> percent of the visible window.
   const at = (m: { x: number; y: number }) => ({ left: `${((m.x - view.x) / view.w) * 100}%`, top: `${((m.y - view.y) / view.h) * 100}%` })
-  // Up to 4 text labels, skipping any that would sit on top of one already placed (or on "You").
-  const labelled: CollegeProgram[] = []
-  for (const p of placed) {
-    const taken = [...labelled.map(q => q.map!), ...(origin?.map ? [origin.map] : [])]
-    if (labelled.length < 4 && taken.every(m => Math.abs(m.x - p.map!.x) > view.w * 0.16 || Math.abs(m.y - p.map!.y) > view.h * 0.08)) labelled.push(p)
-  }
+  // Up to 4 text labels, none on another label or on the "You" pin and its text; the rest are dots.
+  const labelled = chooseLabels(placed, origin?.map || null, view)
   return <div className="flex flex-col overflow-hidden rounded-3xl border border-jr-line bg-[#101318]">
     <div className="relative aspect-[8/5] w-full overflow-hidden">
       <img src="/us-states.svg" alt="" aria-hidden="true" className="absolute max-w-none"
@@ -271,13 +269,31 @@ export function ProfileColleges() {
   </div>
 }
 
+// Sourced coach contact (detail route only). Never guessed: empty when the program data has none.
+interface Coach { names: string[]; last_name: string | null; role: string | null; email: string | null; staff_page_url: string | null; source_checked: string | null }
+interface Detail { program: CollegeProgram; coach: Coach; contact_rules: ContactRules[] }
+
+function Check({ item }: { item: CheckItem }) {
+  return <li className={`flex gap-2.5 text-[15px] ${item.done ? 'text-[#D4D4DA]' : 'text-jr-dim'}`}>
+    <span aria-hidden="true" className={item.done ? 'text-jr-lime' : ''}>{item.done ? '✓' : '○'}</span>
+    <span>{item.label}<span className="sr-only">{item.done ? ' (in your note)' : ' (not in your note)'}</span></span>
+  </li>
+}
+
+// The coach email kit: To (sourced coach address), CC my parent, subject and note from SPARQ's
+// draft, then Open in my email / Copy / I sent it. SPARQ never sends.
 export function ProfileCollegeDetail({ programId }: { programId: string }) {
   const { user } = useSparqSession()
   const userId = user?.id
-  const [detail, setDetail] = useState<{ program: CollegeProgram; contact_rules: ContactRules[] } | null>(null)
+  const [detail, setDetail] = useState<Detail | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   // The draft as SPARQ wrote it; any difference means the athlete edited it.
   const [written, setWritten] = useState<Draft | null>(null)
+  const [to, setTo] = useState('')
+  const [parent, setParent] = useState('')
+  const [savedParent, setSavedParent] = useState('')
+  const [cc, setCc] = useState(false)
+  const [parentNote, setParentNote] = useState('')
   const [confirmReplace, setConfirmReplace] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -287,15 +303,22 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
     if (!userId) return
     let live = true
     Promise.all([
-      readJSON<{ program: CollegeProgram; contact_rules: ContactRules[] }>(apiFetch(collegesURL(userId, `/${programId}`))),
+      readJSON<Detail>(apiFetch(collegesURL(userId, `/${programId}`))),
       readJSON<{ draft: Draft | null }>(apiFetch(collegesURL(userId, `/${programId}/outreach-draft`))),
-    ]).then(([d, saved]) => { if (live) { setDetail(d); setDraft(saved.draft); setWritten(saved.draft) } }, e => { if (live) setError(e.message) })
+      // CC is optional: if the parent address cannot be read, the kit still works.
+      readJSON<{ email: string | null }>(apiFetch(parentURL(userId))).catch(() => ({ email: null })),
+    ]).then(([d, saved, p]) => {
+      if (!live) return
+      setDetail(d); setDraft(saved.draft); setWritten(saved.draft)
+      setTo(saved.draft?.to_email || d.coach.email || '')
+      setParent(p.email || ''); setSavedParent(p.email || ''); setCc(!!p.email)
+    }, e => { if (live) setError(e.message) })
     return () => { live = false }
   }, [userId, programId])
 
-  const apply = useCallback((id: string, saved: boolean) => setDetail(d => d && d.program.id === id ? { ...d, program: { ...d.program, saved } } : d), [])
-  const save = useSave(userId, apply)
-  const edited = !!draft && !!written && (draft.to_email !== written.to_email || draft.subject !== written.subject || draft.body !== written.body)
+  const applySaved = useCallback((id: string, saved: boolean) => setDetail(d => d && d.program.id === id ? { ...d, program: { ...d.program, saved } } : d), [])
+  const save = useSave(userId, applySaved)
+  const edited = !!draft && !!written && (draft.subject !== written.subject || draft.body !== written.body)
   const write = async (replace = false) => {
     if (!userId || busy) return
     if (edited && !replace) { setConfirmReplace(true); return }
@@ -303,6 +326,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
     try {
       const next = (await readJSON<{ draft: Draft }>(apiFetch(collegesURL(userId, `/${programId}/outreach-draft`), { method: 'POST' }))).draft
       setDraft(next); setWritten(next)
+      setTo(current => current || next.to_email)
     } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
   const copy = async () => {
@@ -312,75 +336,172 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
       setCopied('Copied. Nothing has been sent.')
     } catch { setCopied('Copy is not available. Select the text and copy it.') }
   }
-  // "I sent it": only a date is kept, never the email text.
+  // "I sent it": only a date is kept, never the email text. Needs a draft first.
   const markSent = async (sent: boolean) => {
-    if (!userId || busy) return
+    if (!userId || busy || !draft) return
     setBusy(true); setError('')
     try {
       const result = await readJSON<{ sent_at: string | null }>(apiFetch(collegesURL(userId, `/${programId}/sent`), JSON_POST({ sent })))
       setDetail(d => d && { ...d, program: { ...d.program, sent_at: result.sent_at } })
     } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
-  // One plain address only: no commas, semicolons, % or other mailto header tricks.
-  const mailto = (d: Draft) => {
-    const to = /^[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(d.to_email.trim()) ? d.to_email.trim() : ''
-    return `mailto:${to}?subject=${encodeURIComponent(d.subject)}&body=${encodeURIComponent(d.body)}`
+  // Only the address is stored, per athlete. Saved when she leaves the field.
+  const saveParent = async () => {
+    const value = parent.trim()
+    if (!userId || value === savedParent) return
+    if (value && !plainEmail(value)) { setParentNote('Enter one email address, like parent@example.com.'); return }
+    try {
+      const result = await readJSON<{ email: string | null }>(apiFetch(parentURL(userId), JSON_POST({ email: value })))
+      setSavedParent(result.email || ''); setParentNote(result.email ? 'Saved for your next emails.' : 'Removed.')
+    } catch (e) { setParentNote((e as Error).message) }
   }
-  const field = 'mt-1 block w-full rounded-xl border border-jr-edge bg-jr-well px-4 py-3 text-sm text-jr-text focus:border-jr-lime focus:outline-none'
-  const back = <Link href="/home/colleges" className={`inline-flex min-h-11 items-center text-[15px] text-jr-lime hover:text-jr-lime-hover ${focus}`}>← Colleges</Link>
+
+  const field = 'w-full rounded-xl border border-jr-edge bg-[#0F0F12] p-3.5 text-base font-medium text-jr-text focus:border-jr-lime focus:outline-none'
+  const label = 'flex flex-col gap-1.5 text-sm text-jr-muted'
+  const back = <Link href="/home/colleges" className={`inline-flex min-h-11 items-center self-start text-[15px] text-jr-lime hover:text-jr-lime-hover ${focus}`}>← Colleges</Link>
 
   if (error && !detail) return <div className="pb-12 pt-6">{back}<p role="alert" className="mt-6 text-red-300">{error}</p></div>
   if (!detail) return <p role="status" className="py-16 text-center text-jr-muted">Loading…</p>
-  const program = detail.program
-  return <div className="max-w-3xl pb-12 pt-6">
-    {back}
-    <article className="mt-4 flex gap-4 rounded-[20px] border border-jr-line bg-jr-card p-5">
-      <Badge program={program} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex justify-between gap-3">
-          <h1 className="break-words text-2xl font-bold sm:text-[28px]">{program.school}</h1>
-          <HeartButton program={program} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />
+  const { program, coach } = detail
+  const ccAddress = cc ? plainEmail(parent) : ''
+  const toValid = !to.trim() || !!plainEmail(to)
+  const checklist = noteChecklist(draft ? `${draft.subject}\n${draft.body}` : '', draft?.kit || null, ccAddress)
+  const rules = detail.contact_rules[0]
+  const open = draft ? openLink({ to, cc: ccAddress, subject: draft.subject, body: draft.body }) : null
+  return <div className="grid items-start gap-7 pb-12 pt-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <section aria-labelledby="kit-title" className="flex min-w-0 flex-col gap-[18px]">
+      {back}
+      <div className="flex items-center gap-4">
+        <Badge program={program} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h1 id="kit-title" className="break-words text-[28px] font-bold leading-tight sm:text-[32px]">{coach.last_name ? `Email Coach ${coach.last_name}` : 'Email the coach'}</h1>
+          <p className="text-[15px] text-jr-muted">
+            {coach.names.length === 1 ? `${coach.role} · ${program.school}`
+              : coach.names.length > 1 ? `${coach.role}: ${coach.names.join(' and ')} · ${program.school}` : program.school}
+          </p>
+          {!coach.names.length && <ExternalLink href={coach.staff_page_url}>Find the coach on the staff page</ExternalLink>}
         </div>
-        <Meta program={program} />
-        {program.conference && <p className="text-sm text-jr-muted">{program.conference}</p>}
-        {program.reason && <p className="mt-2 break-words text-base leading-relaxed text-[#D4D4DA]">{program.reason}</p>}
-        {program.notes && <p className="mt-2 break-words text-sm text-jr-muted">{program.notes}</p>}
-        <div className="mt-1 flex flex-wrap gap-x-5"><ProgramLinks program={program} /></div>
-        <p className="text-xs text-jr-dim">{program.source_checked}</p>
+        <HeartButton program={program} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />
       </div>
-    </article>
-    {save.error && <p role="alert" className="mt-3 text-red-300">{save.error}</p>}
-    <section aria-labelledby="draft-title" className="mt-8">
-      <h2 id="draft-title" className="text-xl font-bold">Email the coach</h2>
-      <p className="mt-2 text-sm text-jr-muted">SPARQ writes a draft. You read it, change it, and send it from your own email. A parent can help. SPARQ never sends it.</p>
-      {error && <p role="alert" className="mt-3 text-red-300">{error}</p>}
-      {!draft ? <button type="button" onClick={() => void write()} disabled={busy} className={`${primary} mt-4`}>{busy ? 'Writing…' : 'Write a draft'}</button>
-        : <div className="mt-4 rounded-[20px] border border-jr-line bg-jr-card p-5">
-          <label className="block text-xs uppercase tracking-wide text-jr-muted">To<input type="email" value={draft.to_email} onChange={e => setDraft({ ...draft, to_email: e.target.value })} placeholder="Add the coach's email from the school site" className={field} /></label>
-          <label className="mt-3 block text-xs uppercase tracking-wide text-jr-muted">Subject<input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={field} /></label>
-          <label className="mt-3 block text-xs uppercase tracking-wide text-jr-muted">Email<textarea value={draft.body} onChange={e => setDraft({ ...draft, body: e.target.value })} rows={Math.max(8, draft.body.split('\n').length + 1)} className={field} /></label>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={() => void copy()} disabled={busy} className={primary}>Copy</button>
-            <a href={mailto(draft)} className={secondary}>Open in my email</a>
-            <button type="button" onClick={() => void write()} disabled={busy || confirmReplace} className={`min-h-11 px-3 text-sm text-jr-muted hover:text-white ${focus}`}>{busy ? 'Writing…' : 'Write a new draft'}</button>
-          </div>
-          {confirmReplace && <div role="alertdialog" aria-labelledby="replace-edits" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200/40 p-3">
-            <p id="replace-edits" className="text-sm text-amber-100">Replace your edits?</p>
-            <button type="button" autoFocus onClick={() => setConfirmReplace(false)} className={secondary}>Keep my edits</button>
-            <button type="button" onClick={() => void write(true)} className={secondary}>Replace</button>
-          </div>}
-          {copied && <p role="status" className="mt-2 text-sm text-jr-soft">{copied}</p>}
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-jr-line pt-4">
-            {program.sent_at ? <>
-              <p role="status" className="text-sm font-semibold text-jr-lime">You marked this sent on {shortDate(program.sent_at)}.</p>
-              <button type="button" onClick={() => void markSent(false)} disabled={busy} className={`min-h-11 px-3 text-sm text-jr-muted hover:text-white ${focus}`}>Undo</button>
-            </> : <>
-              <p className="text-sm text-jr-muted">Sent it from your email?</p>
-              <button type="button" onClick={() => void markSent(true)} disabled={busy} className={secondary}>I sent it</button>
-            </>}
-          </div>
+      {save.error && <p role="alert" className="text-red-300">{save.error}</p>}
+
+      <div className="flex flex-col gap-4 rounded-[20px] border border-jr-line bg-jr-card p-4 sm:p-[22px]">
+        <label className={label}>To
+          <input type="email" value={to} onChange={e => setTo(e.target.value)} placeholder="Add the coach's email from the staff page"
+            aria-invalid={!toValid} aria-describedby="to-help" autoComplete="off" className={field} />
+        </label>
+        <p id="to-help" className="-mt-2 text-xs text-jr-dim">
+          {!toValid ? 'Use one email address, like coach@school.edu.'
+            : coach.email && coach.source_checked ? <>From the school&apos;s staff page. {coach.source_checked}. </> : 'SPARQ does not have this coach’s email. '}
+          {coach.staff_page_url && <a href={coach.staff_page_url} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-4 ${focus}`}>Staff page<span className="sr-only"> (opens in a new tab)</span></a>}
+        </p>
+        <div className="flex flex-col gap-2">
+          <label className="flex min-h-11 items-center gap-2.5 text-[15px] text-[#D4D4DA]">
+            <input type="checkbox" checked={cc} onChange={e => setCc(e.target.checked)} className="h-5 w-5 accent-jr-lime" />
+            CC my parent{cc && ccAddress ? ` (${ccAddress})` : ''}
+          </label>
+          {cc && <label className={label}>Parent&apos;s email
+            <input type="email" value={parent} onChange={e => { setParent(e.target.value); setParentNote('') }} onBlur={() => void saveParent()}
+              placeholder="parent@example.com" autoComplete="off" aria-describedby="parent-help" className={field} />
+            <span id="parent-help" role="status" className="text-xs text-jr-dim">{parentNote || 'Saved in SPARQ only for your CC line. SPARQ never emails your parent.'}</span>
+          </label>}
+        </div>
+        {draft ? <>
+          <label className={label}>Subject<input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={field} /></label>
+          <label className={label}>Your note<textarea value={draft.body} onChange={e => setDraft({ ...draft, body: e.target.value })} rows={Math.max(9, draft.body.split('\n').length + 1)} className={`${field} resize-y font-normal leading-[1.55]`} /></label>
+        </> : <div className="rounded-xl border border-dashed border-jr-edge p-4">
+          <p className="text-[15px] text-jr-soft">SPARQ writes a short note from your GMTM profile: your highlights first, then your best numbers. You read it and change anything.</p>
+          <button type="button" onClick={() => void write()} disabled={busy} className={`${primary} mt-4`}>{busy ? 'Writing…' : 'Write my note'}</button>
         </div>}
+        {error && <p role="alert" className="text-red-300">{error}</p>}
+        {open?.long && <p role="status" className="rounded-xl border border-amber-200/40 p-3 text-sm text-amber-100">Your note is long. Use Copy, then open your email and paste it.</p>}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {open?.long && <button type="button" onClick={() => void copy()} disabled={busy} className={primary}>Copy</button>}
+          {open && toValid ? <a href={open.href} className={open.long ? `${secondary} min-h-12 px-[22px] text-base` : primary}>Open in my email</a>
+            : <button type="button" disabled className={primary}>Open in my email</button>}
+          {!open?.long && <button type="button" onClick={() => void copy()} disabled={busy || !draft} className={`${secondary} min-h-12 px-[22px] text-base`}>Copy</button>}
+          {program.sent_at ? <span className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-jr-done-line bg-jr-done px-4 text-base font-semibold text-jr-lime">
+            <span role="status">Sent {shortDate(program.sent_at)} ✓</span>
+            <button type="button" onClick={() => void markSent(false)} disabled={busy} className={`min-h-11 px-2 text-sm font-normal text-jr-muted underline hover:text-white ${focus}`}>Undo</button>
+          </span> : <button type="button" onClick={() => void markSent(true)} disabled={busy || !draft}
+            className={`inline-flex min-h-12 items-center rounded-xl border border-jr-done-line bg-jr-done px-[22px] text-base font-semibold text-jr-lime disabled:cursor-not-allowed disabled:opacity-50 ${focus}`}>I sent it ✓</button>}
+          {draft && <button type="button" onClick={() => void write()} disabled={busy || confirmReplace} className={`min-h-11 px-3 text-sm text-jr-muted hover:text-white ${focus}`}>{busy ? 'Writing…' : 'Write a new draft'}</button>}
+        </div>
+        {confirmReplace && <div role="alertdialog" aria-labelledby="replace-edits" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200/40 p-3">
+          <p id="replace-edits" className="text-sm text-amber-100">Replace your edits?</p>
+          <button type="button" autoFocus onClick={() => setConfirmReplace(false)} className={secondary}>Keep my edits</button>
+          <button type="button" onClick={() => void write(true)} className={secondary}>Replace</button>
+        </div>}
+        {copied && <p role="status" className="text-sm text-jr-soft">{copied}</p>}
+        <p className="text-sm text-jr-dim">SPARQ never sends for you. You send it from your own email.</p>
+      </div>
     </section>
-    <ContactPanel rules={detail.contact_rules} />
+
+    <aside className="flex flex-col gap-4 lg:pt-11">
+      <div className="flex flex-col gap-3 rounded-[20px] border border-jr-line bg-jr-card p-5">
+        <h2 className="text-lg font-bold">What&apos;s in your note</h2>
+        {draft ? <ul className="flex flex-col gap-2.5">{checklist.map(item => <Check key={item.label} item={item} />)}</ul>
+          : <p className="text-[15px] text-jr-soft">Write your note to see what it includes.</p>}
+      </div>
+      {rules && <div className="flex flex-col gap-2.5 rounded-[20px] border border-jr-line bg-jr-card p-5">
+        <h2 className="text-lg font-bold">When coaches can reply</h2>
+        <p className="text-sm text-jr-muted">{rules.level} rules. If a coach does not answer yet, it can be a rule, not a no.</p>
+        <ul className="flex flex-col gap-2 text-[15px] leading-normal text-[#D4D4DA]">
+          {rules.rules.map(rule => <li key={rule.text}>{rule.text}{rule.source_url && <> <ExternalLink href={rule.source_url}>{rule.source_label || 'Source'}</ExternalLink></>}</li>)}
+        </ul>
+      </div>}
+      <div className="flex flex-col gap-1.5 rounded-[20px] border border-jr-done-line bg-jr-done p-5">
+        <span className="text-[15px] font-bold text-jr-lime">Tip</span>
+        <p className="text-[15px] leading-normal text-[#E4E4E7]">Short notes get read. {program.questionnaire_link
+          ? <>Fill in the questionnaire too: <ExternalLink href={program.questionnaire_link}>{program.school} questionnaire</ExternalLink></>
+          : 'Lead with your highlights. Coaches watch film first.'}</p>
+      </div>
+      <div className="flex flex-wrap gap-x-5 px-1"><ProgramLinks program={program} /></div>
+      <p className="px-1 text-xs text-jr-dim">{program.source_checked}</p>
+    </aside>
+  </div>
+}
+
+interface EmailRow { id: string; school: string; city: string; state: string; level: string; primary_color: string | null; status: 'draft' | 'sent'; drafted_at: string | null; sent_at: string | null }
+
+// Emails tab: every college she has a note for, waiting ones first, each opening its kit.
+export function ProfileEmails() {
+  const { user, isLoaded } = useSparqSession()
+  const [data, setData] = useState<{ eligible: boolean; notice: string | null; emails: EmailRow[] } | null>(null)
+  const [error, setError] = useState('')
+  const userId = user?.id
+  useEffect(() => {
+    if (!userId) return
+    let live = true
+    readJSON<{ eligible: boolean; notice: string | null; emails: EmailRow[] }>(apiFetch(`${BACKEND_URL}/api/workspace/college-emails/${encodeURIComponent(userId)}`))
+      .then(body => { if (live) setData(body) }, e => { if (live) setError(e.message) })
+    return () => { live = false }
+  }, [userId])
+
+  if (!isLoaded || (!data && !error)) return <p role="status" className="py-16 text-center text-jr-muted">Loading your emails…</p>
+  return <div className="max-w-3xl pb-12 pt-8">
+    <h1 className="text-[34px] font-bold leading-tight tracking-[-1px] sm:text-[44px]">Emails</h1>
+    {error && <p role="alert" className="mt-4 text-red-300">{error}</p>}
+    {data && !data.eligible && <p role="status" className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6 text-lg">{data.notice}</p>}
+    {data?.eligible && (data.emails.length ? <>
+      <p className="mt-2 text-[17px] text-jr-soft">Your notes to coaches. SPARQ never sends them; you send each one from your own email.</p>
+      <ul className="mt-6 flex flex-col gap-3">
+        {data.emails.map(row => <li key={row.id}>
+          <Link href={`/home/colleges/${row.id}`} className={`flex items-center gap-4 rounded-[20px] border border-jr-line bg-jr-card p-4 hover:border-jr-edge ${focus}`}>
+            <Badge program={row} size="sm" />
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="break-words text-lg font-bold leading-snug">{row.school}</span>
+              <span className="text-sm text-jr-muted">{row.city}, {row.state} · <span className="whitespace-nowrap">{row.level}</span></span>
+            </span>
+            {row.status === 'sent' && row.sent_at
+              ? <span className="shrink-0 rounded-full bg-jr-done px-3 py-1 text-sm font-semibold text-jr-lime">Sent on {shortDate(row.sent_at)}</span>
+              : <span className="shrink-0 rounded-full border border-jr-edge px-3 py-1 text-sm font-semibold text-jr-text">Draft</span>}
+          </Link>
+        </li>)}
+      </ul>
+    </> : <div className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6">
+      <p className="text-jr-soft">No emails yet. Pick a college and SPARQ writes your first note.</p>
+      <Link href="/home/colleges" className={`${primary} mt-5`}>Find a college</Link>
+    </div>)}
   </div>
 }

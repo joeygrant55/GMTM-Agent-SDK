@@ -27,9 +27,13 @@ ROUTES = {
     ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft"),
     ("GET", "/api/workspace/saved-colleges/{clerk_id}"), ("POST", "/api/workspace/saved-colleges/{clerk_id}/{program_id}"),
     ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/sent"),
+    ("GET", "/api/workspace/college-emails/{clerk_id}"),
+    ("GET", "/api/workspace/parent-contact/{clerk_id}"), ("POST", "/api/workspace/parent-contact/{clerk_id}"),
 }
 BODIES = {"/api/workspace/saved-colleges/{clerk_id}/{program_id}": {"saved": True},
-          "/api/workspace/colleges/{clerk_id}/{program_id}/sent": {"sent": True}}
+          "/api/workspace/colleges/{clerk_id}/{program_id}/sent": {"sent": True},
+          "/api/workspace/parent-contact/{clerk_id}": {"email": "parent@example.com"}}
+HIGHLIGHT = {"url": "https://gmtm.com/film/301", "reel": True}
 # Real GMTM junior drill names (events 1305/1314/1317); Plano, TX.
 DRILLS = [{"name": "20-Yard Dash", "value": 3.42, "unit": "seconds"}, {"name": "5-10-5 Shuttle", "value": 5.1, "unit": "seconds"},
           {"name": "Standing Broad Jump", "value": 84, "unit": "inches"}]
@@ -41,6 +45,7 @@ class CollegeStore:
         self.rows, self.drafts, self.saves = {}, [], 0
         self.marked = {"sparq_saved_colleges": {}, "sparq_sent_emails": {}}
         self.mark_calls = []
+        self.parents = {}
         self.profiles = {SUBJECT: {"clerk_id": SUBJECT, "name": NAME, "position": "QB", "class_year": 2028, "state": state,
                                  "city": CITY, "email": EMAIL,
                                  "combine_metrics": json.dumps({"fortyYardDash": 5.4, "vertical": 21, "weight": 120})}}
@@ -57,7 +62,8 @@ class CollegeStore:
         self.rows[clerk_id].update(inputs_key=key, programs=items)
 
     def insert_draft(self, clerk_id, title, summary, payload, sources):
-        self.drafts.append({"id": len(self.drafts) + 1, "clerk_id": clerk_id, "payload": payload, "sources": sources})
+        self.drafts.append({"id": len(self.drafts) + 1, "clerk_id": clerk_id, "payload": payload, "sources": sources,
+                            "created_at": datetime(2026, 10, 1, 9, len(self.drafts))})
         return len(self.drafts)
 
     def marks(self, clerk_id):
@@ -71,6 +77,17 @@ class CollegeStore:
             rows.setdefault((clerk_id, program_id), datetime(2026, 10, 2, 12, len(self.mark_calls)))
         else:
             rows.pop((clerk_id, program_id), None)
+
+    def drafted(self, clerk_id):
+        return {d["payload"]["program_id"]: d["created_at"] for d in self.drafts if d["clerk_id"] == clerk_id}
+
+    def parent_email(self, clerk_id): return self.parents.get(clerk_id)
+
+    def set_parent_email(self, clerk_id, email):
+        if email:
+            self.parents[clerk_id] = email
+        else:
+            self.parents.pop(clerk_id, None)
 
     def latest_draft(self, clerk_id, program_id):
         rows = [d for d in self.drafts if d["clerk_id"] == clerk_id and d["payload"]["program_id"] == program_id]
@@ -100,10 +117,12 @@ def app(profile_app, monkeypatch, session):
     entries.accept_notice(SUBJECT, datetime.now(timezone.utc))
     monkeypatch.setattr(junior_entry, "store", entries)
     monkeypatch.setattr(elig, "reader", lambda uid: (True, datetime(2011, 1, 1).date()))
-    store, model, identity = CollegeStore(), Model(), {"gender": 1, "sport": "Flag Football"}
+    store, model, identity = CollegeStore(), Model(), {"gender": 1, "sport": "Flag Football", "visibility": 2}
     athlete = {"drills": [dict(d) for d in DRILLS], "origin": dict(ORIGIN)}
     monkeypatch.setattr(cp, "store", store)
     monkeypatch.setattr(cp, "read_athlete", lambda uid: athlete if uid == USER_ID else None)
+    monkeypatch.setattr(cp, "read_featured", lambda clerk_id: None)
+    monkeypatch.setattr(cp, "read_highlight", lambda uid, featured=None: dict(HIGHLIGHT) if uid == USER_ID else None)
     monkeypatch.setattr(cp, "model_json", model)
     monkeypatch.setattr(cp, "read_identity", lambda uid: dict(identity) if uid == USER_ID else None)
     with TestClient(profile_app) as client:
@@ -121,10 +140,11 @@ def walk(value):
 
 
 def test_profile_app_mounts_exactly_the_reviewed_college_routes(profile_app):
-    mounted = {(m, r.path) for r in profile_app.routes for m in getattr(r, "methods", ()) if "college" in r.path or "trigger" in r.path}
+    mounted = {(m, r.path) for r in profile_app.routes for m in getattr(r, "methods", ())
+               if "college" in r.path or "trigger" in r.path or "parent-contact" in r.path}
     assert mounted == ROUTES
     combine = candidate_app.create_app()
-    assert not any("college" in r.path or "trigger" in r.path for r in combine.routes)
+    assert not any("college" in r.path or "trigger" in r.path or "parent-contact" in r.path for r in combine.routes)
 
 
 def test_owner_checks_401_and_403(app):
@@ -134,7 +154,7 @@ def test_owner_checks_401_and_403(app):
         body = BODIES.get(path)
         assert client.request(method, url.replace("{clerk_id}", SUBJECT), json=body).status_code == 401
         assert client.request(method, url.replace("{clerk_id}", "user_other"), headers=headers, json=body).status_code == 403
-    assert model.calls == [] and store.saves == 0 and store.mark_calls == []
+    assert model.calls == [] and store.saves == 0 and store.mark_calls == [] and store.parents == {}
 
 
 def test_parent_notice_still_gates_college_routes(app):
@@ -274,19 +294,31 @@ def test_contact_rules_are_sourced_and_hide_the_njcaa_date():
     assert "June 15 after your sophomore year" in rules["NCAA-D1"][0]["text"]
 
 
-def test_draft_uses_first_name_only_and_leaves_to_empty(app):
+KIT_BLOCK = ("My highlight reel: https://gmtm.com/film/301\nMy GMTM profile: https://gmtm.com/athletes/7301\n"
+             "My combine results: 20-Yard Dash 3.42 s, 5-10-5 Shuttle 5.1 s")
+
+
+def test_draft_uses_first_name_only_and_server_adds_coach_links_and_drills(app):
     client, store, model, _, headers, _ = app
     url = f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft"
     assert client.get(url, headers=headers).json() == {"draft": None}
     created = client.post(url, headers=headers).json()["draft"]
-    assert created["to_email"] == "" and created["body"] == "Hello Coach,\n\nI play QB.\n\nAvery"
+    # Sourced coach (Tyrone Poole, Alabama State staff page): the server adds the name and the To address.
+    assert created["to_email"] == "Tpoole2483@alasu.edu"
+    assert created["body"] == f"Hello Coach Poole,\n\nI play QB.\n\n{KIT_BLOCK}\n\nAvery"
+    assert created["kit"] == {"grad_year": 2028, "position": "QB", "hometown": "Plano, TX",
+                              "highlight_url": HIGHLIGHT["url"], "highlight_reel": True,
+                              "profile_url": "https://gmtm.com/athletes/7301",
+                              "drills": ["20-Yard Dash 3.42 s", "5-10-5 Shuttle 5.1 s"]}
     assert client.get(url, headers=headers).json()["draft"] == created
     system, user = model.calls[-1]
-    assert "Avery" in user and "Quintero" not in user and CITY not in user and EMAIL not in user
-    assert "Coach email (if known): (none)" in user and "Alabama State University" in user
+    # The model never sees a last name, city, coach, link or drill result.
+    for secret in ("Quintero", CITY, EMAIL, "Poole", "alasu", "gmtm.com", "7301", "3.42", "Standing Broad"):
+        assert secret not in user, secret
+    assert "Avery" in user and "Coach email (if known): (none)" in user and "Alabama State University" in user
     assert system == cp.JUNIOR_DRAFT_SYSTEM and "never name a coach" in system and "recruit_questionnaire\": \"not available\"" in user
     saved = store.drafts[-1]["payload"]
-    assert saved["to_email"] == "" and saved["to_name"] == "Head coach" and saved["program_id"] == "alabama-state-university"
+    assert saved["to_email"] == "Tpoole2483@alasu.edu" and saved["to_name"] == "Tyrone Poole" and saved["program_id"] == "alabama-state-university"
 
 
 def test_draft_model_failure_is_502_and_nothing_saved(app):
@@ -686,3 +718,248 @@ def test_data_hygiene_from_the_contacts_research():
         cp.load_programs(json.dumps([{**rows[0], "lat": 51.5, "lon": -0.1}]))
     with pytest.raises(ValueError):
         cp.load_programs(json.dumps([{**rows[0], "primary_color": "red"}]))
+
+
+# ── Slice 3: coach email kit, Emails page, CC my parent ───────────────────────
+
+COACH_KEYS = ("coach", "coach_email", "head_coach_name", "staff_page_url", "names", "last_name")
+
+
+def test_coach_contact_only_on_the_detail_route(app):
+    client, store, model, _, headers, _ = app
+    pid = "alabama-state-university"
+    store.drafts.append({"id": 1, "clerk_id": SUBJECT, "payload": {"program_id": pid, "subject": "s", "body": "b"},
+                         "sources": [], "created_at": datetime(2026, 10, 1)})
+    detail = client.get(f"/api/workspace/colleges/{SUBJECT}/{pid}", headers=headers).json()
+    assert detail["coach"] == {"names": ["Tyrone Poole"], "last_name": "Poole", "role": "Head coach, women's flag football",
+                               "email": "Tpoole2483@alasu.edu",
+                               "staff_page_url": "https://bamastatesports.com/sports/womens-flag-football/coaches",
+                               "source_checked": "Source checked Oct 2, 2026"}
+    assert [r["governing_body"] for r in detail["contact_rules"]] == ["NCAA-D1"]
+    built(client, headers)
+    for url in (f"/api/workspace/colleges/{SUBJECT}", f"/api/workspace/saved-colleges/{SUBJECT}", f"/api/workspace/college-emails/{SUBJECT}"):
+        body = client.get(url, headers=headers).json()
+        assert not any(k in COACH_KEYS for k, _ in walk(body)), url
+        assert "@" not in json.dumps(body), url
+
+
+def test_coach_is_never_invented_when_the_data_has_none(app):
+    client, store, model, _, headers, _ = app
+    none = [p for p in cp.programs() if not p.get("head_coach_name") and not p.get("coach_email")]
+    assert none
+    for p in none:
+        c = cp.coach(p)
+        assert c["names"] == [] and c["last_name"] is None and c["role"] is None and c["email"] is None and c["source_checked"] is None
+        assert c["staff_page_url"] == cp.https(p.get("staff_page_url"))
+    # No coach in the data: the draft keeps "Hello Coach," and To stays empty.
+    pid = none[0]["id"]
+    created = client.post(f"/api/workspace/colleges/{SUBJECT}/{pid}/outreach-draft", headers=headers).json()["draft"]
+    assert created["to_email"] == "" and created["body"].startswith("Hello Coach,\n")
+    assert store.drafts[-1]["payload"]["to_name"] == "Head coach"
+
+
+def test_coach_name_parsing_and_bad_addresses():
+    assert [cp.coach_last_name(n) for n in ("Tyrone Poole", "Todd Fox '95", "Janssen Wilborn II", "Madonna", "Anna Taylor '25")] == \
+        ["Poole", "Fox", "Wilborn", None, "Taylor"]
+    co = cp.coach({"head_coach_name": "Dominic Colavito; Joseph Newman", "coach_email": "dc@post.edu", "contacts_verified_on": "2026-10-02"})
+    assert co["names"] == ["Dominic Colavito", "Joseph Newman"] and co["last_name"] is None and co["role"].startswith("Co-head coach")
+    for bad in ("a@x.edu,b@y.com", "a@x.edu;b@y.com", "a%0D%0Abcc:x@y.com", "a@x", "a b@x.edu", "x" * 250 + "@a.edu", 5):
+        assert cp.coach({"coach_email": bad})["email"] is None, bad
+    for p in cp.programs():  # every served address is one plain address
+        email = cp.coach(p)["email"]
+        assert email is None or cp.PLAIN_EMAIL.fullmatch(email)
+
+
+def test_hometown_and_links_are_server_inserted_never_sent_to_the_model(app):
+    client, store, model, _, headers, _ = app
+    model.draft = {"subject": f"2028 QB, {cp.HOMETOWN}, interested in Alabama State flag football",
+                   "body": f"Hello Coach,\n\nI am Avery, a QB from {cp.HOMETOWN}.\n\n{cp.FACTS}\n\nCoaches may not be able to reply yet.\n\nAvery"}
+    created = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert created["subject"] == "2028 QB, Plano, TX, interested in Alabama State flag football"
+    assert created["body"] == f"Hello Coach Poole,\n\nI am Avery, a QB from Plano, TX.\n\n{KIT_BLOCK}\n\nCoaches may not be able to reply yet.\n\nAvery"
+    assert CITY not in model.calls[-1][1] and cp.HOMETOWN in model.calls[-1][0] and cp.FACTS in model.calls[-1][0]
+
+
+def test_draft_without_gmtm_city_footage_or_user_id_omits_those_parts(app, monkeypatch):
+    client, store, model, _, headers, _ = app
+    monkeypatch.setattr(cp, "read_highlight", lambda uid, featured=None: None)
+    monkeypatch.setattr(cp, "read_athlete", lambda uid: {"drills": [], "origin": None})
+    model.draft = {"subject": f"QB, {cp.HOMETOWN}", "body": f"Hello Coach,\n\nFrom {cp.HOMETOWN}.\n\n{cp.FACTS}\n\nAvery"}
+    created = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert created["subject"] == "QB, Texas"
+    assert created["body"] == "Hello Coach Poole,\n\nFrom Texas.\n\nMy GMTM profile: https://gmtm.com/athletes/7301\n\nAvery"
+    assert created["kit"]["highlight_url"] is None and created["kit"]["drills"] == []
+    # A footage read failure only drops the video line.
+    monkeypatch.setattr(cp, "read_highlight", lambda uid, featured=None: (_ for _ in ()).throw(RuntimeError("down")))
+    assert client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).status_code == 200
+
+
+def test_a_non_reel_clip_is_called_a_video_and_best_drills_put_speed_first():
+    kit = {"highlight_url": "https://gmtm.com/film/9", "highlight_reel": False, "profile_url": None, "drills": []}
+    assert cp.kit_block(kit) == "My video: https://gmtm.com/film/9"
+    drills = [{"name": "Standing Broad Jump", "value": 84, "unit": "inches"}, {"name": "5-10-5 Shuttle Run", "value": 5.1, "unit": "seconds"},
+              {"name": "Push-Ups", "value": 30, "unit": "reps"}]
+    assert cp.best_drills(drills) == ["5-10-5 Shuttle Run 5.1 s", "Standing Broad Jump 84 in"]
+
+
+def test_draft_safety_allows_only_the_server_inserted_link_and_coach():
+    links = ["https://gmtm.com/athletes/2019", "https://gmtm.com/film/301"]
+    text = "Hello Coach Poole,\n\nMy GMTM profile: https://gmtm.com/athletes/2019\nMy video: https://gmtm.com/film/301"
+    assert cp.draft_is_clean(text, links + ["Coach Poole"])
+    assert not cp.draft_is_clean(text, links)  # coach name not inserted by the server
+    assert not cp.draft_is_clean(text + "\nhttps://hudl.com/x", links + ["Coach Poole"])
+    assert not cp.draft_is_clean(text + "\nme@mail.com", links + ["Coach Poole"])
+    # A user id that looks like a year inside her profile link is not a year.
+    assert cp.year_is_clean(text, None, "{}") and not cp.year_is_clean(text + "\nClass of 2019", None, "{}")
+
+
+@pytest.mark.parametrize("bad", ["See https://hudl.com/x", "Hello Coach Johnson,", "Email avery@mail.com"])
+def test_model_written_links_or_coach_still_rejected_with_server_inserts(app, bad):
+    client, store, model, _, headers, _ = app
+    model.draft = {"subject": "QB", "body": f"Hello Coach,\n\n{bad}\n\n{cp.FACTS}\n\nAvery"}
+    response = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers)
+    assert response.status_code == 502 and store.drafts == []
+
+
+def test_emails_page_lists_drafts_and_sent_sorted_without_contact(app):
+    client, store, model, identity, headers, _ = app
+    assert client.get(f"/api/workspace/college-emails/{SUBJECT}", headers=headers).json() == {"eligible": True, "notice": None, "emails": []}
+    a, b, c = built(client, headers)[:3]
+    for pid in (a, b, c):
+        client.post(f"/api/workspace/colleges/{SUBJECT}/{pid}/outreach-draft", headers=headers)
+    client.post(f"/api/workspace/colleges/{SUBJECT}/{a}/sent", headers=headers, json={"sent": True})
+    emails = client.get(f"/api/workspace/college-emails/{SUBJECT}", headers=headers).json()["emails"]
+    # Drafts waiting first (newest first), then sent.
+    assert [(e["id"], e["status"]) for e in emails] == [(c, "draft"), (b, "draft"), (a, "sent")]
+    assert emails[2]["sent_at"].startswith("2026-10-02T12:") and emails[0]["sent_at"] is None and emails[0]["drafted_at"]
+    assert set(emails[0]) == {"id", "school", "city", "state", "level", "primary_color", "status", "drafted_at", "sent_at"}
+    identity["gender"], store.rows[SUBJECT]["gmtm_gender"] = 2, 2  # not eligible on GMTM: nothing listed
+    assert client.get(f"/api/workspace/college-emails/{SUBJECT}", headers=headers).json()["emails"] == []
+
+
+def test_parent_contact_is_owner_checked_validated_and_clearable(app):
+    client, store, model, _, headers, _ = app
+    url = f"/api/workspace/parent-contact/{SUBJECT}"
+    assert client.get(url, headers=headers).json() == {"email": None}
+    assert client.post(url, headers=headers, json={"email": " mom@example.com "}).json() == {"email": "mom@example.com"}
+    assert client.get(url, headers=headers).json() == {"email": "mom@example.com"} and store.parents == {SUBJECT: "mom@example.com"}
+    for bad in ("a@x.edu,b@y.com", "a@x.edu;b@y.com", "a@x.edu%0D%0Abcc:z@y.com", "a@x.edu\r\nBcc: z@y.com", "mom", "a b@x.edu"):
+        assert client.post(url, headers=headers, json={"email": bad}).status_code == 422, bad
+    for body in (None, {}, {"email": 5}, {"email": "m@x.edu", "extra": 1}, {"email": "x" * 250 + "@a.edu"}):
+        assert client.post(url, headers=headers, json=body).status_code == 422, body
+    assert store.parents == {SUBJECT: "mom@example.com"}
+    other = f"/api/workspace/parent-contact/user_other"
+    assert client.get(other, headers=headers).status_code == 403
+    assert client.post(other, headers=headers, json={"email": "evil@example.com"}).status_code == 403
+    assert client.post(url, headers=headers, json={"email": ""}).json() == {"email": None} and store.parents == {}
+
+
+def test_parent_contact_read_fails_soft_if_the_table_is_missing(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    monkeypatch.setattr(store, "parent_email", lambda c: (_ for _ in ()).throw(RuntimeError("1146 table missing")))
+    assert client.get(f"/api/workspace/parent-contact/{SUBJECT}", headers=headers).json() == {"email": None}
+
+
+def test_sent_still_requires_a_draft_from_the_kit(app):
+    client, store, model, _, headers, _ = app
+    pid = built(client, headers)[0]
+    assert client.post(f"/api/workspace/colleges/{SUBJECT}/{pid}/sent", headers=headers, json={"sent": True}).status_code == 409
+    assert store.mark_calls == []
+
+
+def test_profile_link_uses_the_working_gmtm_athletes_pattern(app):
+    client, store, *_ , headers, _ = app
+    assert cp.GMTM_PROFILE.format(7301) == "https://gmtm.com/athletes/7301"
+    body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert body["kit"]["profile_url"] == "https://gmtm.com/athletes/7301" and "My GMTM profile: https://gmtm.com/athletes/7301" in body["body"]
+    assert "gmtm.com/profile/" not in json.dumps(body)
+
+
+def clip(n, title="Game clip", label="Your GMTM footage", **extra):
+    return {"id": f"film-{n}", "kind": "footage", "title": title, "source_label": label, "can_include": True,
+            "availability": "unchecked", "source_url": f"https://gmtm.com/film/{n}", **extra}
+
+
+def test_clip_pick_prefers_her_featured_clip_then_highlight_reel_then_newest():
+    items = [clip(9), clip(7, label="Highlight Reel task"), clip(5), clip(3, can_include=False), clip(2, availability="unavailable"),
+             {"id": "submission-1-x", "kind": "submitted_result", "can_include": True}]
+    assert cp.pick_clip(items, "film-5") == {"url": "https://gmtm.com/film/5", "reel": False}
+    assert cp.pick_clip(items, None) == {"url": "https://gmtm.com/film/7", "reel": True}
+    assert cp.pick_clip(items, "film-404") == {"url": "https://gmtm.com/film/7", "reel": True}
+    # A private or dead featured clip is never used.
+    assert cp.pick_clip(items, "film-3")["url"] == "https://gmtm.com/film/7" and cp.pick_clip(items, "film-2")["url"] == "https://gmtm.com/film/7"
+    assert cp.pick_clip([clip(9), clip(8)], None) == {"url": "https://gmtm.com/film/9", "reel": False}
+    assert cp.pick_clip([], "film-1") is None
+
+
+def test_featured_clip_id_reaches_the_footage_reader(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    seen = []
+    monkeypatch.setattr(cp, "read_featured", lambda clerk_id: "film-5" if clerk_id == SUBJECT else None)
+    monkeypatch.setattr(cp, "read_highlight", lambda uid, featured=None: seen.append(featured) or {"url": "https://gmtm.com/film/5", "reel": False})
+    body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert seen == ["film-5"] and "My video: https://gmtm.com/film/5" in body["body"]
+    # Workspace unreadable: the draft still gets a clip (no featured preference).
+    monkeypatch.setattr(cp, "read_featured", lambda clerk_id: (_ for _ in ()).throw(RuntimeError("down")))
+    assert client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).status_code == 200
+    assert seen[-1] is None
+
+
+@pytest.mark.parametrize("visibility", [1, 0, None, "x"])
+def test_private_or_unknown_gmtm_profile_gets_no_profile_link(app, visibility):
+    client, store, model, identity, headers, _ = app
+    identity["visibility"] = visibility
+    body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert body["kit"]["profile_url"] is None and "gmtm.com/athletes" not in body["body"]
+    assert "My highlight reel: https://gmtm.com/film/301" in body["body"]
+
+
+def test_profile_link_dropped_when_gmtm_visibility_read_fails(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    store.rows[SUBJECT] = {"gmtm_gender": 1}  # eligible as stored, so only the visibility read reaches GMTM
+    monkeypatch.setattr(cp, "read_identity", lambda uid: (_ for _ in ()).throw(RuntimeError("down")))
+    body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert body["kit"]["profile_url"] is None
+
+
+def test_coach_email_only_on_the_school_domain():
+    jcsu = next(p for p in cp.programs() if p["school"] == "Johnson C. Smith University")
+    susc = next(p for p in cp.programs() if p["school"] == "Southern Union State Community College")
+    assert jcsu["coach_email"] == "coachanika.harris@gmail.com" and cp.coach(jcsu)["email"] is None
+    assert susc["coach_email"] == "A01272509@alabama.edu" and cp.coach(susc)["email"] is None
+    # Excluded address: the staff page is still offered.
+    assert cp.coach(jcsu)["staff_page_url"] or cp.coach(susc)["staff_page_url"]
+    uta = next(p for p in cp.programs() if p["school"] == "University of Texas at Arlington")
+    assert cp.coach(uta)["email"] == "flagfootball@uta.edu"  # school .edu program inbox printed on the coach row
+    base = {"head_coach_name": "A B", "staff_page_url": "https://goteam.com/coaches"}
+    assert cp.coach({**base, "coach_email": "a@goteam.com"})["email"] == "a@goteam.com"  # athletics host
+    assert cp.coach({**base, "coach_email": "a@yahoo.com"})["email"] is None
+    served = [cp.coach(p)["email"] for p in cp.programs() if p.get("coach_email")]
+    assert sum(e is None for e in served) == 2 and len(served) == 111
+
+
+def test_unknown_title_is_coach_not_head_coach():
+    assert cp.coach({"head_coach_name": "Pat Lee", "head_coach_title": None})["role"] == "Coach, women's flag football"
+    assert cp.coach({"head_coach_name": "Pat Lee", "head_coach_title": "Flag Football Coach"})["role"] == "Coach, women's flag football"
+    assert cp.coach({"head_coach_name": "Pat Lee", "head_coach_title": "Head Coach"})["role"] == "Head coach, women's flag football"
+
+
+# ── Power ball: real GMTM title and plausible range (measured 2026-10-02) ───────
+
+def _metric(title, value, unit="feet"):
+    return {"metric_id": 7, "title": title, "value": value, "unit": unit, "created_on": "2026-01-10",
+            "is_current": 1, "visibility": 2, "user_approved": 1, "suggested_by": None, "event_id": None}
+
+
+def test_power_ball_real_title_is_read_and_range_is_enforced():
+    import athlete_evidence as ev
+    ok = ev._measurement(_metric("Kneeling Power Ball Toss (6 lb ball)", "24.5"))
+    assert ok is not None and "Power Ball" in str(ok)
+    for bad in ("2", "94", "4385"):
+        assert ev._measurement(_metric("Kneeling Power Ball Toss (6 lb ball)", bad)) is None, bad
+
+
+def test_coach_email_ignores_questionnaire_platform_hosts():
+    p = {"coach_email": "coach@spry.so", "program_url": "https://school.edu/flag",
+         "staff_page_url": "https://athletics.school.edu/staff", "questionnaire_url": "https://app.spry.so/x"}
+    assert cp.coach_email(p) is None

@@ -99,7 +99,7 @@ def test_default_command_is_a_plan_without_configuration_or_connection(capsys):
     assert report["status"] == "dry_run"
     assert report["connected"] is False
     assert report["ddl_is_atomic"] is False
-    assert len(report["statements"]) == 21
+    assert len(report["statements"]) == 22
 
 
 @pytest.mark.parametrize("suffix", ["HOST", "PORT", "USER", "PASSWORD", "NAME"])
@@ -197,7 +197,7 @@ def test_success_keeps_original_definitions_and_orders_preflight_before_ddl():
         "agent_messages", "athlete_profiles", "athlete_links", "agent_reports",
         "artifacts", "artifact_actions", "claim_tokens",
         "sparq_entry_refusals", "sparq_entries", "sparq_parent_notices", "sparq_sessions", "sparq_college_lists",
-            "sparq_saved_colleges", "sparq_sent_emails",
+            "sparq_saved_colleges", "sparq_sent_emails", "sparq_parent_contact",
     }
     assert not any("ALTER TABLE agent_conversations" in sql for sql in db.ddl)
     assert len([sql for sql in db.ddl if sql.startswith("ALTER")]) == 3
@@ -214,7 +214,7 @@ def test_composite_unique_index_does_not_mean_one_conversation_per_subject():
 def test_duplicate_columns_only_are_expected_idempotent_results():
     db = FakeConnection(failures={"ALTER TABLE": DriverError(1060, ENV["AGENT_DB_PASSWORD"])})
     report = run(db)
-    assert len(report["completed_statements"]) == 21
+    assert len(report["completed_statements"]) == 22
     assert len(report["duplicate_columns"]) == 3
     assert ENV["AGENT_DB_PASSWORD"] not in json.dumps(report)
     assert db.closed
@@ -267,7 +267,7 @@ def test_close_failure_is_not_reported_as_success():
     with pytest.raises(schema.PreparationError) as caught:
         run(db)
     assert caught.value.report["stage"] == "close"
-    assert len(caught.value.report["completed_statements"]) == 21
+    assert len(caught.value.report["completed_statements"]) == 22
     assert ENV["AGENT_DB_PASSWORD"] not in str(caught.value)
 
 
@@ -286,4 +286,4 @@ def test_junior_pilot_tables_match_their_module_schema():
     ddl = {sql for _, sql, _ in schema.STATEMENTS}
     assert set(junior_entry.SCHEMA) | set(college_programs.SCHEMA) <= ddl
     names = [sql.split()[5] for sql in junior_entry.SCHEMA + college_programs.SCHEMA]
-    assert names == ["sparq_entry_refusals", "sparq_entries", "sparq_parent_notices", "sparq_sessions", "sparq_college_lists", "sparq_saved_colleges", "sparq_sent_emails"]
+    assert names == ["sparq_entry_refusals", "sparq_entries", "sparq_parent_notices", "sparq_sessions", "sparq_college_lists", "sparq_saved_colleges", "sparq_sent_emails", "sparq_parent_contact"]

@@ -28,7 +28,7 @@ def _gmtm_identity(user_id: int) -> Optional[dict]:
     try:
         with db.cursor() as c:
             c.execute(
-                """SELECT u.user_id, u.first_name, u.last_name, u.graduation_year, u.gender,
+                """SELECT u.user_id, u.first_name, u.last_name, u.graduation_year, u.gender, u.visibility,
                           l.city, l.province AS state
                    FROM users u LEFT JOIN locations l ON l.location_id = u.location_id
                    WHERE u.user_id = %s""",

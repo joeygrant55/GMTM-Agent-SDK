@@ -171,7 +171,7 @@ async function portClosed() {
   const origin = `http://localhost:${port}`;
   // Legacy keeps its broader pages; bare backend /api paths must 404 (no rewrite to the backend).
   const notFound = surface === 'legacy' ? ['/api/combine/current', '/api/workspace/inbox/someone', '/api/health']
-    : [...(surface === 'profile' ? ['/home/emails', '/home/card', '/home/progress/x'] : ['/home/colleges', '/home/progress', '/home/footage', '/us-states.svg']), '/home/artifact/123.jpg', '/api/combine/current', '/api/demo-chat', '/_next/image?url=%2Fsparq-logo.jpg&w=64&q=75']
+    : [...(surface === 'profile' ? ['/home/emails/x', '/home/card', '/home/progress/x'] : ['/home/colleges', '/home/progress', '/home/footage', '/home/emails', '/us-states.svg']), '/home/artifact/123.jpg', '/api/combine/current', '/api/demo-chat', '/_next/image?url=%2Fsparq-logo.jpg&w=64&q=75']
   for (const route of notFound) {
     const response = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
     smoke.push({ path: route, status: response.status }); assert.equal(response.status, 404, 'Production route boundary: ' + route);
@@ -186,7 +186,7 @@ async function portClosed() {
   }
   if (surface === 'profile') {
     // Every redesigned page needs a session (redirect to GMTM); the bundled map is a public static asset.
-    for (const route of ['/home', '/home/colleges', '/home/colleges/daytona-state-college', '/home/progress', '/home/footage']) {
+    for (const route of ['/home', '/home/colleges', '/home/colleges/daytona-state-college', '/home/progress', '/home/footage', '/home/emails']) {
       const response = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
       smoke.push({ path: route, status: response.status, location: response.headers.get('location') });
       assert.ok([302, 303, 307, 308].includes(response.status) && response.headers.get('location') === 'https://gmtm.example.invalid/', 'Signed-out page goes to GMTM: ' + route);

@@ -239,6 +239,10 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("GET", "/api/workspace/saved-colleges/{clerk_id}", colleges.saved_colleges),
             ("POST", "/api/workspace/saved-colleges/{clerk_id}/{program_id}", colleges.save_college),
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/sent", colleges.mark_sent),
+            # Emails page (drafts + sent marks) and "CC my parent" (address only; SPARQ never sends).
+            ("GET", "/api/workspace/college-emails/{clerk_id}", colleges.college_emails),
+            ("GET", "/api/workspace/parent-contact/{clerk_id}", colleges.get_parent_contact),
+            ("POST", "/api/workspace/parent-contact/{clerk_id}", colleges.set_parent_contact),
         )
         title = "SPARQ Profile Candidate"
 

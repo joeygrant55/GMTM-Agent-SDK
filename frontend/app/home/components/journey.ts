@@ -68,3 +68,22 @@ export function initials(school: string): string {
   const words = school.replace(/[^A-Za-z\s-]/g, ' ').split(/[\s-]+/).filter(w => w && !/^(of|the|at|and|in)$/i.test(w))
   return (words.slice(0, 2).map(w => w[0]).join('') || '?').toUpperCase()
 }
+
+// Up to 4 school labels on the map, none on top of another label or the "You" pin and its text.
+// Distances are in percent of the whole map; `view` is the visible window (mapWindow).
+// A label is about 16% of the window wide and 8% tall, centered on its point. "You" sits right
+// of her dot, so her pin blocks a box from just left of the dot to about 18% of the window right of it.
+export function chooseLabels<T extends { map: { x: number; y: number } | null }>(
+  placed: T[], origin: { x: number; y: number } | null, view: { w: number; h: number }, max = 4,
+): T[] {
+  const w = view.w * 0.16, h = view.h * 0.08
+  const clearOfYou = (m: { x: number; y: number }) => !origin
+    || m.x + w / 2 < origin.x - view.w * 0.03 || m.x - w / 2 > origin.x + view.w * 0.18 || Math.abs(m.y - origin.y) > h
+  const out: T[] = []
+  for (const p of placed) {
+    if (out.length >= max || !p.map) continue
+    const m = p.map
+    if (clearOfYou(m) && out.every(q => Math.abs(q.map!.x - m.x) > w || Math.abs(q.map!.y - m.y) > h)) out.push(p)
+  }
+  return out
+}

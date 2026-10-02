@@ -5,7 +5,8 @@ Program data: ``data/college_womens_flag_2026.json`` is built by
 (verified 2026-10-01 from governing-body, conference or official athletics pages) plus
 ``college-coach-contacts-2026.json`` (coach, color and questionnaire fields, verified
 2026-10-02) and US Census Gazetteer city points. Sources: ``*.sources.json`` beside it.
-Two club teams are dropped (187 programs). Coach emails are stored but not served yet.
+Two club teams are dropped (187 programs). Coach name, email and staff page are served on the
+detail route only (the email kit); the list never carries them.
 Contact rules below come from ``college-womens-flag-2026.md`` (same date) and keep
 its source links. The NJCAA first-contact date was not verified, so it is not shown.
 
@@ -39,7 +40,7 @@ from urllib.parse import urlsplit
 
 import anthropic
 from fastapi import Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 
 import auth
 from auth import require_identity
@@ -77,6 +78,12 @@ SCHEMA = (
     program_id VARCHAR(80) NOT NULL,
     sent_at DATETIME(6) NOT NULL,
     PRIMARY KEY (clerk_id, program_id)
+)""",
+    # The parent's address for "CC my parent". Only the address and a time; never sent by SPARQ.
+    """CREATE TABLE IF NOT EXISTS sparq_parent_contact (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    parent_email VARCHAR(254) NOT NULL,
+    updated_at DATETIME(6) NOT NULL
 )""",
 )
 
@@ -221,7 +228,7 @@ def program(program_id: str) -> Optional[dict]:
 def read_identity(user_id: int) -> Optional[dict]:
     from workspace_bootstrap import _gmtm_identity  # lazy: read-only GMTM
     ident = _gmtm_identity(user_id)
-    return None if ident is None else {"gender": ident.get("gender"), "sport": ident.get("sport")}
+    return None if ident is None else {"gender": ident.get("gender"), "sport": ident.get("sport"), "visibility": ident.get("visibility")}
 
 
 MAX_DRILLS = 8
@@ -290,6 +297,41 @@ def read_athlete(user_id: int) -> dict:
             submitted += [{"label": i["title"], "value": i["result"]["value"], "unit": i["result"]["unit"],
                            "recorded_at": i["recorded_at"]} for i in materials._submission_items(row)[0] if i["can_include"]]
     return {"drills": _drills(metric_items, submitted), "origin": _origin(rows[0] if len(rows) == 1 else None)}
+
+
+_HIGHLIGHT = re.compile(r"highlight reel", re.I)
+
+
+def pick_clip(items: list[dict], featured_id: Optional[str]) -> Optional[dict]:
+    """Same order as Home's featured clip: the clip she featured on My card, then her Highlight Reel
+    task clip, then her newest public clip. Only public, not-dead clips with an https film link."""
+    clips = [i for i in items if i.get("kind") == "footage" and i.get("can_include") and i.get("availability") == "unchecked"
+             and https(i.get("source_url"))]
+    reel = lambda i: bool(_HIGHLIGHT.search(f"{i.get('source_label') or ''} {i.get('title') or ''}"))
+    clip = next((i for i in clips if featured_id and i["id"] == featured_id), None) or next((i for i in clips if reel(i)), None) \
+        or next(iter(clips), None)
+    return {"url": clip["source_url"], "reel": reel(clip)} if clip else None
+
+
+def read_featured(clerk_id: str) -> Optional[str]:
+    """Her featured clip id from her saved workspace (Agent DB, owner-checked there), e.g. "film-301"."""
+    import athlete_workspace  # lazy
+    value = athlete_workspace.read_workspace(clerk_id).get("featured_source_id")
+    return value if isinstance(value, str) else None
+
+
+def read_highlight(user_id: int, featured_id: Optional[str] = None) -> Optional[dict]:
+    """Read-only GMTM: her public clip for a coach email (pick_clip). None if she has none."""
+    import athlete_evidence as evidence  # lazy: read-only GMTM readers
+    import athlete_materials as materials
+    db = evidence._get_gmtm_db()
+    try:
+        films = [("submission", materials._submitted_film_rows(db, user_id)), ("direct", materials._direct_film_rows(db, user_id)),
+                 ("career", materials._career_film_rows(db, user_id))]
+    finally:
+        db.close()
+    items, _ = materials._project([], films, user_id)
+    return pick_clip(items, featured_id)
 
 
 def model_json(system: str, user: str, max_tokens: int) -> Optional[dict]:
@@ -397,6 +439,32 @@ class MySQLStore:
             sql, args = f"DELETE FROM {table} WHERE clerk_id = %s AND program_id = %s", (clerk_id.encode(), program_id)
         self._run(lambda c: c.execute(sql, args), write=True)
 
+    def drafted(self, clerk_id):
+        """{program_id: newest draft time} for one athlete (the Emails page)."""
+        def read(c):
+            c.execute("SELECT clerk_id, JSON_UNQUOTE(JSON_EXTRACT(payload, '$.program_id')) AS program_id, MAX(created_at) AS drafted_at "
+                      "FROM artifacts WHERE clerk_id = %s AND type = 'outreach_draft' GROUP BY clerk_id, program_id", (clerk_id,))
+            return {r["program_id"]: r["drafted_at"] for r in c.fetchall() if r.get("clerk_id") == clerk_id and r.get("program_id")}
+        return self._run(read)
+
+    def parent_email(self, clerk_id):
+        def read(c):
+            c.execute("SELECT parent_email FROM sparq_parent_contact WHERE clerk_id = %s", (clerk_id.encode(),))
+            row = c.fetchone()
+            return row["parent_email"] if row else None
+        return self._run(read)
+
+    def set_parent_email(self, clerk_id, email):
+        """Empty clears the row. Only the address and a time are stored."""
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        if email:
+            sql, args = ("INSERT INTO sparq_parent_contact (clerk_id, parent_email, updated_at) VALUES (%s, %s, %s) "
+                         "ON DUPLICATE KEY UPDATE parent_email = VALUES(parent_email), updated_at = VALUES(updated_at)",
+                         (clerk_id.encode(), email, now))
+        else:
+            sql, args = "DELETE FROM sparq_parent_contact WHERE clerk_id = %s", (clerk_id.encode(),)
+        self._run(lambda c: c.execute(sql, args), write=True)
+
 
 store = MySQLStore()
 
@@ -477,7 +545,7 @@ def card(p: dict, reason: Optional[str] = None, origin: Optional[dict] = None, m
         "source_checked": f"Source checked {checked(p['verified_on'])}",
         "notes": p.get("notes"), "reason": reason,
         "starts": p.get("starts"), "primary_color": p.get("primary_color"),
-        # Coach names and emails stay in the data for the email-kit slice; not served yet.
+        # Coach contact is not on cards: only college_detail serves it (coach()).
         "map": map_point(p.get("lat"), p.get("lon")),
         "distance_mi": about_miles(miles((origin["lat"], origin["lon"]), (p["lat"], p["lon"])))
         if origin and continental(p.get("lat"), p.get("lon")) else None,
@@ -731,18 +799,26 @@ def save_college(program_id: str, body: SaveBody, clerk_id: str = Depends(owner_
 
 
 QUESTIONNAIRE = "[QUESTIONNAIRE_LINK]"
+FACTS = "[ATHLETE_FACTS]"
+HOMETOWN = "[HOMETOWN]"
+# Public GMTM athlete page. Measured 2026-10-02: gmtm.com/athletes/{id} redirects to the athlete's
+# feed; the older gmtm.com/profile/{id} (search_api.py, legacy surface only) returns 404.
+GMTM_PROFILE = "https://gmtm.com/athletes/{}"
 # Junior path only; the legacy prompt in outreach_draft is unchanged. The shared
 # user message (first name only, program facts, no addressee) is still used.
+# The model never sees a city, last name, link or drill result: the server adds those after it returns.
 JUNIOR_DRAFT_SYSTEM = f"""You draft a short first email from a high-school flag football athlete (age 13-17) to a college women's flag football program.
 
 Respond with ONLY valid JSON, no preamble or code fences:
-{{"subject": "<short subject: grad year (only if given) + position + flag football>", "body": "<100-180 words, plain text, \\n\\n between paragraphs>"}}
+{{"subject": "<short subject: grad year (only if given) + position + {HOMETOWN} (only if state is given) + interested in <school> flag football>", "body": "<90-160 words, plain text, \\n\\n between paragraphs>"}}
 
 Rules:
 - Start the body with "Hello Coach," and never name a coach. You do not know any coach's name.
-- Use only the facts given: the athlete's first name, sport, position, grad year, state and combine metrics, and the program's school, state, level, conference and notes.
+- Use only the facts given: the athlete's first name, sport, position, grad year and state, and the program's school, state, level, conference and notes.
 - If class_year is null, never mention a grad year, class year or graduation year in the subject or body.
-- Never write an email address, a phone number, a web link, a social media handle or a film link.
+- If state is given, say where the athlete is from by writing the exact text {HOMETOWN}. Never write a city.
+- Put the exact text {FACTS} on its own line right after the first paragraph that follows the greeting. The app replaces it with her highlight video link, her profile link and her combine results.
+- Never write an email address, a phone number, a web link, a social media handle, a film link or a drill result yourself.
 - Never ask for a phone call, video call, campus visit or meeting.
 - Include one plain sentence that the athlete understands coaches may not be able to reply yet because of recruiting contact rules.
 - If recruit_questionnaire is "available", say the athlete will fill out the program's recruit questionnaire and put the exact text {QUESTIONNAIRE} on its own line where the link goes. Otherwise do not mention a questionnaire.
@@ -750,24 +826,150 @@ Rules:
 - Sign with the athlete's first name only."""
 _PHONE = re.compile(r"\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b")
 _NAMED_COACH = re.compile(r"\bCoach [A-Z][a-z]")
-_GRAD_YEAR = re.compile(r"(?i)\b(?:class of|grad(?:uate|uating|uation)?(?: year| in)?)\s*(?:[a-z]+\s+)?['\u2018\u2019]?\d{2,4}\b"
-                        r"|\b(?:19|20)\d{2}\s*grad|['\u2018\u2019]\d{2}\b")
+_GRAD_YEAR = re.compile(r"(?i)\b(?:class of|grad(?:uate|uating|uation)?(?: year| in)?)\s*(?:[a-z]+\s+)?['‘’]?\d{2,4}\b"
+                        r"|\b(?:19|20)\d{2}\s*grad|['‘’]\d{2}\b")
 _YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+_URL = re.compile(r"https?://\S+")
+# One plain address: no commas, semicolons, % or other mailto header tricks (same as the UI).
+PLAIN_EMAIL = re.compile(r"[A-Za-z0-9._+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+")
+STATE_NAMES = {code: name for name, code in (item.rsplit(" ", 1) for item in _NAMES.split(","))}
+
+
+def plain_email(value) -> Optional[str]:
+    return value if isinstance(value, str) and len(value) <= 254 and PLAIN_EMAIL.fullmatch(value) else None
 
 
 def year_is_clean(text: str, grad_year, facts_text: str) -> bool:
     """A draft may name only the known grad year or a year in the program facts.
-    With no known grad year it may not mention a class/grad year in any form."""
+    With no known grad year it may not mention a class/grad year in any form.
+    Links (server-inserted: profile, film, questionnaire) are not read as years."""
+    text = _URL.sub("", text)
     allowed = set(_YEAR.findall(facts_text)) | ({str(grad_year)} if grad_year else set())
     if any(year not in allowed for year in _YEAR.findall(text)):
         return False
     return grad_year is not None or not _GRAD_YEAR.search(text)
 
 
-def draft_is_clean(text: str) -> bool:
-    """Reject a model draft with an invented contact, link or coach name."""
+def draft_is_clean(text: str, allowed=()) -> bool:
+    """Reject a draft with an invented contact, link or coach name. ``allowed`` holds the exact
+    strings the server inserted itself (her links, the sourced "Coach <Last>"), which are removed first."""
+    for value in allowed:
+        text = text.replace(value, "")
     return "@" not in text and "http" not in text.lower() and "www." not in text.lower() \
         and not _PHONE.search(text) and not _NAMED_COACH.search(text)
+
+
+# Shared system domains that are not one school's own (Southern Union's coach row prints an
+# @alabama.edu student-ID address). Measured 2026-10-02 over all 111 stored coach addresses.
+SHARED_EDU = {"alabama.edu"}
+
+
+def _site(host: str) -> str:
+    return ".".join(host.lower().split(".")[-2:])
+
+
+def coach_email(p: dict) -> Optional[str]:
+    """The stored coach address, only when its domain is the school's: a .edu school domain (not a
+    shared system domain) or the host of its program or staff page. Else None
+    (e.g. a personal gmail): the kit then shows the staff page link instead of a To address."""
+    email = plain_email(p.get("coach_email"))
+    if not email:
+        return None
+    domain = email.rsplit("@", 1)[1].lower()
+    # Program and staff pages only: questionnaire hosts are often shared form platforms.
+    hosts = {_site(urlsplit(u).hostname) for u in (https(p.get(k)) for k in ("program_url", "staff_page_url"))
+             if u and urlsplit(u).hostname}
+    return email if _site(domain) in hosts or (domain.endswith(".edu") and _site(domain) not in SHARED_EDU) else None
+
+
+_SUFFIX = re.compile(r"(?i)(?:jr\.?|sr\.?|ii|iii|iv|['’]\d{2})")
+
+
+def coach_last_name(name: str) -> Optional[str]:
+    """Last name of one sourced coach ("Todd Fox '95" -> Fox). None for co-heads or a single word."""
+    parts = [w for w in name.split() if not _SUFFIX.fullmatch(w.rstrip(","))]
+    return parts[-1] if len(parts) >= 2 else None
+
+
+def coach(p: dict) -> dict:
+    """Sourced coach contact for the email kit (detail route only). Nothing is guessed: no name,
+    no address and no staff page unless the program data has it."""
+    names = [n.strip() for n in str(p.get("head_coach_name") or "").split(";") if n.strip()]
+    title = str(p.get("head_coach_title") or "").lower()
+    # No title in the data: plain "Coach", never an assumed "Head coach".
+    role = ("Interim head coach" if "interim" in title else "Co-head coach" if "co-head" in title or len(names) > 1
+            else "Head coach" if "head" in title else "Coach")
+    email = coach_email(p)
+    checked_on = p.get("contacts_verified_on")
+    return {"names": names, "last_name": coach_last_name(names[0]) if len(names) == 1 else None,
+            "role": f"{role}, women's flag football" if names else None, "email": email,
+            "staff_page_url": https(p.get("staff_page_url")),
+            "source_checked": f"Source checked {checked(checked_on)}" if checked_on and (names or email) else None}
+
+
+_UNITS = {"seconds": "s", "inches": "in"}
+# ponytail: "best 2" = the two speed drills flag coaches ask about first (20-yard dash, 5-10-5 shuttle),
+# then her other drills in GMTM's newest-first order. No norms exist here to rank drills against each other.
+_FIRST = ("20yarddash", "5105shuttle")
+
+
+def best_drills(drills) -> list[str]:
+    def order(d):
+        key = re.sub(r"[^a-z0-9]", "", d["name"].lower())
+        return next((i for i, k in enumerate(_FIRST) if key.startswith(k)), len(_FIRST))
+    return [f"{d['name']} {d['value']} {_UNITS.get(d['unit'], d['unit'])}" for d in sorted(drills or [], key=order)[:2]]
+
+
+def _kit(clerk_id: str, facts: dict, origin: Optional[dict]) -> dict:
+    """What the server adds to her note: hometown, highlight link, profile link, best 2 drills."""
+    user_id = store.gmtm_user_id(clerk_id)
+    highlight = None
+    if user_id:
+        try:
+            featured = read_featured(clerk_id)
+        except Exception as error:
+            featured = None
+            log.warning("college_programs: workspace read failed (%s)", type(error).__name__)  # class only, never values
+        try:
+            highlight = read_highlight(user_id, featured)
+        except Exception as error:
+            log.warning("college_programs: GMTM footage read failed (%s)", type(error).__name__)  # class only, never values
+    # Her GMTM athlete page is linked only when GMTM shows it publicly (users.visibility = 2,
+    # the same rule as search_api.py). Unknown or private: no profile link.
+    public = False
+    if user_id:
+        try:
+            public = str((read_identity(user_id) or {}).get("visibility")) == "2"
+        except Exception as error:
+            log.warning("college_programs: GMTM visibility read failed (%s)", type(error).__name__)  # class only, never values
+    city, state = (origin or {}).get("city"), (origin or {}).get("state")
+    state = state or facts["state"]
+    return {"grad_year": facts["grad_year"], "position": facts["position"],
+            "hometown": f"{city}, {state}" if city and state and (origin or {}).get("state") else STATE_NAMES.get(state),
+            "highlight_url": https((highlight or {}).get("url")), "highlight_reel": bool(highlight and highlight.get("reel")),
+            "profile_url": GMTM_PROFILE.format(int(user_id)) if user_id and public else None,
+            "drills": best_drills(facts["drill_results"])}
+
+
+def kit_block(kit: dict) -> str:
+    """Highlights lead; numbers come last."""
+    lines = []
+    if kit["highlight_url"]:
+        lines.append(f"{'My highlight reel' if kit['highlight_reel'] else 'My video'}: {kit['highlight_url']}")
+    if kit["profile_url"]:
+        lines.append(f"My GMTM profile: {kit['profile_url']}")
+    if kit["drills"]:
+        lines.append("My combine results: " + ", ".join(kit["drills"]))
+    return "\n".join(lines)
+
+
+def place_block(body: str, block: str) -> str:
+    """The facts block goes where the model put {FACTS}; else after the first paragraph past the greeting."""
+    if FACTS not in body and block:
+        paras = body.split("\n\n")
+        at = min(2 if paras[0].strip().lower().startswith("hello coach") else 1, max(len(paras) - 1, 1))
+        body = "\n\n".join(paras[:at] + [FACTS] + paras[at:])
+    return re.sub(r"\n{3,}", "\n\n", body.replace(FACTS, block)).strip()
 
 
 def _eligible_program(clerk_id: str, program_id: str) -> tuple[dict, dict]:
@@ -781,20 +983,22 @@ def _eligible_program(clerk_id: str, program_id: str) -> tuple[dict, dict]:
 
 
 def college_detail(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
+    """The email kit: program card, sourced coach contact (this route only), this level's contact rules."""
     _owner(clerk_id, caller_id)
     row, p = _eligible_program(clerk_id, program_id)
     athlete = _athlete(clerk_id)
     reason = next((i.get("reason") for i in _current_programs(clerk_id, row, athlete) or [] if isinstance(i, dict) and i.get("id") == p["id"]), None)
     return {"program": card(p, reason, (athlete or {}).get("origin"), _marks(clerk_id)),
-            "contact_rules": contact_rules([p["governing_body"]])}
+            "coach": coach(p), "contact_rules": contact_rules([p["governing_body"]])}
 
 
 def _draft_view(draft) -> dict:
     if not draft:
         return {"draft": None}
     payload = draft["payload"] if isinstance(draft["payload"], dict) else {}
-    return {"draft": {"id": draft["id"], "to_email": "", "school": payload.get("school"),
-                      "subject": payload.get("subject") or "", "body": payload.get("body") or ""}}
+    return {"draft": {"id": draft["id"], "to_email": plain_email(payload.get("to_email")) or "", "school": payload.get("school"),
+                      "subject": payload.get("subject") or "", "body": payload.get("body") or "",
+                      "kit": payload.get("kit") if isinstance(payload.get("kit"), dict) else None}}
 
 
 def _college_facts(p: dict) -> dict:
@@ -823,16 +1027,18 @@ def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depen
     profile = store.profile(clerk_id)
     if profile is None:
         raise HTTPException(404, "Your profile is not ready yet. Open SPARQ from GMTM again.")
-    facts = athlete_facts(profile, (_athlete(clerk_id) or {}).get("drills"))
+    gmtm = _athlete(clerk_id) or {}
+    facts = athlete_facts(profile, gmtm.get("drills"))
     sport = row.get("gmtm_sport")
     # GMTM's generic "All Sports" says nothing; the draft is about flag football anyway.
     sport = None if not sport or str(sport).strip().casefold() == "all sports" else sport
+    # Drill results are added by the server (best 2), so the model gets none to restate or round.
     athlete = {"name": profile.get("name"), "sport": sport, "position": facts["position"],
-               "class_year": facts["grad_year"], "state": facts["state"], "combine_metrics": facts["drill_results"]}
+               "class_year": facts["grad_year"], "state": facts["state"], "combine_metrics": []}
     questionnaire = https(p.get("questionnaire_url"))
     college = _college_facts(p)
     _limit("draft", clerk_id, DRAFTS_PER_HOUR)
-    # The data has no coach names or addresses: To stays empty and no coach is named.
+    # The model never gets a coach name or address: it writes "Hello Coach," and the server adds the sourced name.
     try:
         parsed = model_json(JUNIOR_DRAFT_SYSTEM, outreach_draft.user_message(athlete, college, "", ""), 2048)
     except Exception:
@@ -842,14 +1048,69 @@ def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depen
     if not isinstance(body, str) or not body.strip() or not isinstance(subject, str) or not draft_is_clean(subject + "\n" + body) \
             or not year_is_clean(subject + "\n" + body, facts["grad_year"], json.dumps(college, default=str)):
         raise HTTPException(502, "We could not write a draft right now. Try again.")
-    # The real questionnaire link is added here, never written by the model.
-    body = body.replace(QUESTIONNAIRE, questionnaire) if questionnaire else body.replace(QUESTIONNAIRE, "")
-    payload = {"to_name": "Head coach", "to_email": "", "school": p["school"],
-               "subject": subject.strip()[:200], "body": body.strip()[:4000], "program_id": p["id"]}
+    # Server inserts, never written by the model: questionnaire link, hometown, her links and drills, coach name.
+    kit = _kit(clerk_id, facts, gmtm.get("origin"))
+    who = coach(p)
+    hometown = kit["hometown"] or ""
+    body = place_block(body.replace(QUESTIONNAIRE, questionnaire or "").replace(HOMETOWN, hometown), kit_block(kit))
+    subject = re.sub(r"\s{2,}", " ", subject.replace(FACTS, "").replace(QUESTIONNAIRE, "").replace(HOMETOWN, hometown)).strip()
+    greeting = f"Coach {who['last_name']}" if who["last_name"] else None
+    if greeting:
+        body = re.sub(r"^Hello Coach,", f"Hello {greeting},", body, count=1)
+    inserted = [u for u in (questionnaire, kit["highlight_url"], kit["profile_url"]) if u] + ([greeting] if greeting else [])
+    if not draft_is_clean(subject + "\n" + body, inserted):
+        raise HTTPException(502, "We could not write a draft right now. Try again.")
+    payload = {"to_name": "; ".join(who["names"]) or "Head coach", "to_email": who["email"] or "", "school": p["school"],
+               "subject": subject[:200], "body": body[:4000], "program_id": p["id"], "kit": kit}
     sources = [{"label": f"{p['school']} program facts ({card(p)['source_checked']})",
                 "url": card(p)["program_link"] or next(iter(card(p)["source_links"]), None)}]
     artifact_id = store.insert_draft(clerk_id, f"Outreach draft: {p['school']}", payload["subject"] or p["school"], payload, sources)
     return _draft_view({"id": artifact_id, "payload": payload})
+
+
+# ── Emails page and "CC my parent" ─────────────────────────────────────────────
+
+def college_emails(clerk_id: str, caller_id: str = Depends(require_identity)):
+    """Programs she has a draft for or marked sent. Drafts waiting to be sent first, then sent;
+    newest first in each. No coach contact and no email text in this list."""
+    _owner(clerk_id, caller_id)
+    row = _identity(clerk_id, refresh=False)
+    if row.get("gmtm_gender") != FEMALE:
+        return {"eligible": False, "notice": NOT_ELIGIBLE, "emails": []}
+    drafted, sent = store.drafted(clerk_id), _marks(clerk_id)[1]
+    items = [{"id": p["id"], "school": p["school"], "city": p["city"], "state": p["state"], "level": LEVELS[p["governing_body"]],
+              "primary_color": p.get("primary_color"), "status": "sent" if p["id"] in sent else "draft",
+              "drafted_at": _iso(drafted.get(p["id"])), "sent_at": _iso(sent.get(p["id"]))}
+             for p in map(program, set(drafted) | set(sent)) if p]
+    items.sort(key=lambda i: i["sent_at"] or i["drafted_at"] or "", reverse=True)
+    items.sort(key=lambda i: i["status"] == "sent")
+    return {"eligible": True, "notice": None, "emails": items}
+
+
+class ParentBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: StrictStr = Field(max_length=254)
+
+
+BAD_PARENT_EMAIL = "Enter one email address, like parent@example.com."
+
+
+def get_parent_contact(clerk_id: str = Depends(owner_id)):
+    try:
+        return {"email": plain_email(store.parent_email(clerk_id))}
+    except Exception as error:
+        log.warning("college_programs: parent contact read failed (%s)", type(error).__name__)  # class only, never values
+        return {"email": None}
+
+
+def set_parent_contact(body: ParentBody, clerk_id: str = Depends(owner_id)):
+    """Save (or clear with "") the parent's address for CC. SPARQ never emails it."""
+    _limit("mark", clerk_id, MARKS_PER_HOUR)
+    email = body.email.strip()
+    if email and not plain_email(email):
+        raise HTTPException(422, BAD_PARENT_EMAIL)
+    store.set_parent_email(clerk_id, email or None)
+    return {"email": email or None}
 
 
 def mark_sent(program_id: str, body: SentBody, clerk_id: str = Depends(owner_id)):

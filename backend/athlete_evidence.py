@@ -45,6 +45,10 @@ _UNITS = {
     "mass": {"lb": "lb", "lbs": "lb", "pound": "lb", "pounds": "lb",
              "kg": "kg", "kilogram": "kg", "kilograms": "kg"},
     "time": {"s": "seconds", "sec": "seconds", "second": "seconds", "seconds": "seconds"},
+    # Throw distance (power ball). Measured 2026-10-02 in GMTM: unit "feet" on 2,294 of 2,294
+    # results; 2,229 (97%) lie in 5-80 ft. Values outside a plausible range are dropped (below).
+    "distance": {"ft": "feet", "feet": "feet", "foot": "feet", "in": "inches", "inch": "inches", "inches": "inches",
+                 "cm": "cm", "centimeter": "cm", "centimeters": "cm"},
     "count": {"rep": "repetitions", "reps": "repetitions", "repetition": "repetitions",
               "repetitions": "repetitions", "count": "repetitions"},
 }
@@ -67,6 +71,13 @@ _MEASUREMENTS = {
     "max. push-ups": ("Push-Ups", "count"), "max push-ups": ("Push-Ups", "count"),
     "max. sit ups": ("Sit-Ups", "count"), "max sit ups": ("Sit-Ups", "count"),
     "max. sit-ups": ("Sit-Ups", "count"), "max sit-ups": ("Sit-Ups", "count"),
+    # Power ball (GMTM's chest-power drill; junior athletes report "Kneeling Power Ball Toss").
+    "kneeling power ball toss": ("Kneeling Power Ball Toss", "distance"),
+    # GMTM stores the drill title as "Kneeling Power Ball Toss (6 lb ball)" (measured 2026-10-02: 2,296 rows).
+    "kneeling power ball toss (6 lb ball)": ("Kneeling Power Ball Toss", "distance"),
+    "kneeling powerball toss": ("Kneeling Power Ball Toss", "distance"),
+    "power ball toss": ("Kneeling Power Ball Toss", "distance"), "powerball toss": ("Kneeling Power Ball Toss", "distance"),
+    "power ball": ("Kneeling Power Ball Toss", "distance"), "powerball": ("Kneeling Power Ball Toss", "distance"),
 }
 
 
@@ -189,6 +200,15 @@ def _metric_rows(db, athlete_id):
     return rows
 
 
+# Plausible power-ball throw, per unit (5-80 ft; same range in inches and cm).
+_DISTANCE_RANGE = {"feet": (5.0, 80.0), "inches": (60.0, 960.0), "cm": (152.0, 2439.0)}
+
+
+def _plausible_distance(value, unit):
+    low, high = _DISTANCE_RANGE.get(unit, (0.0, 0.0))
+    return math.isfinite(value) and low <= value <= high
+
+
 def _measurement(row):
     required = {"metric_id", "title", "value", "unit", "created_on", "is_current", "visibility",
                 "user_approved", "suggested_by", "event_id"}
@@ -213,6 +233,8 @@ def _measurement(row):
         numeric = Decimal(str(raw).strip())
         value = float(numeric)
     except (ValueError, InvalidOperation, OverflowError):
+        return None
+    if spec[1] == "distance" and not _plausible_distance(value, _UNITS["distance"][unit.casefold()]):
         return None
     if (not math.isfinite(value) or not 0 <= value <= 1_000_000
             or (spec[1] != "count" and value == 0)

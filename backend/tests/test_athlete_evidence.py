@@ -389,3 +389,15 @@ def test_stale_graduation_year_is_omitted_from_the_profile(source, stored, shown
     source[2].identity[0]["graduation_year"] = stored
     _, body = payload(source)
     assert body["athlete"]["graduation_year"] == shown
+
+
+@pytest.mark.parametrize("title, unit, shown, value", [("Kneeling Power Ball Toss", "ft", "feet", "21.5"),
+                                                       ("Kneeling Powerball Toss", "inches", "inches", "258"),
+                                                       ("Kneeling Power Ball Toss (6 lb ball)", "feet", "feet", "21.5"),
+                                                       ("Powerball", "feet", "feet", "21.5")])
+def test_power_ball_toss_is_a_supported_drill(title, unit, shown, value):
+    item = api._measurement(metric(title=title, value=value, unit=unit))
+    assert item["label"] == "Kneeling Power Ball Toss" and item["value"] == float(value) and item["unit"] == shown
+    assert api._measurement(metric(title=title, value=value, unit="seconds")) is None  # a time is not a throw
+    # 21.5 inches is under 2 ft: not a real throw (plausible range 5-80 ft).
+    assert api._measurement(metric(title=title, value="21.5", unit="inches")) is None

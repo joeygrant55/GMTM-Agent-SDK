@@ -15,7 +15,7 @@ const outline = `inline-flex min-h-12 items-center justify-center rounded-[14px]
 
 export interface DisplayResult { id: string; label: string; value: number; unit: string; kind: 'On your profile' | 'Self-recorded'; date: string | null }
 
-const UNITS: Record<string, string> = { seconds: 's', inches: 'in', repetitions: 'reps', centimeters: 'cm', cm: 'cm', lb: 'lb', kg: 'kg' }
+const UNITS: Record<string, string> = { seconds: 's', inches: 'in', feet: 'ft', repetitions: 'reps', centimeters: 'cm', cm: 'cm', lb: 'lb', kg: 'kg' }
 // GMTM stores formatted times in milliseconds; show seconds.
 function display(value: number, unit: string): { value: number; unit: string } {
   if (unit === 'milliseconds') return { value: Math.round(value / 10) / 100, unit: 's' }
@@ -158,7 +158,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
               <Link href={`/home/colleges/${program.id}`} className={`flex items-center gap-3.5 rounded-2xl border border-jr-line bg-jr-card px-4 py-3.5 hover:border-jr-edge ${focus}`}>
                 <Badge program={program} size="sm" />
                 <span className="flex min-w-0 flex-1 flex-col"><span className="break-words font-semibold">{program.school}</span>
-                  <span className="text-sm text-jr-muted">{[program.level, aboutMiles(program.distance_mi)].filter(Boolean).join(' · ')}</span></span>
+                  <span className="text-sm text-jr-muted"><span className="whitespace-nowrap">{program.level}</span>{program.distance_mi !== null && ` · ${aboutMiles(program.distance_mi)}`}</span></span>
                 <span className={`shrink-0 rounded-full px-2.5 py-1.5 text-[13px] ${program.sent_at ? 'bg-jr-done font-semibold text-jr-lime' : 'bg-jr-track text-[#D4D4DA]'}`}>{program.sent_at ? `Emailed ${shortDate(program.sent_at)}` : 'Not emailed'}</span>
               </Link>
             </li>)}

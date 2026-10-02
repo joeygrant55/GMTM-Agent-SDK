@@ -33,8 +33,7 @@ _RASTER_FILE = r"[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?i:jpg|jpeg|png|webp)"
 _LEGACY_UPLOAD_UUID = r"[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}"
 _CDN_THUMBNAIL_PATH = re.compile(
     rf"(?:(?:videos/film/thumbnails/|videos/events/([1-9][0-9]{{0,15}})/edited-thumbnails/"
-    rf"|users/([1-9][0-9]{{0,15}})/uploads/){_RASTER_FILE}"
-    rf"|users/undefined/uploads/{_LEGACY_UPLOAD_UUID}\.(?i:jpg|jpeg|png|webp))\Z")
+    rf"|users/([1-9][0-9]{{0,15}})/uploads/){_RASTER_FILE})\Z")
 _YOUTUBE_THUMBNAIL_PATH = re.compile(rf"vi/[A-Za-z0-9_-]{{11}}/{_RASTER_FILE}\Z")
 _TIME_FORMATS = {"ss.00", "time (ss.00)", "mm:ss", "time (mm:ss)",
                  "mm:ss.00", "time (mm:ss.00)", "hh:mm:ss", "time (hh:mm:ss)", "time"}
@@ -377,9 +376,9 @@ def _thumbnail_url(row):
     thumbnail-extractor/index.js:57-58; film.resolver.js:438-458,1547 supplies
     service hosts and YouTube's vi path. The eleven-character video ID and
     raster/ASCII restrictions deliberately omit other legacy formats.
-    Some stored GMTM upload keys literally use users/undefined with a UUID
-    filename. This legacy storage namespace never supplies athlete identity;
-    the caller still requires the film's existing owner and public-source checks.
+    Some stored GMTM upload keys literally use users/undefined (a GMTM upload bug).
+    Those are omitted (2026-10-02 live smoke: the browser requested
+    cdn.gmtm.com/users/undefined/...); the clip shows its placeholder instead.
     """
     service, raw = row.get("service"), row.get("thumbnail_uri")
     if (service not in ("gmtm", "s3", "youtube", "youtu") or not isinstance(raw, str)
