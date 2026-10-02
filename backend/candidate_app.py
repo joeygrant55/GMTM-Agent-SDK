@@ -53,7 +53,6 @@ _CONFIGURATION_KEYS = (
     "OPPORTUNITY_ENGAGEMENT_ENABLED", "OPPORTUNITY_ENGAGEMENT_COHORT",
     "OPPORTUNITY_ENGAGEMENT_PERIOD", "OPPORTUNITY_ENGAGEMENT_SECRET",
     "OPPORTUNITY_ENGAGEMENT_EXCLUDED_IDS", "OPPORTUNITY_ENGAGEMENT_PILOT_IDS",
-    "PROFILE_ADMISSION_ENABLED", "PROFILE_ADMISSION_FILE",
     "SPARQ_ENTRY_SECRET", "SPARQ_HANDOFF_SECRET", "GMTM_API_URL", "SPARQ_SESSION_SECRET", "SPARQ_TEST_ALLOWLIST",
     "SENDGRID_API_KEY", "SPARQ_FROM_EMAIL",
 )
@@ -121,9 +120,16 @@ def validate_configuration(env: Mapping[str, str], surface: str = "combine") -> 
     none is set (every request then gets 503); partial or invalid settings stop startup."""
     origins = _origins(env, "ALLOWED_ORIGINS")
     try:
-        entry_configuration(env)
+        entry = entry_configuration(env)
     except ValueError as exc:
         raise CandidateConfigurationError(str(exc)) from None
+    # Every profile session comes from GMTM entry; a hosted profile without it can
+    # admit no one. Loopback-only previews may run without entry (handlers 503/401).
+    if (surface == "profile" and entry is None
+            and any(urlsplit(o).hostname not in ("localhost", "127.0.0.1", "::1") for o in origins)):
+        raise CandidateConfigurationError(
+            "Hosted profile origins require GMTM entry configuration (SPARQ_ENTRY_SECRET, "
+            "SPARQ_HANDOFF_SECRET, GMTM_API_URL, SPARQ_SESSION_SECRET).")
     if env.get("DB_HOST") != GMTM_HOST or env.get("DB_USER") != "gmtmread":
         raise CandidateConfigurationError("Candidate GMTM must use the reviewed db2-dev host and gmtmread account.")
     if env.get("DB_PORT", "3306") != "3306" or env.get("DB_NAME", "gmtm") != "gmtm":
@@ -175,34 +181,24 @@ class CandidateBoundaryMiddleware:
         # This is a request-local wrapper around the existing ASGI pipeline, not
         # a retained call_next closure or a mutation of application middleware.
         async def admitted_app(scope, receive, send):
-            admission = getattr(scope["app"].state, "profile_admission_configuration", None)
             # Exchange uses the Next server secret; sign-out checks its own token.
             if self.surface != "profile" or scope["path"] in ("/health", "/gmtm-entry/exchange", "/gmtm-entry/sign-out"):
                 await self.app(scope, receive, send)
                 return
-            request = Request(scope)
-            if admission is None and not request.headers.get("authorization"):
-                # Loopback-only mode (hosted origins require admission): handlers
-                # still require a SPARQ session; a bearer request also passes the entry gate.
-                await self.app(scope, receive, send)
-                return
-            from profile_admission import begin_request, reset_request
-            import junior_entry
-            token = None
-            try:
-                # Profile accepts ONLY a SPARQ session token.
-                subject = await junior_entry.require_identity(request.headers.get("authorization"))
-                # gmtm-entry juniors use the entry gate instead of the adult file.
-                if not await junior_entry.gate(subject, scope["path"]) and admission is not None:
-                    token = begin_request(admission, subject)
-            except HTTPException as exc:
-                await JSONResponse({"detail": exc.detail}, status_code=exc.status_code)(scope, receive, send)
-                return
-            try:
-                await self.app(scope, receive, send)
-            finally:
-                if token is not None:
-                    reset_request(token)
+            authorization = Request(scope).headers.get("authorization")
+            if authorization:
+                import junior_entry
+                try:
+                    # Profile accepts ONLY a SPARQ session token, and only for a
+                    # current GMTM entry. No entry row (gate False) is refused.
+                    subject = await junior_entry.require_identity(authorization)
+                    if not await junior_entry.gate(subject, scope["path"]):
+                        raise HTTPException(403, "SPARQ is not open to this account here.")
+                except HTTPException as exc:
+                    await JSONResponse({"detail": exc.detail}, status_code=exc.status_code)(scope, receive, send)
+                    return
+            # Without Authorization, every personal handler requires identity (401).
+            await self.app(scope, receive, send)
 
         cors = CORSMiddleware(admitted_app, allow_origins=list(config.origins),
                               allow_credentials=True, allow_methods=self.methods,
@@ -225,7 +221,6 @@ def create_app(*, surface: str = "combine") -> FastAPI:
         from profile_debrief import current_profile_debrief, validate_configuration as debrief_configuration
         from athlete_workspace import current_athlete_workspace, update_athlete_workspace
         from profile_owner import current_profile_recovery
-        from profile_admission import validate_configuration as admission_configuration, load_admissions
         from junior_entry import get_parent_notice, accept_parent_notice
         import college_programs as colleges
         routes = (
@@ -260,13 +255,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.profile_debrief_configuration = debrief_configuration(os.environ)
             application.state.opportunity_engagement_configuration = engagement_configuration(os.environ)
             application.state.opportunity_engagement_limiter = RateLimit()
-            application.state.profile_admission_configuration = admission_configuration(os.environ, config.origins)
             # A bad college data file stops startup instead of showing broken cards.
             colleges.programs()
-            if application.state.profile_admission_configuration is not None:
-                # Only the explicit private admission file is read at startup;
-                # no database, schema or provider work is performed.
-                load_admissions(application.state.profile_admission_configuration)
         # Pure configuration work only; no schema, provider or shared override.
         application.state.candidate_configuration = config
         try:
@@ -276,7 +266,6 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             application.state.profile_debrief_configuration = None
             application.state.opportunity_engagement_configuration = None
             application.state.opportunity_engagement_limiter = None
-            application.state.profile_admission_configuration = None
 
     application = FastAPI(title=title, version="1.0.0",
                           docs_url=None, redoc_url=None, openapi_url=None,
@@ -298,27 +287,20 @@ def create_app(*, surface: str = "combine") -> FastAPI:
     async def health():
         config = application.state.candidate_configuration
         ready = config is not None and config.signature == _signature(os.environ)
-        if ready and surface == "profile" and application.state.profile_admission_configuration is not None:
-            try:
-                load_admissions(application.state.profile_admission_configuration)
-            except HTTPException:
-                ready = False
         body = {
             "service": title, "surface": f"{surface}_candidate",
             "configuration_ready": ready, "connectivity_verified": False,
             "schema_verified": False, "provider_delivery_verified": False,
             "help_provider_configured": config.help_provider_configured if ready and surface == "combine" else False,
         }
-        if surface == "combine":
-            try:
-                body["gmtm_sign_in_configured"] = bool(ready and entry_configuration(os.environ) is not None)
-            except ValueError:
-                body["gmtm_sign_in_configured"] = False
+        try:
+            body["gmtm_sign_in_configured"] = bool(ready and entry_configuration(os.environ) is not None)
+        except ValueError:
+            body["gmtm_sign_in_configured"] = False
         if surface == "profile":
             debrief = getattr(application.state, "profile_debrief_configuration", None)
             body["debrief_enabled"] = bool(ready and debrief is not None)
             body["opportunity_engagement_enabled"] = bool(ready and getattr(application.state, "opportunity_engagement_configuration", None) is not None)
-            body["pilot_admission_enabled"] = bool(ready and getattr(application.state, "profile_admission_configuration", None) is not None)
             key = "OPENAI_API_KEY" if debrief is not None and MODELS[debrief.model] == "openai" else "ANTHROPIC_API_KEY"
             body["debrief_provider_configured"] = bool(ready and debrief is not None and os.environ.get(key, "").strip())
         return JSONResponse(body, status_code=200 if ready else 503)

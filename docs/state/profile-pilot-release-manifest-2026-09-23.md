@@ -1,4 +1,5 @@
 Superseded 2026-10-01 by spec rev 4: GMTM sign-in only, Clerk removed. See docs/specs/sparq-on-gmtm-junior-pilot-2026-10-01.md.
+> 2026-10-02: the adult admission file (profile_admission.py, PROFILE_ADMISSION_*) is removed. Hosted profile startup now requires GMTM entry configuration; every session must pass the junior gate.
 
 # Profile pilot: paired release manifest
 

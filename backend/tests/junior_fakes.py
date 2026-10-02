@@ -6,6 +6,7 @@ import time
 
 import jwt
 
+import junior_eligibility
 import junior_entry
 from junior_entry import LinkConflict
 
@@ -15,14 +16,25 @@ ENTRY_ENV = {"SPARQ_ENTRY_SECRET": "synthetic-entry-secret", "SPARQ_HANDOFF_SECR
              "GMTM_API_URL": "https://gmtm-api.example.invalid", "SPARQ_SESSION_SECRET": SESSION_SECRET}
 
 
-def mint_session(sub="sub_owner", *, active=True, secret=SESSION_SECRET, aud="profile", **claims):
+ENTRY_USER_ID = 990001  # synthetic GMTM user behind a minted profile session
+
+
+def mint_session(sub="sub_owner", *, active=True, entry=True, secret=SESSION_SECRET, aud="profile", **claims):
     """SPARQ session headers. ``active`` makes the jti the current one for ``sub`` in
-    junior_entry.store. Claim overrides replace token claims; None removes one."""
+    junior_entry.store. ``entry`` (profile only) also records what a real exchange
+    leaves: a current entry row, an accepted parent notice and a cached eligible
+    decision, so the profile gate admits it. ``entry=False`` = session row but no
+    entry row. Claim overrides replace token claims; None removes one."""
     now = int(time.time())
     body = {"sub": sub, "jti": secrets.token_urlsafe(32), "gsh": GSH, "aud": aud, "iat": now, "exp": now + 86400, **claims}
     body = {k: v for k, v in body.items() if v is not None}
     if active:
         junior_entry.store.set_session(sub, body.get("jti"), datetime.now(timezone.utc))
+    if entry and aud == "profile" and isinstance(sub, str) and junior_entry.store.latest_entry(sub) is None:
+        stamp = datetime.now(timezone.utc)
+        junior_entry.store.record_entry(sub, ENTRY_USER_ID, stamp)
+        junior_entry.store.accept_notice(sub, stamp)
+        junior_eligibility._cache[ENTRY_USER_ID] = (True, time.monotonic())
     return {"Authorization": "Bearer " + jwt.encode(body, secret, algorithm="HS256")}
 
 

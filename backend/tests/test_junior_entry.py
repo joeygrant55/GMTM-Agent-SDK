@@ -6,6 +6,7 @@ through MemoryStore / WorkspaceStore. conftest blocks real DB/network.
 """
 from datetime import date, datetime, timedelta, timezone
 import hashlib
+import os
 import json
 import time
 
@@ -381,9 +382,11 @@ def test_parent_notice_blocks_personal_routes_until_accepted(junior):
     assert set(store.notices[SUBJECT]) == {"accepted_at", "attested_by_session_kind"}
 
 
-def test_non_entry_user_has_no_notice_requirement(profile_app, session):
+def test_session_without_entry_row_is_refused_even_on_notice_routes(profile_app, session):
     with TestClient(profile_app) as client:
-        assert client.get("/api/athlete/parent-notice", headers=session()).json() == {"required": False, "accepted": False}
+        for method in ("GET", "POST"):
+            response = client.request(method, "/api/athlete/parent-notice", headers=session(entry=False))
+            assert response.status_code == 403, response.text
 
 
 def test_session_older_than_24_hours_is_denied(junior):
@@ -419,17 +422,14 @@ def test_store_failure_fails_closed(junior, monkeypatch):
     assert response.status_code == 503 and "db down" not in response.text
 
 
-def test_junior_bypasses_adult_file_but_others_still_need_it(junior, monkeypatch, tmp_path, session):
+def test_junior_is_admitted_but_a_session_without_entry_is_not(junior, session):
+    # Was the adult-file bypass test: the adult file is gone, so a valid session
+    # for any subject without an entry row must now be refused (fail closed).
     app, store, headers = junior
     store.accept_notice(SUBJECT, datetime.now(timezone.utc))
-    path = (tmp_path / "admission.json").resolve()
-    path.write_text(json.dumps({"schema": 1, "admissions": []}))
-    path.chmod(0o600)
-    monkeypatch.setenv("PROFILE_ADMISSION_ENABLED", "true")
-    monkeypatch.setenv("PROFILE_ADMISSION_FILE", str(path))
     with TestClient(app) as client:
         assert client.get("/api/athlete/workspace", headers=headers).status_code == 200
-        assert client.get("/api/athlete/workspace", headers=session(sub="user_adult")).status_code == 403
+        assert client.get("/api/athlete/workspace", headers=session(sub="user_adult", entry=False)).status_code == 403
 
 
 # ── Route table: 401 without auth, 403 for another clerk_id ─────────────────────
@@ -442,14 +442,10 @@ def _personal_routes(app):
             yield method, route.path
 
 
-@pytest.mark.parametrize("admission", ["loopback", "pilot"])
-def test_every_personal_route_requires_auth_and_owner(profile_app, session, monkeypatch, tmp_path, admission):
-    if admission == "pilot":
-        path = (tmp_path / "admission.json").resolve()
-        path.write_text(json.dumps({"schema": 1, "admissions": []}))
-        path.chmod(0o600)
-        monkeypatch.setenv("PROFILE_ADMISSION_ENABLED", "true")
-        monkeypatch.setenv("PROFILE_ADMISSION_FILE", str(path))
+@pytest.mark.parametrize("origin", ["loopback", "hosted"])
+def test_every_personal_route_requires_auth_and_owner(profile_app, session, monkeypatch, origin):
+    if origin == "hosted":
+        monkeypatch.setenv("ALLOWED_ORIGINS", "https://sparq.gmtm.com")
     store = MemoryStore()
     store.record_entry(SUBJECT, USER_ID, datetime.now(timezone.utc))
     store.accept_notice(SUBJECT, datetime.now(timezone.utc))
@@ -464,8 +460,8 @@ def test_every_personal_route_requires_auth_and_owner(profile_app, session, monk
         for method, route_path in routes:
             url = route_path.replace("{clerk_id}", SUBJECT)
             response = client.request(method, url, json={})
-            # Loopback mode only: a disabled feature answers 404 before auth (no data).
-            disabled = admission == "loopback" and response.status_code == 404 and "disabled" in response.text
+            # A disabled feature answers 404 before auth (no data).
+            disabled = response.status_code == 404 and "disabled" in response.text
             assert response.status_code == 401 or disabled, (method, route_path, response.text)
         for method, route_path in owned:
             response = client.request(method, route_path.replace("{clerk_id}", "user_other"), headers=headers)
@@ -501,3 +497,54 @@ def test_entry_configuration_is_off_complete_or_startup_error(profile_app, monke
     with pytest.raises(ValueError):
         with TestClient(profile_app):
             pass
+
+
+# ── Hosted startup: GMTM entry replaces the removed adult admission file ────────
+
+@pytest.mark.parametrize("origin", ["loopback", "hosted"])
+def test_valid_session_without_entry_row_is_refused_on_every_personal_route(profile_app, session, monkeypatch, origin):
+    # sparq_sessions row (active jti) but no sparq_entries row: gate() is False -> 403.
+    if origin == "hosted":
+        monkeypatch.setenv("ALLOWED_ORIGINS", "https://sparq.gmtm.com")
+    monkeypatch.setattr(workspace, "_get_agent_db", lambda: pytest.fail("no source work for a refused session"))
+    headers = session(sub=SUBJECT, entry=False)
+    assert junior_entry.store.session_jti(SUBJECT) and junior_entry.store.latest_entry(SUBJECT) is None
+    routes = list(_personal_routes(profile_app))
+    assert len(routes) >= 10
+    with TestClient(profile_app) as client:
+        for method, route_path in routes:
+            response = client.request(method, route_path.replace("{clerk_id}", SUBJECT), headers=headers, json={})
+            assert response.status_code == 403, (method, route_path, response.text)
+            assert response.headers["cache-control"] == "private, no-store"
+        assert client.get("/health").status_code == 200
+
+
+def test_hosted_profile_starts_with_gmtm_entry_and_no_admission_settings(profile_app, monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://sparq.gmtm.com")
+    monkeypatch.delenv("PROFILE_ADMISSION_ENABLED", raising=False)
+    monkeypatch.delenv("PROFILE_ADMISSION_FILE", raising=False)
+    for name, value in ENTRY_ENV.items():
+        monkeypatch.setenv(name, value)
+    with TestClient(profile_app) as client:
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json()["gmtm_sign_in_configured"] is True
+        assert "pilot_admission_enabled" not in response.json()
+
+
+def test_hosted_profile_without_gmtm_entry_refuses_startup(profile_app, monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "http://127.0.0.1:3218,https://sparq.gmtm.com")
+    for name in junior_entry.ENTRY_KEYS:
+        monkeypatch.delenv(name, raising=False)
+    with pytest.raises(candidate_app.CandidateConfigurationError, match="GMTM entry configuration"):
+        with TestClient(profile_app):
+            pass
+
+
+def test_loopback_profile_runs_without_entry_and_refuses_sessions(profile_app):
+    for name in junior_entry.ENTRY_KEYS:
+        assert not os.environ.get(name)
+    with TestClient(profile_app) as client:
+        response = client.get("/health")
+        assert response.status_code == 200 and response.json()["gmtm_sign_in_configured"] is False
+        assert client.get("/api/athlete/workspace").status_code == 401

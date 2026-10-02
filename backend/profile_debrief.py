@@ -368,8 +368,6 @@ def _new_anthropic_client():
 
 
 async def _generate(body, snapshot, request, config, ledger):
-    from profile_admission import recheck_admission
-    recheck_admission()
     system = SYSTEM_PROMPT + "\n\nCURRENT QUOTED DATA:\n" + json.dumps(snapshot["provider_context"], ensure_ascii=False)
     parts, completed = [], False
     async with aclosing(stream_answer(
@@ -391,7 +389,6 @@ async def _generate(body, snapshot, request, config, ledger):
                 raise ValueError("Debrief model did not complete")
     if not completed or await request.is_disconnected():
         raise ValueError("Debrief did not complete for this request")
-    recheck_admission()
     pathway_bundle(body.track)  # A review can expire during the bounded model call.
     return _validated_response("".join(parts), snapshot, body)
 

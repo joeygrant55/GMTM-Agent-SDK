@@ -78,6 +78,13 @@ def setup(monkeypatch, tmp_path):
     for key, value in env.items(): monkeypatch.setenv(key, value)
     jti = "owner-acceptance-session-jti"
     junior_entry.store.set_session(SUBJECT, jti, None)
+    # The profile gate admits only a current GMTM entry (what exchange records).
+    from datetime import datetime, timezone
+    import junior_eligibility
+    from backend.tests.junior_fakes import ENTRY_USER_ID
+    junior_entry.store.record_entry(SUBJECT, ENTRY_USER_ID, datetime.now(timezone.utc))
+    junior_entry.store.accept_notice(SUBJECT, datetime.now(timezone.utc))
+    junior_eligibility._cache[ENTRY_USER_ID] = (True, time.monotonic())
     def headers(*, secret=SESSION_SECRET, **overrides):
         now = int(time.time())
         claims = {"sub": SUBJECT, "jti": jti, "gsh": GSH, "aud": "profile", "iat": now, "exp": now + 120, **overrides}

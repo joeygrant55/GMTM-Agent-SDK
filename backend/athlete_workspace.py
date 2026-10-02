@@ -20,7 +20,6 @@ from auth import require_identity
 from combine_api import _get_agent_db, _get_gmtm_db
 from athlete_evidence import PRIVATE_HEADERS
 from source_scope import owner_scope
-from profile_admission import enforce_owner, recheck_admission
 
 
 MAX_BODY_BYTES = 98304
@@ -166,7 +165,6 @@ def _owner(cursor, clerk_id, *, lock=False):
     reverse = cursor.fetchall()
     if len(reverse) != 1 or reverse[0] != row:
         raise _link_changed()
-    enforce_owner(row)
     return row
 
 
@@ -323,7 +321,6 @@ def save_workspace(clerk_id, value):
                                (version, encoded, stamp, subject, owner["id"], owner["user_id"], expected))
             if cursor.rowcount != 1:
                 raise _conflict()
-        recheck_admission()
         db.commit()
         committed = True
         return {"state": "ready", "link_revision": revision, "version": version,

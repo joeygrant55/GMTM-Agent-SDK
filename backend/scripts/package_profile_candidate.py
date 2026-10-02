@@ -27,7 +27,7 @@ SOURCES = (
     "backend/athlete_workspace.py", "backend/profile_debrief.py", "backend/profile_pathways.py",
     "backend/source_scope.py", "backend/start_profile_candidate.py",
     "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
-    "backend/profile_admission.py", "backend/profile_owner.py",
+    "backend/profile_owner.py",
     "backend/junior_entry.py", "backend/junior_eligibility.py",
     "backend/college_programs.py", "backend/outreach_draft.py", "backend/data/college_womens_flag_2026.json",
 )
