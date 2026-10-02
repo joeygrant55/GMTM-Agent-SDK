@@ -1,0 +1,28 @@
+{
+  "built_by": "backend/scripts/build_college_data.py",
+  "programs": "sparq-demo/research/college-womens-flag-2026.json (verified 2026-10-01)",
+  "coach_color_questionnaire": "sparq-demo/research/college-coach-contacts-2026.json (verified 2026-10-02; official athletics pages)",
+  "city_lat_lon": "US Census Bureau 2024 Gazetteer Files: places, then county subdivisions (https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/), internal point, downloaded 2026-10-02",
+  "map": "us-atlas@3 states-10m.json (US Census cartographic boundaries, https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json), downloaded 2026-10-02, Albers equal-area (college_programs.project), simplified",
+  "dropped": [
+    "Augsburg University",
+    "Saint Vincent College"
+  ],
+  "starts": {
+    "Albright College": "Starts spring 2027"
+  },
+  "domain_fixed": {
+    "Davenport University": [
+      "davenportpanthers.com",
+      "dupanthers.com"
+    ]
+  },
+  "city_alias": {
+    "University Center, MI": "Kochville",
+    "Gwynedd Valley, PA": "Lower Gwynedd",
+    "Immaculata, PA": "East Whiteland",
+    "Milligan, TN": "Elizabethton",
+    "Tanner, AL": "Athens"
+  },
+  "no_lat_lon": []
+}

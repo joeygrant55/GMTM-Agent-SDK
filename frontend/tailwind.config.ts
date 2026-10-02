@@ -20,9 +20,16 @@ const config: Config = {
           ink: '#0c0c0c',
           fog: '#1a1a1a',
         },
+        // Junior profile redesign (2026-10-02 canvas). Text on these grounds is >= 4.5:1.
+        jr: {
+          ground: '#0B0B0C', card: '#131316', raised: '#1C1C20', well: '#16161A', line: '#222226', edge: '#3A3A42',
+          lime: '#CAFD00', 'lime-hover': '#E4FF6B', done: '#1B2410', 'done-line': '#4A6B00',
+          text: '#F4F4F5', soft: '#C8C8CF', muted: '#B4B4BC', dim: '#A1A1AA', track: '#26262C',
+        },
       },
       fontFamily: {
         display: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
+        label: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
       },
       fontSize: {
         'display-xl': ['clamp(3rem, 7vw, 6.5rem)', { lineHeight: '0.95', letterSpacing: '-0.03em' }],

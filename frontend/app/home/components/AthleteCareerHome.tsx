@@ -1,173 +1,170 @@
 'use client'
 
+// Journey Home (2026-10-02 design): greeting, steps left to the first coach email, one
+// primary action for the current step, a 4-step tracker from real data, featured clip,
+// drill tiles and saved colleges with their email status.
 import { useState } from 'react'
-import { drillKey, evidenceDate, isBodySize, knownSport, ProfileEvidence } from './profileEvidence'
+import Link from 'next/link'
+import { drillKey, evidenceDate, isBodySize, ProfileEvidence } from './profileEvidence'
 import { isProfileThumbnail, ProfileMaterialItem, ProfileMaterialsSnapshot } from './profileMaterials'
+import { aboutMiles, Badge, primary, SavedColleges, shortDate } from './ProfileColleges'
+import { journey, JourneyStep } from './journey'
 
-const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
-const textAction = `inline-flex min-h-11 items-center text-sm text-gray-300 underline underline-offset-4 hover:text-white disabled:cursor-wait disabled:opacity-50 ${focus}`
+const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
+const outline = `inline-flex min-h-12 items-center justify-center rounded-[14px] border border-jr-edge px-6 py-3 text-base font-semibold text-jr-text hover:border-jr-muted ${focus}`
 
-export interface AthleteCareerHomeProps {
-  profile: ProfileEvidence
-  snapshot: ProfileMaterialsSnapshot | null
-  loading: boolean
-  error: boolean
-  goal: { text: string; destination: string | null; timeframe: string | null } | null
-  featuredId: string | null
-  saving: boolean
-  nextMove: { title: string; detail: string; label: string }
-  recent: Array<{ id: string; kind: string; at: string }>
-  onNext: () => void
-  onEditGoal: () => void
-  onFeature: (item: ProfileMaterialItem) => void
-  onBrowse: () => void
-  onProgress: () => void
+export interface DisplayResult { id: string; label: string; value: number; unit: string; kind: 'On your profile' | 'Self-recorded'; date: string | null }
+
+const UNITS: Record<string, string> = { seconds: 's', inches: 'in', repetitions: 'reps', centimeters: 'cm', cm: 'cm', lb: 'lb', kg: 'kg' }
+// GMTM stores formatted times in milliseconds; show seconds.
+function display(value: number, unit: string): { value: number; unit: string } {
+  if (unit === 'milliseconds') return { value: Math.round(value / 10) / 100, unit: 's' }
+  return { value, unit: UNITS[unit] ?? unit }
 }
 
-interface DisplayResult {
-  id: string
-  label: string
-  value: number
-  unit: string
-  kind: 'On your profile' | 'Self-recorded'
-  date: string | null
-  source: string
-}
-
-// Stored poster only: a preview is never an assertion that playback was checked.
-function FilmPreview({ clip, compact = false }: { clip: ProfileMaterialItem; compact?: boolean }) {
-  const thumbnail = isProfileThumbnail(clip.thumbnail_url) ? clip.thumbnail_url : null
-  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>(thumbnail ? 'loading' : 'failed')
-  const Title = compact ? 'p' : 'h3'
-  return <div className={`relative overflow-hidden rounded-xl border border-white/10 bg-sparq-charcoal-light ${compact ? 'aspect-[2.5/1]' : 'aspect-[2.1/1] sm:aspect-[2.35/1]'}`}>
-    {thumbnail && status !== 'failed' && <img
-      src={thumbnail} alt={`Thumbnail for ${clip.title}`} crossOrigin="anonymous" referrerPolicy="no-referrer"
-      loading={compact ? 'lazy' : 'eager'} decoding="async"
-      onLoad={() => setStatus('ready')} onError={() => setStatus('failed')}
-      className={`absolute inset-0 h-full w-full object-cover object-top ${status === 'ready' ? '' : 'opacity-0'}`}
-    />}
-    {status !== 'ready' && <div className="absolute inset-0 flex items-center justify-center px-4 pb-14 text-center">
-      <p role="status" className="text-sm text-gray-400">{status === 'loading' ? 'Loading preview…' : 'Preview unavailable'}</p>
-    </div>}
-    <div className={`absolute inset-x-0 bottom-0 bg-black/65 ${compact ? 'px-3 py-2 sm:px-4' : 'px-4 py-3 sm:px-5 sm:py-4'}`}>
-      <Title className={`line-clamp-2 break-words font-semibold leading-snug ${compact ? 'text-sm sm:text-base' : 'text-lg sm:text-xl'}`}>{clip.title}</Title>
-      <p className={`mt-0.5 text-gray-300 ${compact ? 'text-xs' : 'text-xs sm:text-sm'}`}>Added {evidenceDate(clip.recorded_at)}</p>
-    </div>
-  </div>
-}
-
-const activityLabels: Record<string, string> = {
-  goal_saved: 'Goal saved', goal_removed: 'Goal removed',
-  featured_saved: 'Featured footage chosen', featured_removed: 'Featured footage removed',
-  draft_saved: 'Draft saved', draft_removed: 'Draft removed',
-}
-
-// Flag-relevant drill results only: body size (height/weight) is not a result.
-const MAX_RESULTS = 6
-// The USA Football junior combine drills lead; any other drill the athlete has follows, newest first.
+// USA Football junior combine drills lead; any other drill follows, newest first.
 const PREFERRED = [/^20yard(dash)?$/, /^5105shuttle$/, /^(standing)?broadjump$/]
 const preference = (label: string) => { const index = PREFERRED.findIndex(pattern => pattern.test(drillKey(label))); return index < 0 ? PREFERRED.length : index }
 
-export default function AthleteCareerHome({ profile, snapshot, loading, error, goal, featuredId, saving, nextMove, recent, onNext, onEditGoal, onFeature, onBrowse, onProgress }: AthleteCareerHomeProps) {
-  const sourceReady = !loading && !error && snapshot?.state === 'ready'
-  const items = sourceReady ? snapshot.items : []
-  const clips = items.filter(item => item.kind === 'footage' && item.can_include && item.availability === 'unchecked' && item.source_url).slice(0, 10)
-  const featured = featuredId ? clips.find(item => item.id === featuredId) : undefined
-  const hero = featured || clips[0]
-  const alternates = clips.filter(item => item.id !== hero?.id).slice(0, 2)
-  const recorded: DisplayResult[] = profile.state === 'ready' ? profile.evidence.map(item => ({ id: `profile-${item.id}`, label: item.label, value: item.value, unit: item.unit, kind: 'On your profile', date: item.recorded_at, source: item.source_label })) : []
-  const submitted: DisplayResult[] = items.filter(item => item.kind === 'submitted_result' && item.can_include && item.availability === 'recorded' && item.result).map(item => ({ id: `material-${item.id}`, label: item.title, value: item.result!.value, unit: item.result!.unit, kind: 'Self-recorded', date: item.recorded_at, source: item.source_label }))
+export function drillResults(profile: ProfileEvidence, snapshot: ProfileMaterialsSnapshot | null): DisplayResult[] {
+  const items = snapshot?.state === 'ready' ? snapshot.items : []
+  const recorded: DisplayResult[] = profile.state === 'ready' ? profile.evidence.map(item => ({ id: `profile-${item.id}`, label: item.label, ...display(item.value, item.unit), kind: 'On your profile', date: item.recorded_at })) : []
+  const submitted: DisplayResult[] = items.filter(item => item.kind === 'submitted_result' && item.can_include && item.availability === 'recorded' && item.result)
+    .map(item => ({ id: `material-${item.id}`, label: item.title, ...display(item.result!.value, item.result!.unit), kind: 'Self-recorded', date: item.recorded_at }))
   // Newest result for each drill, without height or weight.
   const seen = new Set<string>()
-  const results = [...recorded, ...submitted]
+  return [...recorded, ...submitted]
     .filter(item => !isBodySize(item.label))
     .sort((a, b) => preference(a.label) - preference(b.label) || (b.date || '').localeCompare(a.date || ''))
     .filter(item => { const key = drillKey(item.label); if (seen.has(key)) return false; seen.add(key); return true })
-    .slice(0, MAX_RESULTS)
-  const activity = recent.filter(item => Object.prototype.hasOwnProperty.call(activityLabels, item.kind)).slice(0, 3)
-  const identity = [knownSport(profile.athlete?.sport), profile.athlete?.position].filter(Boolean).join(' · ')
-  const unavailable = error || snapshot?.state === 'source_unavailable'
+}
 
-  return <div className="pb-10 sm:pb-12">
-    <header className="mb-7">
-      <h1 className="break-words text-4xl font-semibold leading-[1.05] tracking-[-0.045em] sm:text-5xl">{profile.athlete?.name || 'Your athlete home'}</h1>
-      {identity && <p className="mt-2 break-words text-base text-gray-400 sm:text-xl">{identity}</p>}
-    </header>
+export function playableClips(snapshot: ProfileMaterialsSnapshot | null): ProfileMaterialItem[] {
+  return (snapshot?.state === 'ready' ? snapshot.items : []).filter(item => item.kind === 'footage' && item.can_include && item.availability === 'unchecked' && item.source_url).slice(0, 10)
+}
 
-    <section aria-label="Your athlete content" className="grid min-w-0 gap-x-6 gap-y-6 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:gap-y-0 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)] lg:gap-x-9">
-      <div className="min-w-0 md:col-start-1 md:row-start-1">
-        <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">{featured ? 'Your featured work' : 'Your footage'}</h2>
+// Her chosen clip first, then her Highlight Reel task video, then the newest clip.
+export function featuredClip(clips: ProfileMaterialItem[], featuredId: string | null): ProfileMaterialItem | undefined {
+  return clips.find(item => item.id === featuredId) || clips.find(item => /highlight reel/i.test(`${item.source_label} ${item.title}`)) || clips[0]
+}
+
+// Stored poster only: a preview is never an assertion that playback was checked.
+export function Poster({ clip }: { clip: ProfileMaterialItem }) {
+  const thumbnail = isProfileThumbnail(clip.thumbnail_url) ? clip.thumbnail_url : null
+  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>(thumbnail ? 'loading' : 'failed')
+  return <>
+    <div aria-hidden="true" className="absolute inset-0 bg-[repeating-linear-gradient(135deg,#1A1A1F_0,#1A1A1F_14px,#1E1E24_14px,#1E1E24_28px)]" />
+    {thumbnail && status !== 'failed' && <img src={thumbnail} alt={`Thumbnail for ${clip.title}`} crossOrigin="anonymous" referrerPolicy="no-referrer" decoding="async"
+      onLoad={() => setStatus('ready')} onError={() => setStatus('failed')}
+      className={`absolute inset-0 h-full w-full object-cover object-top ${status === 'ready' ? '' : 'opacity-0'}`} />}
+    {status === 'failed' && <span className="sr-only">Preview unavailable</span>}
+  </>
+}
+
+function StepCard({ step, index, current }: { step: JourneyStep; index: number; current: boolean }) {
+  const check = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0B0C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+  const body = <>
+    <span className={`flex h-[34px] w-[34px] items-center justify-center rounded-full font-bold ${step.done ? 'bg-jr-lime' : current ? 'border-2 border-jr-lime text-jr-lime' : 'border-2 border-[#4A4A52] text-[#8E8E96]'}`}>
+      {step.done ? check : index + 1}
+    </span>
+    <span className={`text-lg font-semibold ${!step.done && !current ? 'text-[#D4D4DA]' : ''}`}>{step.title}</span>
+    <span className={`text-sm ${current ? 'font-semibold text-jr-lime' : step.done ? 'text-jr-soft' : 'text-jr-dim'}`}>{current ? 'Do this next →' : step.detail}</span>
+    <span className="sr-only">{step.done ? '(done)' : current ? '(current step)' : '(not started)'}</span>
+  </>
+  const box = `flex flex-col gap-2.5 rounded-[18px] p-4 sm:p-5 ${step.done ? 'border border-jr-done-line bg-jr-done' : current ? 'border-2 border-jr-lime bg-jr-raised' : 'border border-dashed border-jr-edge bg-jr-well'}`
+  return current && step.key !== 'profile' ? <Link href="/home/colleges" className={`${box} ${focus}`}>{body}</Link> : <div className={box}>{body}</div>
+}
+
+export default function AthleteCareerHome({ profile, snapshot, loading, error, featuredId, colleges, collegesError }: {
+  profile: ProfileEvidence; snapshot: ProfileMaterialsSnapshot | null; loading: boolean; error: boolean; featuredId: string | null
+  colleges: SavedColleges | null; collegesError: string
+}) {
+  const athlete = profile.athlete
+  const clips = playableClips(snapshot)
+  const hero = featuredClip(clips, featuredId)
+  const results = drillResults(profile, snapshot)
+  const first = athlete?.name?.trim().split(/\s+/)[0] || null
+  const place = [athlete?.city, athlete?.state].filter(Boolean).join(', ')
+  // Grad year is already limited to a plausible 13-17 year (backend filter); otherwise omitted.
+  const line = [athlete?.graduation_year ? `Class of ${athlete.graduation_year}` : null, athlete?.position, place].filter(Boolean).join(' · ')
+  const flow = journey({ profileReady: clips.length > 0 || results.length > 0, found: colleges?.found || 0, saved: colleges?.saved_count || 0, sent: colleges?.sent_count || 0 })
+  const nextEmail = colleges?.saved.find(program => !program.sent_at)
+  const cta = !flow.current ? { href: '/home/colleges', label: 'Email another coach' }
+    : flow.current.key === 'profile' ? { href: 'https://gmtm.com', label: 'Add a clip on GMTM', external: true }
+      : flow.current.key === 'colleges' ? { href: '/home/colleges', label: 'Find my colleges' }
+        : flow.current.key === 'save' ? { href: '/home/colleges', label: 'Pick my colleges' }
+          : { href: nextEmail ? `/home/colleges/${nextEmail.id}` : '/home/colleges', label: 'Email a coach' }
+
+  return <div className="flex flex-col gap-10 pb-6 pt-8 md:pt-12">
+    <section className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="flex flex-col justify-center gap-5">
+        {line && <p className="font-label text-xs uppercase tracking-[2px] text-jr-lime sm:text-[13px]">{line}</p>}
+        <h1 className="break-words text-[34px] font-bold leading-[1.05] tracking-[-0.5px] sm:text-5xl lg:text-[64px] lg:leading-[1.02] lg:tracking-[-1.5px]">
+          Hey {first || 'there'}.<br className="hidden sm:block" /> {colleges ? flow.headline : 'Let’s get you to your first coach email.'}
+        </h1>
+        <p className="max-w-[560px] text-[17px] leading-normal text-jr-soft sm:text-[19px]">Save the colleges you like, then send a short note to one coach. Your combine numbers do the talking.</p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {cta.external ? <a href={cta.href} target="_blank" rel="noopener noreferrer" className={primary}>{cta.label}<span className="sr-only"> (opens in a new tab)</span></a>
+            : <Link href={cta.href} className={primary}>{cta.label}</Link>}
+          <Link href="/home/footage" className={outline}>See my athlete card</Link>
         </div>
-        {hero ? <>
-          <figure className="relative">
-            <FilmPreview key={`${hero.id}:${hero.thumbnail_url || ''}`} clip={hero} />
-            {featured && <span className="absolute left-4 top-3 rounded-full bg-sparq-lime px-3 py-1 text-xs font-semibold text-sparq-charcoal">Featured</span>}
-            <figcaption className="sr-only">{hero.title}. A preview picture of your video.</figcaption>
-          </figure>
-          <div className="flex flex-wrap items-center justify-between gap-x-4">
-            <a href={hero.source_url!} target="_blank" rel="noopener noreferrer" className={textAction}>Open on GMTM</a>
-            {!featured && <button type="button" disabled={saving} onClick={() => onFeature(hero)} className={textAction}>Feature this footage</button>}
-          </div>
-        </> : <div className="flex min-h-48 items-center rounded-xl border border-white/10 bg-sparq-charcoal-light p-6 sm:min-h-64">
-          {loading ? <p role="status" className="text-sm text-gray-400">Loading your footage…</p>
-            : unavailable ? <div role="alert"><p className="font-medium">Your footage could not be loaded.</p><p className="mt-2 text-sm text-gray-400">Your profile details are still available.</p></div>
-              : snapshot?.state === 'unlinked' ? <div role="status"><p className="font-medium">Your footage connection needs review.</p><p className="mt-2 text-sm text-gray-400">Open your portfolio to check it.</p></div>
-                : <div><p className="font-medium">No videos yet.</p><p className="mt-2 text-sm text-gray-400">Videos you add on GMTM will show here.</p></div>}
-        </div>}
-
       </div>
+      <Link href="/home/footage" aria-label={hero ? `Featured clip: ${hero.title}. Change it on My card.` : 'Add footage. Open My card.'}
+        className={`relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-3xl border border-[#26262C] bg-[#17171B] sm:min-h-[360px] ${focus}`}>
+        {hero ? <Poster key={`${hero.id}:${hero.thumbnail_url || ''}`} clip={hero} /> : <div aria-hidden="true" className="absolute inset-0 bg-[repeating-linear-gradient(135deg,#1A1A1F_0,#1A1A1F_14px,#1E1E24_14px,#1E1E24_28px)]" />}
+        <div className="relative flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent p-6">
+          <span className="self-start rounded-full bg-[rgba(11,11,12,0.85)] px-3 py-1.5 text-[13px] font-semibold text-jr-lime">Featured clip</span>
+          <span className="break-words text-xl font-semibold">{hero ? hero.title : loading ? 'Loading your footage…' : error ? 'Your footage could not be loaded.' : 'No videos yet'}</span>
+          <span className="text-sm text-jr-soft">{hero ? 'From GMTM · tap to change' : 'Videos you add on GMTM show here'}</span>
+        </div>
+      </Link>
+    </section>
 
-      <aside aria-label="Your goal and next move" className="min-w-0 border-t border-white/15 pt-4 md:col-start-2 md:row-span-2 md:row-start-1 md:border-l md:border-t-0 md:pl-6 md:pt-0 lg:pl-9">
-        <section aria-labelledby="career-goal-title" className="border-b border-white/15 pb-4 sm:pb-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="career-goal-title" className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-300">Current goal</h2>
-            <button type="button" onClick={onEditGoal} disabled={saving} className={textAction}>{goal ? 'Edit goal' : 'Set a goal'}</button>
-          </div>
-          <p className="mt-2 break-words text-xl leading-snug tracking-tight sm:text-2xl">{goal?.text || 'What do you want to do next?'}</p>
-          {goal?.destination && <p className="mt-3 break-words text-sm text-gray-400">For: {goal.destination}</p>}
-          {goal?.timeframe && <p className="mt-1 break-words text-sm text-gray-400">When: {goal.timeframe}</p>}
-        </section>
-        <section aria-labelledby="career-next-title" className="pt-5 sm:pt-9">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-300">Your next move</p>
-          <h2 id="career-next-title" className="mt-3 break-words text-3xl font-semibold leading-[1.08] tracking-[-0.04em] sm:mt-4 xl:text-[2.6rem]">{nextMove.title}</h2>
-          <p className="mt-2 break-words text-base leading-relaxed text-gray-400 sm:mt-3 xl:text-lg">{nextMove.detail}</p>
-          <button type="button" onClick={onNext} disabled={saving} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-base font-semibold text-sparq-charcoal hover:bg-sparq-lime-light disabled:cursor-wait disabled:opacity-50 sm:mt-6 sm:min-h-14 sm:w-auto sm:px-8 sm:text-lg ${focus}`}>{nextMove.label}</button>
-        </section>
-      </aside>
-
-      <div className="min-w-0 md:col-start-1 md:row-start-2">
-        {alternates.length > 0 && <div className="mt-1 grid grid-cols-2 gap-3 sm:gap-4" aria-label="Choose featured footage">
-          {alternates.map(clip => <button key={clip.id} type="button" aria-label={`Feature ${clip.title}`} disabled={saving} onClick={() => onFeature(clip)} className={`min-w-0 rounded-xl text-left disabled:cursor-wait disabled:opacity-50 ${focus}`}>
-            <FilmPreview key={`${clip.id}:${clip.thumbnail_url || ''}`} clip={clip} compact />
-          </button>)}
-        </div>}
-        {alternates.length > 0 && <p className="mt-3 text-xs text-gray-500">Choose footage to feature on your private home.</p>}
-        <section aria-label="Your combine results" className="mt-5 border-t border-white/15 pt-4">
-          <h2 className="text-lg font-semibold tracking-tight">Your results</h2>
-          {results.length > 0 ? <>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:gap-x-6">
-              {results.map((item, index) => <article key={item.id} className={`min-w-0 ${index % 2 ? 'border-l border-white/15 pl-4 sm:pl-6' : ''}`}>
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-gray-400">{item.kind}</p>
-                <h3 className="mt-1 break-words text-sm leading-snug text-gray-200">{item.label}</h3>
-                <p className="mt-1 break-words text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{item.value}<span className="ml-1.5 text-base font-normal text-gray-300">{item.unit}</span></p>
-                <p className="mt-1 text-xs text-gray-400">{evidenceDate(item.date)}</p>
-              </article>)}
-            </div>
-            <p className="mt-3 text-xs text-gray-500">These numbers were not checked at an event.</p>
-          </> : <p className="mt-2 text-sm text-gray-400">{loading ? 'Loading your results…' : 'Your combine results will show here.'}</p>}
-        </section>
-        <button type="button" onClick={onBrowse} className={`${textAction} mt-1`}>Browse portfolio</button>
+    <section aria-labelledby="journey-title" className="flex flex-col gap-6 rounded-3xl border border-jr-line bg-jr-card p-5 sm:p-8">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="journey-title" className="text-xl font-bold sm:text-2xl">Your recruiting journey</h2>
+        <span className="text-[15px] text-jr-muted">{flow.done} of {flow.steps.length} done</span>
+      </div>
+      {collegesError && <p role="alert" className="text-sm text-amber-200">{collegesError}</p>}
+      {colleges && !colleges.eligible && colleges.notice && <p role="status" className="text-sm text-jr-soft">{colleges.notice}</p>}
+      <ol className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {flow.steps.map((step, index) => <li key={step.key} className="flex flex-col [&>*]:flex-1"><StepCard step={step} index={index} current={flow.current?.key === step.key} /></li>)}
+      </ol>
+      <div role="progressbar" aria-label="Journey progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={flow.percent} className="h-2 overflow-hidden rounded-full bg-jr-track">
+        <div className="h-full bg-jr-lime" style={{ width: `${flow.percent}%` }} />
       </div>
     </section>
 
-    <section aria-labelledby="career-recent-title" className="mt-7 border-t border-white/15 pt-4 sm:mt-8">
-      <div className="flex flex-col items-start gap-x-8 gap-y-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <h2 id="career-recent-title" className="text-base font-semibold">Recent work</h2>
-        {activity.length ? <ul className="flex flex-1 flex-wrap gap-x-7 gap-y-3">{activity.map(item => <li key={item.id} className="min-w-0 border-l border-white/15 pl-4"><p className="text-sm text-gray-200">{activityLabels[item.kind]}</p><time dateTime={item.at} className="mt-1 block text-xs text-gray-500">{evidenceDate(item.at)}</time></li>)}</ul>
-          : <p className="flex-1 text-sm text-gray-500">Your saved work will appear here.</p>}
-        <button type="button" onClick={onProgress} className={textAction}>View progress</button>
+    <section className="grid gap-8 md:grid-cols-2">
+      <div aria-labelledby="numbers-title" className="flex flex-col gap-4">
+        <h2 id="numbers-title" className="text-[22px] font-bold">Your numbers</h2>
+        {results.length ? <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {results.slice(0, 3).map(item => <article key={item.id} className="flex min-w-0 flex-col gap-1.5 rounded-[18px] border border-jr-line bg-jr-card p-3 sm:p-5">
+            <h3 className="break-words text-xs text-jr-muted sm:text-sm">{item.label}</h3>
+            <p className="text-[22px] font-bold tabular-nums sm:text-4xl">{item.value}<span className="text-sm font-normal text-jr-muted sm:text-base"> {item.unit}</span></p>
+            <p className="text-xs text-jr-muted sm:text-[13px]">{item.kind}</p>
+          </article>)}
+        </div> : <p className="rounded-[18px] border border-jr-line bg-jr-card p-5 text-jr-soft">{loading ? 'Loading your results…' : 'Your combine results will show here.'}</p>}
+        {results.length > 0 && <p className="text-xs text-jr-dim">These numbers were not checked at an event. {results.length > 3 && <Link href="/home/footage" className="underline underline-offset-4">See all {results.length}</Link>}</p>}
+      </div>
+      <div aria-labelledby="saved-title" className="flex flex-col gap-4">
+        <div className="flex items-baseline justify-between">
+          <h2 id="saved-title" className="text-[22px] font-bold">Saved colleges</h2>
+          {colleges?.built && colleges.found > 0 && <Link href="/home/colleges" className={`text-[15px] text-jr-lime underline-offset-4 hover:underline ${focus}`}>See all {colleges.found}</Link>}
+        </div>
+        {!colleges ? <p className="text-jr-muted">{collegesError ? 'Saved colleges are not available right now.' : 'Loading…'}</p>
+          : colleges.saved.length ? <ul className="flex flex-col gap-2.5">
+            {colleges.saved.slice(0, 5).map(program => <li key={program.id}>
+              <Link href={`/home/colleges/${program.id}`} className={`flex items-center gap-3.5 rounded-2xl border border-jr-line bg-jr-card px-4 py-3.5 hover:border-jr-edge ${focus}`}>
+                <Badge program={program} size="sm" />
+                <span className="flex min-w-0 flex-1 flex-col"><span className="break-words font-semibold">{program.school}</span>
+                  <span className="text-sm text-jr-muted">{[program.level, aboutMiles(program.distance_mi)].filter(Boolean).join(' · ')}</span></span>
+                <span className={`shrink-0 rounded-full px-2.5 py-1.5 text-[13px] ${program.sent_at ? 'bg-jr-done font-semibold text-jr-lime' : 'bg-jr-track text-[#D4D4DA]'}`}>{program.sent_at ? `Emailed ${shortDate(program.sent_at)}` : 'Not emailed'}</span>
+              </Link>
+            </li>)}
+          </ul> : <p className="rounded-2xl border border-jr-line bg-jr-card p-5 text-jr-soft">No saved colleges yet. Tap the heart on a college to save it.</p>}
       </div>
     </section>
+    {hero && <p className="sr-only">Featured clip added {evidenceDate(hero.recorded_at)}.</p>}
   </div>
 }

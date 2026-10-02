@@ -12,7 +12,18 @@
       "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First D1 HBCU to add varsity women's flag football (announced 2024); already competing, continues 2026-27."
+    "notes": "First D1 HBCU to add varsity women's flag football (announced 2024); already competing, continues 2026-27.",
+    "head_coach_name": "Tyrone Poole",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "Tpoole2483@alasu.edu",
+    "staff_page_url": "https://bamastatesports.com/sports/womens-flag-football/coaches",
+    "primary_color": "#C99900",
+    "color_source_url": "https://bamastatesports.com/sports/womens-flag-football/coaches",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.3485,
+    "lon": -86.2673
   },
   {
     "school": "Delaware State University",
@@ -27,7 +38,18 @@
       "https://dsuhornets.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "MEAC full member for 2026-27 (spring 2027 inaugural season). DSU's own site had not yet published a dedicated varsity flag football page as of verification; confirmed via MEAC conference page."
+    "notes": "MEAC full member for 2026-27 (spring 2027 inaugural season). DSU's own site had not yet published a dedicated varsity flag football page as of verification; confirmed via MEAC conference page.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#009DDC",
+    "color_source_url": "https://dsuhornets.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No flag football sport page or flag coach listed on the official athletics site (checked 2026-10-02).",
+    "starts": null,
+    "lat": 39.1606,
+    "lon": -75.5217
   },
   {
     "school": "Eastern Michigan University",
@@ -42,7 +64,18 @@
       "https://emueagles.com/news/2026/4/16/general-eastern-michigan-to-add-womens-flag-football-in-2027"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Varsity announced April 2026; inaugural season spring 2027 (2026-27)."
+    "notes": "Varsity announced April 2026; inaugural season spring 2027 (2026-27).",
+    "head_coach_name": "Jesse Siordia",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jsiordia@emich.edu",
+    "staff_page_url": "https://emueagles.com/sports/flag-football/coaches",
+    "primary_color": "#00703C",
+    "color_source_url": "https://emueagles.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Same name is listed as head coach at Siena Heights (jsiordia@sienaheights.edu).",
+    "starts": null,
+    "lat": 42.2444,
+    "lon": -83.6212
   },
   {
     "school": "Fairleigh Dickinson University",
@@ -51,13 +84,24 @@
     "governing_body": "NCAA-D1",
     "conference": "ECAC",
     "program_url": "https://fduknights.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://college.jumpforward.com/questionnaire.aspx?iid=475&sportid=137",
     "source_urls": [
       "https://fduknights.com/sports/womens-flag-football",
       "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Joins ECAC Women's Flag Football League for spring 2027 (2026-27)."
+    "notes": "Joins ECAC Women's Flag Football League for spring 2027 (2026-27).",
+    "head_coach_name": "Steve Arnold",
+    "head_coach_title": "Head Coach",
+    "coach_email": "s.arnold@fdu.edu",
+    "staff_page_url": "https://fduknights.com/sports/womens-flag-football/coaches",
+    "primary_color": "#272F44",
+    "color_source_url": "https://fduknights.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.8903,
+    "lon": -74.0115
   },
   {
     "school": "Gardner-Webb University",
@@ -72,7 +116,18 @@
       "https://gwusports.com/sports/flagfb"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Big South does not sponsor flag football until 2027-28; Gardner-Webb plays 2026-27 as a MEAC associate member."
+    "notes": "Big South does not sponsor flag football until 2027-28; Gardner-Webb plays 2026-27 as a MEAC associate member.",
+    "head_coach_name": "Mike Brown",
+    "head_coach_title": "Head Coach",
+    "coach_email": "mbrown56@gardner-webb.edu",
+    "staff_page_url": "https://gwusports.com/staff-directory",
+    "primary_color": "#BB0000",
+    "color_source_url": "https://gwusports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.2521,
+    "lon": -81.6636
   },
   {
     "school": "Long Island University",
@@ -81,13 +136,24 @@
     "governing_body": "NCAA-D1",
     "conference": "Northeast Conference",
     "program_url": "https://www.liuathletics.com/sports/womens-flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/cf1a729d0651",
     "source_urls": [
       "https://www.ncaa.org/news/2025/3/28/media-center-liu-athletics-adds-triathlon-womens-flag-football.aspx",
       "https://www.liuathletics.com/sports/womens-flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Added 2025-26; continues 2026-27. LIU Post campus."
+    "notes": "Added 2025-26; continues 2026-27. LIU Post campus.",
+    "head_coach_name": "Jimmy Barbarise",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jimmy.barbarise@liu.edu",
+    "staff_page_url": "https://www.liuathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.8079,
+    "lon": -73.5701
   },
   {
     "school": "Manhattan University",
@@ -102,7 +168,18 @@
       "https://gojaspers.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural season 2026-27. Not to be confused with Manhattanville University (D3), a separate school."
+    "notes": "Inaugural season 2026-27. Not to be confused with Manhattanville University (D3), a separate school.",
+    "head_coach_name": "Frank Jennaco",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://gojaspers.com/staff-directory",
+    "primary_color": "#046A38",
+    "color_source_url": "https://gojaspers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.8487,
+    "lon": -73.8529
   },
   {
     "school": "Mercyhurst University",
@@ -111,13 +188,24 @@
     "governing_body": "NCAA-D1",
     "conference": "ECAC",
     "program_url": "https://hurstathletics.com/sports/womens-flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/38c5f743d86a",
     "source_urls": [
       "https://hurstathletics.com/news/2024/12/16/womens-flag-football-mercyhurst-adds-womens-flag-football-to-growing-sports-lineup.aspx",
       "https://hurstathletics.com/news/2025/12/2/womens-flag-football-mercyhurst-flag-football-joins-ecac-funded-by-new-york-jets.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Added 2025-26; joined ECAC league for 2026-27."
+    "notes": "Added 2025-26; joined ECAC league for 2026-27.",
+    "head_coach_name": "Zack Helsley",
+    "head_coach_title": "Head Coach",
+    "coach_email": "zhelsley@mercyhurst.edu",
+    "staff_page_url": "https://hurstathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#1C4037",
+    "color_source_url": "https://hurstathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.1166,
+    "lon": -80.0735
   },
   {
     "school": "Mississippi Valley State University",
@@ -132,7 +220,18 @@
       "https://mvsusports.com/news/2026/5/28/mississippi-valley-state-athletics-names-arlo-henderson-head-womens-flag-football-coach.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Added via athletics realignment (dropped women's soccer); MEAC associate member for 2026-27, replaces discontinued women's soccer."
+    "notes": "Added via athletics realignment (dropped women's soccer); MEAC associate member for 2026-27, replaces discontinued women's soccer.",
+    "head_coach_name": "Arlo Henderson",
+    "head_coach_title": "Head Coach",
+    "coach_email": "arlo.henderson@mvsu.edu",
+    "staff_page_url": "https://mvsusports.com/sports/flag-football/coaches",
+    "primary_color": "#02562E",
+    "color_source_url": "https://mvsusports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.5009,
+    "lon": -90.3243
   },
   {
     "school": "Mount St. Mary's University",
@@ -141,13 +240,24 @@
     "governing_body": "NCAA-D1",
     "conference": "Conference Carolinas (affiliate, flag football postseason)",
     "program_url": "https://mountathletics.com/news/2024/11/7/mount-st-marys-to-add-womens-flag-football-as-varsity-sport-in-2025-26.aspx",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/71ec2a9ab878",
     "source_urls": [
       "https://mountathletics.com/news/2024/11/7/mount-st-marys-to-add-womens-flag-football-as-varsity-sport-in-2025-26.aspx",
       "https://mountathletics.com/news/2026/4/16/flag-football-competes-in-first-ever-postseason-friday-at-conference-carolinas-championship.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First D1 program in Northeastern US; varsity since 2025-26, played in Conference Carolinas championship in spring 2026."
+    "notes": "First D1 program in Northeastern US; varsity since 2025-26, played in Conference Carolinas championship in spring 2026.",
+    "head_coach_name": "Sandi James",
+    "head_coach_title": "Head Coach",
+    "coach_email": "s.james@msmary.edu",
+    "staff_page_url": "https://mountathletics.com/sports/flag-football/coaches",
+    "primary_color": "#002855",
+    "color_source_url": "https://mountathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.7052,
+    "lon": -77.3213
   },
   {
     "school": "Norfolk State University",
@@ -162,7 +272,18 @@
       "https://nsuspartans.com/news/2026/6/25/norfolk-state-introduces-womens-flag-football-program-inaugural-head-coach-darryl-bullock.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "MEAC full member, inaugural season spring 2027 (2026-27) under head coach Darryl Bullock."
+    "notes": "MEAC full member, inaugural season spring 2027 (2026-27) under head coach Darryl Bullock.",
+    "head_coach_name": "Darryl Bullock",
+    "head_coach_title": "Head Coach",
+    "coach_email": "dabullock@nsu.edu",
+    "staff_page_url": "https://nsuspartans.com/sports/womens-flag-football/coaches",
+    "primary_color": "#007C5A",
+    "color_source_url": "https://nsuspartans.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.923,
+    "lon": -76.2446
   },
   {
     "school": "North Carolina Central University",
@@ -177,7 +298,18 @@
       "https://nccueaglepride.com/sports/flag"
     ],
     "verified_on": "2026-10-01",
-    "notes": "MEAC full member, transitioned from club to varsity for 2026-27 under head coach Jennifer King."
+    "notes": "MEAC full member, transitioned from club to varsity for 2026-27 under head coach Jennifer King.",
+    "head_coach_name": "Jennifer King",
+    "head_coach_title": "Head Coach, Flag Football",
+    "coach_email": null,
+    "staff_page_url": "https://nccueaglepride.com/staff-directory",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.9779,
+    "lon": -78.8981
   },
   {
     "school": "University of Maryland Eastern Shore",
@@ -192,7 +324,18 @@
       "https://umeshawksports.com/news/2026/6/16/general-the-university-of-maryland-eastern-shore-announces-addition-of-womens-flag-football-program.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "MEAC full member, inaugural season 2026-27."
+    "notes": "MEAC full member, inaugural season 2026-27.",
+    "head_coach_name": "Duane Tolson",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://umeshawksports.com/staff-directory",
+    "primary_color": "#680A2A",
+    "color_source_url": "https://umeshawksports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.2051,
+    "lon": -75.6964
   },
   {
     "school": "University of Nebraska-Lincoln",
@@ -207,7 +350,18 @@
       "https://huskers.com/news/2026/08/24/husker-flag-football-will-play-inaugural-season-in-2027"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Only Power 4 school to add varsity women's flag football; inaugural season moved up to spring 2027 (2026-27)."
+    "notes": "Only Power 4 school to add varsity women's flag football; inaugural season moved up to spring 2027 (2026-27).",
+    "head_coach_name": "Liz Sowers",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://huskers.com/staff-directory",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Directory lists astephens10@huskers.com (Amy Stephens, Director of Operations) as the contact on her row; not the coach's own address.",
+    "starts": null,
+    "lat": 40.8103,
+    "lon": -96.6749
   },
   {
     "school": "University of North Alabama",
@@ -216,13 +370,24 @@
     "governing_body": "NCAA-D1",
     "conference": "Independent (flag football); ASUN (primary)",
     "program_url": "https://roarlions.com/news/2025/9/30/general-north-alabama-to-add-womens-flag-football-and-mens-and-womens-track-in-2026.aspx",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/b79ebecce04a",
     "source_urls": [
       "https://roarlions.com/news/2025/9/30/general-north-alabama-to-add-womens-flag-football-and-mens-and-womens-track-in-2026.aspx",
       "https://roarlions.com/news/2026/2/20/womens-flag-football-abbi-munson-named-unas-first-womens-flag-football-coach.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Sixth D1 program nationally; inaugural season spring 2027 (2026-27)."
+    "notes": "Sixth D1 program nationally; inaugural season spring 2027 (2026-27).",
+    "head_coach_name": "Abbi Munson",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "amunson@una.edu",
+    "staff_page_url": "https://roarlions.com/sports/womens-flag-football/coaches",
+    "primary_color": "#4F2682",
+    "color_source_url": "https://roarlions.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.8298,
+    "lon": -87.6622
   },
   {
     "school": "University of South Carolina Upstate",
@@ -237,7 +402,18 @@
       "https://upstatespartans.com/sports/flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "13th NCAA D1 program; varsity for 2026-27, ahead of Big South's conference-wide 2027-28 championship launch."
+    "notes": "13th NCAA D1 program; varsity for 2026-27, ahead of Big South's conference-wide 2027-28 championship launch.",
+    "head_coach_name": "Noah Harris",
+    "head_coach_title": "Head Coach",
+    "coach_email": "NH51@uscupstate.edu",
+    "staff_page_url": "https://upstatespartans.com/staff-directory",
+    "primary_color": "#00843D",
+    "color_source_url": "https://upstatespartans.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.9456,
+    "lon": -81.9259
   },
   {
     "school": "University of Texas at Arlington",
@@ -252,7 +428,18 @@
       "https://www.dallasnews.com/sports/college-sports/2025/05/15/football-returns-to-ut-arlington-as-university-adds-new-sports-offering/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First D1 school in Texas to add the sport; begins play spring 2027 (2026-27)."
+    "notes": "First D1 school in Texas to add the sport; begins play spring 2027 (2026-27).",
+    "head_coach_name": "Melinda Nguyen",
+    "head_coach_title": "Head Coach",
+    "coach_email": "flagfootball@uta.edu",
+    "staff_page_url": "https://utamavs.com/sports/flag-football/coaches",
+    "primary_color": "#0064B1",
+    "color_source_url": "https://utamavs.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Email is the program inbox printed on the coach row.",
+    "starts": null,
+    "lat": 32.7007,
+    "lon": -97.1247
   },
   {
     "school": "Barton University",
@@ -261,13 +448,24 @@
     "governing_body": "NCAA-D2",
     "conference": "Conference Carolinas",
     "program_url": "https://bartonbulldogs.com/sports/flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://app.spry.so/paperwork/barton-college/womensflagfootball",
     "source_urls": [
       "https://conferencecarolinas.com/standings.aspx?path=wflag",
       "https://bartonbulldogs.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Jazz Vinson",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jcvinson@barton.edu",
+    "staff_page_url": "https://bartonbulldogs.com/sports/flag-football/coaches",
+    "primary_color": "#003082",
+    "color_source_url": "https://bartonbulldogs.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.7315,
+    "lon": -77.9308
   },
   {
     "school": "Bowie State University",
@@ -282,7 +480,18 @@
       "https://www.collegiateflagfootball.com/central-intercollegiate-athletic-association-elevatvarsity-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "CIAA elevates club standing to varsity for 2026-27 (spring 2027). Bowie State's own athletics site still listed flag football under intramural/recreation navigation as of verification; CIAA and press sources confirm varsity elevation."
+    "notes": "CIAA elevates club standing to varsity for 2026-27 (spring 2027). Bowie State's own athletics site still listed flag football under intramural/recreation navigation as of verification; CIAA and press sources confirm varsity elevation.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#000000",
+    "color_source_url": "https://bsubulldogs.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No flag football sport page or flag coach listed on the official athletics site (checked 2026-10-02).",
+    "starts": null,
+    "lat": 38.9547,
+    "lon": -76.7388
   },
   {
     "school": "Caldwell University",
@@ -297,7 +506,18 @@
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Only NCAA D2 school in New Jersey sponsoring the sport; inaugural season spring 2027 (2026-27)."
+    "notes": "Only NCAA D2 school in New Jersey sponsoring the sport; inaugural season spring 2027 (2026-27).",
+    "head_coach_name": "Ted Evans",
+    "head_coach_title": "Head Coach",
+    "coach_email": "thevans@caldwell.edu",
+    "staff_page_url": "https://caldwellathletics.com/sports/flag-football/coaches",
+    "primary_color": "#D31732",
+    "color_source_url": "https://caldwellathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.8392,
+    "lon": -74.277
   },
   {
     "school": "Chestnut Hill College",
@@ -312,7 +532,18 @@
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Began play spring 2026 in the Atlantic East Conference; moves to CACC sponsorship for 2026-27."
+    "notes": "Began play spring 2026 in the Atlantic East Conference; moves to CACC sponsorship for 2026-27.",
+    "head_coach_name": "Melissa Brizzell",
+    "head_coach_title": "Head Coach",
+    "coach_email": "brizzellM@chc.edu",
+    "staff_page_url": "https://griffinathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.0094,
+    "lon": -75.1333
   },
   {
     "school": "Chowan University",
@@ -327,7 +558,18 @@
       "https://gocuhawks.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Sherry Lewis",
+    "head_coach_title": "Head Flag Football Coach/Head Cross Country Coach",
+    "coach_email": "sslewis@chowan.edu",
+    "staff_page_url": "https://gocuhawks.com/sports/flag-football/coaches",
+    "primary_color": "#00338E",
+    "color_source_url": "https://gocuhawks.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.442,
+    "lon": -77.0977
   },
   {
     "school": "Claflin University",
@@ -342,7 +584,18 @@
       "https://athletics.claflin.edu/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027).",
+    "head_coach_name": "Perry Brown",
+    "head_coach_title": "Facilities Director/Director of Intramurals & Wellness/Head Flag Football Coach",
+    "coach_email": "perbrown@claflin.edu",
+    "staff_page_url": "https://athletics.claflin.edu/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.4936,
+    "lon": -80.8669
   },
   {
     "school": "Davenport University",
@@ -350,14 +603,25 @@
     "state": "MI",
     "governing_body": "NCAA-D2",
     "conference": "GLIAC",
-    "program_url": "https://davenportpanthers.com/",
+    "program_url": "https://dupanthers.com/",
     "questionnaire_url": null,
     "source_urls": [
       "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx",
       "https://www.mininggazette.com/sports/local-sports/2026/06/gliac-announces-the-addition-of-womens-flag-football-for-2026-27/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "GLIAC full member for 2026-27; head coach Ryan Adamovich quoted in launch announcement."
+    "notes": "GLIAC full member for 2026-27; head coach Ryan Adamovich quoted in launch announcement.",
+    "head_coach_name": "Ryan Adamovich",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://dupanthers.com/staff-directory",
+    "primary_color": "#ED1C24",
+    "color_source_url": "https://dupanthers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Input program_url domain davenportpanthers.com now lands on a parked page; official athletics site is dupanthers.com.",
+    "starts": null,
+    "lat": 42.9612,
+    "lon": -85.6556
   },
   {
     "school": "Dominican University New York",
@@ -372,7 +636,18 @@
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural season spring 2027 (2026-27); 20th varsity sport sponsored by Dominican."
+    "notes": "Inaugural season spring 2027 (2026-27); 20th varsity sport sponsored by Dominican.",
+    "head_coach_name": "Anthony DiMarsico",
+    "head_coach_title": "Head Coach Flag Football",
+    "coach_email": null,
+    "staff_page_url": "https://www.chargerathletics.com/sports/flagfball/coaches/index",
+    "primary_color": "#AF1E2D",
+    "color_source_url": "https://www.chargerathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.0487,
+    "lon": -73.9408
   },
   {
     "school": "Edward Waters University",
@@ -387,7 +662,18 @@
       "https://www.collegiateflagfootball.com/siac-to-sponsor-flag-football-in-spring-2027/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First SIAC school to add varsity flag football; SIAC itself will sponsor the sport for 2026-27 with at least 10 committed teams, but only Edward Waters' own membership is individually confirmed here. Full SIAC roster not yet published as of verification."
+    "notes": "First SIAC school to add varsity flag football; SIAC itself will sponsor the sport for 2026-27 with at least 10 committed teams, but only Edward Waters' own membership is individually confirmed here. Full SIAC roster not yet published as of verification.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No flag football sport page or flag coach listed on the official athletics site (checked 2026-10-02).",
+    "starts": null,
+    "lat": 30.3369,
+    "lon": -81.6616
   },
   {
     "school": "Emmanuel University",
@@ -402,7 +688,18 @@
       "https://goeclions.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Terry Allen",
+    "head_coach_title": "Head Coach",
+    "coach_email": "terry.allen@ec.edu",
+    "staff_page_url": "https://goeulions.com/sports/flag-football/coaches",
+    "primary_color": "#132E52",
+    "color_source_url": "https://goeclions.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.2834,
+    "lon": -83.1461
   },
   {
     "school": "Fayetteville State University",
@@ -417,7 +714,18 @@
       "https://hbcusports.com/2026/02/27/fayetteville-state-johnson-c-smith/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#0059BD",
+    "color_source_url": "https://fsubroncos.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No flag football sport page or flag coach listed on the official athletics site (checked 2026-10-02).",
+    "starts": null,
+    "lat": 35.0828,
+    "lon": -78.9735
   },
   {
     "school": "Ferrum College",
@@ -426,13 +734,24 @@
     "governing_body": "NCAA-D2",
     "conference": "Conference Carolinas",
     "program_url": "https://ferrumpanthers.com/sports/flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/22f3dc62254a",
     "source_urls": [
       "https://conferencecarolinas.com/standings.aspx?path=wflag",
       "https://ferrumpanthers.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NCAA D3 school (USA South primary) that plays flag football in Conference Carolinas. Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01. Ferrum is a full member of Conference Carolinas (an NCAA Division II conference); the D3 research pass also classed it as D2."
+    "notes": "NCAA D3 school (USA South primary) that plays flag football in Conference Carolinas. Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01. Ferrum is a full member of Conference Carolinas (an NCAA Division II conference); the D3 research pass also classed it as D2.",
+    "head_coach_name": "Garrett Roth",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "groth@ferrum.edu",
+    "staff_page_url": "https://ferrumpanthers.com/sports/flag-football/coaches",
+    "primary_color": "#BCAA6A",
+    "color_source_url": "https://ferrumpanthers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.9385,
+    "lon": -79.995
   },
   {
     "school": "Goldey-Beacom College",
@@ -447,7 +766,18 @@
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "15th varsity sport; play begins 2026-27."
+    "notes": "15th varsity sport; play begins 2026-27.",
+    "head_coach_name": "Tim Griffiths",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "griffithst@gbc.edu",
+    "staff_page_url": "https://www.gbcathletics.com/sports/flag-football/coaches",
+    "primary_color": "#002B5C",
+    "color_source_url": "https://www.gbcathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.7357,
+    "lon": -75.5321
   },
   {
     "school": "Holy Family University",
@@ -462,7 +792,18 @@
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First Philadelphia school with varsity women's flag football; began spring 2025 in the Atlantic East, moves to CACC for 2026-27."
+    "notes": "First Philadelphia school with varsity women's flag football; began spring 2025 in the Atlantic East, moves to CACC for 2026-27.",
+    "head_coach_name": "Charles Hopkins",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "chopkins@holyfamily.edu",
+    "staff_page_url": "https://athletics.holyfamily.edu/sports/womens-flag-football/coaches",
+    "primary_color": "#00AEFF",
+    "color_source_url": "https://athletics.holyfamily.edu/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.0094,
+    "lon": -75.1333
   },
   {
     "school": "Johnson C. Smith University",
@@ -477,7 +818,18 @@
       "https://www.wcnc.com/article/sports/college/johnson-c-smith-debuts-womens-flag-football-with-impressive-finish/275-2dd787b7-80a4-4019-987d-bedc24f41d60"
     ],
     "verified_on": "2026-10-01",
-    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027).",
+    "head_coach_name": "Anika Harris",
+    "head_coach_title": "Head Coach, Flag Football",
+    "coach_email": "coachanika.harris@gmail.com",
+    "staff_page_url": "https://goldenbullsports.com/sports/flag-football/coaches",
+    "primary_color": "#00213E",
+    "color_source_url": "https://goldenbullsports.com/sports/flag-football/coaches",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.209,
+    "lon": -80.831
   },
   {
     "school": "King University",
@@ -492,7 +844,18 @@
       "https://www.kingtornado.com/sports/womens-flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Trevor Cameron",
+    "head_coach_title": "Head Coach",
+    "coach_email": "tcameron@king.edu",
+    "staff_page_url": "https://www.kingtornado.com/sports/womens-flag-football/coaches",
+    "primary_color": "#1A428A",
+    "color_source_url": "https://www.kingtornado.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.5585,
+    "lon": -82.217
   },
   {
     "school": "Lees-McRae College",
@@ -501,13 +864,24 @@
     "governing_body": "NCAA-D2",
     "conference": "Conference Carolinas",
     "program_url": "https://lmcbobcats.com/sports/flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/cfe60b38522b",
     "source_urls": [
       "https://conferencecarolinas.com/standings.aspx?path=wflag",
       "https://lmcbobcats.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Darren FitzGerald",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "fitzgeraldd@lmc.edu",
+    "staff_page_url": "https://lmcbobcats.com/sports/flag-football/coaches",
+    "primary_color": "#005C42",
+    "color_source_url": "https://lmcbobcats.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.1589,
+    "lon": -81.8678
   },
   {
     "school": "Lewis University",
@@ -516,12 +890,23 @@
     "governing_body": "NCAA-D2",
     "conference": "GLIAC (affiliate)",
     "program_url": "https://lewisflyers.com/",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/07c2ac4d7f76",
     "source_urls": [
       "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "GLIAC affiliate member for flag football, 2026-27. Dedicated school sport page not yet separately confirmed; home sports site reachable."
+    "notes": "GLIAC affiliate member for flag football, 2026-27. Dedicated school sport page not yet separately confirmed; home sports site reachable.",
+    "head_coach_name": "Aaron Richardson",
+    "head_coach_title": "Head Coach",
+    "coach_email": "arichardson6@lewisu.edu",
+    "staff_page_url": "https://lewisflyers.com/sports/flag-football/coaches",
+    "primary_color": "#C22033",
+    "color_source_url": "https://lewisflyers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.6279,
+    "lon": -88.1012
   },
   {
     "school": "Livingstone College",
@@ -536,7 +921,18 @@
       "https://www.collegiateflagfootball.com/shaw-adding-varsity-flag-football-4-clubs-joining-ncfa-hacc-keeping-program/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027)."
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#8CB7C7",
+    "color_source_url": "https://bluebearathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No flag football sport page or flag coach listed on the official athletics site (checked 2026-10-02).",
+    "starts": null,
+    "lat": 35.6662,
+    "lon": -80.4926
   },
   {
     "school": "Mars Hill University",
@@ -551,7 +947,18 @@
       "https://marshilllions.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Zac Carland",
+    "head_coach_title": "Interim Head Coach",
+    "coach_email": "zachary_carland@mhu.edu",
+    "staff_page_url": "https://marshilllions.com/athletics/directory/index",
+    "primary_color": "#F2AE00",
+    "color_source_url": "https://marshilllions.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.8282,
+    "lon": -82.5486
   },
   {
     "school": "Post University",
@@ -560,13 +967,24 @@
     "governing_body": "NCAA-D2",
     "conference": "CACC",
     "program_url": "https://posteagles.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/5ce094465833",
     "source_urls": [
       "https://posteagles.com/sports/womens-flag-football",
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First Connecticut college with the sport (began spring 2026); CACC sponsorship for 2026-27."
+    "notes": "First Connecticut college with the sport (began spring 2026); CACC sponsorship for 2026-27.",
+    "head_coach_name": "Dominic Colavito; Joseph Newman",
+    "head_coach_title": "Co-Head Coach",
+    "coach_email": "dominic.colavito@post.edu",
+    "staff_page_url": "https://posteagles.com/sports/womens-flag-football/coaches",
+    "primary_color": "#632D50",
+    "color_source_url": "https://posteagles.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Co-head coaches. Joseph Newman: jnewman@post.edu.",
+    "starts": null,
+    "lat": 41.5585,
+    "lon": -73.0367
   },
   {
     "school": "Purdue University Northwest",
@@ -581,7 +999,18 @@
       "https://pnwathletics.com/news/2025/2/20/general-pnw-athletics-announces-additions-of-womens-ice-hockey-and-womens-flag-football.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First public Indiana institution with the sport; already fielded a team in 2026 (9-3), full GLIAC sponsorship begins spring 2027 (2026-27)."
+    "notes": "First public Indiana institution with the sport; already fielded a team in 2026 (9-3), full GLIAC sponsorship begins spring 2027 (2026-27).",
+    "head_coach_name": "Micah Lowe",
+    "head_coach_title": "Head Coach",
+    "coach_email": "lowe169@pnw.edu",
+    "staff_page_url": "https://pnwathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#E6D395",
+    "color_source_url": "https://pnwathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.6187,
+    "lon": -87.4949
   },
   {
     "school": "Saginaw Valley State University",
@@ -596,7 +1025,18 @@
       "https://svsucardinals.com/sports/womens-flag-football/schedule/2027"
     ],
     "verified_on": "2026-10-01",
-    "notes": "GLIAC full member; inaugural season spring 2027 (2026-27)."
+    "notes": "GLIAC full member; inaugural season spring 2027 (2026-27).",
+    "head_coach_name": "Amber Clark-Robinson",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "aclarkro@svsu.edu",
+    "staff_page_url": "https://svsucardinals.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 43.5056,
+    "lon": -83.9852
   },
   {
     "school": "Shaw University",
@@ -611,7 +1051,18 @@
       "https://shawbears.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New varsity program joining CIAA for 2026-27, bringing the conference to 8 varsity teams."
+    "notes": "New varsity program joining CIAA for 2026-27, bringing the conference to 8 varsity teams.",
+    "head_coach_name": "Bacchus Grant",
+    "head_coach_title": "Head Coach Women's Flag Football",
+    "coach_email": null,
+    "staff_page_url": "https://shawbears.com/staff-directory",
+    "primary_color": "#6E1233",
+    "color_source_url": "https://shawbears.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.8319,
+    "lon": -78.641
   },
   {
     "school": "Spring Hill College",
@@ -626,7 +1077,18 @@
       "https://shcbadgers.com/news/2026/1/21/spring-hill-college-puts-the-gulf-coast-at-the-forefront-of-womens-flag-football.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Only four-year institution in South Alabama/Gulf Coast sponsoring the sport; inaugural season 2026-27, joins Gulf South Conference (all sports) in 2027-28."
+    "notes": "Only four-year institution in South Alabama/Gulf Coast sponsoring the sport; inaugural season 2026-27, joins Gulf South Conference (all sports) in 2027-28.",
+    "head_coach_name": "Jacob Galle",
+    "head_coach_title": "Women's Flag Football Head Coach and Director of Athletic Operations",
+    "coach_email": "jgalle@shc.edu",
+    "staff_page_url": "https://shcbadgers.com/sports/flag-football/coaches",
+    "primary_color": "#3D1950",
+    "color_source_url": "https://shcbadgers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 30.6682,
+    "lon": -88.1079
   },
   {
     "school": "University of Bridgeport",
@@ -641,7 +1103,18 @@
       "https://www.collegiateflagfootball.com/cacc-eyes-2027-championship-caldwell-adding-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "23rd varsity sport; starts competition 2026-27 in the CACC."
+    "notes": "23rd varsity sport; starts competition 2026-27 in the CACC.",
+    "head_coach_name": "Kwadir Delgado-McIntyre",
+    "head_coach_title": "Women's Flag Football Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://www.ubknights.com/sports/flagfball/coaches/index",
+    "primary_color": "#592C82",
+    "color_source_url": "https://www.ubknights.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.1874,
+    "lon": -73.1958
   },
   {
     "school": "University of Mount Olive",
@@ -656,7 +1129,18 @@
       "https://umotrojans.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Derrick Lucas",
+    "head_coach_title": "Head Coach",
+    "coach_email": "Dlucas@umo.edu",
+    "staff_page_url": "https://umotrojans.com/sports/flag-football/coaches",
+    "primary_color": "#005F3E",
+    "color_source_url": "https://umotrojans.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.1998,
+    "lon": -78.0661
   },
   {
     "school": "University of Wisconsin-Parkside",
@@ -665,13 +1149,24 @@
     "governing_body": "NCAA-D2",
     "conference": "GLIAC",
     "program_url": "https://parksiderangers.com/news/2026/1/7/uw-parkside-to-add-womens-flag-football-first-ncaa-university-in-wisconsin-to-offer-scholarships.aspx",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/8e352d8b9121",
     "source_urls": [
       "https://gliac.org/news/2026/6/20/general-gliac-announces-the-addition-of-womens-flag-football-for-2026-27.aspx",
       "https://parksiderangers.com/news/2026/1/7/uw-parkside-to-add-womens-flag-football-first-ncaa-university-in-wisconsin-to-offer-scholarships.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First NCAA university in Wisconsin to offer the sport with scholarships; GLIAC sponsorship 2026-27."
+    "notes": "First NCAA university in Wisconsin to offer the sport with scholarships; GLIAC sponsorship 2026-27.",
+    "head_coach_name": "Jared Cardarelle",
+    "head_coach_title": "Head Coach - Flag Football",
+    "coach_email": "cardarel@uwp.edu",
+    "staff_page_url": "https://parksiderangers.com/sports/flag-football/coaches",
+    "primary_color": "#00502F",
+    "color_source_url": "https://parksiderangers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.5875,
+    "lon": -87.88
   },
   {
     "school": "Virginia Union University",
@@ -686,7 +1181,18 @@
       "https://www.collegiateflagfootball.com/central-intercollegiate-athletic-association-elevatvarsity-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027). School athletics site showed only a store splash page at time of check; CIAA bracket page confirms participation."
+    "notes": "CIAA elevates to varsity for 2026-27 (spring 2027). School athletics site showed only a store splash page at time of check; CIAA bracket page confirms participation.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#660000",
+    "color_source_url": "https://vuusports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No flag football sport page or flag coach listed on the official athletics site (checked 2026-10-02).",
+    "starts": null,
+    "lat": 37.5314,
+    "lon": -77.476
   },
   {
     "school": "Wingate University",
@@ -695,13 +1201,24 @@
     "governing_body": "NCAA-D2",
     "conference": "Conference Carolinas",
     "program_url": "https://wingatebulldogs.com/sports/flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/eaff2a05894f",
     "source_urls": [
       "https://conferencecarolinas.com/standings.aspx?path=wflag",
       "https://wingatebulldogs.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "No. 1 seed in 2026 Conference Carolinas flag football standings. Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01."
+    "notes": "No. 1 seed in 2026 Conference Carolinas flag football standings. Listed in Conference Carolinas 2026 women's flag football standings (2025-26 season); sport links on school athletics homepage checked 2026-10-01.",
+    "head_coach_name": "Joe Schlager",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "j.schlager@wingate.edu",
+    "staff_page_url": "https://wingatebulldogs.com/sports/flag-football/coaches",
+    "primary_color": "#0A1037",
+    "color_source_url": "https://wingatebulldogs.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.9875,
+    "lon": -80.4476
   },
   {
     "school": "Winston-Salem State University",
@@ -716,7 +1233,18 @@
       "https://wssurams.com/news/2026/4/11/womens-flag-football-wssu-womens-flag-football-claims-back-to-back-ciaa-championship.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Back-to-back club champion; CIAA elevates to varsity for 2026-27 (spring 2027)."
+    "notes": "Back-to-back club champion; CIAA elevates to varsity for 2026-27 (spring 2027).",
+    "head_coach_name": "Jordan Hicks",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "hicksjt@wssu.edu",
+    "staff_page_url": "https://wssurams.com/sports/womens-flag-football/coaches",
+    "primary_color": "#C8102E",
+    "color_source_url": "https://wssurams.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.1029,
+    "lon": -80.2608
   },
   {
     "school": "Albright College",
@@ -731,7 +1259,18 @@
       "https://albrightathletics.com/news/2025/6/25/general-albright-to-add-womens-flag-football-as-varsity-sport-in-spring-2027.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "MAC sponsorship begins 2026-27 (spring 2027)."
+    "notes": "MAC sponsorship begins 2026-27 (spring 2027).",
+    "head_coach_name": "Eric Martin",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://albrightathletics.com/staff-directory",
+    "primary_color": "#C80000",
+    "color_source_url": "https://albrightathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Program starts spring 2027 (site menu: 'Flag Football (Starts Spring '27)').",
+    "starts": "Starts spring 2027",
+    "lat": 40.3392,
+    "lon": -75.9263
   },
   {
     "school": "Allegheny College",
@@ -740,28 +1279,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Presidents' Athletic Conference",
     "program_url": "https://alleghenygators.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://alleghenygators.com/sports/2025/7/21/womens-flag-football-recruit-questionnaire.aspx",
     "source_urls": [
       "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
       "https://alleghenygators.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
-  },
-  {
-    "school": "Augsburg University",
-    "city": "Minneapolis",
-    "state": "MN",
-    "governing_body": "NCAA-D3",
-    "conference": "Midwest College Women's Flag Football League",
-    "program_url": "https://athletics.augsburg.edu/sports/flag-football/roster",
-    "questionnaire_url": null,
-    "source_urls": [
-      "https://gobennies.com/news/2025/10/20/flag-football-csb-to-add-flag-football-this-spring.aspx",
-      "https://athletics.augsburg.edu/sports/flag-football/roster"
-    ],
-    "verified_on": "2026-10-01",
-    "notes": "2026 roster on official athletics site; named as a league member by Saint Benedict. Varsity status inferred from the official-site listing, not from a varsity statement."
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition.",
+    "head_coach_name": "Abigail Haynie",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "ahaynie@allegheny.edu",
+    "staff_page_url": "https://alleghenygators.com/sports/womens-flag-football/coaches",
+    "primary_color": "#002144",
+    "color_source_url": "https://alleghenygators.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.6479,
+    "lon": -80.1474
   },
   {
     "school": "Baldwin Wallace University",
@@ -776,7 +1311,18 @@
       "https://www.bw.edu/news/2025/12/bw-adds-womens-flag-football-as-new-varsity-sport"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First varsity women's flag football program in the OAC/Northeast Ohio; begins spring 2027 (2026-27)."
+    "notes": "First varsity women's flag football program in the OAC/Northeast Ohio; begins spring 2027 (2026-27).",
+    "head_coach_name": "Todd Fox '95",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://bwyellowjackets.com/staff-directory",
+    "primary_color": "#3D2D1F",
+    "color_source_url": "https://bwyellowjackets.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Same person is listed as football Assistant Defensive Line Coach.",
+    "starts": null,
+    "lat": 41.3705,
+    "lon": -81.8618
   },
   {
     "school": "Batten University",
@@ -791,7 +1337,18 @@
       "https://www.battenathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Formerly Virginia Wesleyan University (renamed Batten University); one of the ODAC's first two flag-football sponsors."
+    "notes": "Formerly Virginia Wesleyan University (renamed Batten University); one of the ODAC's first two flag-football sponsors.",
+    "head_coach_name": "Jamaar Hawkins",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://battenathletics.com/staff-directory",
+    "primary_color": "#003861",
+    "color_source_url": "https://www.battenathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.7795,
+    "lon": -76.0291
   },
   {
     "school": "Bethany College",
@@ -806,7 +1363,18 @@
       "https://bethanybison.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition.",
+    "head_coach_name": "Anna Taylor '25",
+    "head_coach_title": "Interim Head Coach",
+    "coach_email": "artaylor@bethanywv.edu",
+    "staff_page_url": "https://bethanybison.com/sports/womens-flag-football/coaches",
+    "primary_color": "#115740",
+    "color_source_url": "https://bethanybison.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.2048,
+    "lon": -80.5609
   },
   {
     "school": "Bridgewater College",
@@ -821,7 +1389,18 @@
       "https://www.bridgewater.edu/events-news/news/eagles-add-womens-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "26th intercollegiate sport; begins competition 2026-27 (spring 2027)."
+    "notes": "26th intercollegiate sport; begins competition 2026-27 (spring 2027).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 38.3885,
+    "lon": -78.9645
   },
   {
     "school": "Cairn University",
@@ -836,7 +1415,18 @@
       "https://www.cairnhighlanders.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "United East varsity sponsorship began 2025-26."
+    "notes": "United East varsity sponsorship began 2025-26.",
+    "head_coach_name": "Mike Landis",
+    "head_coach_title": "Head Coach",
+    "coach_email": "mlandis@cairn.edu",
+    "staff_page_url": "https://www.cairnhighlanders.com/sports/womens-flag-football/coaches",
+    "primary_color": "#882345",
+    "color_source_url": "https://www.cairnhighlanders.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.1775,
+    "lon": -74.9234
   },
   {
     "school": "Cedar Crest College",
@@ -845,13 +1435,24 @@
     "governing_body": "NCAA-D3",
     "conference": "United East Conference",
     "program_url": "https://cedarcrestathletics.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://admissions.cedarcrest.edu/register/flagfootball",
     "source_urls": [
       "https://cedarcrestathletics.com/news/2024/11/8/general-cedar-crest-college-announces-addition-of-womens-flag-football-program.aspx",
       "https://cedarcrestathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "12th varsity sport; began competition spring 2026 in United East."
+    "notes": "12th varsity sport; began competition spring 2026 in United East.",
+    "head_coach_name": "Paul Franklin",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "paul.franklin@cedarcrest.edu",
+    "staff_page_url": "https://cedarcrestathletics.com/sports/flag-football/coaches",
+    "primary_color": "#FED233",
+    "color_source_url": "https://cedarcrestathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.5936,
+    "lon": -75.4784
   },
   {
     "school": "Centenary College of Louisiana",
@@ -866,7 +1467,18 @@
       "https://www.gocentenary.com/general/2025-26/releases/20251008r1j1qj"
     ],
     "verified_on": "2026-10-01",
-    "notes": "SCAC inaugural flag-football championship is spring 2027 (2026-27)."
+    "notes": "SCAC inaugural flag-football championship is spring 2027 (2026-27).",
+    "head_coach_name": "Morgan Dorsey",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://www.gocentenary.com/sports/flagfball/coaches",
+    "primary_color": "#8A2432",
+    "color_source_url": "https://www.gocentenary.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.4669,
+    "lon": -93.7922
   },
   {
     "school": "Centenary University",
@@ -881,7 +1493,18 @@
       "https://centenarycyclones.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Founding Atlantic East varsity member since spring 2025; continues through 2026-27 before conference dissolves."
+    "notes": "Founding Atlantic East varsity member since spring 2025; continues through 2026-27 before conference dissolves.",
+    "head_coach_name": "Francisco Lopez",
+    "head_coach_title": "Head Flag Football Coach / Strength and Conditioning Coach",
+    "coach_email": "Francisco.Lopez@centenaryuniversity.edu",
+    "staff_page_url": "https://centenarycyclones.com/sports/wflag/coaches",
+    "primary_color": "#1F374B",
+    "color_source_url": "https://centenarycyclones.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.8537,
+    "lon": -74.8249
   },
   {
     "school": "Chatham University",
@@ -890,13 +1513,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Presidents' Athletic Conference",
     "program_url": "https://gochathamcougars.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/0890db572e1d",
     "source_urls": [
       "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
       "https://gochathamcougars.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition.",
+    "head_coach_name": "Logan Crozier",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "l.crozier@chatham.edu",
+    "staff_page_url": "https://gochathamcougars.com/sports/womens-flag-football/coaches",
+    "primary_color": "#4C4685",
+    "color_source_url": "https://gochathamcougars.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.4399,
+    "lon": -79.9757
   },
   {
     "school": "College of Saint Benedict",
@@ -912,7 +1546,18 @@
       "https://gobennies.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Varsity, inaugural spring 2026; 2027 roster page live. Partnered with the Minnesota Vikings. League is not an NCAA conference."
+    "notes": "Varsity, inaugural spring 2026; 2027 roster page live. Partnered with the Minnesota Vikings. League is not an NCAA conference.",
+    "head_coach_name": "Joe Bartos",
+    "head_coach_title": "Head Coach",
+    "coach_email": "JBARTOS001@CSBSJU.EDU",
+    "staff_page_url": "https://gobennies.com/sports/flag-football/coaches",
+    "primary_color": "#BD0F34",
+    "color_source_url": "https://gobennies.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 45.5651,
+    "lon": -94.3021
   },
   {
     "school": "Concordia University Texas",
@@ -927,7 +1572,18 @@
       "https://athletics.concordia.edu/news/2024/8/22/general-first-in-texas-ctx-welcomes-womens-flag-football-program.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Ran pilot/club 2025-26; becomes SCAC varsity member spring 2027 (2026-27)."
+    "notes": "Ran pilot/club 2025-26; becomes SCAC varsity member spring 2027 (2026-27).",
+    "head_coach_name": "Chris Chacon",
+    "head_coach_title": "Head Coach",
+    "coach_email": "Chris.Chacon@concordia.edu",
+    "staff_page_url": "https://athletics.concordia.edu/sports/flag-football/coaches",
+    "primary_color": "#2D1245",
+    "color_source_url": "https://athletics.concordia.edu/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 30.2986,
+    "lon": -97.7541
   },
   {
     "school": "East Texas Baptist University",
@@ -942,7 +1598,18 @@
       "https://goetbutigers.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027).",
+    "head_coach_name": "Maddie Melton",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://goetbutigers.com/staff-directory",
+    "primary_color": "#082342",
+    "color_source_url": "https://goetbutigers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.5392,
+    "lon": -94.3532
   },
   {
     "school": "Eastern Connecticut State University",
@@ -957,7 +1624,18 @@
       "https://gowarriorathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First NCAA Division III varsity program in New England."
+    "notes": "First NCAA Division III varsity program in New England.",
+    "head_coach_name": "Andy Crane",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "cranet@easternct.edu",
+    "staff_page_url": "https://gowarriorathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#002656",
+    "color_source_url": "https://gowarriorathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.7166,
+    "lon": -72.2117
   },
   {
     "school": "Eastern University",
@@ -972,7 +1650,18 @@
       "https://goeasterneagles.com/news/2026/7/13/mac-to-add-womens-flag-football.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Already varsity since Atlantic East's 2025 inaugural season; flag football moves to MAC for 2026-27."
+    "notes": "Already varsity since Atlantic East's 2025 inaugural season; flag football moves to MAC for 2026-27.",
+    "head_coach_name": "Amanda Ruller",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "amanda.ruller@eastern.edu",
+    "staff_page_url": "https://goeasterneagles.com/sports/womens-flag-football/coaches",
+    "primary_color": "#6E2636",
+    "color_source_url": "https://goeasterneagles.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.0388,
+    "lon": -75.3739
   },
   {
     "school": "Elmira College",
@@ -987,7 +1676,18 @@
       "https://athletics.elmira.edu/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural Empire 8 runner-up, spring 2026."
+    "notes": "Inaugural Empire 8 runner-up, spring 2026.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://athletics.elmira.edu/sports/flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No head coach listed. Savannah Terry (sterry@elmira.edu) is titled 'Women's Volleyball Head Coach / Flag Football Coordinator / Intramural Director'.",
+    "starts": null,
+    "lat": 42.0934,
+    "lon": -76.8096
   },
   {
     "school": "Franciscan University of Steubenville",
@@ -1002,7 +1702,18 @@
       "https://franciscanathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition.",
+    "head_coach_name": "Connor Arlia",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://franciscanathletics.com/staff-directory",
+    "primary_color": "#004813",
+    "color_source_url": "https://franciscanathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Site menu labels the team 'Flag Football (Emerging Sport)'.",
+    "starts": null,
+    "lat": 40.3663,
+    "lon": -80.6571
   },
   {
     "school": "Gallaudet University",
@@ -1017,7 +1728,18 @@
       "https://gallaudetbison.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "United East varsity sponsorship began 2025-26; reached inaugural championship game."
+    "notes": "United East varsity sponsorship began 2025-26; reached inaugural championship game.",
+    "head_coach_name": "Emelia Beldon",
+    "head_coach_title": "Head Coach",
+    "coach_email": "emelia.beldon@gallaudet.edu",
+    "staff_page_url": "https://gallaudetbison.com/sports/flag-football/coaches",
+    "primary_color": "#0C2340",
+    "color_source_url": "https://gallaudetbison.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.9042,
+    "lon": -77.0165
   },
   {
     "school": "Guilford College",
@@ -1032,7 +1754,18 @@
       "https://guilfordquakers.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Third ODAC member to add the sport; begins 2026-27."
+    "notes": "Third ODAC member to add the sport; begins 2026-27.",
+    "head_coach_name": "Derrick Walker",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "dwalker3@guilford.edu",
+    "staff_page_url": "https://guilfordquakers.com/sports/womens-flag-football/coaches",
+    "primary_color": "#981B36",
+    "color_source_url": "https://guilfordquakers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.0949,
+    "lon": -79.8236
   },
   {
     "school": "Gustavus Adolphus College",
@@ -1047,7 +1780,18 @@
       "https://gogusties.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Sport page on official athletics site; named as a league member by Saint Benedict. Varsity status inferred from the official-site listing, not from a varsity statement."
+    "notes": "Sport page on official athletics site; named as a league member by Saint Benedict. Varsity status inferred from the official-site listing, not from a varsity statement.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#FFCF00",
+    "color_source_url": "https://gogusties.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Sport page exists, but no coaches page or flag football coach in the staff directory (checked 2026-10-02).",
+    "starts": null,
+    "lat": 44.3293,
+    "lon": -93.9677
   },
   {
     "school": "Gwynedd Mercy University",
@@ -1062,7 +1806,18 @@
       "https://gwyneddathletics.com/news/2026/8/20/womens-flag-football-gwynedd-mercy-university-to-add-womens-flag-football-to-athletic-catalog.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "19th varsity sport; begins competition spring 2027 (2026-27) in the Atlantic East."
+    "notes": "19th varsity sport; begins competition spring 2027 (2026-27) in the Atlantic East.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#D7A900",
+    "color_source_url": "https://gwyneddathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Sport page exists, but no coaches page or flag football coach in the staff directory (checked 2026-10-02).",
+    "starts": null,
+    "lat": 40.1888,
+    "lon": -75.2384
   },
   {
     "school": "Hardin-Simmons University",
@@ -1077,7 +1832,18 @@
       "https://hsuathletics.com/news/2025/8/7/general-hsu-to-add-womens-flag-football-as-varsity-sport.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027).",
+    "head_coach_name": "Darin Koenig",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://hsuathletics.com/staff-directory",
+    "primary_color": "#581483",
+    "color_source_url": "https://hsuathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.4545,
+    "lon": -99.7381
   },
   {
     "school": "Hartwick College",
@@ -1086,13 +1852,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Empire 8",
     "program_url": "https://www.hartwickhawks.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://app.spry.so/recruiting/hartwick-college/womens-flag-football/questionnaire",
     "source_urls": [
       "https://www.binghamtonhomepage.com/sports/empire-8-adds-womens-flag-football-hartwick-college-participating/",
       "https://www.hartwickhawks.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Empire 8 inaugural season, spring 2026."
+    "notes": "Empire 8 inaugural season, spring 2026.",
+    "head_coach_name": "Aaron Zurn",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "zurna@hartwick.edu",
+    "staff_page_url": "https://www.hartwickhawks.com/sports/womens-flag-football/coaches",
+    "primary_color": "#0033A1",
+    "color_source_url": "https://www.hartwickhawks.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.4548,
+    "lon": -75.0669
   },
   {
     "school": "Hendrix College",
@@ -1101,13 +1878,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Southern Collegiate Athletic Conference",
     "program_url": "https://hendrixwarriors.com/news/2025/2/5/general-hendrix-announces-addition-of-womens-flag-football.aspx",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://forms.arirecruiting.com/hendrixcollege_flagfootball.w/recruitquestionnaire",
     "source_urls": [
       "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
       "https://hendrixwarriors.com/news/2026/3/22/wff-warriors-kick-off-first-ever-intercollegiate-flag-football-games-in-arkansas.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Competed club-level spring 2026; transitions to SCAC varsity status spring 2027 (2026-27)."
+    "notes": "Competed club-level spring 2026; transitions to SCAC varsity status spring 2027 (2026-27).",
+    "head_coach_name": "Doug Petersen",
+    "head_coach_title": "Head Coach",
+    "coach_email": "petersenD@hendrix.edu",
+    "staff_page_url": "https://hendrixwarriors.com/sports/flag-football/coaches",
+    "primary_color": "#F58025",
+    "color_source_url": "https://hendrixwarriors.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.0744,
+    "lon": -92.467
   },
   {
     "school": "Hobart and William Smith Colleges",
@@ -1122,7 +1910,18 @@
       "https://hwsathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "William Smith College fields the team; first Liberty League flag-football program, preceding Union."
+    "notes": "William Smith College fields the team; first Liberty League flag-football program, preceding Union.",
+    "head_coach_name": "Rusty Virkler",
+    "head_coach_title": "Head Coach",
+    "coach_email": "VIRKLER@hws.edu",
+    "staff_page_url": "https://hwsathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.8635,
+    "lon": -76.9827
   },
   {
     "school": "Hollins University",
@@ -1137,7 +1936,18 @@
       "https://www.hollinssports.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of the ODAC's first two flag-football sponsors; continuing through 2025-26/2026-27."
+    "notes": "One of the ODAC's first two flag-football sponsors; continuing through 2025-26/2026-27.",
+    "head_coach_name": "Mark McPherson",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "mcphersonmp@hollins.edu",
+    "staff_page_url": "https://hollinssports.com/sports/womens-flag-football/coaches",
+    "primary_color": "#086747",
+    "color_source_url": "https://www.hollinssports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 37.2785,
+    "lon": -79.9582
   },
   {
     "school": "Howard Payne University",
@@ -1152,7 +1962,18 @@
       "https://hpusports.com/sports/flag"
     ],
     "verified_on": "2026-10-01",
-    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027).",
+    "head_coach_name": "Erick Jiménez",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "ejimenez@hputx.edu",
+    "staff_page_url": "https://hpusports.com/sports/flag/coaches",
+    "primary_color": "#002159",
+    "color_source_url": "https://hpusports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 31.7129,
+    "lon": -98.9771
   },
   {
     "school": "Huntingdon College",
@@ -1161,13 +1982,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Southern Collegiate Athletic Conference",
     "program_url": "https://www.huntingdonhawks.com/sports/flagfball/index",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://forms.gle/1JgurZ9VyepLch8h9",
     "source_urls": [
       "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
       "https://www.huntingdonhawks.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Joins SCAC as affiliate member for flag football beginning 2026-27 (spring 2027)."
+    "notes": "Joins SCAC as affiliate member for flag football beginning 2026-27 (spring 2027).",
+    "head_coach_name": "Angela Rowe",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "angela.rowe@hawks.huntingdon.edu",
+    "staff_page_url": "https://www.huntingdonhawks.com/sports/flagfball/coaches/index",
+    "primary_color": "#A10F27",
+    "color_source_url": "https://www.huntingdonhawks.com/sports/flagfball/coaches/index",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.3485,
+    "lon": -86.2673
   },
   {
     "school": "Immaculata University",
@@ -1182,7 +2014,18 @@
       "https://www.immaculata.edu/news/immaculata-university-ushers-in-collegiate-womens-flag-football-with-aec/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Founding Atlantic East varsity member since spring 2025; continuing in 2025-26 and 2026-27."
+    "notes": "Founding Atlantic East varsity member since spring 2025; continuing in 2025-26 and 2026-27.",
+    "head_coach_name": "Bill Coddington",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jcoddington@immaculata.edu",
+    "staff_page_url": "https://gomightymacs.com/sports/womens-flag-football/coaches",
+    "primary_color": "#003479",
+    "color_source_url": "https://gomightymacs.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.0476,
+    "lon": -75.5541
   },
   {
     "school": "John Carroll University",
@@ -1197,7 +2040,18 @@
       "https://jcusports.com/news/2026/4/21/womens-flag-football-added-as-26th-varsity-sport-at-john-carroll.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "26th varsity sport; competition begins spring 2027 (2026-27)."
+    "notes": "26th varsity sport; competition begins spring 2027 (2026-27).",
+    "head_coach_name": "Felicia Teeter",
+    "head_coach_title": "Head Coach",
+    "coach_email": "fteeter@jcu.edu",
+    "staff_page_url": "https://jcusports.com/sports/womens-flag-football/coaches",
+    "primary_color": "#041C2C",
+    "color_source_url": "https://jcusports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.4948,
+    "lon": -81.5349
   },
   {
     "school": "Keystone College",
@@ -1212,7 +2066,18 @@
       "https://www.gokcgiants.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "United East varsity sponsorship began 2025-26."
+    "notes": "United East varsity sponsorship began 2025-26.",
+    "head_coach_name": "Ben Arsenault '12",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "benjamin.arsenault@keystone.edu",
+    "staff_page_url": "https://www.gokcgiants.com/sports/womens-flag-football/coaches",
+    "primary_color": "#F27521",
+    "color_source_url": "https://www.gokcgiants.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.5583,
+    "lon": -75.7641
   },
   {
     "school": "Marymount University",
@@ -1227,7 +2092,18 @@
       "https://marymountsaints.com/news/2026/4/25/womens-flag-football-flag-champs-marymount-repeats-as-aec-champions.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Three-time defending Atlantic East champion (2024, 2025, 2026); continuing in 2026-27."
+    "notes": "Three-time defending Atlantic East champion (2024, 2025, 2026); continuing in 2026-27.",
+    "head_coach_name": "Michael Rivera",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "mrivera@marymount.edu",
+    "staff_page_url": "https://marymountsaints.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.8783,
+    "lon": -77.1007
   },
   {
     "school": "Marywood University",
@@ -1242,7 +2118,18 @@
       "https://marywoodpacers.com/news/2024/12/5/general-marywood-to-add-womens-flag-football-as-varsity-sport-in-2025-26.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Varsity since 2025-26 (as Atlantic East member); flag football moves to MAC for 2026-27."
+    "notes": "Varsity since 2025-26 (as Atlantic East member); flag football moves to MAC for 2026-27.",
+    "head_coach_name": "Janssen Wilborn II",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "jcwilborn@marywood.edu",
+    "staff_page_url": "https://marywoodpacers.com/sports/womens-flag-football/coaches",
+    "primary_color": "#266727",
+    "color_source_url": "https://marywoodpacers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.4042,
+    "lon": -75.6659
   },
   {
     "school": "McMurry University",
@@ -1257,7 +2144,18 @@
       "https://mcm.edu/news/mcmurry-university-adds-womens-flag-football-as-25th-varsity-sport/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027).",
+    "head_coach_name": "Leo Brownfield",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://mcmurrysports.com/staff-directory",
+    "primary_color": "#6F1830",
+    "color_source_url": "https://mcmurrysports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.4545,
+    "lon": -99.7381
   },
   {
     "school": "Millikin University",
@@ -1272,7 +2170,18 @@
       "https://athletics.millikin.edu/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Adds flag football and wrestling beginning 2026-27."
+    "notes": "Adds flag football and wrestling beginning 2026-27.",
+    "head_coach_name": "Joan Catanese",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "jcatanese@millikin.edu",
+    "staff_page_url": "https://athletics.millikin.edu/sports/womens-flag-football/coaches",
+    "primary_color": "#003255",
+    "color_source_url": "https://athletics.millikin.edu/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.856,
+    "lon": -88.9337
   },
   {
     "school": "Millsaps College",
@@ -1281,13 +2190,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Southern Collegiate Athletic Conference",
     "program_url": "https://gomajors.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://www.frontrush.com/FR_Web_App/Player/PlayerSubmit.aspx?sid=MjM5Nzk=-wTRXika4Xb0=&ptype=recruit&path=womensflagfootball",
     "source_urls": [
       "https://scacsports.com/news/2025-2026/scac_adds_womens_flag",
       "https://gomajors.com/news/2025/9/11/womens-flag-football-millsaps-first-in-state-to-field-womens-flag-football-program.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Club in 2026; becomes 19th varsity sport and SCAC affiliate member spring 2027 (2026-27)."
+    "notes": "Club in 2026; becomes 19th varsity sport and SCAC affiliate member spring 2027 (2026-27).",
+    "head_coach_name": "Felicia Ellis",
+    "head_coach_title": "Women's Flag Football Head Coach",
+    "coach_email": "ellisfr@millsaps.edu",
+    "staff_page_url": "https://gomajors.com/sports/womens-flag-football/coaches",
+    "primary_color": "#330066",
+    "color_source_url": "https://gomajors.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.3158,
+    "lon": -90.2129
   },
   {
     "school": "Neumann University",
@@ -1296,13 +2216,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Middle Atlantic Conference (Commonwealth)",
     "program_url": "https://www.neumannathletics.com/sports/womens-flag-football/roster",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://app.spry.so/paperwork/neumann-university-/womensflagfootball",
     "source_urls": [
       "https://www.neumannathletics.com/news/2026/7/13/mac-to-sponsor-womens-flag-football-beginning-in-2026-27.aspx",
       "https://www.neumannathletics.com/news/2026/1/27/womens-flag-football-womens-flag-football-named-ncaa-emerging-sport.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Varsity since Atlantic East's 2025 inaugural season; flag football moves to MAC for 2026-27."
+    "notes": "Varsity since Atlantic East's 2025 inaugural season; flag football moves to MAC for 2026-27.",
+    "head_coach_name": "Nellie Mixon",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "mixonn@neumann.edu",
+    "staff_page_url": "https://www.neumannathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#003F72",
+    "color_source_url": "https://www.neumannathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.8728,
+    "lon": -75.4353
   },
   {
     "school": "Penn State Schuylkill",
@@ -1317,7 +2248,18 @@
       "https://www.psuschuylkillathletics.com/sports/flagfball/2025-26/schedule"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Affiliate member for flag football, competing since spring 2025."
+    "notes": "Affiliate member for flag football, competing since spring 2025.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://www.psuschuylkillathletics.com/sports/flagfball/coaches/index",
+    "primary_color": "#041E42",
+    "color_source_url": "https://www.psuschuylkillathletics.com/sports/flagfball/coaches/index",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Coaches page lists Tyson Parsons (tjp5359@psu.edu) and Amari Dunn with no titles; head coach not stated.",
+    "starts": null,
+    "lat": 40.6283,
+    "lon": -76.1725
   },
   {
     "school": "Pennsylvania State University-Harrisburg",
@@ -1332,7 +2274,18 @@
       "https://psuharrisburgsports.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Won the inaugural United East championship, spring 2026."
+    "notes": "Won the inaugural United East championship, spring 2026.",
+    "head_coach_name": "Ben Dupree",
+    "head_coach_title": "Head Coach",
+    "coach_email": "bpd5393@psu.edu",
+    "staff_page_url": "https://psuharrisburgsports.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.2009,
+    "lon": -76.7292
   },
   {
     "school": "Russell Sage College",
@@ -1347,7 +2300,18 @@
       "https://www.sagegators.com/sports/flagfball/2025-26/releases/20260323ktm8vu"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Empire 8 inaugural season, spring 2026."
+    "notes": "Empire 8 inaugural season, spring 2026.",
+    "head_coach_name": "Denver Divens",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://www.sagegators.com/sports/flagfball/coaches/index",
+    "primary_color": "#006747",
+    "color_source_url": "https://www.sagegators.com/sports/flagfball/coaches/index",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.7358,
+    "lon": -73.6753
   },
   {
     "school": "SUNY Brockport",
@@ -1362,7 +2326,18 @@
       "https://www.brockport.edu/live/news/10230-womens-flag-football-goes-varsity"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Won inaugural Empire 8 championship, spring 2026."
+    "notes": "Won inaugural Empire 8 championship, spring 2026.",
+    "head_coach_name": "Charrise Everett",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "cleverett@brockport.edu",
+    "staff_page_url": "https://gobrockport.com/sports/womens-flag-football/coaches",
+    "primary_color": "#084D17",
+    "color_source_url": "https://gobrockport.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 43.2133,
+    "lon": -77.9408
   },
   {
     "school": "SUNY Geneseo",
@@ -1377,22 +2352,18 @@
       "https://geneseoknights.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "2026 Empire 8 regular-season champion."
-  },
-  {
-    "school": "Saint Vincent College",
-    "city": "Latrobe",
-    "state": "PA",
-    "governing_body": "NCAA-D3",
-    "conference": "Presidents' Athletic Conference",
-    "program_url": "https://athletics.stvincent.edu/sports/2024/12/16/svc-flag-football.aspx?path=flagfootball",
-    "questionnaire_url": null,
-    "source_urls": [
-      "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
-      "https://athletics.stvincent.edu/sports/2024/12/16/svc-flag-football.aspx?path=flagfootball"
-    ],
-    "verified_on": "2026-10-01",
-    "notes": "One of five PAC schools sponsoring the sport ahead of Thiel's spring 2026 addition."
+    "notes": "2026 Empire 8 regular-season champion.",
+    "head_coach_name": "Rob Currin",
+    "head_coach_title": "Head Coach",
+    "coach_email": "rcurrin@geneseo.edu",
+    "staff_page_url": "https://geneseoknights.com/sports/flag-football/coaches",
+    "primary_color": "#082057",
+    "color_source_url": "https://geneseoknights.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.799,
+    "lon": -77.8095
   },
   {
     "school": "Schreiner University",
@@ -1407,7 +2378,18 @@
       "https://schreiner.edu/schreiner-university-continues-commitment-to-womens-sports-with-addition-of-womens-flag-football-beach-volleyball-and-swimming/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Club in 2026; varsity ASC competition begins spring 2027 (2026-27)."
+    "notes": "Club in 2026; varsity ASC competition begins spring 2027 (2026-27).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#D6083B",
+    "color_source_url": "https://ascsports.org/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Coaches page renders empty; no coach found.",
+    "starts": null,
+    "lat": 30.0383,
+    "lon": -99.1311
   },
   {
     "school": "Thiel College",
@@ -1416,13 +2398,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Presidents' Athletic Conference",
     "program_url": "https://thielathletics.com/sports/womens-flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://forms.arirecruiting.com/thielcollege_flagfootball.w/form",
     "source_urls": [
       "https://www.thiel.edu/newsroom/press-releases/detail/thiel-college-adding-womens-flag-football-team",
       "https://thielathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Sixth PAC school to add the sport; begins spring 2026 (2025-26)."
+    "notes": "Sixth PAC school to add the sport; begins spring 2026 (2025-26).",
+    "head_coach_name": "Jon Bevier",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://thielathletics.com/staff-directory",
+    "primary_color": "#152049",
+    "color_source_url": "https://thielathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.4051,
+    "lon": -80.3838
   },
   {
     "school": "Union College",
@@ -1431,13 +2424,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Liberty League",
     "program_url": "https://unionathletics.com/news/2025/10/22/womens-flag-football-union-to-launch-womens-flag-football-in-spring-2027.aspx",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://questionnaires.armssoftware.com/1820da208178",
     "source_urls": [
       "https://unionathletics.com/news/2025/10/22/womens-flag-football-union-to-launch-womens-flag-football-in-spring-2027.aspx",
       "https://www.union.edu/news/stories/202510/union-launch-womens-flag-football-program-spring-2027"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Second Liberty League program (after William Smith); begins spring 2027 (2026-27)."
+    "notes": "Second Liberty League program (after William Smith); begins spring 2027 (2026-27).",
+    "head_coach_name": "Frank Rogers",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "rogersf@union.edu",
+    "staff_page_url": "https://unionathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#801E2C",
+    "color_source_url": "https://unionathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 42.8026,
+    "lon": -73.9272
   },
   {
     "school": "University of Mary Hardin-Baylor",
@@ -1452,7 +2456,18 @@
       "https://cruathletics.com/sports/flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027)."
+    "notes": "ASC-wide addition; varsity competition begins 2026-27 (spring 2027).",
+    "head_coach_name": "Jay Osborne",
+    "head_coach_title": "Flag Football Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://cruathletics.com/staff-directory",
+    "primary_color": "#3B1872",
+    "color_source_url": "https://cruathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 31.0523,
+    "lon": -97.4795
   },
   {
     "school": "University of Mount Union",
@@ -1461,13 +2476,24 @@
     "governing_body": "NCAA-D3",
     "conference": "Ohio Athletic Conference",
     "program_url": "https://athletics.mountunion.edu/sports/wflag",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://athletics.mountunion.edu/sports/2026/2/24/womens-flag-football-recruiting-form.aspx",
     "source_urls": [
       "https://www.collegiateflagfootball.com/mount-union-adding-varsity-flag-football-team/",
       "https://www.mountunion.edu/news/university-of-mount-union-announces-addition-of-varsity-womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "26th intercollegiate sport; begins spring 2027 (2026-27), third OAC school to add it."
+    "notes": "26th intercollegiate sport; begins spring 2027 (2026-27), third OAC school to add it.",
+    "head_coach_name": "Rick Hairston",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://athletics.mountunion.edu/staff-directory",
+    "primary_color": "#752F8A",
+    "color_source_url": "https://athletics.mountunion.edu/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.9112,
+    "lon": -81.1198
   },
   {
     "school": "University of Wisconsin-Stout",
@@ -1482,7 +2508,18 @@
       "https://stoutbluedevils.com/sports/flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "2026 roster on official athletics site; 2025 league champion. Varsity status inferred from the official-site listing, not from a varsity statement."
+    "notes": "2026 roster on official athletics site; 2025 league champion. Varsity status inferred from the official-site listing, not from a varsity statement.",
+    "head_coach_name": "LaVoise-Deontae McCoy; Duey Naatz",
+    "head_coach_title": "Head Coach",
+    "coach_email": "mccoyla@uwstout.edu",
+    "staff_page_url": "https://stoutbluedevils.com/sports/flag-football/coaches",
+    "primary_color": "#001243",
+    "color_source_url": "https://stoutbluedevils.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Both listed with title Head Coach. Duey Naatz: naatzd@uwstout.edu.",
+    "starts": null,
+    "lat": 44.8892,
+    "lon": -91.9096
   },
   {
     "school": "Andrew College",
@@ -1497,7 +2534,18 @@
       "https://andrewfightingtigers.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Previously NJCAA independent; joins SSAC for 2026-27."
+    "notes": "Previously NJCAA independent; joins SSAC for 2026-27.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Sport page exists, but no coaches page or flag football coach in the staff directory (checked 2026-10-02).",
+    "starts": null,
+    "lat": 31.7707,
+    "lon": -84.7936
   },
   {
     "school": "Arizona Christian University",
@@ -1512,7 +2560,18 @@
       "https://acufirestorm.com/sports/flag-football/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full GSAC member; first varsity women's flag football program in Arizona, inaugural season 2025-26."
+    "notes": "Full GSAC member; first varsity women's flag football program in Arizona, inaugural season 2025-26.",
+    "head_coach_name": "Michael Maccagnano",
+    "head_coach_title": "Head Coach",
+    "coach_email": "michael.maccagnano@arizonachristian.edu",
+    "staff_page_url": "https://acufirestorm.com/sports/flag-football/coaches",
+    "primary_color": "#BA131E",
+    "color_source_url": "https://acufirestorm.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.5331,
+    "lon": -112.1899
   },
   {
     "school": "Avila University",
@@ -1527,7 +2586,18 @@
       "https://www.avilaathletics.com/sports/flagfball/2026-27/releases/260413-flag-football-announcement"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program, Avila's 18th varsity sport; debuts spring 2027 as a KCAC member."
+    "notes": "New program, Avila's 18th varsity sport; debuts spring 2027 as a KCAC member.",
+    "head_coach_name": "Don Turner",
+    "head_coach_title": "Head Coach",
+    "coach_email": "donavaughn.turner@avila.edu",
+    "staff_page_url": "https://www.avilaathletics.com/sports/flagfball/coaches/index",
+    "primary_color": "#48176D",
+    "color_source_url": "https://www.avilaathletics.com/sports/flagfball/coaches/index",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.1252,
+    "lon": -94.5503
   },
   {
     "school": "Baker University",
@@ -1542,7 +2612,18 @@
       "https://www.bakerwildcats.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Fielded team since 2023-24 as a KCAC per-sport member; moving to HAAC for 2026-27 when HAAC begins sponsoring the sport."
+    "notes": "Fielded team since 2023-24 as a KCAC per-sport member; moving to HAAC for 2026-27 when HAAC begins sponsoring the sport.",
+    "head_coach_name": "Willy Perez",
+    "head_coach_title": "Head Coach",
+    "coach_email": "Willy.Perez@bakeru.edu",
+    "staff_page_url": "https://www.bakerwildcats.com/sports/flagfball/coaches/index",
+    "primary_color": "#FE5A1D",
+    "color_source_url": "https://www.bakerwildcats.com/sports/flagfball/coaches/index",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.7775,
+    "lon": -95.1875
   },
   {
     "school": "Benedictine University at Mesa",
@@ -1551,13 +2632,24 @@
     "governing_body": "NAIA",
     "conference": "Great Southwest Athletic Conference (GSAC)",
     "program_url": "https://benuredhawks.com/sports/womens-flag-football/index",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://benu.formstack.com/forms/womens_flag_football_mesa",
     "source_urls": [
       "https://gsacsports.org/news/2025/6/12/gsac-to-add-womens-flag-football-as-championship-sport-in-2025-26.aspx",
       "https://benuredhawks.com/sports/womens-flag-football/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full GSAC member; inaugural season 2025-26."
+    "notes": "Full GSAC member; inaugural season 2025-26.",
+    "head_coach_name": "Brian Winstead",
+    "head_coach_title": "Head Coach",
+    "coach_email": "Bwinstead@ben.edu",
+    "staff_page_url": "https://benuredhawks.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.4006,
+    "lon": -111.7165
   },
   {
     "school": "Bethel College",
@@ -1572,7 +2664,18 @@
       "https://bethelthreshers.com/sports/flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full KCAC member."
+    "notes": "Full KCAC member.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": "#B1102B",
+    "color_source_url": "https://bethelthreshers.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Sport page exists, but no coaches page or flag football coach in the staff directory (checked 2026-10-02).",
+    "starts": null,
+    "lat": 38.0776,
+    "lon": -97.3463
   },
   {
     "school": "Brewton-Parker College",
@@ -1588,7 +2691,18 @@
       "https://bpcuathletics.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Official site bpcuathletics.com (linked from Sun Conference standings)."
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Official site bpcuathletics.com (linked from Sun Conference standings).",
+    "head_coach_name": "Sheldon Miller",
+    "head_coach_title": "Head Coach Women's Flag Football",
+    "coach_email": "smiller2@bpc.edu",
+    "staff_page_url": "https://bpcuathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#132048",
+    "color_source_url": "https://bpcuathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.1852,
+    "lon": -82.5966
   },
   {
     "school": "Calumet College of St. Joseph",
@@ -1602,7 +2716,18 @@
       "https://ccsjathletics.com/sports/flagfball/2025-26/releases/20251105jw9g8n"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program for 2026-27; first CCAC school to add flag football, competes independent for the sport."
+    "notes": "New program for 2026-27; first CCAC school to add flag football, competes independent for the sport.",
+    "head_coach_name": "Sam Daniels",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://ccsjathletics.com/sports/flagfball/coaches",
+    "primary_color": "#8C2232",
+    "color_source_url": "https://ccsjathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.673,
+    "lon": -87.484
   },
   {
     "school": "Campbellsville University",
@@ -1617,7 +2742,18 @@
       "https://campbellsvilletigers.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Mid-South member for flag football, 2026-27 inaugural season."
+    "notes": "Full Mid-South member for flag football, 2026-27 inaugural season.",
+    "head_coach_name": "Spencer McCown",
+    "head_coach_title": "Head Coach",
+    "coach_email": "psmccown@campbellsville.edu",
+    "staff_page_url": "https://campbellsvilletigers.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 37.3439,
+    "lon": -85.3522
   },
   {
     "school": "College of Saint Mary",
@@ -1632,7 +2768,18 @@
       "https://csmflames.com/general/2024-25/releases/20250514omw2yn"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program; joins KCAC as a per-sport member for the 2027 season (2026-27 academic year)."
+    "notes": "New program; joins KCAC as a per-sport member for the 2027 season (2026-27 academic year).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://csmflames.com/sports/flagfball/coaches",
+    "primary_color": "#003359",
+    "color_source_url": "https://csmflames.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page exists but lists no coaches.",
+    "starts": null,
+    "lat": 41.2627,
+    "lon": -96.0535
   },
   {
     "school": "Cottey College",
@@ -1647,7 +2794,18 @@
       "https://cotteycomets.com/landing/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of the sport's original 2021 pioneer programs; only women's college in the list."
+    "notes": "One of the sport's original 2021 pioneer programs; only women's college in the list.",
+    "head_coach_name": "Chris Plumb",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "cplumb@cottey.edu",
+    "staff_page_url": "https://cotteycomets.com/sports/flagfball/coaches",
+    "primary_color": "#002F6D",
+    "color_source_url": "https://cotteycomets.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 37.8449,
+    "lon": -94.3503
   },
   {
     "school": "Cumberland University",
@@ -1662,7 +2820,18 @@
       "https://en.wikipedia.org/wiki/Cumberland_University"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Mid-South member; athletics domain confirmed via Wikipedia (sport-specific page not independently fetched)."
+    "notes": "Full Mid-South member; athletics domain confirmed via Wikipedia (sport-specific page not independently fetched).",
+    "head_coach_name": "Steven Miller",
+    "head_coach_title": "Head Coach",
+    "coach_email": "smiller@cumberland.edu",
+    "staff_page_url": "https://gocumberlandathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#83142C",
+    "color_source_url": "https://gocumberlandathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.1994,
+    "lon": -86.3446
   },
   {
     "school": "Defiance College",
@@ -1677,7 +2846,18 @@
       "https://en.wikipedia.org/wiki/Defiance_Yellow_Jackets"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Mid-South affiliate member for flag football. Sport-specific subpage returned 403 on direct fetch during this research pass."
+    "notes": "Mid-South affiliate member for flag football. Sport-specific subpage returned 403 on direct fetch during this research pass.",
+    "head_coach_name": "Cole Recker",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://www.defianceathletics.com/sports/flagfball/coaches",
+    "primary_color": "#61279E",
+    "color_source_url": "https://www.defianceathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.281,
+    "lon": -84.3658
   },
   {
     "school": "Florida Memorial University",
@@ -1686,13 +2866,24 @@
     "governing_body": "NAIA",
     "conference": "The Sun Conference",
     "program_url": "https://athletics.fmu.edu/sports/flagfball/index",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://athletics.fmu.edu/sb_output.aspx?form=3&path=wflag",
     "source_urls": [
       "https://thesunconference.com/standings.aspx?path=flagfb",
       "https://athletics.fmu.edu/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Sun Conference member; one of the sport's original 2021 pioneer programs."
+    "notes": "Full Sun Conference member; one of the sport's original 2021 pioneer programs.",
+    "head_coach_name": "Clavens Charles; Andrew Harper",
+    "head_coach_title": "Co-Head Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://athletics.fmu.edu/staff-directory",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Full titles: Athletics Operations Manager / Running Backs Coach / Co-Special Teams Coordinator / Co-Head Flag Football Coach; Equipment Manager / Co-Head Flag Football Coach.",
+    "starts": null,
+    "lat": 25.9489,
+    "lon": -80.2436
   },
   {
     "school": "Freed-Hardeman University",
@@ -1707,7 +2898,18 @@
       "https://gofhulions.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Mid-South member for flag football, 2026-27 inaugural season."
+    "notes": "Full Mid-South member for flag football, 2026-27 inaugural season.",
+    "head_coach_name": "Jarred Clayton",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jclayton@fhu.edu",
+    "staff_page_url": "https://gofhulions.com/sports/flag-football/coaches",
+    "primary_color": "#712D3E",
+    "color_source_url": "https://gofhulions.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.4431,
+    "lon": -88.6566
   },
   {
     "school": "Graceland University",
@@ -1722,7 +2924,18 @@
       "https://graceland.prestosports.com/sports/flagfball/2025-26/releases/20260314seq8wx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Fielded team since 2022 as a KCAC per-sport member; moving to HAAC for 2026-27."
+    "notes": "Fielded team since 2022 as a KCAC per-sport member; moving to HAAC for 2026-27.",
+    "head_coach_name": "Ja'Mozyia Williamson",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "jmw13@graceland.edu",
+    "staff_page_url": "https://graceland.prestosports.com/sports/flagfball/coaches/index",
+    "primary_color": "#00275C",
+    "color_source_url": "https://graceland.prestosports.com/sports/flagfball/coaches/index",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.6196,
+    "lon": -93.9305
   },
   {
     "school": "Hastings College",
@@ -1737,7 +2950,18 @@
       "https://hastingsbroncos.com/general/2025-26/releases/20251106l019er"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program announced Nov. 2025; joins KCAC for the 2027 season (2026-27 academic year)."
+    "notes": "New program announced Nov. 2025; joins KCAC for the 2027 season (2026-27 academic year).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://hastingsbroncos.com/sports/flagfball/coaches",
+    "primary_color": "#990000",
+    "color_source_url": "https://hastingsbroncos.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Coaches page lists Head Coach and Graduate Assistant positions with no names.",
+    "starts": null,
+    "lat": 40.5963,
+    "lon": -98.3903
   },
   {
     "school": "Hesston College",
@@ -1752,7 +2976,18 @@
       "https://hclarks.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Moved from NJCAA; joined KCAC as a per-sport member for 2026-27."
+    "notes": "Moved from NJCAA; joined KCAC as a per-sport member for 2026-27.",
+    "head_coach_name": "Joel Gerber",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://hclarks.com/staff-directory",
+    "primary_color": "#840016",
+    "color_source_url": "https://hclarks.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.1401,
+    "lon": -97.427
   },
   {
     "school": "Hope International University",
@@ -1767,7 +3002,18 @@
       "https://hiuroyals.com/sports/womens-flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full GSAC member; inaugural season spring 2026."
+    "notes": "Full GSAC member; inaugural season spring 2026.",
+    "head_coach_name": "Felipe Aguilar",
+    "head_coach_title": "Head Coach",
+    "coach_email": "faguilar@hiu.edu",
+    "staff_page_url": "https://hiuroyals.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.8857,
+    "lon": -117.928
   },
   {
     "school": "Indiana Wesleyan University",
@@ -1782,7 +3028,18 @@
       "https://iwuwildcats.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Mid-South affiliate member for flag football (Crossroads League for other sports)."
+    "notes": "Mid-South affiliate member for flag football (Crossroads League for other sports).",
+    "head_coach_name": "Travis Combs",
+    "head_coach_title": "Head Coach",
+    "coach_email": "travis.combs@indwes.edu",
+    "staff_page_url": "https://iwuwildcats.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.55,
+    "lon": -85.6604
   },
   {
     "school": "Kansas Wesleyan University",
@@ -1797,7 +3054,18 @@
       "https://kwucoyotes.com/sports/flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full KCAC member; one of the sport's original 2021 pioneer programs."
+    "notes": "Full KCAC member; one of the sport's original 2021 pioneer programs.",
+    "head_coach_name": "Landin Sledge",
+    "head_coach_title": "Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://kwucoyotes.com/staff-directory",
+    "primary_color": "#FFC530",
+    "color_source_url": "https://kwucoyotes.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Title on site is 'Flag Football Coach' (no 'Head'); only non-assistant coach listed.",
+    "starts": null,
+    "lat": 38.8131,
+    "lon": -97.6145
   },
   {
     "school": "Keiser University",
@@ -1812,7 +3080,18 @@
       "https://kuseahawks.com/sports/flag-football/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Sun Conference member."
+    "notes": "Full Sun Conference member.",
+    "head_coach_name": "Samantha Harris",
+    "head_coach_title": "Head Coach",
+    "coach_email": "samantha.harris@keiseruniversity.edu",
+    "staff_page_url": "https://kuseahawks.com/sports/flag-football/coaches",
+    "primary_color": "#002D62",
+    "color_source_url": "https://kuseahawks.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 26.7451,
+    "lon": -80.127
   },
   {
     "school": "La Sierra University",
@@ -1827,7 +3106,18 @@
       "https://lsugoldeneagles.com/sports/womens-flag-football/schedule/2026"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full GSAC member; reached 2026 GSAC championship game in inaugural season."
+    "notes": "Full GSAC member; reached 2026 GSAC championship game in inaugural season.",
+    "head_coach_name": "Brianne Talboom",
+    "head_coach_title": "Head Coach/Offensive Coordinator",
+    "coach_email": "Btalboom@lasierra.edu",
+    "staff_page_url": "https://lsugoldeneagles.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.9381,
+    "lon": -117.3932
   },
   {
     "school": "Life University",
@@ -1842,7 +3132,18 @@
       "https://liferunningeagles.com/news/2025/12/18/womens-flag-football-life-university-womens-flag-football-set-to-join-ssac-in-inaugural-27-season.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Played 2025-26 in the Sun Conference (affiliate member); joins SSAC for inaugural 2027 season."
+    "notes": "Played 2025-26 in the Sun Conference (affiliate member); joins SSAC for inaugural 2027 season.",
+    "head_coach_name": "Zack Desmarais",
+    "head_coach_title": "Head Coach",
+    "coach_email": "zack.desmarais@life.edu",
+    "staff_page_url": "https://liferunningeagles.com/sports/womens-flag-football/coaches",
+    "primary_color": "#000000",
+    "color_source_url": "https://liferunningeagles.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.9536,
+    "lon": -84.5425
   },
   {
     "school": "Lindsey Wilson College",
@@ -1857,7 +3158,18 @@
       "https://lindseyathletics.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Mid-South member; previously an NAIA independent for the sport."
+    "notes": "Full Mid-South member; previously an NAIA independent for the sport.",
+    "head_coach_name": "Chris Raggard",
+    "head_coach_title": "Head Coach",
+    "coach_email": "raggardc@lindsey.edu",
+    "staff_page_url": "https://lindseyathletics.com/sports/flag-football/coaches",
+    "primary_color": "#0063A5",
+    "color_source_url": "https://lindseyathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 37.1034,
+    "lon": -85.3075
   },
   {
     "school": "Mayville State University",
@@ -1872,7 +3184,18 @@
       "https://msucomets.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program, first in North Dakota; plans a 10-game independent schedule for spring 2027. Per reporting, NAIA championship eligibility for 2027 was still being finalized as of mid-2026."
+    "notes": "New program, first in North Dakota; plans a 10-game independent schedule for spring 2027. Per reporting, NAIA championship eligibility for 2027 was still being finalized as of mid-2026.",
+    "head_coach_name": "Tim Salmon",
+    "head_coach_title": "Head Women's Flag Football Coach (1st)",
+    "coach_email": "timothy.salmon@mayvillestate.edu",
+    "staff_page_url": "https://msucomets.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 47.4982,
+    "lon": -97.3264
   },
   {
     "school": "McPherson College",
@@ -1887,7 +3210,18 @@
       "https://macbulldogs.com/sports/womens-flag-football/schedule"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program announced Sept. 2025; McPherson's 20th varsity sport."
+    "notes": "New program announced Sept. 2025; McPherson's 20th varsity sport.",
+    "head_coach_name": "Janae Scott",
+    "head_coach_title": "Head Coach",
+    "coach_email": "scottj@mcpherson.edu",
+    "staff_page_url": "https://macbulldogs.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.3699,
+    "lon": -97.6645
   },
   {
     "school": "Midland University",
@@ -1902,7 +3236,18 @@
       "https://en.wikipedia.org/wiki/Midland_Warriors"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Per-sport KCAC member. Athletics domain confirmed via Wikipedia; direct fetch of the sport page returned 403 (bot-blocked) during this research pass."
+    "notes": "Per-sport KCAC member. Athletics domain confirmed via Wikipedia; direct fetch of the sport page returned 403 (bot-blocked) during this research pass.",
+    "head_coach_name": "James Kerwin",
+    "head_coach_title": "Head Coach",
+    "coach_email": "kerwin@midlandu.edu",
+    "staff_page_url": "https://www.midlandathletics.com/sports/flagfball/coaches",
+    "primary_color": "#0C2340",
+    "color_source_url": "https://www.midlandathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.4398,
+    "lon": -96.487
   },
   {
     "school": "Midway University",
@@ -1917,7 +3262,18 @@
       "http://www.gomidwayeagles.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Mid-South affiliate member for flag football (River States Conference for other sports); launches 2027."
+    "notes": "Mid-South affiliate member for flag football (River States Conference for other sports); launches 2027.",
+    "head_coach_name": "Roy McMillen",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://gomidwayeagles.com/staff-directory",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.1465,
+    "lon": -84.6861
   },
   {
     "school": "Milligan University",
@@ -1932,7 +3288,18 @@
       "https://milliganbuffs.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Previously an NAIA independent for the sport; joins SSAC for 2026-27."
+    "notes": "Previously an NAIA independent for the sport; joins SSAC for 2026-27.",
+    "head_coach_name": "Ryan Witten",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://milliganbuffs.com/sports/womens-flag-football/coaches",
+    "primary_color": "#FF6A13",
+    "color_source_url": "https://milliganbuffs.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.3396,
+    "lon": -82.2378
   },
   {
     "school": "Missouri Baptist University",
@@ -1941,13 +3308,24 @@
     "governing_body": "NAIA",
     "conference": "Heart of America Athletic Conference (HAAC)",
     "program_url": "https://mbuspartans.com/sports/flag-football",
-    "questionnaire_url": null,
+    "questionnaire_url": "https://app.spry.so/recruiting/missouri-baptist-university/womens-flag-football/spartans",
     "source_urls": [
       "https://www.collegiateflagfootball.com/which-colleges-are-adding-womens-flag-football-or-changing-conferences-in-2026-and-2027/",
       "https://mbuspartans.com/news/2025/10/28/athletics-missouri-baptist-university-to-add-varsity-flag-football-beginning-in-2026-27.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program announced Oct. 2025; begins competition spring 2027 (2026-27 academic year)."
+    "notes": "New program announced Oct. 2025; begins competition spring 2027 (2026-27 academic year).",
+    "head_coach_name": "Evanee Cooper",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "Evanee.Cooper1@mobap.edu",
+    "staff_page_url": "https://mbuspartans.com/sports/flag-football/coaches",
+    "primary_color": "#002144",
+    "color_source_url": "https://mbuspartans.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.6357,
+    "lon": -90.2446
   },
   {
     "school": "Missouri Valley College",
@@ -1962,7 +3340,18 @@
       "https://www.valleywillroll.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program for 2026-27."
+    "notes": "New program for 2026-27.",
+    "head_coach_name": "Dillon Humphreys",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://www.valleywillroll.com/sports/flagfball/coaches",
+    "primary_color": "#4C0049",
+    "color_source_url": "https://www.valleywillroll.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.1151,
+    "lon": -93.2025
   },
   {
     "school": "Mount Mary University",
@@ -1977,7 +3366,18 @@
       "https://mtmaryathletics.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program, first NAIA school in Wisconsin to offer flag football with scholarships; debuts spring 2027, competes independent for the sport."
+    "notes": "New program, first NAIA school in Wisconsin to offer flag football with scholarships; debuts spring 2027, competes independent for the sport.",
+    "head_coach_name": "Ryan Losinski",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://mtmaryathletics.com/sports/flagfball/coaches",
+    "primary_color": "#003F77",
+    "color_source_url": "https://mtmaryathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 43.0633,
+    "lon": -87.9667
   },
   {
     "school": "Oklahoma Wesleyan University",
@@ -1992,7 +3392,18 @@
       "https://okwueagles.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program; first Oklahoma school to add flag football; debuts spring 2027 in KCAC."
+    "notes": "New program; first Oklahoma school to add flag football; debuts spring 2027 in KCAC.",
+    "head_coach_name": "Samuel Pittman",
+    "head_coach_title": "Head Cheer Coach / Head Flag Football Coach",
+    "coach_email": "spittman@okwu.edu",
+    "staff_page_url": "https://okwueagles.com/sports/womens-flag-football/coaches",
+    "primary_color": "#002244",
+    "color_source_url": "https://okwueagles.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 36.7377,
+    "lon": -95.9485
   },
   {
     "school": "Olivet Nazarene University",
@@ -2007,7 +3418,18 @@
       "https://olivetnazarene.prestosports.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program for 2026-27; first NAIA school in Illinois to add flag football, competes independent for the sport."
+    "notes": "New program for 2026-27; first NAIA school in Illinois to add flag football, competes independent for the sport.",
+    "head_coach_name": "Kyle Hastings",
+    "head_coach_title": "Head Coach",
+    "coach_email": "khasting@olivet.edu",
+    "staff_page_url": "https://olivetnazarene.prestosports.com/sports/flagfball/coaches",
+    "primary_color": "#48206E",
+    "color_source_url": "https://olivetnazarene.prestosports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.183,
+    "lon": -87.8785
   },
   {
     "school": "Ottawa University (Kansas)",
@@ -2022,7 +3444,18 @@
       "https://ottawabraves.com/sports/womens-flag-football/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full KCAC member; reigning 2025 NAIA national champion."
+    "notes": "Full KCAC member; reigning 2025 NAIA national champion.",
+    "head_coach_name": "Abby Brown",
+    "head_coach_title": "Head Coach",
+    "coach_email": "abigail.brown@ottawa.edu",
+    "staff_page_url": "https://ottawabraves.com/sports/womens-flag-football/coaches",
+    "primary_color": "#FDB913",
+    "color_source_url": "https://ottawabraves.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.6001,
+    "lon": -95.2628
   },
   {
     "school": "Ottawa University-Arizona",
@@ -2037,7 +3470,18 @@
       "https://cronkitenews.azpbs.org/2025/07/17/arizona-colleges-added-flag-football-teams-women-sports-grows/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full GSAC member (listed as OUAZ), inaugural 2025-26. Could not locate a dedicated OUAZ athletics-site URL distinct from Ottawa University-Kansas's ottawabraves.com during this pass."
+    "notes": "Full GSAC member (listed as OUAZ), inaugural 2025-26. Could not locate a dedicated OUAZ athletics-site URL distinct from Ottawa University-Kansas's ottawabraves.com during this pass.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 33.6708,
+    "lon": -112.4525
   },
   {
     "school": "Our Lady of the Lake University",
@@ -2052,7 +3496,18 @@
       "https://www.ollusaintsathletics.com/general/2025-26/releases/20260209isbvi1"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program for 2026-27; second Texas NAIA school to sponsor flag football, behind Texas Wesleyan."
+    "notes": "New program for 2026-27; second Texas NAIA school to sponsor flag football, behind Texas Wesleyan.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://www.ollusaintsathletics.com/sports/flagfball/coaches",
+    "primary_color": "#0057B8",
+    "color_source_url": "https://www.ollusaintsathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page exists but lists no coaches.",
+    "starts": null,
+    "lat": 29.4628,
+    "lon": -98.5246
   },
   {
     "school": "Point University",
@@ -2067,7 +3522,18 @@
       "https://thesunconference.com/standings.aspx?path=flagfb"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Sport-specific subpage returned 403 on direct fetch."
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Sport-specific subpage returned 403 on direct fetch.",
+    "head_coach_name": "Shaka Long",
+    "head_coach_title": "Head Coach",
+    "coach_email": "shaka.long@point.edu",
+    "staff_page_url": "https://skyhawkathletics.com/sports/flagfball/coaches",
+    "primary_color": "#002855",
+    "color_source_url": "https://skyhawkathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.8985,
+    "lon": -85.1415
   },
   {
     "school": "Reinhardt University",
@@ -2082,7 +3548,18 @@
       "https://thesunconference.com/standings.aspx?path=flagfb"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Sport-specific subpage returned 403 on direct fetch."
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27. Sport-specific subpage returned 403 on direct fetch.",
+    "head_coach_name": "Emerson Joseph",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://www.reinhardteagles.com/sports/flagfball/coaches",
+    "primary_color": "#FEB703",
+    "color_source_url": "https://www.reinhardteagles.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.316,
+    "lon": -84.5436
   },
   {
     "school": "Siena Heights University",
@@ -2097,7 +3574,18 @@
       "https://www.shusaints.com/sports/flagfball/2025-26/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "2026 (2025-26) roster on official site. Listed in the 2026 NAIA flag football season field (Wikipedia); naia.org returned HTTP 500 so the NAIA page was not checked. 2026-27 status not separately confirmed."
+    "notes": "2026 (2025-26) roster on official site. Listed in the 2026 NAIA flag football season field (Wikipedia); naia.org returned HTTP 500 so the NAIA page was not checked. 2026-27 status not separately confirmed.",
+    "head_coach_name": "Jesse Siordia",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jsiordia@sienaheights.edu",
+    "staff_page_url": "https://www.shusaints.com/sports/flagfball/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Same name is listed as head coach at Eastern Michigan (jsiordia@emich.edu).",
+    "starts": null,
+    "lat": 41.8988,
+    "lon": -84.0448
   },
   {
     "school": "Simpson University",
@@ -2112,7 +3600,18 @@
       "https://simpsonredhawks.com/sports/womens-flag-football/schedule/2026"
     ],
     "verified_on": "2026-10-01",
-    "notes": "GSAC associate member for flag football; first Northern California school to add the sport."
+    "notes": "GSAC associate member for flag football; first Northern California school to add the sport.",
+    "head_coach_name": "Jose Sanchez",
+    "head_coach_title": "Head Coach",
+    "coach_email": "jsanchez@simpsonu.edu",
+    "staff_page_url": "https://simpsonredhawks.com/sports/womens-flag-football/coaches",
+    "primary_color": "#AB190A",
+    "color_source_url": "https://simpsonredhawks.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.5703,
+    "lon": -122.3668
   },
   {
     "school": "Southwestern College",
@@ -2127,7 +3626,18 @@
       "https://buildersports.com/sports/flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full KCAC member. Official site is buildersports.com (linked from the KCAC standings page); KCAC 2027 standings list Southwestern."
+    "notes": "Full KCAC member. Official site is buildersports.com (linked from the KCAC standings page); KCAC 2027 standings list Southwestern.",
+    "head_coach_name": "Conner Cheney",
+    "head_coach_title": "Head Coach",
+    "coach_email": "conner.cheney@sckans.edu",
+    "staff_page_url": "https://buildersports.com/sports/flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 37.2428,
+    "lon": -96.9797
   },
   {
     "school": "St. Thomas University",
@@ -2142,7 +3652,18 @@
       "https://thesunconference.com/schedule.aspx?schedule=4094"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Sun Conference member. School site served a donation splash page on direct fetch during this pass; domain confirmed via Wikipedia and conference schedule page."
+    "notes": "Full Sun Conference member. School site served a donation splash page on direct fetch during this pass; domain confirmed via Wikipedia and conference schedule page.",
+    "head_coach_name": "Nick Clements",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "https://stubobcats.com/staff-directory",
+    "primary_color": "#002856",
+    "color_source_url": "https://stubobcats.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 25.9489,
+    "lon": -80.2436
   },
   {
     "school": "Texas Wesleyan University",
@@ -2157,7 +3678,18 @@
       "https://ramsports.net/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First Texas NAIA school to sponsor flag football, debuted spring 2026; competes as an NAIA independent for the sport."
+    "notes": "First Texas NAIA school to sponsor flag football, debuted spring 2026; competes as an NAIA independent for the sport.",
+    "head_coach_name": "Sakeenah Lambert",
+    "head_coach_title": "Head Coach",
+    "coach_email": "lambert@txwes.edu",
+    "staff_page_url": "https://ramsports.net/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.782,
+    "lon": -97.3486
   },
   {
     "school": "Thomas University",
@@ -2172,7 +3704,18 @@
       "https://tunighthawks.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27."
+    "notes": "Played 2025-26 in the Sun Conference; transitions to SSAC for 2026-27.",
+    "head_coach_name": "Ni'Ja Seals",
+    "head_coach_title": "Head Coach",
+    "coach_email": "nseals@thomasu.edu",
+    "staff_page_url": "https://tunighthawks.com/sports/womens-flag-football/coaches",
+    "primary_color": "#006338",
+    "color_source_url": "https://tunighthawks.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 30.8394,
+    "lon": -83.9788
   },
   {
     "school": "University of Northwestern Ohio",
@@ -2187,7 +3730,18 @@
       "https://en.wikipedia.org/wiki/University_of_Northwestern_Ohio"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Mid-South affiliate member for flag football. Sport-specific subpage returned 403 on direct fetch during this research pass."
+    "notes": "Mid-South affiliate member for flag football. Sport-specific subpage returned 403 on direct fetch during this research pass.",
+    "head_coach_name": "Aaliyah Lockridge",
+    "head_coach_title": "Head Coach",
+    "coach_email": null,
+    "staff_page_url": "http://www.unohracers.com/sports/flagfball/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 40.7407,
+    "lon": -84.1121
   },
   {
     "school": "University of Saint Francis",
@@ -2202,7 +3756,18 @@
       "https://en.wikipedia.org/wiki/Saint_Francis_Cougars_(Indiana)"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Mid-South affiliate member for flag football (Crossroads League for other sports). Sport-specific subpage returned 403 on direct fetch."
+    "notes": "Mid-South affiliate member for flag football (Crossroads League for other sports). Sport-specific subpage returned 403 on direct fetch.",
+    "head_coach_name": "TJ Williams",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "twilliams@sf.edu",
+    "staff_page_url": "https://saintfranciscougars.com/sports/flagfball/coaches",
+    "primary_color": "#0061AA",
+    "color_source_url": "https://saintfranciscougars.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.0882,
+    "lon": -85.1428
   },
   {
     "school": "University of Saint Mary",
@@ -2217,7 +3782,18 @@
       "https://gospires.com/sports/womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full KCAC member."
+    "notes": "Full KCAC member.",
+    "head_coach_name": "Elle Campbell",
+    "head_coach_title": "Head Coach",
+    "coach_email": "Campbell907@stmary.edu",
+    "staff_page_url": "https://gospires.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.3227,
+    "lon": -94.925
   },
   {
     "school": "University of Tennessee Southern",
@@ -2232,7 +3808,18 @@
       "https://utsouthern.edu/news/ut-southern-to-add-intercollegiate-womens-flag-football-beginning-fall-2026/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program; begins fall 2026 practice, spring 2027 competition in SSAC."
+    "notes": "New program; begins fall 2026 practice, spring 2027 competition in SSAC.",
+    "head_coach_name": "Brandie Paul",
+    "head_coach_title": "Head Coach",
+    "coach_email": "bpaul7@utsouthern.edu",
+    "staff_page_url": "https://utsfirehawks.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 35.1933,
+    "lon": -87.0336
   },
   {
     "school": "Warner University",
@@ -2247,7 +3834,18 @@
       "https://warnerroyals.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Sun Conference member; 2026 regular-season champion at 9-0 (24-0 overall)."
+    "notes": "Full Sun Conference member; 2026 regular-season champion at 9-0 (24-0 overall).",
+    "head_coach_name": "Tim Mimbs",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "tim.mimbs@warner.edu",
+    "staff_page_url": "https://warnerroyals.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 27.9207,
+    "lon": -81.5995
   },
   {
     "school": "Washington Adventist University",
@@ -2262,7 +3860,18 @@
       "https://en.wikipedia.org/wiki/Washington_Adventist_University"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Debuted spring 2026; competes as an NAIA independent for the sport. Sport-specific subpage returned 403 on direct fetch."
+    "notes": "Debuted spring 2026; competes as an NAIA independent for the sport. Sport-specific subpage returned 403 on direct fetch.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://wauathletics.com/sports/flagfball/coaches",
+    "primary_color": "#18325B",
+    "color_source_url": "https://wauathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page exists but lists no coaches.",
+    "starts": null,
+    "lat": 38.9803,
+    "lon": -77.0023
   },
   {
     "school": "Webber International University",
@@ -2277,7 +3886,18 @@
       "https://webberathletics.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Full Sun Conference member."
+    "notes": "Full Sun Conference member.",
+    "head_coach_name": "Collin Johnson",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://webberathletics.com/staff-directory",
+    "primary_color": "#234F33",
+    "color_source_url": "https://webberathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 27.8342,
+    "lon": -81.5281
   },
   {
     "school": "Wesleyan College",
@@ -2292,7 +3912,18 @@
       "https://wesleyanathletics.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program for 2026-27."
+    "notes": "New program for 2026-27.",
+    "head_coach_name": "Seth Berkebile",
+    "head_coach_title": "Athletic Director/ Head Flag Football Coach",
+    "coach_email": "sberkebile@wesleyancollege.edu",
+    "staff_page_url": "https://wesleyanathletics.com/sports/flag-football/coaches",
+    "primary_color": "#492065",
+    "color_source_url": "https://wesleyanathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.809,
+    "lon": -83.6941
   },
   {
     "school": "Wilberforce University",
@@ -2307,7 +3938,18 @@
       "https://www.daytondailynews.com/sports/wilberforce-creating-womens-flag-football-program-to-begin-next-spring/CRPCNVQ5HVAXNON3PMPGZZN4CY/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New Mid-South affiliate member, program launches spring 2027. Could not locate a dedicated athletics sports-site URL during this research pass."
+    "notes": "New Mid-South affiliate member, program launches spring 2027. Could not locate a dedicated athletics sports-site URL during this research pass.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 39.715,
+    "lon": -83.8844
   },
   {
     "school": "William Penn University",
@@ -2322,7 +3964,18 @@
       "https://www.statesmenathletics.com/general/2025-26/releases/20251030o0javw"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New program; begins competition spring 2027."
+    "notes": "New program; begins competition spring 2027.",
+    "head_coach_name": "Lamaar Thomas",
+    "head_coach_title": "Head Coach",
+    "coach_email": "lamaar.thomas@wmpenn.edu",
+    "staff_page_url": "https://www.statesmenathletics.com/sports/flagfball/coaches",
+    "primary_color": "#00214D",
+    "color_source_url": "https://www.statesmenathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.2922,
+    "lon": -92.6409
   },
   {
     "school": "William Woods University",
@@ -2337,7 +3990,18 @@
       "https://wwuowls.com/sports/womens-flag-football/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Fielded team since 2025 as a KCAC per-sport member; moving to HAAC for 2026-27."
+    "notes": "Fielded team since 2025 as a KCAC per-sport member; moving to HAAC for 2026-27.",
+    "head_coach_name": "Charlie Holloway",
+    "head_coach_title": "Head Coach - Flag Football",
+    "coach_email": "charlie.holloway@williamwoods.edu",
+    "staff_page_url": "https://wwuowls.com/sports/womens-flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 38.8551,
+    "lon": -91.9508
   },
   {
     "school": "Alexandria Technical and Community College",
@@ -2352,7 +4016,18 @@
       "https://www.alextech.edu/atcc-news/2026/09/28/join-the-team--atcc-women's-flag-football-recruiting-for-spring"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Among first Minnesota community colleges to add the sport; launches spring 2027; athletics branded 'Legends' (legends.alextech.edu)."
+    "notes": "Among first Minnesota community colleges to add the sport; launches spring 2027; athletics branded 'Legends' (legends.alextech.edu).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 45.8772,
+    "lon": -95.377
   },
   {
     "school": "Bishop State Community College",
@@ -2367,7 +4042,18 @@
       "https://www.bishop.edu/news/bishop-state-adds-cheerleading-and-womens-flag-football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Varsity since 2025-26 season; competes in ACCC standings."
+    "notes": "Varsity since 2025-26 season; competes in ACCC standings.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 30.6682,
+    "lon": -88.1079
   },
   {
     "school": "Bryant & Stratton College (Wauwatosa)",
@@ -2382,7 +4068,18 @@
       "https://www.bryantstratton.edu/blog/news/womens-flag-football-first-home-games/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Wisconsin's first collegiate team (2023); qualified for 2026 NJCAA Invitational field. Distinct from Bryant & Stratton's USCAA-affiliated NY campuses."
+    "notes": "Wisconsin's first collegiate team (2023); qualified for 2026 NJCAA Invitational field. Distinct from Bryant & Stratton's USCAA-affiliated NY campuses.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 43.0632,
+    "lon": -88.0356
   },
   {
     "school": "Calhoun Community College",
@@ -2397,7 +4094,18 @@
       "https://calhounathletics.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Varsity since 2025-26; 13-6 overall record cited on official site."
+    "notes": "Varsity since 2025-26; 13-6 overall record cited on official site.",
+    "head_coach_name": "Bart Stephenson",
+    "head_coach_title": "Head Coach - Flag Football",
+    "coach_email": null,
+    "staff_page_url": "https://calhounathletics.com/sports/flagfball/coaches",
+    "primary_color": "#003594",
+    "color_source_url": "https://calhounathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.779,
+    "lon": -86.9508
   },
   {
     "school": "Camden County College",
@@ -2412,7 +4120,18 @@
       "https://www.camdenccathletics.org/navbar-sports"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NJCAA Foundation/NFL Flag grant recipient; program launches spring 2027."
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; program launches spring 2027.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 39.7992,
+    "lon": -75.0638
   },
   {
     "school": "Central Alabama Community College",
@@ -2427,7 +4146,18 @@
       "https://cacc.edu/cacc-life/athletics"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Head coach named (Thomas Sowell) but reporting indicates program will not compete in fall 2026 season; counted as an NJCAA-sponsoring college for 2026-27 per ACCC roster growth."
+    "notes": "Head coach named (Thomas Sowell) but reporting indicates program will not compete in fall 2026 season; counted as an NJCAA-sponsoring college for 2026-27 per ACCC roster growth.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Athletics page lists only the Athletic Director (Jeff Daniels, jdaniels@cacc.edu); no flag football coach named.",
+    "starts": null,
+    "lat": 32.9167,
+    "lon": -85.9406
   },
   {
     "school": "Chattahoochee Valley Community College",
@@ -2442,7 +4172,18 @@
       "https://www.cv.edu/chattahoochee-valley-community-college-to-launch-womens-flag-football-program-in-fall-2026/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "New for fall 2026-27; athletics site is cvpirates.com but specific sport page not individually confirmed."
+    "notes": "New for fall 2026-27; athletics site is cvpirates.com but specific sport page not individually confirmed.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 32.4537,
+    "lon": -85.031
   },
   {
     "school": "College of DuPage",
@@ -2457,7 +4198,18 @@
       "https://gochapsgo.com/sports/flag-football/schedule/2025-26"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Host of 2026 and 2026-27 (final invitational) NJCAA Women's Flag Football Invitational."
+    "notes": "Host of 2026 and 2026-27 (final invitational) NJCAA Women's Flag Football Invitational.",
+    "head_coach_name": "Jenn Schulmeister",
+    "head_coach_title": "Head Coach — Flag Football",
+    "coach_email": "schulmeisterj@cod.edu",
+    "staff_page_url": "https://gochapsgo.com/sports/flag-football/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.8667,
+    "lon": -88.0627
   },
   {
     "school": "Dallas College Brookhaven",
@@ -2472,7 +4224,18 @@
       "https://www.brookhavenathletics.com/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season.",
+    "head_coach_name": "Sean Guinyard",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "sguinyard@DallasCollege.edu",
+    "staff_page_url": "https://www.brookhavenathletics.com/sports/flagfball/coaches",
+    "primary_color": "#14884B",
+    "color_source_url": "https://www.brookhavenathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.9278,
+    "lon": -96.8785
   },
   {
     "school": "Dallas College Cedar Valley",
@@ -2487,7 +4250,18 @@
       "https://cvcsuns.com/sports/flagfball/2026-27/releases/20260908r6i57w"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season.",
+    "head_coach_name": "Danny Lowery",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "dlowery@DallasCollege.edu",
+    "staff_page_url": "https://cvcsuns.com/sports/flagfball/coaches",
+    "primary_color": "#FF8500",
+    "color_source_url": "https://cvcsuns.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.5962,
+    "lon": -96.7738
   },
   {
     "school": "Dallas College Eastfield",
@@ -2502,7 +4276,18 @@
       "https://www.eastfieldathletics.com/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season.",
+    "head_coach_name": "Johnson Kahungu",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "JKahungu@dallascollege.edu",
+    "staff_page_url": "https://www.eastfieldathletics.com/sports/flagfball/coaches",
+    "primary_color": "#ED6E23",
+    "color_source_url": "https://www.eastfieldathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.7595,
+    "lon": -96.5842
   },
   {
     "school": "Dallas College Mountain View",
@@ -2517,7 +4302,18 @@
       "https://www.mvclions.com/landing/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://www.mvclions.com/sports/flagfball/coaches",
+    "primary_color": "#FFC100",
+    "color_source_url": "https://www.mvclions.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Coaches page lists Keitha Dickerson (kdickerson@DallasCollege.edu) with no title; head coach not stated.",
+    "starts": null,
+    "lat": 32.7933,
+    "lon": -96.7665
   },
   {
     "school": "Dallas College North Lake",
@@ -2532,7 +4328,18 @@
       "https://northlakecollegeathletics.com/landing/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season."
+    "notes": "One of 6 Dallas College campuses launching varsity flag football, spring 2027 season.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://northlakecollegeathletics.com/sports/flagfball/coaches",
+    "primary_color": "#1C519F",
+    "color_source_url": "https://northlakecollegeathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Coaches page lists only Adrian Rigby, Athletic Director/Emergency Welfare Contact (arigby@DallasCollege.edu).",
+    "starts": null,
+    "lat": 32.8577,
+    "lon": -96.97
   },
   {
     "school": "Dallas College Richland",
@@ -2547,7 +4354,18 @@
       "https://www.collegiateflagfootball.com/dallas-college-adding-womens-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First Texas junior college to announce a flag football program (club or varsity); begins 2026-27."
+    "notes": "First Texas junior college to announce a flag football program (club or varsity); begins 2026-27.",
+    "head_coach_name": "Dynastee Cain",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "DCain@dallascollege.edu",
+    "staff_page_url": "https://www.rlcsports.com/sports/flagfball/coaches",
+    "primary_color": "#FFC107",
+    "color_source_url": "https://www.rlcsports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 32.7933,
+    "lon": -96.7665
   },
   {
     "school": "Daytona State College",
@@ -2562,7 +4380,18 @@
       "https://dscfalcons.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Lost 2026 NJCAA national title game to Florida Gateway, 53-13; 2026 Invitational pool team."
+    "notes": "Lost 2026 NJCAA national title game to Florida Gateway, 53-13; 2026 Invitational pool team.",
+    "head_coach_name": "Brian Colubiale",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://dscfalcons.com/sports/flagfball/coaches",
+    "primary_color": "#0079C1",
+    "color_source_url": "https://dscfalcons.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 29.1907,
+    "lon": -81.0971
   },
   {
     "school": "Enterprise State Community College",
@@ -2577,7 +4406,18 @@
       "https://www.wtvy.com/2026/08/27/enterprise-state-flag-football-team-set-historic-debut/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Debuted fall 2026 ('Boll Weevils'); NJCAA grant recipient."
+    "notes": "Debuted fall 2026 ('Boll Weevils'); NJCAA grant recipient.",
+    "head_coach_name": "Janasky Fleming",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": "jfleming@escc.edu",
+    "staff_page_url": "https://escc.prestosports.com/sports/flagfball/coaches",
+    "primary_color": "#144734",
+    "color_source_url": "https://escc.prestosports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 31.3255,
+    "lon": -85.8461
   },
   {
     "school": "Florida Gateway College",
@@ -2592,7 +4432,18 @@
       "https://www.collegiateflagfootball.com/florida-gateway-wins-fourth-straight-njcaa-flag-football-title/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Four-time defending NJCAA national flag football champion; 2026 Invitational pool team."
+    "notes": "Four-time defending NJCAA national flag football champion; 2026 Invitational pool team.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 30.1886,
+    "lon": -82.6422
   },
   {
     "school": "Harcum College",
@@ -2607,7 +4458,18 @@
       "https://www.harcum.edu/s/1044/edu/index.aspx?sid=1044&gid=1&pgid=3095"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NJCAA Foundation/NFL Flag grant recipient; practices began spring 2026."
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; practices began spring 2026.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 40.0208,
+    "lon": -75.3162
   },
   {
     "school": "Harford Community College",
@@ -2622,7 +4484,18 @@
       "https://harfordathletics.com/sports/womens-flag-football/schedule/2026"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural season spring 2026; second junior college in Maryland to offer the sport; 2026 Invitational pool team."
+    "notes": "Inaugural season spring 2026; second junior college in Maryland to offer the sport; 2026 Invitational pool team.",
+    "head_coach_name": "Andre Smalls",
+    "head_coach_title": "Head Coach",
+    "coach_email": "ansmalls@harford.edu",
+    "staff_page_url": "https://harfordathletics.com/sports/womens-flag-football/coaches",
+    "primary_color": "#022D57",
+    "color_source_url": "https://harfordathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 39.5349,
+    "lon": -76.3463
   },
   {
     "school": "Jackson State Community College",
@@ -2637,7 +4510,18 @@
       "https://jscc.edu/news/2025/flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First two-year college in Tennessee to offer the sport; program begins spring 2027."
+    "notes": "First two-year college in Tennessee to offer the sport; program begins spring 2027.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 35.6542,
+    "lon": -88.8353
   },
   {
     "school": "Lurleen B. Wallace Community College",
@@ -2652,7 +4536,18 @@
       "https://lbwsaints.com/sports/flagfball/2025-26/roster"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural season fall 2025; one of first ACCC members to add the sport."
+    "notes": "Inaugural season fall 2025; one of first ACCC members to add the sport.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://lbwsaints.com/sports/flagfball/coaches",
+    "primary_color": "#00205B",
+    "color_source_url": "https://lbwsaints.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page says no coaches are listed yet.",
+    "starts": null,
+    "lat": 31.3094,
+    "lon": -86.478
   },
   {
     "school": "Minnesota North College - Vermilion",
@@ -2667,7 +4562,18 @@
       "https://minnesotanorth.edu/minnesota-north-college-vermilion-receives-5000-grant-to-start-womens-college-flag-football-program/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NJCAA Foundation/NFL Flag grant recipient; dedicated flag football roster/schedule page not yet separately confirmed on athletics site (vermilionathletics.com)."
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; dedicated flag football roster/schedule page not yet separately confirmed on athletics site (vermilionathletics.com).",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "No official athletics coaches page found or checked; input URL is a news post or general college page.",
+    "starts": null,
+    "lat": 47.9056,
+    "lon": -91.8507
   },
   {
     "school": "Murray State College",
@@ -2682,7 +4588,18 @@
       "https://mscok.edu/news/Flag-Football"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First public collegiate flag football program in Oklahoma; plays out of Ardmore; begins 2026-27."
+    "notes": "First public collegiate flag football program in Oklahoma; plays out of Ardmore; begins 2026-27.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Program announcement says the college will begin a search for a head coach (https://mscok.edu/news/Flag-Football); no coach named.",
+    "starts": null,
+    "lat": 34.239,
+    "lon": -96.6824
   },
   {
     "school": "Northwest Shoals Community College",
@@ -2697,7 +4614,18 @@
       "https://nwscc.edu/athletics/patriots-flag-football/"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural season fall 2025; roster posted on official site."
+    "notes": "Inaugural season fall 2025; roster posted on official site.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Official flag football page names only Taylor Franks, Executive Athletic Director (tfranks@nwscc.edu), as contact.",
+    "starts": null,
+    "lat": 34.7427,
+    "lon": -87.6338
   },
   {
     "school": "Richard Bland College",
@@ -2713,7 +4641,18 @@
       "https://www.rbcathletics.com/general/2025-26/releases/20251021eh6fqq"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First head coach (Terence Boone) named; first season 2026-27. Site lists a Recruit Questionnaire page but exact URL not confirmed. Link taken from collegiateflagfootball.com; rbcathletics.com did not resolve (DNS) on 2026-10-01, so the page was not re-checked."
+    "notes": "First head coach (Terence Boone) named; first season 2026-27. Site lists a Recruit Questionnaire page but exact URL not confirmed. Link taken from collegiateflagfootball.com; rbcathletics.com did not resolve (DNS) on 2026-10-01, so the page was not re-checked.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Athletics domain rbcathletics.com did not resolve on 2026-10-02.",
+    "starts": null,
+    "lat": 37.2047,
+    "lon": -77.3924
   },
   {
     "school": "Rowan College of South Jersey - Cumberland",
@@ -2728,7 +4667,18 @@
       "https://www.rcsj.edu/News/Releases/Pages/Women%E2%80%99s-Flag-Football-Coming-to-RCSJ-Roadrunner-Athletics-Spring-2027.aspx"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NJCAA Foundation/NFL Flag grant recipient; inaugural season spring 2027; NJCAA Region XIX. The rcsj.edu release URL returned HTTP 404 on 2026-10-01; program is also reported by collegiateflagfootball.com."
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; inaugural season spring 2027; NJCAA Region XIX. The rcsj.edu release URL returned HTTP 404 on 2026-10-01; program is also reported by collegiateflagfootball.com.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": null,
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Input release URL returns 404; no flag football coach found on official pages.",
+    "starts": null,
+    "lat": 39.465,
+    "lon": -74.9971
   },
   {
     "school": "Rowan College of South Jersey - Gloucester",
@@ -2743,7 +4693,18 @@
       "https://www.rcroadrunners.com/sports/flagfball/2026-27/releases/20260914lfbipo"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NJCAA Region XIX; $10,000 NJCAA Foundation/NFL Flag grant; inaugural season spring 2027."
+    "notes": "NJCAA Region XIX; $10,000 NJCAA Foundation/NFL Flag grant; inaugural season spring 2027.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://www.rcroadrunners.com/sports/flagfball/coaches",
+    "primary_color": "#235592",
+    "color_source_url": "https://www.rcroadrunners.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page says no coaches are listed yet.",
+    "starts": null,
+    "lat": 39.7692,
+    "lon": -75.1447
   },
   {
     "school": "Roxbury Community College",
@@ -2758,7 +4719,18 @@
       "https://www.rcc.mass.edu/explore/news-updates/flagfootball.html"
     ],
     "verified_on": "2026-10-01",
-    "notes": "First community college in New England to field varsity women's flag football (spring 2026); NJCAA grant recipient; 2026 Invitational pool team."
+    "notes": "First community college in New England to field varsity women's flag football (spring 2026); NJCAA grant recipient; 2026 Invitational pool team.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://roxburycc.prestosports.com/sports/flagfball/coaches",
+    "primary_color": "#204E77",
+    "color_source_url": "https://roxburycc.prestosports.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page says no coaches are listed yet.",
+    "starts": null,
+    "lat": 42.3386,
+    "lon": -71.0183
   },
   {
     "school": "Shelton State Community College",
@@ -2773,7 +4745,18 @@
       "https://athletics.sheltonstate.edu/sports/flagfball/2025-26/releases/20250915giiakg"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Inaugural season fall 2025."
+    "notes": "Inaugural season fall 2025.",
+    "head_coach_name": "Doug Rogers",
+    "head_coach_title": "Head Flag Football Coach",
+    "coach_email": null,
+    "staff_page_url": "https://athletics.sheltonstate.edu/sports/flagfball/coaches",
+    "primary_color": "#231F20",
+    "color_source_url": "https://athletics.sheltonstate.edu/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 33.2344,
+    "lon": -87.5283
   },
   {
     "school": "Snead State Community College",
@@ -2788,7 +4771,18 @@
       "https://sneadathletics.com/sports/flagfball/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "13-8 overall 2025-26 per official site."
+    "notes": "13-8 overall 2025-26 per official site.",
+    "head_coach_name": null,
+    "head_coach_title": null,
+    "coach_email": null,
+    "staff_page_url": "https://sneadathletics.com/sports/flagfball/coaches",
+    "primary_color": "#EEB310",
+    "color_source_url": "https://sneadathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Flag football coaches page says no coaches are listed yet.",
+    "starts": null,
+    "lat": 34.199,
+    "lon": -86.1552
   },
   {
     "school": "Southern Union State Community College",
@@ -2803,7 +4797,18 @@
       "https://www.susccathletics.com/landing/index"
     ],
     "verified_on": "2026-10-01",
-    "notes": "Started 2-0 in 2026-27 season per reporting."
+    "notes": "Started 2-0 in 2026-27 season per reporting.",
+    "head_coach_name": "Megan Larsen",
+    "head_coach_title": "Head Coach",
+    "coach_email": "A01272509@alabama.edu",
+    "staff_page_url": "https://www.susccathletics.com/sports/flagfball/coaches",
+    "primary_color": "#1D3D71",
+    "color_source_url": "https://www.susccathletics.com/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": "Printed email is an @alabama.edu student-ID style address.",
+    "starts": null,
+    "lat": 32.6607,
+    "lon": -85.3789
   },
   {
     "school": "Triton College",
@@ -2818,7 +4823,18 @@
       "https://tritonathletics.com/sports/wflagfootball"
     ],
     "verified_on": "2026-10-01",
-    "notes": "NJCAA Foundation/NFL Flag grant recipient; competition began spring 2026."
+    "notes": "NJCAA Foundation/NFL Flag grant recipient; competition began spring 2026.",
+    "head_coach_name": "Scott Smith",
+    "head_coach_title": "Head Women's Flag Football Coach",
+    "coach_email": "samuelsmith3@triton.edu",
+    "staff_page_url": "https://tritonathletics.com/sports/wflagfootball/coaches",
+    "primary_color": null,
+    "color_source_url": null,
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 41.9243,
+    "lon": -87.8379
   },
   {
     "school": "Wallace State Community College",
@@ -2833,6 +4849,17 @@
       "https://athletics.wallacestate.edu/sports/flagfball/2026-27/releases/20260829ve4sxo"
     ],
     "verified_on": "2026-10-01",
-    "notes": "ACCC's top program; 20-0 2025-26, carrying 26-game win streak into 2026-27."
+    "notes": "ACCC's top program; 20-0 2025-26, carrying 26-game win streak into 2026-27.",
+    "head_coach_name": "Daniel Howard",
+    "head_coach_title": "Head Coach",
+    "coach_email": "daniel.howard@wallacestate.edu",
+    "staff_page_url": "https://athletics.wallacestate.edu/sports/flagfball/coaches",
+    "primary_color": "#0F3068",
+    "color_source_url": "https://athletics.wallacestate.edu/",
+    "contacts_verified_on": "2026-10-02",
+    "contact_notes": null,
+    "starts": null,
+    "lat": 34.064,
+    "lon": -86.7644
   }
 ]

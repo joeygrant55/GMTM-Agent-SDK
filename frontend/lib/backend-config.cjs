@@ -29,6 +29,10 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}(?:\/[a-z0-9-]{1,80})?$/.test(pathname)) return method === 'GET'
   if (surface === 'profile' && /^\/api\/workspace\/trigger-matching\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'POST'
   if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}\/outreach-draft$/.test(pathname)) return method === 'GET' || method === 'POST'
+  // Saves (heart) and "I sent it" marks, owner-checked by the backend.
+  if (surface === 'profile' && /^\/api\/workspace\/saved-colleges\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
+  if (surface === 'profile' && /^\/api\/workspace\/saved-colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}$/.test(pathname)) return method === 'POST'
+  if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}\/sent$/.test(pathname)) return method === 'POST'
   return /^\/api\/profile\/by-owner\/[A-Za-z0-9_-]{1,256}$/.test(pathname) && method === 'GET'
 }
 function resolveAPIRequest(input, origin, surface, method = 'GET') {
@@ -46,11 +50,14 @@ function candidatePagePolicy(pathname, method, surface = 'combine') {
   // No generic filename exemption: dynamic legacy paths can have static suffixes.
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) return 'deny'
   if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico'].includes(pathname)) return 'asset'
+  // Bundled continental US outline for the colleges map (no tile server).
+  if (surface === 'profile' && pathname === '/us-states.svg') return 'asset'
   if (pathname === '/') return 'home'
   if (['/home', '/home/inbox'].includes(pathname)) return 'page'
   // GMTM entry bridge: GMTM is the only sign-in (no self sign-up) on every surface.
   if (/^\/enter(?:\/(?:callback|unavailable))?$/.test(pathname)) return 'page'
   if (surface === 'profile' && /^\/home\/colleges(?:\/[a-z0-9-]{1,80})?$/.test(pathname)) return 'page'
+  if (surface === 'profile' && ['/home/progress', '/home/footage'].includes(pathname)) return 'page'
   return 'deny'
 }
 // CSP for every surface: GMTM's .gmtm.com sessionId cookie is script-readable, so

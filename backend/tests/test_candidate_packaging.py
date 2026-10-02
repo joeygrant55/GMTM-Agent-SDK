@@ -235,7 +235,9 @@ if surface == 'profile':
                   ('GET','/api/workspace/colleges/{clerk_id}'),('POST','/api/workspace/trigger-matching/{clerk_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
-                  ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft')})
+                  ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
+                  ('GET','/api/workspace/saved-colleges/{clerk_id}'),('POST','/api/workspace/saved-colleges/{clerk_id}/{program_id}'),
+                  ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/sent')})
 else:
  expected.update({('GET','/api/combine/current'),('POST','/api/combine/help')})
 assert {(method,route.path) for route in app.routes for method in route.methods} == expected

@@ -264,6 +264,26 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
 )""",
         False,
     ),
+    (
+        'create_sparq_saved_colleges',
+        """CREATE TABLE IF NOT EXISTS sparq_saved_colleges (
+    clerk_id VARBINARY(255) NOT NULL,
+    program_id VARCHAR(80) NOT NULL,
+    saved_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (clerk_id, program_id)
+)""",
+        False,
+    ),
+    (
+        'create_sparq_sent_emails',
+        """CREATE TABLE IF NOT EXISTS sparq_sent_emails (
+    clerk_id VARBINARY(255) NOT NULL,
+    program_id VARCHAR(80) NOT NULL,
+    sent_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (clerk_id, program_id)
+)""",
+        False,
+    ),
 )
 
 CONVERSATION_COLUMNS = frozenset({

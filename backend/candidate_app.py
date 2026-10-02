@@ -235,6 +235,10 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}", colleges.college_detail),
             ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.get_outreach_draft),
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.create_outreach_draft),
+            # Saves (heart) and "I sent it" marks: owner-checked, idempotent, no email text stored.
+            ("GET", "/api/workspace/saved-colleges/{clerk_id}", colleges.saved_colleges),
+            ("POST", "/api/workspace/saved-colleges/{clerk_id}/{program_id}", colleges.save_college),
+            ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/sent", colleges.mark_sent),
         )
         title = "SPARQ Profile Candidate"
 

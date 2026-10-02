@@ -1,63 +1,60 @@
 'use client'
 
 import Link from 'next/link'
-import { createContext, useCallback, useContext, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { signOutOfSparq, useSparqSession } from '@/app/_lib/useSparqSession'
-import { usePathname, useRouter } from 'next/navigation'
-import SparqLogo from '@/components/SparqLogo'
 import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentNoticeGate'
 
-export type CareerView = 'home' | 'portfolio' | 'progress'
+const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 
-const CareerNavigation = createContext<{ view: CareerView; revision: number; setView: (view: CareerView) => void } | null>(null)
+// One URL per page, so back, refresh and deep links work. TODO(email slice): Emails gets
+// its own page; TODO(card slice): My card gets its own page. Until then they open the
+// existing progress and footage pages.
+export const TABS = [
+  { href: '/home', label: 'Home', match: (path: string) => path === '/home' || path === '/home/inbox' },
+  { href: '/home/colleges', label: 'Colleges', match: (path: string) => path.startsWith('/home/colleges') },
+  { href: '/home/progress', label: 'Emails', match: (path: string) => path === '/home/progress' },
+  { href: '/home/footage', label: 'My card', match: (path: string) => path === '/home/footage' },
+] as const
 
-export function useCareerNavigation() {
-  const navigation = useContext(CareerNavigation)
-  if (!navigation) throw new Error('Career navigation requires the profile shell.')
-  return navigation
+export function activeTab(pathname: string | null): string | null {
+  return TABS.find(tab => tab.match(pathname || ''))?.href || null
 }
-
-const navigationItems: Array<{ view: CareerView; label: string }> = [
-  { view: 'home', label: 'Home' }, { view: 'portfolio', label: 'Portfolio' },
-  { view: 'progress', label: 'Progress' },
-]
 
 function CareerShell({ children, userId }: { children: React.ReactNode; userId?: string }) {
   const { notice, accept } = useEntryNotice(userId)
   const blocked = notice.phase === 'ended' || (notice.required && !notice.accepted)
-  const [navigation, setNavigation] = useState<{ view: CareerView; revision: number }>({ view: 'home', revision: 0 })
-  const pathname = usePathname()
-  const router = useRouter()
-  // Views live on /home/inbox; from another page (colleges) the nav goes back there.
-  const setView = useCallback((view: CareerView) => {
-    setNavigation(previous => ({ view, revision: previous.revision + 1 }))
-    if (pathname !== '/home/inbox') router.push('/home/inbox')
-  }, [pathname, router])
-  const { view } = navigation
+  const active = activeTab(usePathname())
 
   return (
-    <CareerNavigation.Provider value={{ ...navigation, setView }}>
-    <div className="min-h-[100dvh] bg-sparq-charcoal font-display text-white">
-      <a href="#profile-main" className="sr-only z-50 rounded-lg bg-sparq-lime p-3 text-sparq-charcoal focus:not-sr-only focus:absolute focus:left-4 focus:top-4">Skip to profile</a>
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex min-h-[72px] max-w-[1424px] flex-wrap items-center justify-between gap-x-5 px-6 lg:px-10">
-          <Link href="/home" onClick={event => { event.preventDefault(); setView('home') }} aria-label="SPARQ home" className="inline-flex min-h-16 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime"><SparqLogo className="w-28 sm:w-32" /></Link>
-          <nav aria-label="Athlete workspace" className="order-3 flex w-full justify-between gap-2 overflow-x-auto sm:order-none sm:mr-auto sm:ml-10 sm:w-auto sm:justify-start sm:gap-6 lg:ml-24 lg:gap-8">
-            {navigationItems.map(item => <button key={item.view} type="button" onClick={() => setView(item.view)} aria-current={view === item.view ? 'page' : undefined} className={`inline-flex min-h-12 shrink-0 items-center border-b-[3px] px-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-sparq-lime sm:min-h-[72px] sm:px-2 sm:text-sm ${view === item.view ? 'border-sparq-lime text-white' : 'border-transparent text-gray-400 hover:text-white'}`}>{item.label}</button>)}
-          </nav>
-          <div className="flex items-center gap-3">
+    <div className="min-h-[100dvh] bg-jr-ground font-display text-jr-text">
+      <a href="#profile-main" className="sr-only z-50 rounded-lg bg-jr-lime p-3 text-jr-ground focus:not-sr-only focus:absolute focus:left-4 focus:top-4">Skip to profile</a>
+      <header className="border-b border-jr-line">
+        <div className="mx-auto flex min-h-[72px] max-w-[1344px] items-center justify-between gap-6 px-4 md:px-8 lg:px-12">
+          <div className="flex items-center gap-12">
+            <Link href="/home" aria-label="SPARQ home" className={`text-[22px] font-bold tracking-[1px] md:text-[26px] ${focus}`}>SPARQ</Link>
+            <nav aria-label="Athlete workspace" className="hidden gap-2 md:flex">
+              {TABS.map(tab => <Link key={tab.href} href={tab.href} aria-current={active === tab.href ? 'page' : undefined}
+                className={`rounded-full px-4 py-2.5 text-[15px] ${focus} ${active === tab.href ? 'bg-jr-raised font-semibold text-white' : 'text-jr-muted hover:text-white'}`}>{tab.label}</Link>)}
+            </nav>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-jr-muted">
             {notice.required && <SwitchAccountLink />}
-            <a href="https://gmtm.com" target="_blank" rel="noopener noreferrer" aria-label="Back to GMTM (opens in a new tab)" className="inline-flex min-h-11 items-center gap-1 text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Back to GMTM <span aria-hidden="true">↗</span></a>
-            <button type="button" onClick={() => { void signOutOfSparq() }} className="inline-flex min-h-11 items-center text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Sign out</button>
+            <a href="https://gmtm.com" target="_blank" rel="noopener noreferrer" aria-label="Back to GMTM (opens in a new tab)" className={`hidden min-h-11 items-center hover:text-white sm:inline-flex ${focus}`}>Back to GMTM</a>
+            <button type="button" onClick={() => { void signOutOfSparq() }} className={`inline-flex min-h-11 items-center hover:text-white ${focus}`}>Sign out</button>
           </div>
         </div>
       </header>
-      <main id="profile-main" tabIndex={-1} className="mx-auto w-full max-w-[1424px] px-6 outline-none lg:px-10">
-        {notice.phase === 'loading' && userId ? <p role="status" className="py-16 text-center text-gray-400">Loading…</p>
+      <main id="profile-main" tabIndex={-1} className="mx-auto w-full max-w-[1344px] px-4 pb-28 outline-none md:px-8 md:pb-12 lg:px-12">
+        {notice.phase === 'loading' && userId ? <p role="status" className="py-16 text-center text-jr-muted">Loading…</p>
           : blocked ? <ParentNoticeScreen notice={notice} accept={accept} /> : children}
       </main>
+      {/* Phone (<768px): the same four pages as a bottom tab bar. */}
+      <nav aria-label="Athlete workspace tabs" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-jr-line bg-[#0F0F12] px-2 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 md:hidden">
+        {TABS.map(tab => <Link key={tab.href} href={tab.href} aria-current={active === tab.href ? 'page' : undefined}
+          className={`flex min-h-11 items-center justify-center rounded-lg px-1 text-[13px] ${focus} ${active === tab.href ? 'font-bold text-jr-lime' : 'text-jr-muted'}`}>{tab.label}</Link>)}
+      </nav>
     </div>
-    </CareerNavigation.Provider>
   )
 }
 
