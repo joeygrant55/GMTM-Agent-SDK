@@ -49,6 +49,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
         "/api/workspace/saved-colleges/{clerk_id}": "get", "/api/workspace/saved-colleges/{clerk_id}/{program_id}": "post",
         "/api/workspace/colleges/{clerk_id}/{program_id}/sent": "post",
         "/api/workspace/college-emails/{clerk_id}": "get", "/api/workspace/parent-contact/{clerk_id}": ("get", "post"),
+        "/api/workspace/card/{clerk_id}": ("get", "post"), "/api/workspace/card/{clerk_id}/lead": "get",
     }
     assert set(schema["paths"]) == set(expected)
     assert all(set(schema["paths"][path]) == (set(method) if isinstance(method, tuple) else {method}) for path, method in expected.items())

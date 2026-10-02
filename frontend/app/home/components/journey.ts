@@ -64,9 +64,34 @@ export function mapWindow(points: MapPoint[]): { x: number; y: number; w: number
   const clamp = (v: number, span: number) => Math.min(100 - span, Math.max(0, v - span / 2))
   return { x: clamp(cx, w), y: clamp(cy, h), w, h }
 }
+const schoolWords = (school: string) => school.replace(/[^A-Za-z\s-]/g, ' ').split(/[\s-]+/).filter(w => w && !/^(of|the|at|and|in)$/i.test(w))
+const initialsOf = (school: string, letters: number) => (schoolWords(school).slice(0, letters).map(w => w[0]).join('') || '?').toUpperCase()
+// One argument only, so `names.map(initials)` stays 2 letters.
 export function initials(school: string): string {
-  const words = school.replace(/[^A-Za-z\s-]/g, ' ').split(/[\s-]+/).filter(w => w && !/^(of|the|at|and|in)$/i.test(w))
-  return (words.slice(0, 2).map(w => w[0]).join('') || '?').toUpperCase()
+  return initialsOf(school, 2)
+}
+
+// Badge and map labels that stay unique inside one list (2026-10-02 live: Daytona State College and
+// Delaware State University were both "DS"). Unique initials stay 2 letters. A collision tries 3
+// initials ("DSC" / "DSU"), then the shortest start of the first word that is unique ("Manh" / "Merc").
+export function schoolLabels(schools: string[]): Record<string, string> {
+  const names = schools.filter((s, i) => schools.indexOf(s) === i)
+  const out: Record<string, string> = {}
+  const groups = (label: (s: string) => string, list: string[]) => list.reduce<Record<string, string[]>>((all, s) => ((all[label(s)] ||= []).push(s), all), {})
+  for (const [two, group] of Object.entries(groups(s => initials(s), names))) {
+    if (group.length === 1) { out[group[0]] = two; continue }
+    for (const [three, same] of Object.entries(groups(s => initialsOf(s, 3), group))) {
+      if (same.length === 1) { out[same[0]] = three; continue }
+      for (const school of same) {
+        const first = schoolWords(school)[0] || school
+        const others = same.filter(s => s !== school).map(s => (schoolWords(s)[0] || s).toLowerCase())
+        let size = 3
+        while (size < first.length && others.some(o => o.startsWith(first.slice(0, size).toLowerCase()))) size += 1
+        out[school] = first.slice(0, Math.max(size, 3)).replace(/^./, c => c.toUpperCase())
+      }
+    }
+  }
+  return out
 }
 
 // Up to 4 school labels on the map, none on top of another label or the "You" pin and its text.

@@ -7,13 +7,13 @@ import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentN
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 
-// One URL per page, so back, refresh and deep links work. TODO(card slice): My card gets
-// its own page; until then it opens the existing footage page.
+// One URL per page, so back, refresh and deep links work. /home/footage (all footage and
+// results) stays reachable from Home's "See all"; it is not a tab.
 export const TABS = [
   { href: '/home', label: 'Home', match: (path: string) => path === '/home' || path === '/home/inbox' },
   { href: '/home/colleges', label: 'Colleges', match: (path: string) => path.startsWith('/home/colleges') },
   { href: '/home/emails', label: 'Emails', match: (path: string) => path === '/home/emails' },
-  { href: '/home/footage', label: 'My card', match: (path: string) => path === '/home/footage' },
+  { href: '/home/card', label: 'My card', match: (path: string) => path === '/home/card' || path === '/home/footage' },
 ] as const
 
 export function activeTab(pathname: string | null): string | null {

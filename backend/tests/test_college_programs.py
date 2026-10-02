@@ -34,6 +34,15 @@ BODIES = {"/api/workspace/saved-colleges/{clerk_id}/{program_id}": {"saved": Tru
           "/api/workspace/colleges/{clerk_id}/{program_id}/sent": {"sent": True},
           "/api/workspace/parent-contact/{clerk_id}": {"email": "parent@example.com"}}
 HIGHLIGHT = {"url": "https://gmtm.com/film/301", "reel": True}
+
+
+def card_clip(n, title="Game clip", reel=False):
+    return {"id": f"film-{n}", "title": title, "source_label": "Your GMTM footage", "recorded_at": f"2026-09-{n:02d}T00:00:00",
+            "thumbnail_url": None, "source_url": f"https://gmtm.com/film/{n}", "video_url": None, "reel": reel}
+
+
+# Her eligible clips, newest first (read_card already dropped private and dead ones).
+CARD = [card_clip(9), card_clip(7, "Highlight Reel", reel=True), card_clip(5)]
 # Real GMTM junior drill names (events 1305/1314/1317); Plano, TX.
 DRILLS = [{"name": "20-Yard Dash", "value": 3.42, "unit": "seconds"}, {"name": "5-10-5 Shuttle", "value": 5.1, "unit": "seconds"},
           {"name": "Standing Broad Jump", "value": 84, "unit": "inches"}]
@@ -46,6 +55,7 @@ class CollegeStore:
         self.marked = {"sparq_saved_colleges": {}, "sparq_sent_emails": {}}
         self.mark_calls = []
         self.parents = {}
+        self.cards = {}
         self.profiles = {SUBJECT: {"clerk_id": SUBJECT, "name": NAME, "position": "QB", "class_year": 2028, "state": state,
                                  "city": CITY, "email": EMAIL,
                                  "combine_metrics": json.dumps({"fortyYardDash": 5.4, "vertical": 21, "weight": 120})}}
@@ -89,6 +99,14 @@ class CollegeStore:
         else:
             self.parents.pop(clerk_id, None)
 
+    def card_picks(self, clerk_id): return list(self.cards.get(clerk_id, []))
+
+    def set_card_picks(self, clerk_id, film_ids):
+        if film_ids:
+            self.cards[clerk_id] = list(film_ids)
+        else:
+            self.cards.pop(clerk_id, None)
+
     def latest_draft(self, clerk_id, program_id):
         rows = [d for d in self.drafts if d["clerk_id"] == clerk_id and d["payload"]["program_id"] == program_id]
         return rows[-1] if rows else None
@@ -125,6 +143,7 @@ def app(profile_app, monkeypatch, session):
     monkeypatch.setattr(cp, "read_highlight", lambda uid, featured=None: dict(HIGHLIGHT) if uid == USER_ID else None)
     monkeypatch.setattr(cp, "model_json", model)
     monkeypatch.setattr(cp, "read_identity", lambda uid: dict(identity) if uid == USER_ID else None)
+    monkeypatch.setattr(cp, "read_card", lambda uid: [dict(c) for c in CARD] if uid == USER_ID else [])
     with TestClient(profile_app) as client:
         yield client, store, model, identity, session(sub=SUBJECT), entries
 
@@ -898,11 +917,11 @@ def test_featured_clip_id_reaches_the_footage_reader(app, monkeypatch):
     monkeypatch.setattr(cp, "read_featured", lambda clerk_id: "film-5" if clerk_id == SUBJECT else None)
     monkeypatch.setattr(cp, "read_highlight", lambda uid, featured=None: seen.append(featured) or {"url": "https://gmtm.com/film/5", "reel": False})
     body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
-    assert seen == ["film-5"] and "My video: https://gmtm.com/film/5" in body["body"]
+    assert seen == [["film-5"]] and "My video: https://gmtm.com/film/5" in body["body"]
     # Workspace unreadable: the draft still gets a clip (no featured preference).
     monkeypatch.setattr(cp, "read_featured", lambda clerk_id: (_ for _ in ()).throw(RuntimeError("down")))
     assert client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).status_code == 200
-    assert seen[-1] is None
+    assert seen[-1] == [None]
 
 
 @pytest.mark.parametrize("visibility", [1, 0, None, "x"])
@@ -963,3 +982,178 @@ def test_coach_email_ignores_questionnaire_platform_hosts():
     p = {"coach_email": "coach@spry.so", "program_url": "https://school.edu/flag",
          "staff_page_url": "https://athletics.school.edu/staff", "questionnaire_url": "https://app.spry.so/x"}
     assert cp.coach_email(p) is None
+
+
+
+# ── My card ────────────────────────────────────────────────────────────────────
+
+CARD_URL = f"/api/workspace/card/{SUBJECT}"
+
+
+def test_card_routes_are_owner_checked(app):
+    client, store, *_ , headers, _ = app
+    for method, body in (("GET", None), ("POST", {"film_ids": ["film-5"]})):
+        assert client.request(method, CARD_URL, json=body).status_code == 401
+        assert client.request(method, "/api/workspace/card/user_other", headers=headers, json=body).status_code == 403
+    assert store.cards == {}
+
+
+def test_card_default_order_is_featured_then_reel_then_newest(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    body = client.get(CARD_URL, headers=headers).json()
+    assert body["state"] == "ready" and [c["id"] for c in body["clips"]] == ["film-9", "film-7", "film-5"]
+    assert body["order"] == ["film-7"] and body["chosen"] is False  # Highlight Reel task clip
+    monkeypatch.setattr(cp, "read_featured", lambda clerk_id: "film-5")
+    assert client.get(CARD_URL, headers=headers).json()["order"] == ["film-5"]
+    monkeypatch.setattr(cp, "read_card", lambda uid: [card_clip(9), card_clip(5)])
+    monkeypatch.setattr(cp, "read_featured", lambda clerk_id: None)
+    assert client.get(CARD_URL, headers=headers).json()["order"] == ["film-9"]  # newest
+    monkeypatch.setattr(cp, "read_card", lambda uid: [])
+    assert client.get(CARD_URL, headers=headers).json()["order"] == []
+
+
+def test_card_save_keeps_her_order_max_3_and_only_her_eligible_clips(app):
+    client, store, *_ , headers, _ = app
+    saved = client.post(CARD_URL, headers=headers, json={"film_ids": ["film-5", "film-9"]})
+    assert saved.status_code == 200 and saved.json()["order"] == ["film-5", "film-9"] and saved.json()["chosen"] is True
+    assert store.cards[SUBJECT] == ["film-5", "film-9"]
+    assert client.get(CARD_URL, headers=headers).json()["order"] == ["film-5", "film-9"]
+    for bad in (["film-5", "film-7", "film-9", "film-1"],  # more than 3
+                ["film-5", "film-5"],  # repeat
+                ["film-404"],  # not hers, private or dead: not in her eligible clips
+                ["5"], ["film-0"], [5], "film-5"):
+        response = client.post(CARD_URL, headers=headers, json={"film_ids": bad})
+        assert response.status_code == 422, bad
+    assert client.post(CARD_URL, headers=headers, json={"film_ids": ["film-5"], "x": 1}).status_code == 422
+    assert store.cards[SUBJECT] == ["film-5", "film-9"]
+    # Empty clears: back to the default clip.
+    assert client.post(CARD_URL, headers=headers, json={"film_ids": []}).json()["order"] == ["film-7"]
+    assert SUBJECT not in store.cards
+
+
+def test_card_pick_that_became_private_or_dead_drops_out(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    store.cards[SUBJECT] = ["film-9", "film-5"]
+    monkeypatch.setattr(cp, "read_card", lambda uid: [card_clip(7, "Highlight Reel", reel=True), card_clip(5)])
+    assert client.get(CARD_URL, headers=headers).json()["order"] == ["film-5"]
+    store.cards[SUBJECT] = ["film-9"]
+    body = client.get(CARD_URL, headers=headers).json()
+    assert body["order"] == ["film-7"] and body["chosen"] is False
+
+
+def test_card_gmtm_down_or_unlinked_saves_nothing(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    monkeypatch.setattr(cp, "read_card", lambda uid: (_ for _ in ()).throw(RuntimeError("down")))
+    assert client.get(CARD_URL, headers=headers).json()["state"] == "source_unavailable"
+    assert client.post(CARD_URL, headers=headers, json={"film_ids": ["film-5"]}).status_code == 503
+    monkeypatch.setattr(store, "gmtm_user_id", lambda clerk_id: None)
+    assert client.get(CARD_URL, headers=headers).json()["state"] == "unlinked"
+    assert client.post(CARD_URL, headers=headers, json={"film_ids": ["film-5"]}).status_code == 409
+    assert store.cards == {}
+
+
+def test_card_picks_store_failure_falls_back_to_the_default(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    monkeypatch.setattr(store, "card_picks", lambda clerk_id: (_ for _ in ()).throw(RuntimeError("no table")))
+    assert client.get(CARD_URL, headers=headers).json()["order"] == ["film-7"]
+
+
+@pytest.mark.parametrize("visibility,public", [(2, True), ("2", True), (1, False), (0, False), (None, False), ("x", False)])
+def test_card_share_link_only_when_gmtm_profile_is_public(app, visibility, public):
+    client, store, model, identity, headers, _ = app
+    identity["visibility"] = visibility
+    share = client.get(CARD_URL, headers=headers).json()["share"]
+    if public:
+        assert share == {"profile_url": f"https://gmtm.com/athletes/{USER_ID}", "settings_url": None}
+    else:
+        assert share == {"profile_url": None, "settings_url": "https://gmtm.com/settings"}
+
+
+def test_email_kit_highlight_is_the_card_lead(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    seen = []
+    monkeypatch.setattr(cp, "read_featured", lambda clerk_id: "film-9")
+    monkeypatch.setattr(cp, "read_highlight", lambda uid, preferred=None: seen.append(preferred) or {"url": "https://gmtm.com/film/5", "reel": False})
+    store.cards[SUBJECT] = ["film-5", "film-9"]
+    body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert seen == [["film-5", "film-9", "film-9"]] and "My video: https://gmtm.com/film/5" in body["body"]
+
+
+def test_pick_clip_follows_card_picks_then_featured_and_skips_private_or_dead():
+    items = [clip(9), clip(7, label="Highlight Reel task"), clip(5), clip(3, can_include=False), clip(2, availability="unavailable")]
+    assert cp.pick_clip(items, ["film-3", "film-5", "film-9"]) == {"url": "https://gmtm.com/film/5", "reel": False}
+    assert cp.pick_clip(items, ["film-2", "film-3", None]) == {"url": "https://gmtm.com/film/7", "reel": True}
+    assert cp.pick_clip(items, ["film-404", "film-9"])["url"] == "https://gmtm.com/film/9"
+    assert [c["id"] for c in cp.card_clips(items)] == ["film-9", "film-7", "film-5"]
+
+
+def test_video_url_accepts_extensionless_gmtm_reel_uploads_and_one_leading_slash():
+    key = "videos/events/1305/pre-edit-uploads/0b7c2d1e-4f5a-4b6c-9d8e-112233445566"
+    assert cp.video_url("gmtm", key) == "https://cdn.gmtm.com/" + key
+    assert cp.video_url("gmtm", "/" + key) == "https://cdn.gmtm.com/" + key
+    assert cp.video_url("gmtm", "/users/7301/uploads/a.mp4") == "https://cdn.gmtm.com/users/7301/uploads/a.mp4"
+    for service, uri in (("s3", key), ("youtube", key), ("gmtm", "//" + key), ("gmtm", "users/7301/uploads/abc"),
+                         ("gmtm", key + "?x=1"), ("gmtm", key + "#t"), ("gmtm", key + "%2e"), ("gmtm", "videos:x/a/b"),
+                         ("gmtm", "videos/events/../x"), ("gmtm", "videos//events/x"), ("gmtm", "videos/events/1305/a b"),
+                         ("gmtm", "videos\\events\\x"), ("gmtm", "videos/undefined/x"), ("gmtm", "videos/x"),
+                         ("gmtm", "videos/events/1305/caf\u00e9"), ("gmtm", "videos/" + "a/" * 130 + "b")):
+        assert cp.video_url(service, uri) is None, (service, uri)
+
+
+def test_home_lead_endpoint_returns_only_the_lead_and_skips_the_visibility_read(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    reads = []
+    monkeypatch.setattr(cp, "read_identity", lambda uid: reads.append(uid) or {"visibility": 2})
+    body = client.get(f"{CARD_URL}/lead", headers=headers).json()
+    assert body == {"state": "ready", "clips": [card_clip(7, "Highlight Reel", reel=True)], "order": ["film-7"], "chosen": False, "share": None}
+    assert reads == []
+    assert client.get(f"/api/workspace/card/user_other/lead", headers=headers).status_code == 403
+    assert client.get(f"{CARD_URL}/lead").status_code == 401
+
+
+def test_video_url_is_a_plain_cdn_file_only():
+    ok = cp.video_url("gmtm", "users/7301/uploads/My Clip (1).mp4")
+    assert ok == "https://cdn.gmtm.com/users/7301/uploads/My%20Clip%20%281%29.mp4"
+    assert cp.video_url("s3", "https://cdn.gmtm.com/videos/in-person/camp-12/a.MOV") == "https://cdn.gmtm.com/videos/in-person/camp-12/a.MOV"
+    for service, uri in (("youtube", "abc.mp4"), ("hudl", "x.mp4"), ("gmtm", None), ("gmtm", ""),
+                         ("gmtm", "users/1/uploads/a.m3u8"), ("gmtm", "users/1/uploads/a.jpg"),
+                         ("gmtm", "//users/1/a.mp4"), ("gmtm", "users/../a.mp4"), ("gmtm", "users//a.mp4"),
+                         ("gmtm", "users/undefined/uploads/a.mp4"), ("gmtm", "a.mp4?x=1"), ("gmtm", "a%2e.mp4"),
+                         ("gmtm", "https://evil.example/a.mp4"), ("gmtm", "http://cdn.gmtm.com/a.mp4"),
+                         ("gmtm", "a\\b.mp4"), ("gmtm", "caf\u00e9.mp4"), ("gmtm", "a" * 300 + ".mp4")):
+        assert cp.video_url(service, uri) is None, (service, uri)
+
+
+def test_read_card_uses_only_eligible_films_and_reads_only_their_file_key(monkeypatch):
+    """Real materials projection on synthetic rows: private and dead films never reach the card."""
+    import athlete_evidence
+    from backend.tests import test_athlete_materials as tm
+    queries = []
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def execute(self, sql, params):
+            sql = " ".join(sql.split())
+            queries.append((sql, params))
+            if "FROM film WHERE film_id IN" in sql:
+                self.rows = [{"film_id": 301, "service": "gmtm", "uri": "users/7201/uploads/game.mp4"}]
+            elif "WHERE f.user_id = %s" in sql:
+                self.rows = [tm.film(), tm.film(film_id=310, visibility=1, published_on=datetime(2026, 8, 21)),
+                             tm.film(film_id=311, dead_link=1, published_on=datetime(2026, 8, 22))]
+            else:
+                self.rows = []
+        def fetchall(self): return self.rows
+
+    class DB:
+        closed = False
+        def cursor(self): return Cursor()
+        def close(self): DB.closed = True
+
+    monkeypatch.setattr(athlete_evidence, "_get_gmtm_db", lambda: DB())
+    clips = cp.read_card(tm.OWNER)
+    assert [c["id"] for c in clips] == ["film-301"] and DB.closed
+    assert clips[0]["video_url"] == "https://cdn.gmtm.com/users/7201/uploads/game.mp4"
+    files = [q for q in queries if "FROM film WHERE film_id IN" in q[0]]
+    assert files == [("SELECT film_id, service, uri FROM film WHERE film_id IN (%s) AND visibility = 2 "
+                      "AND (dead_link IS NULL OR dead_link = 0) LIMIT %s", (301, 1))]

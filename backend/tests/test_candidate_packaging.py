@@ -239,7 +239,8 @@ if surface == 'profile':
                   ('GET','/api/workspace/saved-colleges/{clerk_id}'),('POST','/api/workspace/saved-colleges/{clerk_id}/{program_id}'),
                   ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/sent'),
                   ('GET','/api/workspace/college-emails/{clerk_id}'),
-                  ('GET','/api/workspace/parent-contact/{clerk_id}'),('POST','/api/workspace/parent-contact/{clerk_id}')})
+                  ('GET','/api/workspace/parent-contact/{clerk_id}'),('POST','/api/workspace/parent-contact/{clerk_id}'),
+                  ('GET','/api/workspace/card/{clerk_id}'),('GET','/api/workspace/card/{clerk_id}/lead'),('POST','/api/workspace/card/{clerk_id}')})
 else:
  expected.update({('GET','/api/combine/current'),('POST','/api/combine/help')})
 assert {(method,route.path) for route in app.routes for method in route.methods} == expected

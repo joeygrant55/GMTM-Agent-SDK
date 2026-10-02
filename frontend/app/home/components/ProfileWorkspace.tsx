@@ -10,8 +10,10 @@ import { ProfileMaterialItem } from './profileMaterials'
 import AthleteCareerHome, { drillResults, featuredClip, playableClips, Poster } from './AthleteCareerHome'
 import { CareerGoal, useCareerWorkspace, workLabels } from './careerWorkspace'
 import { aboutMiles, Badge, readJSON, SavedColleges, savedURL, shortDate } from './ProfileColleges'
+import MyCard, { leadClip, useCard } from './MyCard'
+import { schoolLabels } from './journey'
 
-export type ProfileView = 'home' | 'footage' | 'progress'
+export type ProfileView = 'home' | 'card' | 'footage' | 'progress'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
 const secondary = `inline-flex min-h-11 items-center justify-center rounded-xl border border-jr-edge px-4 py-2 text-sm font-semibold transition-colors hover:border-jr-muted disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -154,13 +156,25 @@ function ProfileReadout({ userId, view, profile, refreshing, onRefresh, workspac
   const featuredId = workspace.snapshot?.featured_source_id || null
 
   if (materialsScopeMismatch) return <p role="status" className="py-12 text-jr-soft">Checking your GMTM connection…</p>
+  if (view === 'card') return <MyCard userId={userId} profile={profile} snapshot={materials.snapshot} />
   if (view === 'footage') return <FootageView profile={profile} materials={materials} workspace={workspace} refreshing={refreshing} onRefresh={onRefresh} />
   if (view === 'progress') return <ProgressView colleges={colleges.data} collegesError={colleges.error} workspace={workspace} />
-  return <AthleteCareerHome profile={profile} snapshot={materials.snapshot} loading={materials.loading} error={materials.error}
-    featuredId={featuredId} colleges={colleges.data} collegesError={colleges.error} />
+  return <HomeWithCard userId={userId} profile={profile} materials={materials} featuredId={featuredId} colleges={colleges} />
 }
 
-// TODO(card slice): /home/footage becomes "My card". For now: her portfolio, results and featured clip.
+// Home's featured clip is the lead clip on My card.
+function HomeWithCard({ userId, profile, materials, featuredId, colleges }: {
+  userId: string; profile: ProfileEvidence; materials: ReturnType<typeof useProfileMaterials> & { error: boolean }
+  featuredId: string | null; colleges: ReturnType<typeof useSavedColleges>
+}) {
+  const card = useCard(userId, true)
+  const state = card.data?.state === 'ready' ? { state: 'ready' as const, lead: leadClip(card.data) }
+    : card.error || card.data ? { state: 'failed' as const } : { state: 'loading' as const }
+  return <AthleteCareerHome profile={profile} snapshot={materials.snapshot} loading={materials.loading} error={materials.error}
+    featuredId={featuredId} card={state} colleges={colleges.data} collegesError={colleges.error} />
+}
+
+// All her footage, results and materials (reached from Home's "See all"). My card is /home/card.
 function FootageView({ profile, materials, workspace, refreshing, onRefresh }: {
   profile: ProfileEvidence; materials: ReturnType<typeof useProfileMaterials> & { error: boolean }
   workspace: ReturnType<typeof useCareerWorkspace>; refreshing: boolean; onRefresh: () => void
@@ -176,14 +190,14 @@ function FootageView({ profile, materials, workspace, refreshing, onRefresh }: {
     await workspace.save({ featured_source_id: item.id })
   }
   return <div className="max-w-4xl pb-6 pt-8">
-    <p className="font-label text-xs uppercase tracking-[2px] text-jr-lime">My card</p>
+    <p className="font-label text-xs uppercase tracking-[2px] text-jr-lime">My footage</p>
     <h1 className="mt-3 break-words text-[34px] font-bold leading-tight sm:text-[44px]">{athlete.name || 'Your athlete profile'}</h1>
     {identity.length > 0 && <p className="mt-2 break-words text-jr-soft">{identity.join(' · ')}</p>}
     {(athlete.city || athlete.state) && <p className="mt-1 text-sm text-jr-muted">{[athlete.city, athlete.state].filter(Boolean).join(', ')}</p>}
 
     <section aria-labelledby="clips-title" className="mt-10">
       <h2 id="clips-title" className="text-[22px] font-bold">Featured clip</h2>
-      <p className="mt-1 text-sm text-jr-muted">Pick the clip coaches see first on your home.</p>
+      <p className="mt-1 text-sm text-jr-muted">Your card leads with this clip until you choose highlights on <Link href="/home/card" className="text-jr-lime underline underline-offset-4">My card</Link>.</p>
       {clips.length ? <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {clips.map(clip => <li key={clip.id} className={`${card} overflow-hidden ${featured?.id === clip.id ? 'border-2 border-jr-lime' : ''}`}>
           <div className="relative aspect-video"><Poster key={`${clip.id}:${clip.thumbnail_url || ''}`} clip={clip} /></div>
@@ -234,6 +248,7 @@ function ProgressView({ colleges, collegesError, workspace }: { colleges: SavedC
     return () => goalDialog.current?.close()
   }, [goalOpen])
   const savedGoal = workspace.snapshot?.goal || null
+  const savedLabels = schoolLabels((colleges?.saved || []).map(p => p.school))
   const editGoal = () => { setGoalForm(savedGoal ? { ...savedGoal } : { text: '', destination: null, timeframe: null }); setGoalOpen(true) }
   const saveGoal = async () => {
     const next = { text: goalForm.text.trim(), destination: goalForm.destination?.trim() || null, timeframe: goalForm.timeframe?.trim() || null }
@@ -254,7 +269,7 @@ function ProgressView({ colleges, collegesError, workspace }: { colleges: SavedC
         : !colleges ? <p role="status" className="text-jr-muted">Loading…</p>
           : colleges.saved.length ? <ul className="flex flex-col gap-2.5">{colleges.saved.map(program => <li key={program.id}>
             <Link href={`/home/colleges/${program.id}`} className={`flex items-center gap-3.5 ${card} px-4 py-3.5 hover:border-jr-edge ${focus}`}>
-              <Badge program={program} size="sm" />
+              <Badge program={program} size="sm" label={savedLabels[program.school]} />
               <span className="flex min-w-0 flex-1 flex-col"><span className="break-words font-semibold">{program.school}</span>
                 <span className="text-sm text-jr-muted">{[program.level, aboutMiles(program.distance_mi)].filter(Boolean).join(' · ')}</span></span>
               <span className={`shrink-0 rounded-full px-2.5 py-1.5 text-[13px] ${program.sent_at ? 'bg-jr-done font-semibold text-jr-lime' : 'bg-jr-track text-[#D4D4DA]'}`}>{program.sent_at ? `Sent ${shortDate(program.sent_at)}` : 'Write it'}</span>

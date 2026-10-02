@@ -22,7 +22,7 @@ Rules for this module:
 - Drafts reuse the shared outreach prompt (first name only). SPARQ never sends.
 
 Inert on import. Outside effects go through module seams that tests replace:
-``store`` (Agent DB), ``read_identity`` / ``read_athlete`` (read-only GMTM) and ``model_json`` (model).
+``store`` (Agent DB), ``read_identity`` / ``read_athlete`` / ``read_card`` (read-only GMTM) and ``model_json`` (model).
 ``SCHEMA`` is prepared separately; the app never creates tables.
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ import os
 import re
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import anthropic
 from fastapi import Depends, HTTPException
@@ -83,6 +83,12 @@ SCHEMA = (
     """CREATE TABLE IF NOT EXISTS sparq_parent_contact (
     clerk_id VARBINARY(255) PRIMARY KEY,
     parent_email VARCHAR(254) NOT NULL,
+    updated_at DATETIME(6) NOT NULL
+)""",
+    # "My card": her chosen highlight film ids, in order (first = lead). Ids only; no media.
+    """CREATE TABLE IF NOT EXISTS sparq_card_clips (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    film_ids JSON NOT NULL,
     updated_at DATETIME(6) NOT NULL
 )""",
 )
@@ -300,17 +306,40 @@ def read_athlete(user_id: int) -> dict:
 
 
 _HIGHLIGHT = re.compile(r"highlight reel", re.I)
+MAX_CARD_CLIPS = 3
+_FILM_ID = re.compile(r"film-([1-9][0-9]{0,15})\Z")
 
 
-def pick_clip(items: list[dict], featured_id: Optional[str]) -> Optional[dict]:
-    """Same order as Home's featured clip: the clip she featured on My card, then her Highlight Reel
-    task clip, then her newest public clip. Only public, not-dead clips with an https film link."""
-    clips = [i for i in items if i.get("kind") == "footage" and i.get("can_include") and i.get("availability") == "unchecked"
-             and https(i.get("source_url"))]
-    reel = lambda i: bool(_HIGHLIGHT.search(f"{i.get('source_label') or ''} {i.get('title') or ''}"))
-    clip = next((i for i in clips if featured_id and i["id"] == featured_id), None) or next((i for i in clips if reel(i)), None) \
+def _is_reel(item: dict) -> bool:
+    return bool(_HIGHLIGHT.search(f"{item.get('source_label') or ''} {item.get('title') or ''}"))
+
+
+def card_clips(items: list[dict]) -> list[dict]:
+    """Her clips that may lead a card or an email: public, not marked dead, with an https film link."""
+    return [i for i in items if i.get("kind") == "footage" and i.get("can_include") and i.get("availability") == "unchecked"
+            and https(i.get("source_url"))]
+
+
+def card_order(clips: list[dict], picks, featured_id: Optional[str]) -> list[str]:
+    """Her saved picks that are still eligible (max 3, her order). None left: one default clip, in the
+    same order as Home's featured clip: the clip she featured, then her Highlight Reel task clip, then her newest."""
+    ids = [c["id"] for c in clips]
+    chosen = [i for i in dict.fromkeys(picks or []) if i in ids][:MAX_CARD_CLIPS]
+    if chosen:
+        return chosen
+    clip = next((c for c in clips if featured_id and c["id"] == featured_id), None) or next((c for c in clips if _is_reel(c)), None) \
         or next(iter(clips), None)
-    return {"url": clip["source_url"], "reel": reel(clip)} if clip else None
+    return [clip["id"]] if clip else []
+
+
+def pick_clip(items: list[dict], preferred=None) -> Optional[dict]:
+    """The card's lead clip for a coach email. ``preferred``: her card picks then her featured clip
+    (a list), or one featured id. Only public, not-dead clips with an https film link."""
+    preferred = [preferred] if isinstance(preferred, str) else [p for p in preferred or [] if isinstance(p, str)]
+    clips = card_clips(items)
+    order = card_order(clips, preferred, None)
+    clip = next((c for c in clips if order and c["id"] == order[0]), None)
+    return {"url": clip["source_url"], "reel": _is_reel(clip)} if clip else None
 
 
 def read_featured(clerk_id: str) -> Optional[str]:
@@ -320,7 +349,7 @@ def read_featured(clerk_id: str) -> Optional[str]:
     return value if isinstance(value, str) else None
 
 
-def read_highlight(user_id: int, featured_id: Optional[str] = None) -> Optional[dict]:
+def read_highlight(user_id: int, preferred=None) -> Optional[dict]:
     """Read-only GMTM: her public clip for a coach email (pick_clip). None if she has none."""
     import athlete_evidence as evidence  # lazy: read-only GMTM readers
     import athlete_materials as materials
@@ -331,7 +360,61 @@ def read_highlight(user_id: int, featured_id: Optional[str] = None) -> Optional[
     finally:
         db.close()
     items, _ = materials._project([], films, user_id)
-    return pick_clip(items, featured_id)
+    return pick_clip(items, preferred)
+
+
+# GMTM serves gmtm/s3 film files at https://cdn.gmtm.com/<film.uri> (gmtm-api-v2 film.resolver.js,
+# "case 'gmtm': url = `https://cdn.gmtm.com/${filmRow.uri}`"). Only plain video files play inline;
+# anything else (YouTube, Hudl, HLS, odd keys) keeps the poster and the "Watch on GMTM" link.
+_VIDEO_PATH = re.compile(r"[A-Za-z0-9_+()][A-Za-z0-9 _.+()/-]{0,250}\.(?i:mp4|m4v|mov|webm)")
+# Junior Highlight Reel uploads have no extension (measured 2026-10-02: 153 reels and 382 film rows use
+# videos/events/<id>/pre-edit-uploads/<uuid>; the CDN serves them as video/mp4, and "+.mp4" is 403).
+# GMTM-hosted keys under videos/ only, with no dot, space or other punctuation.
+_RAW_VIDEO_PATH = re.compile(r"videos/[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+){1,8}")
+
+
+def video_url(service, uri) -> Optional[str]:
+    """A direct cdn.gmtm.com video URL from a stored film key, path-encoded, or None. Never fetched here."""
+    if service not in ("gmtm", "s3") or not isinstance(uri, str) or not 0 < len(uri) <= 255 or not uri.isascii():
+        return None
+    path = uri[len("https://cdn.gmtm.com/"):] if uri.startswith("https://cdn.gmtm.com/") else uri
+    path = path[1:] if path.startswith("/") else path  # some GMTM rows store one leading "/"
+    segments = path.split("/")
+    playable = _VIDEO_PATH.fullmatch(path) or (service == "gmtm" and _RAW_VIDEO_PATH.fullmatch(path))
+    if not playable or any(s in ("", ".", "..") for s in segments) or "undefined" in segments:
+        return None
+    return "https://cdn.gmtm.com/" + quote(path, safe="/")
+
+
+def _film_files(db, film_ids: list[int]) -> dict[int, Optional[str]]:
+    """Read-only GMTM: the stored file key for her already-eligible film ids (owner-checked by the
+    materials projection). Only service and uri; no other film field."""
+    if not film_ids:
+        return {}
+    with db.cursor() as c:
+        c.execute("SELECT film_id, service, uri FROM film WHERE film_id IN (" + ", ".join(["%s"] * len(film_ids)) + ") "
+                  "AND visibility = 2 AND (dead_link IS NULL OR dead_link = 0) LIMIT %s", (*film_ids, len(film_ids)))
+        rows = c.fetchall()
+    return {r["film_id"]: video_url(r.get("service"), r.get("uri")) for r in rows if r.get("film_id") in film_ids}
+
+
+def read_card(user_id: int) -> list[dict]:
+    """Read-only GMTM: her eligible clips for My card (newest first), each with a poster and,
+    when GMTM stores a plain video file, a direct video URL."""
+    import athlete_evidence as evidence  # lazy: read-only GMTM readers
+    import athlete_materials as materials
+    db = evidence._get_gmtm_db()
+    try:
+        films = [("submission", materials._submitted_film_rows(db, user_id)), ("direct", materials._direct_film_rows(db, user_id)),
+                 ("career", materials._career_film_rows(db, user_id))]
+        items, _ = materials._project([], films, user_id)
+        clips = card_clips(items)
+        files = _film_files(db, [int(c["id"][5:]) for c in clips])
+    finally:
+        db.close()
+    return [{"id": c["id"], "title": c["title"], "source_label": c["source_label"], "recorded_at": c["recorded_at"],
+             "thumbnail_url": c.get("thumbnail_url"), "source_url": c["source_url"],
+             "video_url": files.get(int(c["id"][5:])), "reel": _is_reel(c)} for c in clips]
 
 
 def model_json(system: str, user: str, max_tokens: int) -> Optional[dict]:
@@ -463,6 +546,26 @@ class MySQLStore:
                          (clerk_id.encode(), email, now))
         else:
             sql, args = "DELETE FROM sparq_parent_contact WHERE clerk_id = %s", (clerk_id.encode(),)
+        self._run(lambda c: c.execute(sql, args), write=True)
+
+    def card_picks(self, clerk_id):
+        """Her saved card film ids in order, e.g. ["film-301"]. [] when none are saved."""
+        def read(c):
+            c.execute("SELECT film_ids FROM sparq_card_clips WHERE clerk_id = %s", (clerk_id.encode(),))
+            row = c.fetchone()
+            value = json.loads(row["film_ids"]) if row and isinstance(row.get("film_ids"), (str, bytes)) else (row or {}).get("film_ids")
+            return [i for i in value if isinstance(i, str)] if isinstance(value, list) else []
+        return self._run(read)
+
+    def set_card_picks(self, clerk_id, film_ids):
+        """Empty clears the row (back to the default clip)."""
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        if film_ids:
+            sql, args = ("INSERT INTO sparq_card_clips (clerk_id, film_ids, updated_at) VALUES (%s, %s, %s) "
+                         "ON DUPLICATE KEY UPDATE film_ids = VALUES(film_ids), updated_at = VALUES(updated_at)",
+                         (clerk_id.encode(), json.dumps(film_ids), now))
+        else:
+            sql, args = "DELETE FROM sparq_card_clips WHERE clerk_id = %s", (clerk_id.encode(),)
         self._run(lambda c: c.execute(sql, args), write=True)
 
 
@@ -931,24 +1034,30 @@ def _kit(clerk_id: str, facts: dict, origin: Optional[dict]) -> dict:
             featured = None
             log.warning("college_programs: workspace read failed (%s)", type(error).__name__)  # class only, never values
         try:
-            highlight = read_highlight(user_id, featured)
+            # The card's lead clip: her first still-eligible pick, else the featured/reel/newest default.
+            highlight = read_highlight(user_id, _card_picks(clerk_id) + [featured])
         except Exception as error:
             log.warning("college_programs: GMTM footage read failed (%s)", type(error).__name__)  # class only, never values
-    # Her GMTM athlete page is linked only when GMTM shows it publicly (users.visibility = 2,
-    # the same rule as search_api.py). Unknown or private: no profile link.
-    public = False
-    if user_id:
-        try:
-            public = str((read_identity(user_id) or {}).get("visibility")) == "2"
-        except Exception as error:
-            log.warning("college_programs: GMTM visibility read failed (%s)", type(error).__name__)  # class only, never values
     city, state = (origin or {}).get("city"), (origin or {}).get("state")
     state = state or facts["state"]
     return {"grad_year": facts["grad_year"], "position": facts["position"],
             "hometown": f"{city}, {state}" if city and state and (origin or {}).get("state") else STATE_NAMES.get(state),
             "highlight_url": https((highlight or {}).get("url")), "highlight_reel": bool(highlight and highlight.get("reel")),
-            "profile_url": GMTM_PROFILE.format(int(user_id)) if user_id and public else None,
+            "profile_url": public_profile_url(user_id),
             "drills": best_drills(facts["drill_results"])}
+
+
+def public_profile_url(user_id) -> Optional[str]:
+    """Her GMTM athlete page, only when GMTM shows it publicly (users.visibility = 2, the same rule
+    as search_api.py). Unknown, private or unreadable: None."""
+    if not user_id:
+        return None
+    try:
+        public = str((read_identity(user_id) or {}).get("visibility")) == "2"
+    except Exception as error:
+        log.warning("college_programs: GMTM visibility read failed (%s)", type(error).__name__)  # class only, never values
+        return None
+    return GMTM_PROFILE.format(int(user_id)) if public else None
 
 
 def kit_block(kit: dict) -> str:
@@ -1121,3 +1230,95 @@ def mark_sent(program_id: str, body: SentBody, clerk_id: str = Depends(owner_id)
         raise HTTPException(409, "Write a draft for this college first.")
     store.set_mark("sparq_sent_emails", clerk_id, p["id"], body.sent)
     return {"program_id": p["id"], "sent_at": _iso(_marks(clerk_id)[1].get(p["id"]))}
+
+
+# ── My card (owner-only; no public page: a minor's card is never served without her session) ──
+
+GMTM_SETTINGS = "https://gmtm.com/settings"
+BAD_CARD = "Choose up to 3 of your public clips."
+
+
+def _card_picks(clerk_id: str) -> list[str]:
+    """Saved picks; [] if the store fails (e.g. the table is not created yet)."""
+    try:
+        return store.card_picks(clerk_id)
+    except Exception as error:
+        log.warning("college_programs: card picks read failed (%s)", type(error).__name__)  # class only, never values
+        return []
+
+
+def _card_clips(clerk_id: str):
+    """(GMTM user id, her eligible clips). Clips None when GMTM cannot be read right now."""
+    user_id = store.gmtm_user_id(clerk_id)
+    if not user_id:
+        return None, []
+    try:
+        return user_id, read_card(user_id)
+    except Exception as error:
+        log.warning("college_programs: GMTM card read failed (%s)", type(error).__name__)  # class only, never values
+        return user_id, None
+
+
+def _card_view(user_id, clips, picks: list[str], featured: Optional[str], share: bool = True) -> dict:
+    ids = {c["id"] for c in clips}
+    order = card_order(clips, picks, featured)
+    if not share:  # Home's lead clip only: no visibility read, no other clips.
+        return {"state": "ready", "clips": [c for c in clips if c["id"] in order[:1]], "order": order[:1],
+                "chosen": any(p in ids for p in picks), "share": None}
+    profile_url = public_profile_url(user_id)
+    return {"state": "ready", "clips": clips, "order": order,
+            "chosen": any(p in ids for p in picks),
+            # Share only her GMTM page, only when GMTM shows it publicly. Otherwise point to GMTM settings.
+            "share": {"profile_url": profile_url, "settings_url": None if profile_url else GMTM_SETTINGS}}
+
+
+def _featured(clerk_id: str) -> Optional[str]:
+    try:
+        return read_featured(clerk_id)
+    except Exception as error:
+        log.warning("college_programs: workspace read failed (%s)", type(error).__name__)  # class only, never values
+        return None
+
+
+def _read_card_view(clerk_id: str, share: bool) -> dict:
+    user_id, clips = _card_clips(clerk_id)
+    empty = {"clips": [], "order": [], "chosen": False,
+             "share": {"profile_url": None, "settings_url": GMTM_SETTINGS} if share else None}
+    if not user_id:
+        return {"state": "unlinked", **empty}
+    if clips is None:
+        return {"state": "source_unavailable", **empty}
+    return _card_view(user_id, clips, _card_picks(clerk_id), _featured(clerk_id), share)
+
+
+def get_card(clerk_id: str = Depends(owner_id)):
+    """Her card: eligible clips (newest first), the ordered picks (first = lead) and the share link."""
+    return _read_card_view(clerk_id, share=True)
+
+
+def get_card_lead(clerk_id: str = Depends(owner_id)):
+    """Home's featured clip: the card's lead clip only (no share link, so no GMTM visibility read)."""
+    return _read_card_view(clerk_id, share=False)
+
+
+class CardBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    film_ids: list[StrictStr] = Field(max_length=MAX_CARD_CLIPS)
+
+
+def set_card(body: CardBody, clerk_id: str = Depends(owner_id)):
+    """Save her ordered picks (max 3; [] = back to the default). Only her own public, not-dead clips."""
+    _limit("mark", clerk_id, MARKS_PER_HOUR)
+    ids = body.film_ids
+    if len(set(ids)) != len(ids) or not all(_FILM_ID.fullmatch(i) for i in ids):
+        raise HTTPException(422, BAD_CARD)
+    user_id, clips = _card_clips(clerk_id)
+    if not user_id:
+        raise HTTPException(409, "Connect your GMTM profile first.")
+    if clips is None:
+        raise HTTPException(503, "Your clips could not be checked right now. Your card has not changed.")
+    eligible = {c["id"] for c in clips}
+    if any(i not in eligible for i in ids):
+        raise HTTPException(422, BAD_CARD)
+    store.set_card_picks(clerk_id, ids)
+    return _card_view(user_id, clips, ids, _featured(clerk_id))

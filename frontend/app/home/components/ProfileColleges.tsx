@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
-import { badgeColors, chooseLabels, initials, mapWindow } from './journey'
+import { badgeColors, chooseLabels, initials, mapWindow, schoolLabels } from './journey'
 import { noteChecklist, openLink, plainEmail, type CheckItem, type NoteKit } from './emailKit'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
@@ -61,9 +61,12 @@ export async function readJSON<T>(request: Promise<Response>): Promise<T> {
 export const shortDate = (iso: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso))
 export const aboutMiles = (mi: number | null) => (mi === null ? null : `about ${mi} mi`)
 
-export function Badge({ program, size = 'md' }: { program: Pick<CollegeProgram, 'school' | 'primary_color'>; size?: 'sm' | 'md' }) {
+// `label`: the list's unique label (schoolLabels) when two schools in it share initials.
+export function Badge({ program, size = 'md', label }: { program: Pick<CollegeProgram, 'school' | 'primary_color'>; size?: 'sm' | 'md'; label?: string }) {
+  const text = label || initials(program.school)
+  const long = text.length > 2
   return <span aria-hidden="true" style={badgeColors(program.primary_color)}
-    className={`flex shrink-0 items-center justify-center font-bold ${size === 'sm' ? 'h-11 w-11 rounded-xl text-sm' : 'h-16 w-16 rounded-2xl text-[22px]'}`}>{initials(program.school)}</span>
+    className={`flex shrink-0 items-center justify-center font-bold ${size === 'sm' ? `h-11 w-11 rounded-xl ${long ? 'text-[11px]' : 'text-sm'}` : `h-16 w-16 rounded-2xl ${long ? 'text-base' : 'text-[22px]'}`}`}>{text}</span>
 }
 
 function HeartIcon({ on }: { on: boolean }) {
@@ -109,9 +112,9 @@ function Meta({ program }: { program: CollegeProgram }) {
   </p>
 }
 
-function ProgramCard({ program, busy, onToggle }: { program: CollegeProgram; busy: boolean; onToggle: () => void }) {
+function ProgramCard({ program, busy, onToggle, label }: { program: CollegeProgram; busy: boolean; onToggle: () => void; label?: string }) {
   return <article className={`flex gap-4 rounded-[20px] bg-jr-card p-4 sm:p-[18px] ${program.saved ? 'border-2 border-jr-lime' : 'border border-jr-line'}`}>
-    <Badge program={program} />
+    <Badge program={program} label={label} />
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <div className="flex justify-between gap-3">
         <h3 className="break-words text-lg font-bold leading-snug sm:text-xl">{program.school}</h3>
@@ -130,7 +133,7 @@ function ProgramCard({ program, busy, onToggle }: { program: CollegeProgram; bus
 
 // Bundled continental-US outline + markers placed by the server's map projection. No tile server.
 // The view zooms to her city and the listed programs (pure CSS on the same local SVG).
-function CollegeMap({ programs, origin }: { programs: CollegeProgram[]; origin: Origin | null }) {
+function CollegeMap({ programs, origin, labels }: { programs: CollegeProgram[]; origin: Origin | null; labels: Record<string, string> }) {
   const placed = programs.filter(p => p.map)
   const view = mapWindow([...placed.map(p => p.map!), ...(origin?.map ? [origin.map] : [])])
   // Percent of the whole map -> percent of the visible window.
@@ -145,7 +148,7 @@ function CollegeMap({ programs, origin }: { programs: CollegeProgram[]; origin: 
         {placed.map(p => <li key={p.id} className="absolute -translate-x-1/2 -translate-y-1/2" style={at(p.map!)}>
           <Link href={`/home/colleges/${p.id}`} aria-label={`${p.school}${p.distance_mi !== null ? `, ${aboutMiles(p.distance_mi)}` : ''}`}
             style={badgeColors(p.primary_color)} className={`block rounded-lg font-bold shadow ${focus} ${labelled.includes(p) ? 'px-2 py-1 text-xs' : 'h-3 w-3 rounded-full ring-2 ring-[#101318]'}`}>
-            {labelled.includes(p) ? `${initials(p.school)}${p.distance_mi !== null ? ` · ${p.distance_mi} mi` : ''}` : ''}
+            {labelled.includes(p) ? `${labels[p.school] || initials(p.school)}${p.distance_mi !== null ? ` · ${p.distance_mi} mi` : ''}` : ''}
           </Link>
         </li>)}
       </ul>
@@ -228,6 +231,8 @@ export function ProfileColleges() {
   const shown = useMemo(() => (list?.programs || []).filter(p =>
     (level === 'All' || p.level.startsWith(level)) && (!near || (p.distance_mi !== null && p.distance_mi <= NEAR_MI)) && (!savedOnly || p.saved)), [list, level, near, savedOnly])
   const hasDistances = !!list?.programs.some(p => p.distance_mi !== null)
+  // Same labels as the map, so a badge and its map pin match (e.g. DSC / DSU, not DS twice).
+  const labels = useMemo(() => schoolLabels((list?.programs || []).map(p => p.school)), [list])
 
   if (!isLoaded || (!list && !error)) return <p role="status" className="py-16 text-center text-jr-muted">Loading your colleges…</p>
   return <div className="pb-12 pt-8">
@@ -255,11 +260,11 @@ export function ProfileColleges() {
           <button type="button" aria-expanded={mapOpen} aria-controls="college-map" onClick={() => setMapOpen(v => !v)} className={`${secondary} mt-6 w-full md:hidden`}>{mapOpen ? 'Hide map' : 'Map'}</button>
           <div className="mt-4 grid items-start gap-6 md:mt-6 md:grid-cols-2">
             <div className="flex flex-col gap-3.5">
-              {shown.length ? shown.map(program => <ProgramCard key={program.id} program={program} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)
+              {shown.length ? shown.map(program => <ProgramCard key={program.id} program={program} label={labels[program.school]} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)
                 : <p className="rounded-[20px] border border-jr-line bg-jr-card p-6 text-jr-soft">{savedOnly ? 'No saved colleges yet. Tap a heart to save one.' : 'No colleges match these filters.'}</p>}
             </div>
             <div id="college-map" className={`${mapOpen ? 'block' : 'hidden'} order-first md:sticky md:top-6 md:order-none md:block`}>
-              <CollegeMap programs={shown} origin={list.origin} />
+              <CollegeMap programs={shown} origin={list.origin} labels={labels} />
             </div>
           </div>
           <div className="mt-6"><button type="button" onClick={() => void build()} disabled={busy} className={secondary}>{busy ? 'Checking…' : 'Check my list again'}</button></div>
@@ -478,6 +483,7 @@ export function ProfileEmails() {
     return () => { live = false }
   }, [userId])
 
+  const emailLabels = useMemo(() => schoolLabels((data?.emails || []).map(r => r.school)), [data])
   if (!isLoaded || (!data && !error)) return <p role="status" className="py-16 text-center text-jr-muted">Loading your emails…</p>
   return <div className="max-w-3xl pb-12 pt-8">
     <h1 className="text-[34px] font-bold leading-tight tracking-[-1px] sm:text-[44px]">Emails</h1>
@@ -488,7 +494,7 @@ export function ProfileEmails() {
       <ul className="mt-6 flex flex-col gap-3">
         {data.emails.map(row => <li key={row.id}>
           <Link href={`/home/colleges/${row.id}`} className={`flex items-center gap-4 rounded-[20px] border border-jr-line bg-jr-card p-4 hover:border-jr-edge ${focus}`}>
-            <Badge program={row} size="sm" />
+            <Badge program={row} size="sm" label={emailLabels[row.school]} />
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="break-words text-lg font-bold leading-snug">{row.school}</span>
               <span className="text-sm text-jr-muted">{row.city}, {row.state} · <span className="whitespace-nowrap">{row.level}</span></span>

@@ -168,7 +168,9 @@ check('Drill results: GMTM spellings share one key; height and weight are hidden
 const transpile = file => {
   const ts = require(path.join(process.env.SPARQ_TEST_NODE_MODULES || path.join(root, 'node_modules'), 'typescript'))
   const module = { exports: {} }
-  new Function('exports', 'module', ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(module.exports, module)
+  // Sibling pure modules only (e.g. cardPicker -> ./profileMaterials).
+  const local = id => { if (!/^\.\/[A-Za-z]+$/.test(id)) throw Error('unexpected import ' + id); return transpile(path.join(path.dirname(file), id + '.ts')) }
+  new Function('exports', 'module', 'require', ts.transpileModule(fs.readFileSync(path.join(root, file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(module.exports, module, local)
   return module.exports
 }
 
@@ -218,11 +220,11 @@ check('Map window: fits her city + listed programs, padded, minimum zoom, 8:5 sh
   for (const p of tall) assert.ok(p.y > t.y && p.y < t.y + t.h, 'tall list fits vertically')
 })
 
-check('Pages: /home is the journey; Home, Colleges, Emails, My card (footage) tabs; active tab per URL; profile-only', () => {
+check('Pages: /home is the journey; Home, Colleges, Emails, My card (/home/card) tabs; active tab per URL; profile-only', () => {
   const home = fs.readFileSync(path.join(root, 'app/home/page.tsx'), 'utf8')
   assert.match(home, /<ProfileWorkspace view="home" \/>/)
   assert.match(fs.readFileSync(path.join(root, 'app/home/inbox/page.tsx'), 'utf8'), /isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) redirect\('\/home'\)/)
-  for (const [page, view] of [['progress', 'progress'], ['footage', 'footage']]) {
+  for (const [page, view] of [['progress', 'progress'], ['footage', 'footage'], ['card', 'card']]) {
     const source = fs.readFileSync(path.join(root, `app/home/${page}/page.tsx`), 'utf8')
     assert.match(source, /if \(!isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) notFound\(\)/)
     assert.match(source, new RegExp(`<ProfileWorkspace view="${view}" />`))
@@ -230,7 +232,7 @@ check('Pages: /home is the journey; Home, Colleges, Emails, My card (footage) ta
     assert.equal(policy.candidatePagePolicy(`/home/${page}`, 'GET', 'combine'), 'deny')
   }
   const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
-  for (const [href, label] of [['/home', 'Home'], ['/home/colleges', 'Colleges'], ['/home/emails', 'Emails'], ['/home/footage', 'My card']]) assert.ok(shell.includes(`{ href: '${href}', label: '${label}'`), label)
+  for (const [href, label] of [['/home', 'Home'], ['/home/colleges', 'Colleges'], ['/home/emails', 'Emails'], ['/home/card', 'My card']]) assert.ok(shell.includes(`{ href: '${href}', label: '${label}'`), label)
   const emails = fs.readFileSync(path.join(root, 'app/home/emails/page.tsx'), 'utf8')
   assert.match(emails, /if \(!isProfileSurface\(process\.env\.NEXT_PUBLIC_APP_SURFACE\)\) notFound\(\)/)
   assert.match(emails, /m\.ProfileEmails/)
@@ -348,6 +350,104 @@ check('B3: GMTM users/undefined upload keys are never requested', () => {
   const { isProfileThumbnail } = transpile('app/home/components/profileMaterials.ts')
   assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/undefined/uploads/11111111-2222-4333-8444-555555555555.jpg'), false)
   assert.equal(isProfileThumbnail('https://cdn.gmtm.com/users/7201/uploads/clip.jpg'), true)
+})
+
+check('My card CSP: images from self, cdn.gmtm.com and i.ytimg.com (posters); video from self and cdn.gmtm.com only', () => {
+  const csp = policy.profileContentSecurityPolicy({ nonce, profile: true })
+  const directive = name => csp.split('; ').find(part => part.startsWith(name + ' ')) || ''
+  assert.equal(directive('img-src'), "img-src 'self' data: https://cdn.gmtm.com https://i.ytimg.com")
+  assert.equal(directive('media-src'), "media-src 'self' https://cdn.gmtm.com")
+  assert.ok(!/https:(?!\/\/cdn\.gmtm\.com)/.test(directive('media-src')), 'no other video host')
+  assert.ok(!/https:(?!\/\/(?:cdn\.gmtm\.com|i\.ytimg\.com))/.test(directive('img-src')), 'no other image host')
+  assert.ok(!/ytimg/.test(directive('connect-src') + directive('media-src')))
+  assert.equal(directive('connect-src'), "connect-src 'self'")
+  assert.equal(directive('frame-src'), "frame-src 'none'")
+  // Every directive other than img/media is identical to the non-profile policy.
+  const base = policy.profileContentSecurityPolicy({ nonce }).split('; ')
+  assert.deepEqual(csp.split('; ').filter(d => !/^(img|media)-src /.test(d)), base.filter(d => !/^(img|media)-src /.test(d)))
+  const source = fs.readFileSync(path.join(root, 'middleware.ts'), 'utf8')
+  assert.match(source, /const profile = isProfileSurface\(surface\)/)
+  assert.match(source, /profileContentSecurityPolicy\(\{ nonce, dev: [^}]*connect, profile \}\)/)
+})
+
+check('My card: page + owner-checked API only on profile; no public card page or share of a SPARQ URL', () => {
+  assert.equal(policy.candidatePagePolicy('/home/card', 'GET', 'profile'), 'page')
+  for (const s of ['combine']) assert.equal(policy.candidatePagePolicy('/home/card', 'GET', s), 'deny')
+  for (const page of ['/card/user_x', '/home/card/user_x', '/athlete/1/card', '/share/card']) assert.equal(policy.candidatePagePolicy(page, 'GET', 'profile'), 'deny', page)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x', 'GET', '', 'profile'), true)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x', 'POST', '', 'profile'), true)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x', 'DELETE', '', 'profile'), false)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x/lead', 'GET', '', 'profile'), true)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x/lead', 'POST', '', 'profile'), false)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x/lead', 'GET', '', 'combine'), false)
+  assert.equal(policy.candidateAPIAllowed('/api/workspace/card/user_x', 'GET', '', 'combine'), false)
+  const ui = fs.readFileSync(path.join(root, 'app/home/components/MyCard.tsx'), 'utf8')
+  // The only copied link is her GMTM profile URL from the backend (set only when GMTM shows it publicly).
+  assert.match(ui, /navigator\.clipboard\.writeText\(url\)/)
+  assert.match(ui, /const url = share\.profile_url/)
+  assert.match(ui, /Make your GMTM profile public to share it\./)
+  assert.ok(!/window\.location|location\.origin|sparq\.gmtm\.com/.test(ui), 'no SPARQ card URL is built or shared')
+  assert.ok(!/dangerouslySetInnerHTML|innerHTML/.test(ui))
+  const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
+  assert.match(shell, /\{ href: '\/home\/card', label: 'My card', match: \(path: string\) => path === '\/home\/card' \|\| path === '\/home\/footage' \}/)
+  const home = fs.readFileSync(path.join(root, 'app/home/components/AthleteCareerHome.tsx'), 'utf8')
+  assert.match(home, /<Link href="\/home\/card" className=\{outline\}>See my athlete card<\/Link>/)
+  // Home: neutral skeleton until the lead-only card read answers; footage default only if it fails.
+  assert.match(home, /card\.state === 'ready' \? card\.lead : card\.state === 'failed' \? featuredClip\(clips, featuredId\) : undefined/)
+  assert.match(home, /heroLoading \? <div role="status" aria-label="Loading your featured clip"/)
+  assert.match(fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspace.tsx'), 'utf8'), /useCard\(userId, true\)/)
+  // Raw uploads are 80-500 MB: no preview video anywhere, and the lead player loads only on her tap.
+  const sources = ['MyCard.tsx', 'AthleteCareerHome.tsx', 'ProfileWorkspace.tsx'].map(n => fs.readFileSync(path.join(root, 'app/home/components', n), 'utf8')).join('\n')
+  assert.equal((sources.match(/<video\b/g) || []).length, 1)
+  assert.match(ui, /<video key=\{clip\.id\} controls autoPlay playsInline preload="none"/)
+  assert.match(ui, /if \(inline && playing\)/)
+  assert.ok(!/preload="(?:metadata|auto)"|#t=/.test(sources))
+  assert.ok(!ui.includes('Write a draft for this college first.'))
+})
+
+check('My card picker: tap adds or removes, keeps order, max 3; response check drops bad media and foreign hosts', () => {
+  const { togglePick, readCard, isCardVideo, isCardPoster, CARD_MAX } = transpile('app/home/components/cardPicker.ts')
+  assert.equal(CARD_MAX, 3)
+  let picks = []
+  for (const id of ['film-1', 'film-2', 'film-3']) picks = togglePick(picks, id)
+  assert.deepEqual(picks, ['film-1', 'film-2', 'film-3'])
+  assert.deepEqual(togglePick(picks, 'film-4'), picks, 'a fourth pick is refused')
+  assert.deepEqual(togglePick(picks, 'film-2'), ['film-1', 'film-3'])
+  assert.deepEqual(togglePick(togglePick(picks, 'film-1'), 'film-1'), ['film-2', 'film-3', 'film-1'], 're-adding goes last')
+  assert.ok(isCardVideo('https://cdn.gmtm.com/users/7301/uploads/My%20Clip%20%281%29.mp4'))
+  // Junior Highlight Reels: extensionless GMTM uploads under videos/ (served as video/mp4).
+  assert.ok(isCardVideo('https://cdn.gmtm.com/videos/events/1305/pre-edit-uploads/0b7c2d1e-4f5a-4b6c-9d8e-112233445566'))
+  for (const bad of ['https://cdn.gmtm.com/users/7301/uploads/abc', 'https://cdn.gmtm.com/videos/x', 'https://cdn.gmtm.com/videos/a/../b',
+    'https://cdn.gmtm.com/videos//a/b', 'https://cdn.gmtm.com/videos/a/b?x=1', 'https://cdn.gmtm.com/videos/a/b%2e']) assert.equal(isCardVideo(bad), false, bad)
+  for (const bad of ['https://evil.example/a.mp4', 'http://cdn.gmtm.com/a.mp4', 'https://cdn.gmtm.com/a.m3u8', 'https://cdn.gmtm.com//a.mp4',
+    'https://cdn.gmtm.com/a/../b.mp4', 'https://cdn.gmtm.com.evil.example/a.mp4', 'javascript:alert(1)//.mp4', null]) assert.equal(isCardVideo(bad), false, String(bad))
+  assert.ok(isCardPoster('https://cdn.gmtm.com/videos/film/thumbnails/a.jpg'))
+  assert.ok(isCardPoster('https://i.ytimg.com/vi/abcdefghijk/0.jpg'))
+  for (const bad of ['https://cdn.gmtm.com/users/undefined/uploads/a.jpg', 'https://cdn.gmtm.com/a.svg', 'https://evil.example/vi/abcdefghijk/0.jpg']) assert.equal(isCardPoster(bad), false, bad)
+  const clip = (n, extra = {}) => ({ id: `film-${n}`, title: `Clip ${n}`, source_label: 'Junior Combine #2', recorded_at: null, thumbnail_url: null,
+    source_url: `https://gmtm.com/film/${n}`, video_url: null, reel: false, ...extra })
+  const body = { state: 'ready', clips: [clip(1, { video_url: 'https://evil.example/x.mp4', thumbnail_url: 'https://evil.example/vi/abcdefghijk/0.jpg' }), clip(2)],
+    order: ['film-2'], chosen: true, share: { profile_url: 'https://gmtm.com/athletes/7301', settings_url: null } }
+  const card = readCard(body)
+  assert.equal(card.clips[0].video_url, null); assert.equal(card.clips[0].thumbnail_url, null)
+  assert.deepEqual(card.order, ['film-2'])
+  assert.equal(readCard({ ...body, share: null }).share, null, "Home's lead-only read has no share")
+  for (const broken of [{ ...body, order: ['film-9'] }, { ...body, order: ['film-1', 'film-1'] }, { ...body, order: ['film-1', 'film-2', 'film-1', 'film-2'] },
+    { ...body, share: { profile_url: 'https://sparq.gmtm.com/card/1', settings_url: null } },
+    { ...body, clips: [clip(1, { source_url: 'https://evil.example/film/1' })], order: [] }]) assert.throws(() => readCard(broken))
+})
+
+check('Map and badges: schools that share initials get unique labels in one list', () => {
+  const { schoolLabels, initials } = transpile('app/home/components/journey.ts')
+  const labels = schoolLabels(['Daytona State College', 'Delaware State University', 'Alabama State University'])
+  assert.deepEqual(labels, { 'Daytona State College': 'DSC', 'Delaware State University': 'DSU', 'Alabama State University': 'AS' })
+  const more = schoolLabels(['Manhattan University', 'Mercyhurst University', 'Marymount University', 'Marywood University'])
+  assert.equal(new Set(Object.values(more)).size, 4, JSON.stringify(more))
+  assert.deepEqual(more, { 'Manhattan University': 'Man', 'Mercyhurst University': 'Mer', 'Marymount University': 'Marym', 'Marywood University': 'Maryw' })
+  assert.equal(initials('Daytona State College'), 'DS')
+  const colleges = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
+  assert.match(colleges, /<CollegeMap programs=\{shown\} origin=\{list\.origin\} labels=\{labels\} \/>/)
+  assert.match(colleges, /\$\{labels\[p\.school\] \|\| initials\(p\.school\)\}/)
 })
 
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))

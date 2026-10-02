@@ -243,6 +243,10 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("GET", "/api/workspace/college-emails/{clerk_id}", colleges.college_emails),
             ("GET", "/api/workspace/parent-contact/{clerk_id}", colleges.get_parent_contact),
             ("POST", "/api/workspace/parent-contact/{clerk_id}", colleges.set_parent_contact),
+            # My card: her ordered highlight picks (owner-checked). No public card page.
+            ("GET", "/api/workspace/card/{clerk_id}", colleges.get_card),
+            ("GET", "/api/workspace/card/{clerk_id}/lead", colleges.get_card_lead),
+            ("POST", "/api/workspace/card/{clerk_id}", colleges.set_card),
         )
         title = "SPARQ Profile Candidate"
 

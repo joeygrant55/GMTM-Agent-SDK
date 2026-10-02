@@ -7,8 +7,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { drillKey, evidenceDate, isBodySize, ProfileEvidence } from './profileEvidence'
 import { isProfileThumbnail, ProfileMaterialItem, ProfileMaterialsSnapshot } from './profileMaterials'
+import { CardClip } from './cardPicker'
 import { aboutMiles, Badge, primary, SavedColleges, shortDate } from './ProfileColleges'
-import { journey, JourneyStep } from './journey'
+import { journey, JourneyStep, schoolLabels } from './journey'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 const outline = `inline-flex min-h-12 items-center justify-center rounded-[14px] border border-jr-edge px-6 py-3 text-base font-semibold text-jr-text hover:border-jr-muted ${focus}`
@@ -48,8 +49,9 @@ export function featuredClip(clips: ProfileMaterialItem[], featuredId: string | 
   return clips.find(item => item.id === featuredId) || clips.find(item => /highlight reel/i.test(`${item.source_label} ${item.title}`)) || clips[0]
 }
 
-// Stored poster only: a preview is never an assertion that playback was checked.
-export function Poster({ clip }: { clip: ProfileMaterialItem }) {
+// Stored poster only (GMTM CDN or YouTube). No video is fetched for a preview: GMTM clips are
+// often raw uploads of 80-500 MB. A preview is never an assertion that playback was checked.
+export function Poster({ clip }: { clip: { title: string; thumbnail_url?: string | null } }) {
   const thumbnail = isProfileThumbnail(clip.thumbnail_url) ? clip.thumbnail_url : null
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>(thumbnail ? 'loading' : 'failed')
   return <>
@@ -75,13 +77,17 @@ function StepCard({ step, index, current }: { step: JourneyStep; index: number; 
   return current && step.key !== 'profile' ? <Link href="/home/colleges" className={`${box} ${focus}`}>{body}</Link> : <div className={box}>{body}</div>
 }
 
-export default function AthleteCareerHome({ profile, snapshot, loading, error, featuredId, colleges, collegesError }: {
+export default function AthleteCareerHome({ profile, snapshot, loading, error, featuredId, card, colleges, collegesError }: {
   profile: ProfileEvidence; snapshot: ProfileMaterialsSnapshot | null; loading: boolean; error: boolean; featuredId: string | null
-  colleges: SavedColleges | null; collegesError: string
+  card: { state: 'loading' } | { state: 'ready'; lead: CardClip | null } | { state: 'failed' }; colleges: SavedColleges | null; collegesError: string
 }) {
   const athlete = profile.athlete
   const clips = playableClips(snapshot)
-  const hero = featuredClip(clips, featuredId)
+  // The lead clip on My card. A neutral skeleton until the card answers (no swap); if the card
+  // read fails, the same default order from her footage.
+  const hero: { id: string; title: string; thumbnail_url?: string | null; recorded_at: string | null } | null | undefined =
+    card.state === 'ready' ? card.lead : card.state === 'failed' ? featuredClip(clips, featuredId) : undefined
+  const heroLoading = card.state === 'loading'
   const results = drillResults(profile, snapshot)
   const first = athlete?.name?.trim().split(/\s+/)[0] || null
   const place = [athlete?.city, athlete?.state].filter(Boolean).join(', ')
@@ -89,6 +95,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
   const line = [athlete?.graduation_year ? `Class of ${athlete.graduation_year}` : null, athlete?.position, place].filter(Boolean).join(' · ')
   const flow = journey({ profileReady: clips.length > 0 || results.length > 0, found: colleges?.found || 0, saved: colleges?.saved_count || 0, sent: colleges?.sent_count || 0 })
   const nextEmail = colleges?.saved.find(program => !program.sent_at)
+  const labels = schoolLabels((colleges?.saved || []).slice(0, 5).map(program => program.school))
   const cta = !flow.current ? { href: '/home/colleges', label: 'Email another coach' }
     : flow.current.key === 'profile' ? { href: 'https://gmtm.com', label: 'Add a clip on GMTM', external: true }
       : flow.current.key === 'colleges' ? { href: '/home/colleges', label: 'Find my colleges' }
@@ -106,10 +113,11 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
         <div className="flex flex-col gap-3 sm:flex-row">
           {cta.external ? <a href={cta.href} target="_blank" rel="noopener noreferrer" className={primary}>{cta.label}<span className="sr-only"> (opens in a new tab)</span></a>
             : <Link href={cta.href} className={primary}>{cta.label}</Link>}
-          <Link href="/home/footage" className={outline}>See my athlete card</Link>
+          <Link href="/home/card" className={outline}>See my athlete card</Link>
         </div>
       </div>
-      <Link href="/home/footage" aria-label={hero ? `Featured clip: ${hero.title}. Change it on My card.` : 'Add footage. Open My card.'}
+      {heroLoading ? <div role="status" aria-label="Loading your featured clip" className="min-h-[220px] animate-pulse rounded-3xl border border-[#26262C] bg-[#17171B] sm:min-h-[360px]" />
+      : <Link href="/home/card" aria-label={hero ? `Featured clip: ${hero.title}. Change it on My card.` : 'Add footage. Open My card.'}
         className={`relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-3xl border border-[#26262C] bg-[#17171B] sm:min-h-[360px] ${focus}`}>
         {hero ? <Poster key={`${hero.id}:${hero.thumbnail_url || ''}`} clip={hero} /> : <div aria-hidden="true" className="absolute inset-0 bg-[repeating-linear-gradient(135deg,#1A1A1F_0,#1A1A1F_14px,#1E1E24_14px,#1E1E24_28px)]" />}
         <div className="relative flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent p-6">
@@ -117,7 +125,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
           <span className="break-words text-xl font-semibold">{hero ? hero.title : loading ? 'Loading your footage…' : error ? 'Your footage could not be loaded.' : 'No videos yet'}</span>
           <span className="text-sm text-jr-soft">{hero ? 'From GMTM · tap to change' : 'Videos you add on GMTM show here'}</span>
         </div>
-      </Link>
+      </Link>}
     </section>
 
     <section aria-labelledby="journey-title" className="flex flex-col gap-6 rounded-3xl border border-jr-line bg-jr-card p-5 sm:p-8">
@@ -156,7 +164,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
           : colleges.saved.length ? <ul className="flex flex-col gap-2.5">
             {colleges.saved.slice(0, 5).map(program => <li key={program.id}>
               <Link href={`/home/colleges/${program.id}`} className={`flex items-center gap-3.5 rounded-2xl border border-jr-line bg-jr-card px-4 py-3.5 hover:border-jr-edge ${focus}`}>
-                <Badge program={program} size="sm" />
+                <Badge program={program} size="sm" label={labels[program.school]} />
                 <span className="flex min-w-0 flex-1 flex-col"><span className="break-words font-semibold">{program.school}</span>
                   <span className="text-sm text-jr-muted"><span className="whitespace-nowrap">{program.level}</span>{program.distance_mi !== null && ` · ${aboutMiles(program.distance_mi)}`}</span></span>
                 <span className={`shrink-0 rounded-full px-2.5 py-1.5 text-[13px] ${program.sent_at ? 'bg-jr-done font-semibold text-jr-lime' : 'bg-jr-track text-[#D4D4DA]'}`}>{program.sent_at ? `Emailed ${shortDate(program.sent_at)}` : 'Not emailed'}</span>

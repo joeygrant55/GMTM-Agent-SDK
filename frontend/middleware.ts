@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { candidatePagePolicy, isRestrictedSurface, profileContentSecurityPolicy, resolveBackendOrigin, withoutGmtmSession } from './lib/backend-config.cjs'
+import { candidatePagePolicy, isProfileSurface, isRestrictedSurface, profileContentSecurityPolicy, resolveBackendOrigin, withoutGmtmSession } from './lib/backend-config.cjs'
 import { GSH_HEADER, SESSION_COOKIE, clearedSessionCookie, gmtmSessionHash, verifySession } from './lib/sparq-session.cjs'
 
 // GMTM is the only sign-in on every surface (Joey, 2026-10-01).
 const surface = process.env.NEXT_PUBLIC_APP_SURFACE
 const restricted = isRestrictedSurface(surface)
+const profile = isProfileSurface(surface)
 // Legacy public pages read the backend directly (athlete, report); restricted surfaces never do.
 const connect = restricted ? '' : resolveBackendOrigin(process.env.NEXT_PUBLIC_BACKEND_URL)
 // Legacy pages that render without a SPARQ session.
@@ -15,7 +16,7 @@ const LEGACY_PUBLIC = /^\/(?:$|demo$|quick-scan$|athlete\/|report\/|enter(?:\/|$
 // (a client-sent value is always dropped).
 function sessionResponse(request: NextRequest, gsh: string | null) {
   const nonce = btoa(crypto.randomUUID())
-  const csp = profileContentSecurityPolicy({ nonce, dev: process.env.NODE_ENV !== 'production', connect })
+  const csp = profileContentSecurityPolicy({ nonce, dev: process.env.NODE_ENV !== 'production', connect, profile })
   const headers = new Headers(request.headers)
   const cookie = withoutGmtmSession(headers.get('cookie'))
   if (cookie) headers.set('cookie', cookie)

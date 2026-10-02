@@ -293,6 +293,15 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
 )""",
         False,
     ),
+    (
+        'create_sparq_card_clips',
+        """CREATE TABLE IF NOT EXISTS sparq_card_clips (
+    clerk_id VARBINARY(255) PRIMARY KEY,
+    film_ids JSON NOT NULL,
+    updated_at DATETIME(6) NOT NULL
+)""",
+        False,
+    ),
 )
 
 CONVERSATION_COLUMNS = frozenset({
