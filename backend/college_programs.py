@@ -35,6 +35,7 @@ from fastapi import Depends, HTTPException
 import auth
 from auth import require_identity
 import outreach_draft
+from junior_eligibility import plausible_grad_year
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "college_womens_flag_2026.json"
 MODEL = "claude-sonnet-4-6"
@@ -335,7 +336,8 @@ def athlete_facts(profile: dict) -> dict:
     metrics = metrics if isinstance(metrics, dict) else {}
     return {
         "position": profile.get("position") or None,
-        "grad_year": profile.get("class_year"),
+        # Stale GMTM years (e.g. 2011) are omitted, so the model never sees them.
+        "grad_year": plausible_grad_year(profile.get("class_year")),
         "state": state_code(profile.get("state")),
         "combine_metrics": [{"name": n, "value": metrics[k], "unit": u} for k, n, u in METRICS
                             if isinstance(metrics.get(k), (int, float)) and not isinstance(metrics.get(k), bool)],
@@ -354,6 +356,7 @@ For each program, write exactly 2 short sentences. Be plain, encouraging and hon
 - Never invent coaches, emails, rosters, scholarships, records, rankings or recruiting interest.
 - Never say "verified" or "recruited". Do not promise anything.
 - If the athlete has no metrics, talk about location, level and the program notes.
+- If grad_year is null, never mention a grad year, class year or graduation year.
 
 Respond with ONLY JSON: {"reasons": [{"id": "<program id>", "reason": "<2 sentences>"}]}"""
 _BANNED = ("verified", "recruited", "scholarship", "ranked", "@", "http")
@@ -414,12 +417,27 @@ def _listing(saved) -> dict:
             "contact_rules": contact_rules(c["governing_body"] for c in cards)}
 
 
+def _inputs_key(facts: dict, chosen: list[dict]) -> str:
+    return hashlib.sha256(json.dumps([facts, [p["id"] for p in chosen], _data_hash], sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _current_programs(clerk_id: str, row: dict):
+    """The saved list only if it was built from today's facts (e.g. not a since-dropped 2011
+    grad year). Otherwise None: the athlete sees "not built" and rebuilds."""
+    saved = row.get("programs")
+    profile = store.profile(clerk_id) if saved is not None else None
+    if profile is None:
+        return None
+    facts = athlete_facts(profile)
+    return saved if row.get("inputs_key") == _inputs_key(facts, rank(facts["state"])) else None
+
+
 def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     _owner(clerk_id, caller_id)
     row = _identity(clerk_id, refresh=False)
     if row.get("gmtm_gender") != FEMALE:
         return _not_eligible()
-    return _listing(row.get("programs"))
+    return _listing(_current_programs(clerk_id, row))
 
 
 BUILDS_PER_HOUR, DRAFTS_PER_HOUR = 5, 10
@@ -443,7 +461,7 @@ def build_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
         raise HTTPException(404, "Your profile is not ready yet. Open SPARQ from GMTM again.")
     facts = athlete_facts(profile)
     chosen = rank(facts["state"])
-    key = hashlib.sha256(json.dumps([facts, [p["id"] for p in chosen], _data_hash], sort_keys=True, default=str).encode()).hexdigest()
+    key = _inputs_key(facts, chosen)
     saved = row.get("programs")
     # Cache per athlete: same inputs (and data file) means no new model call. A missing reason is final.
     if row.get("inputs_key") == key and saved:
@@ -460,11 +478,12 @@ QUESTIONNAIRE = "[QUESTIONNAIRE_LINK]"
 JUNIOR_DRAFT_SYSTEM = f"""You draft a short first email from a high-school flag football athlete (age 13-17) to a college women's flag football program.
 
 Respond with ONLY valid JSON, no preamble or code fences:
-{{"subject": "<short subject: grad year + position + flag football>", "body": "<100-180 words, plain text, \\n\\n between paragraphs>"}}
+{{"subject": "<short subject: grad year (only if given) + position + flag football>", "body": "<100-180 words, plain text, \\n\\n between paragraphs>"}}
 
 Rules:
 - Start the body with "Hello Coach," and never name a coach. You do not know any coach's name.
 - Use only the facts given: the athlete's first name, sport, position, grad year, state and combine metrics, and the program's school, state, level, conference and notes.
+- If class_year is null, never mention a grad year, class year or graduation year in the subject or body.
 - Never write an email address, a phone number, a web link, a social media handle or a film link.
 - Never ask for a phone call, video call, campus visit or meeting.
 - Include one plain sentence that the athlete understands coaches may not be able to reply yet because of recruiting contact rules.
@@ -473,6 +492,18 @@ Rules:
 - Sign with the athlete's first name only."""
 _PHONE = re.compile(r"\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b")
 _NAMED_COACH = re.compile(r"\bCoach [A-Z][a-z]")
+_GRAD_YEAR = re.compile(r"(?i)\b(?:class of|grad(?:uate|uating|uation)?(?: year| in)?)\s*(?:[a-z]+\s+)?['\u2018\u2019]?\d{2,4}\b"
+                        r"|\b(?:19|20)\d{2}\s*grad|['\u2018\u2019]\d{2}\b")
+_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+
+
+def year_is_clean(text: str, grad_year, facts_text: str) -> bool:
+    """A draft may name only the known grad year or a year in the program facts.
+    With no known grad year it may not mention a class/grad year in any form."""
+    allowed = set(_YEAR.findall(facts_text)) | ({str(grad_year)} if grad_year else set())
+    if any(year not in allowed for year in _YEAR.findall(text)):
+        return False
+    return grad_year is not None or not _GRAD_YEAR.search(text)
 
 
 def draft_is_clean(text: str) -> bool:
@@ -494,7 +525,7 @@ def _eligible_program(clerk_id: str, program_id: str) -> tuple[dict, dict]:
 def college_detail(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
     _owner(clerk_id, caller_id)
     row, p = _eligible_program(clerk_id, program_id)
-    reason = next((i.get("reason") for i in row.get("programs") or [] if isinstance(i, dict) and i.get("id") == p["id"]), None)
+    reason = next((i.get("reason") for i in _current_programs(clerk_id, row) or [] if isinstance(i, dict) and i.get("id") == p["id"]), None)
     return {"program": card(p, reason), "contact_rules": contact_rules([p["governing_body"]])}
 
 
@@ -506,10 +537,24 @@ def _draft_view(draft) -> dict:
                       "subject": payload.get("subject") or "", "body": payload.get("body") or ""}}
 
 
+def _college_facts(p: dict) -> dict:
+    return {"college_name": p["school"], "state": p["state"], "division": LEVELS[p["governing_body"]],
+            "conference": p.get("conference"), "notes": p.get("notes"),
+            "recruit_questionnaire": "available" if https(p.get("questionnaire_url")) else "not available"}
+
+
 def get_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
     _owner(clerk_id, caller_id)
     _, p = _eligible_program(clerk_id, program_id)
-    return _draft_view(store.latest_draft(clerk_id, p["id"]))
+    draft = store.latest_draft(clerk_id, p["id"])
+    payload = draft["payload"] if draft and isinstance(draft.get("payload"), dict) else {}
+    profile = store.profile(clerk_id) if draft else None
+    grad_year = athlete_facts(profile)["grad_year"] if profile else None
+    # An older draft written with a stale year (e.g. "Class of 2011") is not shown again.
+    if draft and not year_is_clean(f"{payload.get('subject') or ''}\n{payload.get('body') or ''}", grad_year,
+                                   json.dumps(_college_facts(p), default=str)):
+        return {"draft": None}
+    return _draft_view(draft)
 
 
 def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depends(require_identity)):
@@ -519,12 +564,13 @@ def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depen
     if profile is None:
         raise HTTPException(404, "Your profile is not ready yet. Open SPARQ from GMTM again.")
     facts = athlete_facts(profile)
-    athlete = {"name": profile.get("name"), "sport": row.get("gmtm_sport"), "position": facts["position"],
+    sport = row.get("gmtm_sport")
+    # GMTM's generic "All Sports" says nothing; the draft is about flag football anyway.
+    sport = None if not sport or str(sport).strip().casefold() == "all sports" else sport
+    athlete = {"name": profile.get("name"), "sport": sport, "position": facts["position"],
                "class_year": facts["grad_year"], "state": facts["state"], "combine_metrics": facts["combine_metrics"]}
     questionnaire = https(p.get("questionnaire_url"))
-    college = {"college_name": p["school"], "state": p["state"], "division": LEVELS[p["governing_body"]],
-               "conference": p.get("conference"), "notes": p.get("notes"),
-               "recruit_questionnaire": "available" if questionnaire else "not available"}
+    college = _college_facts(p)
     _limit("draft", clerk_id, DRAFTS_PER_HOUR)
     # The data has no coach names or addresses: To stays empty and no coach is named.
     try:
@@ -533,7 +579,8 @@ def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depen
         parsed = None
     subject = parsed.get("subject") if isinstance(parsed, dict) else None
     body = parsed.get("body") if isinstance(parsed, dict) else None
-    if not isinstance(body, str) or not body.strip() or not isinstance(subject, str) or not draft_is_clean(subject + "\n" + body):
+    if not isinstance(body, str) or not body.strip() or not isinstance(subject, str) or not draft_is_clean(subject + "\n" + body) \
+            or not year_is_clean(subject + "\n" + body, facts["grad_year"], json.dumps(college, default=str)):
         raise HTTPException(502, "We could not write a draft right now. Try again.")
     # The real questionnaire link is added here, never written by the model.
     body = body.replace(QUESTIONNAIRE, questionnaire) if questionnaire else body.replace(QUESTIONNAIRE, "")

@@ -122,4 +122,41 @@ check('Junior colleges: copy or open in my email only, strict mailto, https-only
   assert.ok(!/fit_score|approve|Send<|sendgrid/i.test(source))
 })
 
+check('Junior pilot: no Opportunities, Ask SPARQ or summary/introduction drafting on the profile surface', () => {
+  const dir = path.join(root, 'app/home/components')
+  for (const gone of ['AthleteOpportunities.tsx', 'opportunityEvidence.ts', 'opportunityEngagement.ts', 'AthleteDebriefPanel.tsx', 'athleteDebrief.ts', 'AthleteShowcase.tsx']) assert.ok(!fs.existsSync(path.join(dir, gone)), gone)
+  const ui = ['ProfileWorkspace.tsx', 'ProfileWorkspaceShell.tsx', 'AthleteCareerHome.tsx', 'ProfileMaterialsPanel.tsx'].map(name => fs.readFileSync(path.join(dir, name), 'utf8')).join('\n')
+  for (const text of ['Opportunities', 'Ask SPARQ', 'Make it yours', 'Rebuild', 'Save draft', 'Remove saved draft', 'Write an introduction', '/api/athlete/debrief', '/api/athlete/opportunities']) assert.ok(!ui.includes(text), text)
+  for (const text of ['Playback has not been checked', 'No supported numeric', 'verification is unconfirmed', 'View only; this record']) assert.ok(!ui.includes(text), text)
+  for (const route of ['/api/athlete/debrief', '/api/athlete/opportunities', '/api/athlete/opportunities/engagement']) assert.equal(policy.candidateAPIAllowed(route, 'POST', '', 'profile'), false, route)
+})
+
+check('Not you? Switch signs out of GMTM; Back to GMTM stays on gmtm.com', () => {
+  const gate = fs.readFileSync(path.join(root, 'app/home/components/ParentNoticeGate.tsx'), 'utf8')
+  assert.match(gate, /GMTM_SIGN_OUT_URL = `\$\{GMTM_URL\.replace\(\/\\\/\+\$\/, ''\)\}\/sign-out`/)
+  assert.match(gate, /<a href=\{GMTM_SIGN_OUT_URL\}[^>]*>Not you\? Switch<\/a>/)
+  assert.match(fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8'), /href="https:\/\/gmtm\.com"[^>]*>Back to GMTM/)
+})
+
+check('Coach email: a new draft asks before replacing edits; Copy is off while writing', () => {
+  const source = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
+  assert.match(source, /if \(edited && !replace\) \{ setConfirmReplace\(true\); return \}/)
+  assert.match(source, /Replace your edits\?/)
+  assert.match(source, /onClick=\{\(\) => void copy\(\)\} disabled=\{busy\}/)
+})
+
+check('Drill results: GMTM spellings share one key; height and weight are hidden everywhere on the profile', () => {
+  const ts = require(path.join(process.env.SPARQ_TEST_NODE_MODULES || path.join(root, 'node_modules'), 'typescript'))
+  const module = { exports: {} }
+  new Function('exports', 'module', ts.transpileModule(fs.readFileSync(path.join(root, 'app/home/components/profileEvidence.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(module.exports, module)
+  const { drillKey, isBodySize } = module.exports
+  for (const [a, b] of [['5-10-5 Shuttle', '5-10-5 Shuttle Run'], ['Push-Ups', 'Max. Push-Ups'], ['Sit-Ups', 'Max. Sit Ups'], ['20-Yard Dash', '20 yard dash'], ['Standing Broad Jump', 'standing broad jump']]) assert.equal(drillKey(a), drillKey(b), a)
+  assert.notEqual(drillKey('20-Yard Dash'), drillKey('60-Yard Shuttle'))
+  for (const label of ['Height', ' weight ', 'Max. Weight']) assert.ok(isBodySize(label), label)
+  assert.ok(!isBodySize('Standing Broad Jump'))
+  const dir = path.join(root, 'app/home/components')
+  for (const name of ['AthleteCareerHome.tsx', 'ProfileWorkspace.tsx', 'ProfileMaterialsPanel.tsx']) assert.match(fs.readFileSync(path.join(dir, name), 'utf8'), /isBodySize\(item\.(label|title)\)/, name)
+  assert.match(fs.readFileSync(path.join(dir, 'AthleteCareerHome.tsx'), 'utf8'), /const key = drillKey\(item\.label\)/)
+})
+
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))

@@ -23,7 +23,6 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (search) return false
   if (surface === 'combine' && pathname === '/api/combine/help') return method === 'POST'
   if (surface === 'profile' && ['/api/athlete/evidence', '/api/athlete/materials'].includes(pathname)) return method === 'GET'
-  if (surface === 'profile' && ['/api/athlete/debrief', '/api/athlete/opportunities', '/api/athlete/opportunities/engagement'].includes(pathname)) return method === 'POST'
   if (surface === 'profile' && pathname === '/api/athlete/workspace') return method === 'GET' || method === 'PATCH'
   if (surface === 'profile' && pathname === '/api/athlete/parent-notice') return method === 'GET' || method === 'POST'
   // Junior colleges (reviewed set): the backend owner-checks the clerk_id in each URL.

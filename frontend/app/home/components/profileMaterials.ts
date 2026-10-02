@@ -1,5 +1,3 @@
-import { evidenceDate } from './profileEvidence'
-
 export interface ProfileMaterialItem {
   id: string
   kind: 'submitted_result' | 'footage'
@@ -89,27 +87,4 @@ export function readProfileMaterials(value: unknown): ProfileMaterialsSnapshot {
   if (results > 20 || footage > 10) throw invalid()
   return { state: value.state as ProfileMaterialsSnapshot['state'], owner_scope: value.owner_scope as string | null | undefined, items,
     limitations: [...value.limitations], fetched_at: value.fetched_at }
-}
-
-export function materialFacts(items: ProfileMaterialItem[]): string {
-  const selected = items.filter(item => item.can_include && (item.availability === 'recorded' || item.availability === 'unchecked'))
-  if (!selected.length) return ''
-  const lines = ['Additional evidence from my GMTM profile:']
-  for (const item of selected) {
-    const date = `${item.date_label}: ${evidenceDate(item.recorded_at)}`
-    if (item.kind === 'submitted_result' && item.result) {
-      lines.push(`• ${item.title}: ${item.result.value} ${item.result.unit} — ${item.source_label}; ${date}.`)
-    } else if (item.kind === 'footage' && item.source_url) {
-      lines.push(`• ${item.title} — ${item.source_label}; ${date}. ${item.source_url} (Playback not checked.)`)
-    }
-  }
-  if (selected.some(item => item.kind === 'submitted_result')) lines.push('Submission dates are not measurement dates. Submitted results are unverified and do not establish eligibility or selection.')
-  return lines.join('\n')
-}
-
-export function addMaterialsToDraft(base: string, items: ProfileMaterialItem[], kind: 'summary' | 'introduction'): string {
-  const facts = materialFacts(items)
-  if (!facts) return base
-  const closing = kind === 'introduction' ? base.lastIndexOf('\n\nThank you for your time.') : -1
-  return closing >= 0 ? `${base.slice(0, closing)}\n\n${facts}${base.slice(closing)}` : `${base}\n\n${facts}`
 }

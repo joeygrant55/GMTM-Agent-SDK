@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { evidenceDate, ProfileEvidence } from './profileEvidence'
+import { drillKey, evidenceDate, isBodySize, knownSport, ProfileEvidence } from './profileEvidence'
 import { isProfileThumbnail, ProfileMaterialItem, ProfileMaterialsSnapshot } from './profileMaterials'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime'
@@ -15,13 +15,11 @@ export interface AthleteCareerHomeProps {
   goal: { text: string; destination: string | null; timeframe: string | null } | null
   featuredId: string | null
   saving: boolean
-  nextPending: boolean
   nextMove: { title: string; detail: string; label: string }
   recent: Array<{ id: string; kind: string; at: string }>
   onNext: () => void
   onEditGoal: () => void
   onFeature: (item: ProfileMaterialItem) => void
-  onAsk: () => void
   onBrowse: () => void
   onProgress: () => void
 }
@@ -31,7 +29,7 @@ interface DisplayResult {
   label: string
   value: number
   unit: string
-  kind: 'Recorded' | 'Submitted'
+  kind: 'On your profile' | 'Self-recorded'
   date: string | null
   source: string
 }
@@ -53,7 +51,7 @@ function FilmPreview({ clip, compact = false }: { clip: ProfileMaterialItem; com
     </div>}
     <div className={`absolute inset-x-0 bottom-0 bg-black/65 ${compact ? 'px-3 py-2 sm:px-4' : 'px-4 py-3 sm:px-5 sm:py-4'}`}>
       <Title className={`line-clamp-2 break-words font-semibold leading-snug ${compact ? 'text-sm sm:text-base' : 'text-lg sm:text-xl'}`}>{clip.title}</Title>
-      <p className={`mt-0.5 text-gray-300 ${compact ? 'text-xs' : 'text-xs sm:text-sm'}`}>Published: {evidenceDate(clip.recorded_at)}</p>
+      <p className={`mt-0.5 text-gray-300 ${compact ? 'text-xs' : 'text-xs sm:text-sm'}`}>Added {evidenceDate(clip.recorded_at)}</p>
     </div>
   </div>
 }
@@ -64,18 +62,30 @@ const activityLabels: Record<string, string> = {
   draft_saved: 'Draft saved', draft_removed: 'Draft removed',
 }
 
-export default function AthleteCareerHome({ profile, snapshot, loading, error, goal, featuredId, saving, nextPending, nextMove, recent, onNext, onEditGoal, onFeature, onAsk, onBrowse, onProgress }: AthleteCareerHomeProps) {
+// Flag-relevant drill results only: body size (height/weight) is not a result.
+const MAX_RESULTS = 6
+// The USA Football junior combine drills lead; any other drill the athlete has follows, newest first.
+const PREFERRED = [/^20yard(dash)?$/, /^5105shuttle$/, /^(standing)?broadjump$/]
+const preference = (label: string) => { const index = PREFERRED.findIndex(pattern => pattern.test(drillKey(label))); return index < 0 ? PREFERRED.length : index }
+
+export default function AthleteCareerHome({ profile, snapshot, loading, error, goal, featuredId, saving, nextMove, recent, onNext, onEditGoal, onFeature, onBrowse, onProgress }: AthleteCareerHomeProps) {
   const sourceReady = !loading && !error && snapshot?.state === 'ready'
   const items = sourceReady ? snapshot.items : []
   const clips = items.filter(item => item.kind === 'footage' && item.can_include && item.availability === 'unchecked' && item.source_url).slice(0, 10)
   const featured = featuredId ? clips.find(item => item.id === featuredId) : undefined
   const hero = featured || clips[0]
   const alternates = clips.filter(item => item.id !== hero?.id).slice(0, 2)
-  const recorded: DisplayResult[] = profile.state === 'ready' ? profile.evidence.slice(0, 2).map(item => ({ id: `profile-${item.id}`, label: item.label, value: item.value, unit: item.unit, kind: 'Recorded', date: item.recorded_at, source: item.source_label })) : []
-  const submitted: DisplayResult[] = items.filter(item => item.kind === 'submitted_result' && item.can_include && item.availability === 'recorded' && item.result).slice(0, 2).map(item => ({ id: `material-${item.id}`, label: item.title, value: item.result!.value, unit: item.result!.unit, kind: 'Submitted', date: item.recorded_at, source: item.source_label }))
-  const results = recorded.length && submitted.length ? [recorded[0], submitted[0]] : [...recorded, ...submitted].slice(0, 2)
+  const recorded: DisplayResult[] = profile.state === 'ready' ? profile.evidence.map(item => ({ id: `profile-${item.id}`, label: item.label, value: item.value, unit: item.unit, kind: 'On your profile', date: item.recorded_at, source: item.source_label })) : []
+  const submitted: DisplayResult[] = items.filter(item => item.kind === 'submitted_result' && item.can_include && item.availability === 'recorded' && item.result).map(item => ({ id: `material-${item.id}`, label: item.title, value: item.result!.value, unit: item.result!.unit, kind: 'Self-recorded', date: item.recorded_at, source: item.source_label }))
+  // Newest result for each drill, without height or weight.
+  const seen = new Set<string>()
+  const results = [...recorded, ...submitted]
+    .filter(item => !isBodySize(item.label))
+    .sort((a, b) => preference(a.label) - preference(b.label) || (b.date || '').localeCompare(a.date || ''))
+    .filter(item => { const key = drillKey(item.label); if (seen.has(key)) return false; seen.add(key); return true })
+    .slice(0, MAX_RESULTS)
   const activity = recent.filter(item => Object.prototype.hasOwnProperty.call(activityLabels, item.kind)).slice(0, 3)
-  const identity = [profile.athlete?.sport, profile.athlete?.position].filter(Boolean).join(' · ')
+  const identity = [knownSport(profile.athlete?.sport), profile.athlete?.position].filter(Boolean).join(' · ')
   const unavailable = error || snapshot?.state === 'source_unavailable'
 
   return <div className="pb-10 sm:pb-12">
@@ -93,7 +103,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, g
           <figure className="relative">
             <FilmPreview key={`${hero.id}:${hero.thumbnail_url || ''}`} clip={hero} />
             {featured && <span className="absolute left-4 top-3 rounded-full bg-sparq-lime px-3 py-1 text-xs font-semibold text-sparq-charcoal">Featured</span>}
-            <figcaption className="sr-only">{hero.title}. A stored image preview; playback has not been checked.</figcaption>
+            <figcaption className="sr-only">{hero.title}. A preview picture of your video.</figcaption>
           </figure>
           <div className="flex flex-wrap items-center justify-between gap-x-4">
             <a href={hero.source_url!} target="_blank" rel="noopener noreferrer" className={textAction}>Open on GMTM</a>
@@ -103,7 +113,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, g
           {loading ? <p role="status" className="text-sm text-gray-400">Loading your footage…</p>
             : unavailable ? <div role="alert"><p className="font-medium">Your footage could not be loaded.</p><p className="mt-2 text-sm text-gray-400">Your profile details are still available.</p></div>
               : snapshot?.state === 'unlinked' ? <div role="status"><p className="font-medium">Your footage connection needs review.</p><p className="mt-2 text-sm text-gray-400">Open your portfolio to check it.</p></div>
-                : <div><p className="font-medium">No shareable footage in this view.</p><p className="mt-2 text-sm text-gray-400">Your existing profile can still support your next move.</p></div>}
+                : <div><p className="font-medium">No videos yet.</p><p className="mt-2 text-sm text-gray-400">Videos you add on GMTM will show here.</p></div>}
         </div>}
 
       </div>
@@ -122,8 +132,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, g
           <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-gray-300">Your next move</p>
           <h2 id="career-next-title" className="mt-3 break-words text-3xl font-semibold leading-[1.08] tracking-[-0.04em] sm:mt-4 xl:text-[2.6rem]">{nextMove.title}</h2>
           <p className="mt-2 break-words text-base leading-relaxed text-gray-400 sm:mt-3 xl:text-lg">{nextMove.detail}</p>
-          <button type="button" onClick={onNext} disabled={saving || nextPending} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-base font-semibold text-sparq-charcoal hover:bg-sparq-lime-light disabled:cursor-wait disabled:opacity-50 sm:mt-6 sm:min-h-14 sm:w-auto sm:px-8 sm:text-lg ${focus}`}>{nextPending ? 'Loading your profile…' : nextMove.label}</button>
-          <div className="mt-4"><button type="button" onClick={onAsk} className={textAction}>Ask SPARQ</button></div>
+          <button type="button" onClick={onNext} disabled={saving} className={`mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-sparq-lime px-6 py-3 text-base font-semibold text-sparq-charcoal hover:bg-sparq-lime-light disabled:cursor-wait disabled:opacity-50 sm:mt-6 sm:min-h-14 sm:w-auto sm:px-8 sm:text-lg ${focus}`}>{nextMove.label}</button>
         </section>
       </aside>
 
@@ -134,19 +143,20 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, g
           </button>)}
         </div>}
         {alternates.length > 0 && <p className="mt-3 text-xs text-gray-500">Choose footage to feature on your private home.</p>}
-        {results.length > 0 && <section aria-label="Recorded and submitted results" className="mt-5 border-t border-white/15 pt-4">
+        <section aria-label="Your combine results" className="mt-5 border-t border-white/15 pt-4">
           <h2 className="text-lg font-semibold tracking-tight">Your results</h2>
-          <div className="mt-3 grid grid-cols-2 gap-4 sm:gap-6">
-            {results.map((item, index) => <article key={item.id} className={`min-w-0 ${index ? 'border-l border-white/15 pl-4 sm:pl-6' : ''}`}>
-              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-gray-400">{item.kind}</p>
-              <h3 className="mt-1 break-words text-sm leading-snug text-gray-200">{item.label}</h3>
-              <p className="mt-1 break-words text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{item.value}<span className="ml-1.5 text-base font-normal text-gray-300">{item.unit}</span></p>
-              <p className="mt-1 text-xs text-gray-400">{evidenceDate(item.date)}</p>
-              <span className="sr-only">Source: {item.source}. Measurement verification is unconfirmed.</span>
-            </article>)}
-          </div>
-          <p className="mt-3 text-xs text-gray-500">Results are unverified.</p>
-        </section>}
+          {results.length > 0 ? <>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:gap-x-6">
+              {results.map((item, index) => <article key={item.id} className={`min-w-0 ${index % 2 ? 'border-l border-white/15 pl-4 sm:pl-6' : ''}`}>
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-gray-400">{item.kind}</p>
+                <h3 className="mt-1 break-words text-sm leading-snug text-gray-200">{item.label}</h3>
+                <p className="mt-1 break-words text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{item.value}<span className="ml-1.5 text-base font-normal text-gray-300">{item.unit}</span></p>
+                <p className="mt-1 text-xs text-gray-400">{evidenceDate(item.date)}</p>
+              </article>)}
+            </div>
+            <p className="mt-3 text-xs text-gray-500">These numbers were not checked at an event.</p>
+          </> : <p className="mt-2 text-sm text-gray-400">{loading ? 'Loading your results…' : 'Your combine results will show here.'}</p>}
+        </section>
         <button type="button" onClick={onBrowse} className={`${textAction} mt-1`}>Browse portfolio</button>
       </div>
     </section>

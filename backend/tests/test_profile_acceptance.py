@@ -130,7 +130,7 @@ def test_actual_workspace_goal_draft_save_and_reload_preserves_before_state(setu
 
 
 @pytest.mark.parametrize("method,path", [("GET", "/api/claims/token"), ("POST", "/api/claims/token/redeem"),
-    ("POST", "/api/athlete/debrief"), ("GET", "/api/combine/current"), ("DELETE", "/api/athlete/workspace"),
+    ("POST", "/api/athlete/debrief"), ("POST", "/api/athlete/opportunities"), ("GET", "/api/combine/current"), ("DELETE", "/api/athlete/workspace"),
     ("GET", "/api/athlete/evidence?user_id=2"), ("GET", "/api/athlete/workspace/")])
 def test_disallowed_routes_are_rejected_before_any_connection(setup, method, path):
     with TestClient(setup.app, base_url="http://" + HOST) as client:
@@ -240,12 +240,9 @@ def test_read_only_keeps_owned_source_gets_and_rejects_patch_before_auth_or_db(s
         for path in ("evidence", "materials", "workspace"):
             response = client.get("/api/athlete/" + path, headers=setup.headers())
             assert response.status_code == 200 and response.json()["state"] == "ready"
+        # Opportunities is retired for the junior pilot: refused before any source read.
         source_queries = list(setup.store.source_queries)
-        response = client.post("/api/athlete/opportunities", headers=setup.headers(), json={
-            "pathway": "adult_flag", "category": "unspecified", "format": "any",
-            "link_revision": response.json()["link_revision"],
-        })
-        assert response.status_code == 200 and response.json()["state"] == "ready"
+        assert client.post("/api/athlete/opportunities", headers=setup.headers(), json={}).status_code == 403
         assert setup.store.source_queries == source_queries
         connections = len(setup.store.connections)
         attempts = dict(app.ledger.data["attempts"])
@@ -256,7 +253,7 @@ def test_read_only_keeps_owned_source_gets_and_rejects_patch_before_auth_or_db(s
     ledger = json.loads((run_dir / "acceptance-ledger.json").read_text())
     assert ledger["caps"] == {**acceptance.CAPS, "patch_attempts": 0}
     assert ledger["attempts"]["patch_attempts"] == ledger["commits_attempted"] == 0
-    assert ledger["attempts"]["personal_requests"] == 5
+    assert ledger["attempts"]["personal_requests"] == 4
     assert not setup.store.rows
     assert setup.store.source_queries and all(params[0] == 2 for _, params in setup.store.source_queries)
     assert acceptance.CAPS["patch_attempts"] == setup.app.ledger.data["caps"]["patch_attempts"] == 3

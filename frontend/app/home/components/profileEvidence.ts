@@ -79,27 +79,18 @@ export function evidenceValue(item: ProfileEvidenceItem): string {
   return `${item.value}${item.unit ? ` ${item.unit}` : ''}`
 }
 
-export type ProfileDraftKind = 'summary' | 'introduction'
+// GMTM's generic "All Sports" (or no sport) is not shown as a subtitle.
+export function knownSport(sport: string | null | undefined): string | null {
+  const value = sport?.trim()
+  return value && value.toLowerCase() !== 'all sports' ? value : null
+}
 
-// Plain text assembled from athlete-selected facts and the athlete's own intent.
-// This is not a model assessment, opportunity recommendation, or message sender.
-export function prepareProfileDraft(profile: ProfileEvidence, selectedIds: string[], goal: string, destination: string, kind: ProfileDraftKind): string {
-  if (profile.state !== 'ready' || !profile.athlete || !goal.trim()) throw new Error('Add a goal before preparing your summary.')
-  if (kind === 'introduction' && !destination.trim()) throw new Error('Add the real recipient for your introduction.')
-  const athlete = profile.athlete
-  const selected = profile.evidence.filter(item => selectedIds.includes(item.id))
-  const identity = [athlete.sport, athlete.position, athlete.school, athlete.graduation_year === null ? null : `Class of ${athlete.graduation_year}`, [athlete.city, athlete.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
-  const lines = kind === 'introduction'
-    ? [`Hello ${destination.trim()},`, '', athlete.name ? `I'm ${athlete.name}.` : 'I would like to introduce myself.']
-    : [athlete.name || 'Athlete profile']
-  if (identity) lines.push(identity)
-  lines.push('', `My goal: ${goal.trim()}`)
-  if (kind === 'summary' && destination.trim()) lines.push(`Prepared for: ${destination.trim()}`)
-  if (selected.length) {
-    lines.push('', 'Selected results from my GMTM profile:')
-    for (const item of selected) lines.push(`• ${item.label}: ${evidenceValue(item)} — ${evidenceDate(item.recorded_at)}; ${item.source_label}${item.event_name ? `; ${item.event_name}` : ''}.`)
-    lines.push('Measurement verification is unconfirmed; these records do not establish eligibility or selection.')
-  }
-  if (kind === 'introduction') lines.push('', 'Thank you for your time.', ...(athlete.name ? [athlete.name] : []))
-  return lines.join('\n')
+// One key per drill across GMTM spellings: "Max. Push-Ups" = "Push-Ups", "5-10-5 Shuttle Run" = "5-10-5 Shuttle".
+export function drillKey(label: string): string {
+  return label.trim().toLowerCase().replace(/^max\.?\s*/, '').replace(/\s*run$/, '').replace(/[^a-z0-9]/g, '')
+}
+
+// Height and weight are body size, not combine results.
+export function isBodySize(label: string): boolean {
+  return ['height', 'weight'].includes(drillKey(label))
 }

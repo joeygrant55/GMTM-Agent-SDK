@@ -44,19 +44,6 @@ async function readJSON<T>(request: Promise<Response>): Promise<T> {
   try { return await response.json() as T } catch { throw new Error('Something went wrong on our side. Try again in a minute.') }
 }
 
-/** True only for an eligible athlete (GMTM gender = female). False while loading or on error. */
-export function useFindColleges(): boolean {
-  const { user } = useSparqSession()
-  const [eligible, setEligible] = useState(false)
-  useEffect(() => {
-    if (!user?.id) return
-    let live = true
-    readJSON<CollegeList>(apiFetch(collegesURL(user.id))).then(body => { if (live) setEligible(body.eligible === true) }, () => {})
-    return () => { live = false }
-  }, [user?.id])
-  return eligible
-}
-
 function ExternalLink({ href, children }: { href: string | null; children: React.ReactNode }) {
   const url = https(href)
   if (!url) return null
@@ -154,6 +141,9 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
   const userId = user?.id
   const [detail, setDetail] = useState<{ program: CollegeProgram; contact_rules: ContactRules[] } | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
+  // The draft as SPARQ wrote it; any difference means the athlete edited it.
+  const [written, setWritten] = useState<Draft | null>(null)
+  const [confirmReplace, setConfirmReplace] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
@@ -164,19 +154,22 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
     Promise.all([
       readJSON<{ program: CollegeProgram; contact_rules: ContactRules[] }>(apiFetch(collegesURL(userId, `/${programId}`))),
       readJSON<{ draft: Draft | null }>(apiFetch(collegesURL(userId, `/${programId}/outreach-draft`))),
-    ]).then(([d, saved]) => { if (live) { setDetail(d); setDraft(saved.draft) } }, e => { if (live) setError(e.message) })
+    ]).then(([d, saved]) => { if (live) { setDetail(d); setDraft(saved.draft); setWritten(saved.draft) } }, e => { if (live) setError(e.message) })
     return () => { live = false }
   }, [userId, programId])
 
-  const write = async () => {
-    if (!userId) return
-    setBusy(true); setError(''); setCopied('')
+  const edited = !!draft && !!written && (draft.to_email !== written.to_email || draft.subject !== written.subject || draft.body !== written.body)
+  const write = async (replace = false) => {
+    if (!userId || busy) return
+    if (edited && !replace) { setConfirmReplace(true); return }
+    setConfirmReplace(false); setBusy(true); setError(''); setCopied('')
     try {
-      setDraft((await readJSON<{ draft: Draft }>(apiFetch(collegesURL(userId, `/${programId}/outreach-draft`), { method: 'POST' }))).draft)
+      const next = (await readJSON<{ draft: Draft }>(apiFetch(collegesURL(userId, `/${programId}/outreach-draft`), { method: 'POST' }))).draft
+      setDraft(next); setWritten(next)
     } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
   const copy = async () => {
-    if (!draft) return
+    if (!draft || busy) return
     try {
       await navigator.clipboard.writeText(draft.subject ? `Subject: ${draft.subject}\n\n${draft.body}` : draft.body)
       setCopied('Copied. Nothing has been sent.')
@@ -204,10 +197,15 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
           <label className="mt-3 block text-xs uppercase tracking-wide text-gray-400">Subject<input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={field} /></label>
           <label className="mt-3 block text-xs uppercase tracking-wide text-gray-400">Email<textarea value={draft.body} onChange={e => setDraft({ ...draft, body: e.target.value })} rows={Math.max(8, draft.body.split('\n').length + 1)} className={field} /></label>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={() => void copy()} className={primary}>Copy</button>
+            <button type="button" onClick={() => void copy()} disabled={busy} className={primary}>Copy</button>
             <a href={mailto(draft)} className={secondary}>Open in my email</a>
-            <button type="button" onClick={() => void write()} disabled={busy} className={`min-h-11 px-3 text-sm text-gray-400 hover:text-white ${focus}`}>{busy ? 'Writing…' : 'Write a new draft'}</button>
+            <button type="button" onClick={() => void write()} disabled={busy || confirmReplace} className={`min-h-11 px-3 text-sm text-gray-400 hover:text-white ${focus}`}>{busy ? 'Writing…' : 'Write a new draft'}</button>
           </div>
+          {confirmReplace && <div role="alertdialog" aria-labelledby="replace-edits" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200/40 p-3">
+            <p id="replace-edits" className="text-sm text-amber-100">Replace your edits?</p>
+            <button type="button" autoFocus onClick={() => setConfirmReplace(false)} className={secondary}>Keep my edits</button>
+            <button type="button" onClick={() => void write(true)} className={secondary}>Replace</button>
+          </div>}
           {copied && <p role="status" className="mt-2 text-sm text-gray-300">{copied}</p>}
         </div>}
     </section>

@@ -316,8 +316,8 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
         finally: db.close()
 
     def install():
-        import athlete_evidence, athlete_materials, athlete_opportunities, combine_api, profile_api, profile_debrief, profile_owner
-        for module in (athlete_evidence, athlete_materials, athlete_opportunities, workspace, combine_api, profile_api, profile_debrief, profile_owner):
+        import athlete_evidence, athlete_materials, combine_api, profile_api, profile_owner
+        for module in (athlete_evidence, athlete_materials, workspace, combine_api, profile_api, profile_owner):
             for name, kind in (("_get_agent_db", "agent"), ("_get_gmtm_db", "gmtm")):
                 if hasattr(module, name):
                     patches.append((module, name, getattr(module, name)))
@@ -327,7 +327,6 @@ def create_acceptance_app(*, agent_settings, gmtm_settings, frontend_origin, bac
         if read_only and method == "PATCH": return None
         if path == "/health" and method == "GET": return "health"
         if path in ("/api/athlete/evidence", "/api/athlete/materials") and method == "GET": return path.rsplit("/", 1)[1]
-        if path == "/api/athlete/opportunities" and method == "POST": return "opportunities"
         if path == "/api/athlete/workspace" and method in ("GET", "PATCH"): return "workspace_" + method.lower()
         if re.fullmatch(r"/api/profile/by-owner/[A-Za-z0-9_-]{1,255}", path) and method == "GET": return "profile_link"
         return None

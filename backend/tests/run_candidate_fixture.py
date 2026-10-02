@@ -489,9 +489,8 @@ def main():
     expected = ({path for _, path, _ in candidate_app.BUSINESS_ROUTES} | entry_paths | {"/health"}
                 if surface == "combine" else entry_paths | {
                     "/health", "/api/athlete/evidence", "/api/athlete/materials", "/api/profile/by-owner/{clerk_id}",
-                    "/api/athlete/debrief", "/api/athlete/parent-notice",
+                    "/api/athlete/parent-notice",
                     "/api/athlete/workspace",
-                    "/api/athlete/opportunities", "/api/athlete/opportunities/engagement",
                     "/api/workspace/colleges/{clerk_id}", "/api/workspace/trigger-matching/{clerk_id}",
                     "/api/workspace/colleges/{clerk_id}/{program_id}",
                     "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft",

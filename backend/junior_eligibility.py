@@ -21,6 +21,17 @@ def age_on(dob: date, today: date) -> int:
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 
+def plausible_grad_year(value, today: date | None = None) -> int | None:
+    """A grad year that fits a current 13-17 athlete (this year .. this year + 7), else None.
+    GMTM holds stale values (e.g. 2011); those are omitted, never shown or sent to a model."""
+    if type(value) is str and value.strip().isdecimal():
+        value = int(value.strip())
+    if type(value) is not int:
+        return None
+    year = (today or date.today()).year
+    return value if year <= value <= year + 7 else None
+
+
 def allowlist(env: Mapping[str, str]) -> frozenset[int]:
     ids = set()
     for part in env.get("SPARQ_TEST_ALLOWLIST", "").split(","):

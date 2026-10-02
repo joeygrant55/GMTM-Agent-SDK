@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import SparqLogo from '@/components/SparqLogo'
 import { ParentNoticeScreen, SwitchAccountLink, useEntryNotice } from './ParentNoticeGate'
 
-export type CareerView = 'home' | 'portfolio' | 'opportunities' | 'progress'
+export type CareerView = 'home' | 'portfolio' | 'progress'
 
 const CareerNavigation = createContext<{ view: CareerView; revision: number; setView: (view: CareerView) => void } | null>(null)
 
@@ -19,7 +19,7 @@ export function useCareerNavigation() {
 
 const navigationItems: Array<{ view: CareerView; label: string }> = [
   { view: 'home', label: 'Home' }, { view: 'portfolio', label: 'Portfolio' },
-  { view: 'opportunities', label: 'Opportunities' }, { view: 'progress', label: 'Progress' },
+  { view: 'progress', label: 'Progress' },
 ]
 
 function CareerShell({ children, userId }: { children: React.ReactNode; userId?: string }) {

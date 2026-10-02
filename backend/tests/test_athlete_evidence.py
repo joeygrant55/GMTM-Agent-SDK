@@ -382,3 +382,10 @@ def test_source_text_is_plain_data_not_an_instruction(source):
     _, body = payload(source)
     assert body["athlete"]["name"].startswith("<script>")
     assert len(body["evidence"]) == 1
+
+
+@pytest.mark.parametrize("stored, shown", [(2011, None), (2029, 2029)])
+def test_stale_graduation_year_is_omitted_from_the_profile(source, stored, shown):
+    source[2].identity[0]["graduation_year"] = stored
+    _, body = payload(source)
+    assert body["athlete"]["graduation_year"] == shown

@@ -204,7 +204,7 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
     ['spoofed origin with other host', { origin: 'https://sparq.example.evil' }],
   ]) await check('Proxy and sign-out refuse ' + name + ' with 403 before any backend call', async () => {
     fetchCalls = []
-    const proxied = await proxy.POST(request('https://sparq.example/api/sparq/proxy/api/athlete/debrief', { token: sign(), gsh: GSH, method: 'POST', body: '{}', headers }))
+    const proxied = await proxy.POST(request('https://sparq.example/api/sparq/proxy/api/athlete/parent-notice', { token: sign(), gsh: GSH, method: 'POST', body: '{}', headers }))
     assert.equal(proxied.status, 403)
     const out = await signOut.POST(request('https://sparq.example/api/sparq/sign-out', { token: sign(), method: 'POST', headers }))
     assert.equal(out.status, 403)
@@ -213,7 +213,7 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
   })
   await check('Same-origin POST by Origin header alone is forwarded', async () => {
     fetchCalls = []; fetchReply = reply(200, { ok: true })
-    const res = await proxy.POST(request('https://sparq.example/api/sparq/proxy/api/athlete/debrief', { token: sign(), gsh: GSH, method: 'POST', body: '{}', headers: { origin: 'https://sparq.example' } }))
+    const res = await proxy.POST(request('https://sparq.example/api/sparq/proxy/api/athlete/parent-notice', { token: sign(), gsh: GSH, method: 'POST', body: '{}', headers: { origin: 'https://sparq.example' } }))
     assert.equal(res.status, 200)
     assert.equal(fetchCalls.length, 1)
   })

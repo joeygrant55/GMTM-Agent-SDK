@@ -33,8 +33,11 @@ export function useEntryNotice(userId: string | undefined) {
   return { notice, accept }
 }
 
+// GMTM sign-out ends the GMTM session; the SPARQ session is bound to it, so it ends too.
+const GMTM_SIGN_OUT_URL = `${GMTM_URL.replace(/\/+$/, '')}/sign-out`
+
 export function SwitchAccountLink() {
-  return <a href={GMTM_URL} className="inline-flex min-h-11 items-center text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Not you? Switch</a>
+  return <a href={GMTM_SIGN_OUT_URL} className="inline-flex min-h-11 items-center text-xs text-gray-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sparq-lime">Not you? Switch</a>
 }
 
 export function ParentNoticeScreen({ notice, accept }: { notice: EntryNotice; accept: () => Promise<void> }) {

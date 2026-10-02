@@ -335,3 +335,93 @@ def test_d3_has_no_eligibility_center_rule():
     rules = {r["governing_body"]: [i["text"] for i in r["rules"]] for r in cp.contact_rules(cp.LEVELS)}
     assert not any("Eligibility Center" in t for t in rules["NCAA-D3"])
     assert all(any("Eligibility Center" in t for t in rules[b]) for b in ("NCAA-D1", "NCAA-D2"))
+
+
+def test_plausible_grad_year_window_is_this_year_to_plus_six():
+    from datetime import date
+    today = date(2026, 10, 2)
+    assert [elig.plausible_grad_year(v, today) for v in (2011, 2025, 2026, 2029, 2033, 2034, None, True, "2029", "x")] == \
+        [None, None, 2026, 2029, 2033, None, None, None, 2029, None]
+
+
+@pytest.mark.parametrize("stored, sent", [(2011, None), (None, None), (2029, 2029)])
+def test_stale_grad_year_never_reaches_the_reason_or_draft_prompt(app, stored, sent):
+    client, store, model, _, headers, _ = app
+    store.profiles[SUBJECT]["class_year"] = stored
+    model.draft = {"subject": "QB flag football", "body": "Hello Coach,\n\nI play QB.\n\nAvery"}
+    client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
+    reason_system, reason_user = model.calls[-1]
+    assert json.loads(reason_user)["athlete"]["grad_year"] == sent
+    assert "If grad_year is null, never mention a grad year" in reason_system
+    url = f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft"
+    assert client.post(url, headers=headers).status_code == 200
+    draft_system, draft_user = model.calls[-1]
+    assert f'"class_year": {json.dumps(sent)}' in draft_user
+    assert "If class_year is null, never mention a grad year" in draft_system
+    if sent is None:
+        assert "2011" not in reason_user and "2011" not in draft_user
+
+
+@pytest.mark.parametrize("subject, body", [("Class of 2011 QB", "Hello Coach,\n\nI play QB.\n\nAvery"),
+                                           ("QB flag football", "Hello Coach,\n\nI am a 2011 grad.\n\nAvery"),
+                                           ("QB", "Hello Coach,\n\nI graduate in 2030.\n\nAvery"),
+                                           ("QB", "Hello Coach,\n\nI graduate in May 2030.\n\nAvery"),
+                                           ("QB, class of \u201930", "Hello Coach,\n\nI play QB.\n\nAvery"),
+                                           ("QB", "Hello Coach,\n\nI started playing in 2019.\n\nAvery")])
+def test_draft_naming_a_grad_year_is_rejected_when_none_is_known(app, subject, body):
+    client, store, model, _, headers, _ = app
+    store.profiles[SUBJECT]["class_year"] = 2011
+    model.draft = {"subject": subject, "body": body}
+    response = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers)
+    assert response.status_code == 502 and store.drafts == []
+
+
+def test_plausible_grad_year_is_used_in_the_draft(app):
+    client, store, model, _, headers, _ = app
+    store.profiles[SUBJECT]["class_year"] = 2029
+    model.draft = {"subject": "2029 QB flag football", "body": "Hello Coach,\n\nI am in the class of 2029.\n\nAvery"}
+    created = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
+    assert created["subject"] == "2029 QB flag football"
+
+
+def test_generic_all_sports_is_not_sent_as_the_sport(app):
+    client, store, model, identity, headers, _ = app
+    identity["sport"] = "All Sports"
+    client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
+    client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers)
+    assert "All Sports" not in model.calls[-1][1]
+
+
+def test_draft_naming_another_year_is_rejected_even_with_a_known_grad_year(app):
+    client, store, model, _, headers, _ = app
+    store.profiles[SUBJECT]["class_year"] = 2029
+    model.draft = {"subject": "2029 QB", "body": "Hello Coach,\n\nClass of 2031.\n\nAvery"}
+    response = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers)
+    assert response.status_code == 502 and store.drafts == []
+
+
+def test_cached_list_built_from_old_facts_is_not_served(app):
+    client, store, model, _, headers, _ = app
+    store.profiles[SUBJECT]["class_year"] = 2011  # stale year: omitted from facts
+    built = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
+    assert built["built"] and built["programs"][0]["reason"]
+    # A list saved under the old key (built when 2011 still reached the model) is not shown.
+    store.rows[SUBJECT]["inputs_key"] = "built-with-class-year-2011"
+    listed = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()
+    assert listed["eligible"] and listed["built"] is False and listed["programs"] == []
+    pid = built["programs"][0]["id"]
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}/{pid}", headers=headers).json()["program"]["reason"] is None
+    # The current key is still served.
+    client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["built"] is True
+
+
+def test_stored_draft_with_a_stale_year_is_hidden(app):
+    client, store, model, _, headers, _ = app
+    url = f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft"
+    client.post(url, headers=headers)
+    store.drafts[-1]["payload"]["subject"] = "Class of 2011 QB"
+    store.profiles[SUBJECT]["class_year"] = 2011
+    assert client.get(url, headers=headers).json() == {"draft": None}
+    store.drafts[-1]["payload"]["subject"] = "QB flag football"
+    assert client.get(url, headers=headers).json()["draft"]["subject"] == "QB flag football"

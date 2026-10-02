@@ -214,11 +214,12 @@ entry=importlib.import_module(sys.argv[2])
 surface=sys.argv[3]
 app=entry.app
 assert not any(name in sys.modules for name in ('main','agent_api','artifacts_api','reports_api','search_api','enrichment_worker'))
-profile_modules=('profile_candidate_app','athlete_evidence','athlete_materials','athlete_workspace','athlete_opportunities','opportunity_catalog','opportunity_engagement','profile_debrief','profile_pathways','source_scope')
+profile_modules=('profile_candidate_app','athlete_evidence','athlete_materials','athlete_workspace','source_scope')
+retired=('athlete_opportunities','opportunity_catalog','opportunity_engagement','profile_debrief','profile_pathways')
+assert not any(name in sys.modules for name in retired)
 if surface == 'profile':
  assert all(name in sys.modules for name in profile_modules)
  assert all(Path(sys.modules[name].__file__).parent == Path(sys.argv[1]) for name in profile_modules)
- assert sys.modules['profile_debrief']._ledger_state is None
 else:
  assert not any(name in sys.modules for name in profile_modules)
 import model_usage
@@ -229,7 +230,7 @@ expected={
 }
 if surface == 'profile':
  expected.update({('GET','/api/athlete/evidence'),('GET','/api/athlete/materials'),
-                  ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement'),('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace'),
+                  ('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace'),
                   ('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice'),
                   ('GET','/api/workspace/colleges/{clerk_id}'),('POST','/api/workspace/trigger-matching/{clerk_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}'),
@@ -257,14 +258,13 @@ async def run():
    denied=[('GET','/docs'),('GET','/openapi.json'),('POST','/api/profile/connect'),
            ('POST','/api/claims/mint'),('GET','/api/claims/token'),('GET','/api/reports/public/token')]
    if surface == 'profile':
-    assert response.json()['debrief_enabled'] is False
-    assert response.json()['debrief_provider_configured'] is False
+    assert 'debrief_enabled' not in response.json()
     assert response.headers['cache-control']=='private, no-store'
     denied.extend([('GET','/api/combine/current'),('POST','/api/combine/help'),
-                   ('POST','/api/athlete/workspace'),('DELETE','/api/athlete/workspace')])
+                   ('POST','/api/athlete/workspace'),('DELETE','/api/athlete/workspace'),
+                   ('POST','/api/athlete/debrief'),('POST','/api/athlete/opportunities'),('POST','/api/athlete/opportunities/engagement')])
     for method,path,body in [('GET','/api/athlete/evidence',None),('GET','/api/athlete/materials',None),
-                             ('GET','/api/athlete/workspace',None),('PATCH','/api/athlete/workspace',{}),
-                             ('POST','/api/athlete/debrief',{'track':'profile','question':'What can I use?'})]:
+                             ('GET','/api/athlete/workspace',None),('PATCH','/api/athlete/workspace',{})]:
      protected=await client.request(method,path,json=body)
      assert protected.status_code==401,(path,protected.text)
      assert protected.headers['cache-control']=='private, no-store'
@@ -275,8 +275,6 @@ async def run():
     blocked=await client.request(method,path)
     assert blocked.status_code in (404,405),(path,blocked.text)
    assert model_usage._ledger is None
-   if surface == 'profile':
-    assert sys.modules['profile_debrief']._ledger_state is None
  assert app.state.candidate_configuration is None
 asyncio.run(run())
 assert attempts==[],attempts
@@ -308,9 +306,8 @@ def test_separate_profile_packaging_preserves_the_original_combine_source_set():
     assert set(profile_packager.SOURCES) - original_combine == {
         "Dockerfile.profile-candidate", "Dockerfile.profile-candidate.dockerignore",
         "backend/profile_candidate_app.py", "backend/athlete_evidence.py", "backend/athlete_materials.py",
-        "backend/athlete_workspace.py", "backend/profile_debrief.py", "backend/profile_pathways.py",
+        "backend/athlete_workspace.py",
         "backend/source_scope.py", "backend/start_profile_candidate.py",
-        "backend/athlete_opportunities.py", "backend/opportunity_catalog.py", "backend/opportunity_engagement.py",
         "backend/profile_owner.py",
         "backend/college_programs.py", "backend/outreach_draft.py", "backend/data/college_womens_flag_2026.json",
     }

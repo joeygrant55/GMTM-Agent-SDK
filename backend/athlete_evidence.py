@@ -18,6 +18,7 @@ from auth import require_identity
 from combine_api import _get_agent_db, _get_gmtm_db
 from profile_owner import linked_profile_athlete as _linked_athlete
 from source_scope import owner_scope
+from junior_eligibility import plausible_grad_year
 
 
 router = APIRouter(prefix="/api/athlete", tags=["Athlete evidence"])
@@ -54,6 +55,7 @@ _MEASUREMENTS = {
     "40 yard dash": ("40-Yard Dash", "time"),
     "40-yard dash": ("40-Yard Dash", "time"),
     "5-10-5 shuttle": ("5-10-5 Shuttle", "time"),
+    "5-10-5 shuttle run": ("5-10-5 Shuttle", "time"),
     "60 yard shuttle": ("60-Yard Shuttle", "time"),
     "60-yard shuttle": ("60-Yard Shuttle", "time"),
     "broad jump": ("Standing Broad Jump", "length"),
@@ -61,6 +63,10 @@ _MEASUREMENTS = {
     "vertical jump": ("Vertical Jump", "length"),
     "push ups": ("Push-Ups", "count"), "push-ups": ("Push-Ups", "count"),
     "sit ups": ("Sit-Ups", "count"), "sit-ups": ("Sit-Ups", "count"),
+    # USA Football junior combine task names (events 1305/1314/1317).
+    "max. push-ups": ("Push-Ups", "count"), "max push-ups": ("Push-Ups", "count"),
+    "max. sit ups": ("Sit-Ups", "count"), "max sit ups": ("Sit-Ups", "count"),
+    "max. sit-ups": ("Sit-Ups", "count"), "max sit-ups": ("Sit-Ups", "count"),
 }
 
 
@@ -125,7 +131,7 @@ def _identity(db, athlete_id):
         athlete = {
             "name": name, "sport": None, "position": None, "school": None,
             "city": _text(row.get("city")), "state": _text(row.get("state")),
-            "graduation_year": year if type(year) is int and 1900 <= year <= 2200 else None,
+            "graduation_year": plausible_grad_year(year),
         }
         cursor.execute("""
             SELECT c.user_id, c.career_id, c.is_primary, c.visibility,

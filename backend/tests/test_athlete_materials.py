@@ -638,3 +638,12 @@ def test_thumbnail_bounds_apply_to_stored_key_and_normalized_url():
     result = api._thumbnail_url({"service": "gmtm", "thumbnail_uri": at_limit})
     assert result is not None and len(result) == 2048
     assert api._thumbnail_url({"service": "gmtm", "thumbnail_uri": at_limit.replace(".png", "a.png")}) is None
+
+
+@pytest.mark.parametrize("key, unit", [("metric:5-10-5 Shuttle Run", "s"), ("metric:Max. Push-Ups", "reps"),
+                                       ("metric:Max. Sit Ups", "reps"), ("metric:20-Yard Dash", "s"),
+                                       ("metric:Standing Broad Jump", "in")])
+def test_junior_combine_drill_names_are_kept_with_their_real_titles(key, unit):
+    import athlete_materials
+    title, result = athlete_materials._numeric_result({"type": "metric", "value": {"value": "12", "unit": unit}}, key)
+    assert title == key.partition(":")[2] and result["value"] == 12.0
