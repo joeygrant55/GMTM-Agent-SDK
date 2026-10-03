@@ -22,7 +22,7 @@ UA = "SPARQ-college-research/0.1 (+https://sparq.gmtm.com; joey@gmtm.com)"
 MAX_BYTES = 2_000_000
 MAX_TEXT = 40_000
 MAX_HOPS = 3
-TIMEOUT = 5
+TIMEOUT = (5, 20)  # connect, read: measured first bytes of 6-11 s on PrestoSports sites (2026-10-02)
 EASTERN = ZoneInfo("America/New_York")
 PRICE_IN, PRICE_OUT = 3.0 / 1_000_000, 15.0 / 1_000_000  # Sonnet 4.6 per token
 POSITIONS = ("QB", "WR", "RB", "C", "DB", "LB", "R", "Other")
@@ -202,18 +202,32 @@ def _links(html: str, base: str, hosts: set) -> list[str]:
 
 
 def roster_url(program_url: str, html: str, hosts: set) -> Optional[str]:
-    """Code-chosen roster page: the program page's own same-sport roster link (PrestoSports uses
-    /sports/<slug>/<season>/roster), else the Sidearm list view /sports/<slug>/roster?view=list."""
+    urls = roster_urls(program_url, html, hosts)
+    return urls[0] if urls else None
+
+
+def roster_urls(program_url: str, html: str, hosts: set) -> list:
+    """Up to 2 code-chosen roster pages, newest season first: a new season's page is often still empty."""
+    # The program page's own same-sport roster links (PrestoSports /sports/<slug>/<season>/roster),
+    # else the Sidearm list view /sports/<slug>/roster?view=list.
     m = _SLUG.match(urlsplit(program_url).path)
     if not m:
-        return None
+        return []
     slug = re.escape(m.group(1))
     found = [u for u in _links(html, program_url, hosts)
              if re.fullmatch(rf"/sports/{slug}/(?:20\d\d-\d\d/)?roster/?", urlsplit(u).path)]
-    if found:  # newest season first (a Presto season menu also links archived rosters)
-        return max(found, key=lambda u: season_of(urlsplit(u).path) or "9999")
+    seasoned = [u for u in found if season_of(urlsplit(u).path)]
+    if seasoned:  # a Presto season menu also links archived rosters; fall back one season at most
+        per_season = {}
+        for u in seasoned:  # one link per season (/roster, /roster/ and ?view=list are the same page)
+            per_season.setdefault(season_of(urlsplit(u).path), u)
+        ranked = [per_season[k] for k in sorted(per_season, reverse=True)]
+        newest = int(season_of(urlsplit(ranked[0]).path)[:4])
+        return [u for u in ranked[:2] if int(season_of(urlsplit(u).path)[:4]) >= newest - 1]
+    if found:
+        return found[:1]
     origin = urlsplit(norm(program_url))
-    return f"https://{origin.netloc}/sports/{m.group(1)}/roster?view=list"
+    return [f"https://{origin.netloc}/sports/{m.group(1)}/roster?view=list"]
 
 
 def camp_url(program_url: str, html: str, hosts: set) -> Optional[str]:
@@ -256,6 +270,51 @@ def _cell(td) -> str:
     return td.get_text(" ", strip=True)
 
 
+_CLASS_HEADS = ("cl.", "cl", "class", "yr.", "yr", "year", "academic year", "elig.")  # priority order
+_POS_HEADS = ("pos.", "pos", "position")
+_LABELLED_CLASS = 'td[data-label="Cl."], td[data-label="Yr."], td[data-label="Class"], td[data-label="Year"]'
+
+
+def _table_rows(soup) -> Optional[list]:
+    """(class text, position text) per player from the roster table. Columns come from data-labels or the
+    header row (PrestoSports variants). A table counts only if at least one class reads as a real class
+    (a coaches "Year" or honors "Year" table does not). A row with more cells than the header makes the
+    layout unknown (None, so the model fallback runs) instead of silently dropping a player."""
+    best, best_known = None, 0
+    for table in soup.find_all("table"):
+        trs = table.find_all("tr")
+        if not trs:
+            continue
+        heads = [c.get_text(" ", strip=True).lower() for c in trs[0].find_all(["th", "td"])]
+        ci = next((heads.index(h) for h in _CLASS_HEADS if h in heads), None)
+        pi = next((heads.index(h) for h in _POS_HEADS if h in heads), None)
+        labelled = table.select_one(_LABELLED_CLASS)
+        if ci is None and not labelled:
+            continue
+        out, unknown_layout = [], False
+        for tr in (trs if labelled else trs[1:]):  # a labelled table may have no header row
+            cells = tr.find_all(["td", "th"])
+            if labelled:
+                cls, pos = tr.select_one(_LABELLED_CLASS), tr.select_one('td[data-field="position"], td[data-label="Pos."]')
+                cls, pos = (_cell(cls) if cls else None), (_cell(pos) if pos else None)
+                if cls is None and pos is None:
+                    continue
+            else:
+                if len(cells) == 1:
+                    continue  # section or staff heading rows
+                if len(cells) != len(heads) or any(c.get("colspan") for c in cells):
+                    unknown_layout = True  # never drop a player row silently
+                    break
+                cls, pos = _cell(cells[ci]), (_cell(cells[pi]) if pi is not None else None)
+            out.append((cls, pos))
+        if unknown_layout:
+            return None
+        known = sum(class_key(c) != "Unknown" for c, _ in out if c is not None)
+        if known > best_known:  # the roster is the table with the most real class years (not coaches)
+            best, best_known = out, known
+    return best
+
+
 def parse_roster(url: str, html: str) -> Optional[dict]:
     """Exact counts from the page structure, or None if the layout is not recognised."""
     soup = BeautifulSoup(html, "html.parser")
@@ -270,18 +329,14 @@ def parse_roster(url: str, html: str) -> Optional[dict]:
                 or card.select_one(".sidearm-roster-player-position-long-short")
             positions.append(position_key(pos.get_text(" ", strip=True)) if pos else None)
     else:
-        table = next((t for t in soup.find_all("table") if t.select_one('td[data-field="position"], td[data-label="Cl."]')), None)
-        if table is None:
+        rows = _table_rows(soup)
+        if rows is None:
             return None
-        for tr in table.find_all("tr"):
-            cls = tr.select_one('td[data-label="Cl."], td[data-label="Yr."], td[data-label="Class"], td[data-label="Year"]')
-            pos = tr.select_one('td[data-field="position"], td[data-label="Pos."]')
-            if cls is None and pos is None:
-                continue
-            classes.append(class_key(_cell(cls)) if cls else "Unknown")
-            positions.append(position_key(_cell(pos)) if pos else None)
+        for cls, pos in rows:
+            classes.append(class_key(cls) if cls is not None else "Unknown")
+            positions.append(position_key(pos) if pos is not None else None)
     if not classes or len(classes) > 80:
-        return None
+        return None  # empty (a new season's page with no players yet) or not a roster
     season = season_of(urlsplit(url).path) or season_of(soup.title.get_text() if soup.title else "")
     if not season:
         return None
@@ -319,7 +374,7 @@ class Roster(BaseModel):
     season: str
     by_class: dict[Literal[CLASSES], int] = {}
     by_position: dict[Literal[POSITIONS], int] = {}
-    total: int = Field(ge=0, le=80)
+    total: int = Field(ge=1, le=80)  # 0 players = a season page not filled in yet
     source_url: str = Field(max_length=500)
 
 
@@ -448,21 +503,43 @@ def research_program(program: dict, extract, fetcher=None, today=None) -> dict:
     except FetchError as e:
         return {"program_id": program["id"], "camps_state": "not_found", "roster_state": "not_found",
                 "notes": [f"program_page:{e}"], "usage": usage, "pages": []}
-    roster_page = url if "/roster" in urlsplit(url).path else None  # some program_urls are the roster itself
-    for label, pick in (("roster", roster_url(url, html, hosts)), ("camps", camp_url(url, html, hosts))):
-        if pick and pick not in fetched:
+    roster_page, roster_tried = None, []
+    if "/roster" in urlsplit(url).path:  # some program_urls are the roster itself
+        roster_page, roster_tried = url, [url]
+    if not (roster_page and parse_roster(url, html)):
+        candidates = [u for u in roster_urls(url, html, hosts) if u != url]
+        if not roster_page and not candidates:
+            notes.append("roster_page:none")
+        for pick in candidates:  # newest first; the season before only if the newest has no players yet
             try:
                 final, page = fetcher.get(pick)
-                fetched[final] = page
-                if label == "roster":
-                    roster_page = final
             except FetchError as e:
-                notes.append(f"{label}_page:{e}")
-        elif not pick:
-            notes.append(f"{label}_page:none")
+                notes.append(f"roster_page:{e}")
+                continue
+            if final in fetched:
+                continue  # a redirect to a page already tried
+            fetched[final] = page
+            roster_tried.append(final)
+            roster_page = roster_page or final
+            if parse_roster(final, page):
+                roster_page = final
+                break
+    pick = camp_url(url, html, hosts)
+    if pick and pick not in fetched:
+        try:
+            final, page = fetcher.get(pick)
+            fetched[final] = page
+        except FetchError as e:
+            notes.append(f"camps_page:{e}")
+    elif not pick:
+        notes.append("camps_page:none")
     camps, roster, drops = [], None, []
+    parsed_any = roster_page is not None and parse_roster(roster_page, fetched.get(roster_page, "")) is not None
     for page_url, page_html in list(fetched.items()):
-        parsed = parse_roster(page_url, page_html) if "/roster" in urlsplit(page_url).path else None
+        code_counted = roster is not None and roster.get("method") == "page_structure"
+        if page_url in roster_tried and page_url not in (roster_page, url) and (code_counted or parsed_any):
+            continue  # an unused season page: not sent to the model once a roster was counted by code
+        parsed = parse_roster(page_url, page_html) if page_url == roster_page else None
         if parsed:
             roster, why = validate_roster({k: v for k, v in parsed.items() if k != "method"}, fetched)
             if roster:
@@ -479,7 +556,7 @@ def research_program(program: dict, extract, fetcher=None, today=None) -> dict:
         drops += [f"other_sport:{c['name']}" for c in got if not flag_camp(c, url)]
         camps += [c for c in got if flag_camp(c, url)]
         drops += dropped
-        if roster is None and env.roster and page_url == roster_page:  # model roster only from the code-picked roster page
+        if roster is None and env.roster and page_url in roster_tried:  # model roster only from a code-picked roster page
             roster, why = validate_roster(env.roster, fetched)
             if why:
                 drops.append(f"roster:{why}")

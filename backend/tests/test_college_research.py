@@ -335,3 +335,144 @@ def test_hostile_robots_file_means_do_not_crawl():
              "https://testhawks.com/a": FakeResponse(200, b"ok")}
     with pytest.raises(cr.FetchError, match="robots_disallow"):
         cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None).get("https://testhawks.com/a")
+
+
+# ---- full-run findings (2026-10-02): header-only tables, empty new-season pages ----
+
+HEADER_ONLY = """<html><table><tr><th>Number</th><th>Name</th><th>Cl.</th><th>Pos.</th><th>Hometown</th></tr>
+<tr><td>1</td><td>A Player</td><td>Fr.</td><td>QB</td><td>X</td></tr>
+<tr><td>2</td><td>B Player</td><td>Jr.</td><td>WR/DB</td><td>Y</td></tr>
+<tr><td colspan="5">Coaching staff</td></tr></table></html>"""
+EMPTY_SEASON = "<html><table><tr><th>No.</th><th>Name</th><th>Cl.</th><th>Pos.</th></tr></table></html>"
+
+
+def test_header_only_table_counted_and_staff_rows_skipped():
+    r = cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", HEADER_ONLY)
+    assert r["by_class"] == {"Fr": 1, "Jr": 1} and r["by_position"] == {"QB": 1, "WR": 1} and r["total"] == 2
+
+
+def test_empty_new_season_falls_back_to_the_previous_season():
+    program = {**PROGRAM, "program_url": "https://testhawks.com/sports/flagfball/index"}
+    pages = {"https://testhawks.com/robots.txt": FakeResponse(404),
+             "https://testhawks.com/sports/flagfball/index": FakeResponse(
+                 200, b'<a href="/sports/flagfball/2026-27/roster">new</a><a href="/sports/flagfball/2025-26/roster">last</a>'),
+             "https://testhawks.com/sports/flagfball/2026-27/roster": FakeResponse(200, EMPTY_SEASON.encode()),
+             "https://testhawks.com/sports/flagfball/2025-26/roster": FakeResponse(200, HEADER_ONLY.encode())}
+    r = cr.research_program(program, lambda s, u: ({"camps": [], "roster": None}, {}), today=TODAY,
+                            fetcher=cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None))
+    assert r["roster"]["season"] == "2025-26" and r["roster"]["total"] == 2 and r["roster"]["method"] == "page_structure"
+
+
+def test_zero_player_model_roster_is_not_stored():
+    fetched = {"https://testhawks.com/sports/flag-football/roster": ""}
+    zero = {"season": "2026-27", "by_class": {"Fr": 0}, "total": 0, "source_url": "https://testhawks.com/sports/flag-football/roster"}
+    assert cr.validate_roster(zero, fetched)[0] is None
+
+
+# ---- review of the season/table change (Fable 2026-10-02) ----
+
+def test_coaches_or_honors_year_table_is_not_a_roster():
+    coaches = ("<table><tr><th>Name</th><th>Title</th><th>Year</th></tr><tr><td>A</td><td>Head Coach</td><td>3rd</td></tr>"
+               "<tr><td>B</td><td>Assistant</td><td>2024</td></tr></table>")
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", "<html>" + coaches + "</html>") is None
+    r = cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", "<html>" + coaches + HEADER_ONLY[6:])
+    assert r["total"] == 2 and r["by_class"] == {"Fr": 1, "Jr": 1}
+
+
+def test_extra_cell_row_makes_layout_unknown_instead_of_dropping_a_player():
+    html = HEADER_ONLY.replace("<tr><td>2</td>", '<tr><td class="photo"></td><td>2</td>')
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", html) is None
+
+
+def test_class_column_priority_over_eligibility():
+    html = ("<table><tr><th>Name</th><th>Elig.</th><th>Yr.</th></tr><tr><td>A</td><td>So.</td><td>Jr.</td></tr></table>")
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", html)["by_class"] == {"Jr": 1}
+
+
+def test_unseasoned_link_dropped_and_old_seasons_bounded():
+    url = "https://testhawks.com/sports/flagfball/index"
+    links = ('<a href="/sports/flagfball/roster">r</a><a href="/sports/flagfball/2026-27/roster">n</a>'
+             '<a href="/sports/flagfball/2025-26/roster">l</a>')
+    assert [u.rsplit("/", 2)[1] for u in cr.roster_urls(url, links, HOSTS)] == ["2026-27", "2025-26"]
+    old = '<a href="/sports/flagfball/2026-27/roster">n</a><a href="/sports/flagfball/2021-22/roster">o</a>'
+    assert [u.rsplit("/", 2)[1] for u in cr.roster_urls(url, old, HOSTS)] == ["2026-27"]
+
+
+def test_empty_season_page_is_not_sent_to_the_model():
+    program = {**PROGRAM, "program_url": "https://testhawks.com/sports/flagfball/index"}
+    pages = {"https://testhawks.com/robots.txt": FakeResponse(404),
+             "https://testhawks.com/sports/flagfball/index": FakeResponse(
+                 200, b'<a href="/sports/flagfball/2026-27/roster">new</a><a href="/sports/flagfball/2025-26/roster">last</a>'),
+             "https://testhawks.com/sports/flagfball/2026-27/roster": FakeResponse(200, EMPTY_SEASON.encode()),
+             "https://testhawks.com/sports/flagfball/2025-26/roster": FakeResponse(200, HEADER_ONLY.encode())}
+    sent = []
+    cr.research_program(program, lambda s, u: (sent.append(u.split("\n", 1)[0]) or {"camps": [], "roster": None}, {}),
+                        today=TODAY, fetcher=cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None))
+    assert sent == ["source_url: https://testhawks.com/sports/flagfball/index"]
+
+
+def test_program_url_that_is_an_empty_roster_falls_back():
+    program = {**PROGRAM, "program_url": "https://testhawks.com/sports/flagfball/2026-27/roster"}
+    pages = {"https://testhawks.com/robots.txt": FakeResponse(404),
+             "https://testhawks.com/sports/flagfball/2026-27/roster": FakeResponse(
+                 200, (EMPTY_SEASON.replace("</table>", "</table>") + '<a href="/sports/flagfball/2025-26/roster">l</a>').encode()),
+             "https://testhawks.com/sports/flagfball/2025-26/roster": FakeResponse(200, HEADER_ONLY.encode())}
+    r = cr.research_program(program, lambda s, u: ({"camps": [], "roster": None}, {}), today=TODAY,
+                            fetcher=cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None))
+    assert r["roster"]["season"] == "2025-26"
+
+
+# ---- fix-check of the season/table change ----
+
+def test_labelled_table_without_header_keeps_first_player():
+    html = ('<table><tr><td data-label="Cl.">Fr.</td><td data-label="Pos.">QB</td></tr>'
+            '<tr><td data-label="Cl.">So.</td><td data-label="Pos.">WR</td></tr></table>')
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", html)["total"] == 2
+
+
+def test_short_player_row_makes_layout_unknown_but_heading_rows_skip():
+    short = HEADER_ONLY.replace("<tr><td>2</td><td>B Player</td><td>Jr.</td><td>WR/DB</td><td>Y</td></tr>",
+                                "<tr><td>2</td><td>B Player</td><td>Jr.</td><td>WR/DB</td></tr>")
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", short) is None
+    heading = HEADER_ONLY.replace('<tr><td colspan="5">Coaching staff</td></tr>', "<tr><td>Players</td></tr>")
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", heading)["total"] == 2
+
+
+def test_one_link_per_season_keeps_the_fallback_slot():
+    links = ('<a href="/sports/flagfball/2026-27/roster">a</a><a href="/sports/flagfball/2026-27/roster/">b</a>'
+             '<a href="/sports/flagfball/2025-26/roster">c</a>')
+    got = cr.roster_urls("https://testhawks.com/sports/flagfball/index", links, HOSTS)
+    assert [u.rstrip("/").rsplit("/", 2)[1] for u in got] == ["2026-27", "2025-26"]
+
+
+def test_table_with_most_real_classes_wins_over_a_coaches_table():
+    coaches = "<table><tr><th>Name</th><th>Class</th></tr><tr><td>Student Assistant</td><td>Fr.</td></tr></table>"
+    r = cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", "<html>" + coaches + HEADER_ONLY[6:])
+    assert r["total"] == 2
+
+
+def test_merged_cell_player_row_is_unknown_layout():
+    html = HEADER_ONLY.replace("<td>B Player</td><td>Jr.</td>", '<td colspan="2">B Player Jr.</td>')
+    assert cr.parse_roster("https://testhawks.com/sports/flagfball/2025-26/roster", html) is None
+
+
+def test_when_no_season_parses_the_model_sees_both_and_empty_is_rejected():
+    program = {**PROGRAM, "program_url": "https://testhawks.com/sports/flagfball/index"}
+    odd = HEADER_ONLY.replace("<tr><td>2</td>", '<tr><td class="photo"></td><td>2</td>')
+    pages = {"https://testhawks.com/robots.txt": FakeResponse(404),
+             "https://testhawks.com/sports/flagfball/index": FakeResponse(
+                 200, b'<a href="/sports/flagfball/2026-27/roster">new</a><a href="/sports/flagfball/2025-26/roster">last</a>'),
+             "https://testhawks.com/sports/flagfball/2026-27/roster": FakeResponse(200, EMPTY_SEASON.encode()),
+             "https://testhawks.com/sports/flagfball/2025-26/roster": FakeResponse(200, odd.encode())}
+
+    def extract(system, user):
+        src = user.split("\n", 1)[0].removeprefix("source_url: ")
+        if src.endswith("2026-27/roster"):
+            return {"camps": [], "roster": {"season": "2026-27", "by_class": {}, "total": 0, "source_url": src}}, {}
+        if src.endswith("2025-26/roster"):
+            return {"camps": [], "roster": {"season": "2025-26", "by_class": {"Fr": 1, "Jr": 1}, "total": 2, "source_url": src}}, {}
+        return {"camps": [], "roster": None}, {}
+
+    r = cr.research_program(program, extract, today=TODAY,
+                            fetcher=cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None))
+    assert r["roster"]["season"] == "2025-26" and r["roster"]["method"] == "model"
