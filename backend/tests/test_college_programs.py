@@ -29,6 +29,7 @@ ROUTES = {
     ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/sent"),
     ("GET", "/api/workspace/college-emails/{clerk_id}"),
     ("GET", "/api/workspace/parent-contact/{clerk_id}"), ("POST", "/api/workspace/parent-contact/{clerk_id}"),
+    ("GET", "/api/workspace/college-research/{clerk_id}"),
 }
 BODIES = {"/api/workspace/saved-colleges/{clerk_id}/{program_id}": {"saved": True},
           "/api/workspace/colleges/{clerk_id}/{program_id}/sent": {"sent": True},
@@ -98,6 +99,11 @@ class CollegeStore:
             self.parents[clerk_id] = email
         else:
             self.parents.pop(clerk_id, None)
+
+    research_rows = {}
+
+    def research(self, program_ids):
+        return {pid: dict(r) for pid, r in self.research_rows.items() if pid in program_ids}
 
     def card_picks(self, clerk_id): return list(self.cards.get(clerk_id, []))
 
@@ -1170,3 +1176,60 @@ def test_read_card_uses_only_eligible_films_and_reads_only_their_file_key(monkey
     files = [q for q in queries if "FROM film WHERE film_id IN" in q[0]]
     assert files == [("SELECT film_id, service, uri FROM film WHERE film_id IN (%s) AND visibility = 2 "
                       "AND (dead_link IS NULL OR dead_link = 0) LIMIT %s", (301, 1))]
+
+
+# ── College research (camps + team now) ─────────────────────────────────────────
+
+RESEARCH_URL = f"/api/workspace/college-research/{SUBJECT}"
+
+
+def research_row(camps=(), roster=None, at=datetime(2026, 10, 3, 2, 30)):
+    return {"program_id": "x", "roster": json.dumps(roster) if roster else None, "roster_checked_at": at if roster else None,
+            "camps": json.dumps(list(camps)), "camps_checked_at": at}
+
+
+def test_research_returns_only_her_saved_colleges_with_eastern_checked_dates(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    roster = {"season": "2025-26", "by_class": {"Fr": 8, "So": 12}, "by_position": {}, "total": 20,
+              "source_url": "https://dscfalcons.com/sports/flagfball/2025-26/roster", "method": "page_structure"}
+    store.research_rows = {"midland-university": research_row(roster=roster), "daytona-state-college": research_row()}
+    assert client.get(RESEARCH_URL, headers=headers).json() == {"eligible": True, "notice": None, "programs": []}
+    store.marked["sparq_saved_colleges"][(SUBJECT, "midland-university")] = datetime(2026, 10, 2, 12)
+    body = client.get(RESEARCH_URL, headers=headers).json()
+    assert [p["program_id"] for p in body["programs"]] == ["midland-university"]
+    got = body["programs"][0]
+    assert got["roster"]["total"] == 20 and got["roster_checked"] == "2026-10-02" and got["camps"] == []  # 02:30 UTC = Oct 2 ET
+
+
+def test_research_drops_ended_camps_at_read_time(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    camp = lambda end: {"name": "Flag Clinic", "date_text": "x", "start_date": end, "end_date": end, "location": None,
+                        "cost_usd": None, "eligibility_text": None, "registration_url": None, "source_url": "https://a.edu/c"}
+    store.research_rows = {"midland-university": research_row(camps=[camp("2020-01-01"), camp("2099-06-01")])}
+    store.marked["sparq_saved_colleges"][(SUBJECT, "midland-university")] = datetime(2026, 10, 2, 12)
+    camps = client.get(RESEARCH_URL, headers=headers).json()["programs"][0]["camps"]
+    assert [c["end_date"] for c in camps] == ["2099-06-01"]
+
+
+def test_research_not_eligible_and_store_failure_are_safe(app, monkeypatch):
+    client, store, model, identity, headers, _ = app
+    store.marked["sparq_saved_colleges"][(SUBJECT, "midland-university")] = datetime(2026, 10, 2, 12)
+    monkeypatch.setattr(store, "research", lambda ids: (_ for _ in ()).throw(RuntimeError("db down")))
+    got = client.get(RESEARCH_URL, headers=headers).json()["programs"][0]
+    assert got["roster"] is None and got["camps"] == []
+    identity["gender"] = 0
+    store.rows[SUBJECT]["gmtm_gender"] = 0
+    assert client.get(RESEARCH_URL, headers=headers).json() == {"eligible": False, "notice": cp.NOT_ELIGIBLE, "programs": []}
+
+
+def test_research_read_side_drops_malformed_rows(app):
+    client, store, *_ , headers, _ = app
+    store.marked["sparq_saved_colleges"][(SUBJECT, "midland-university")] = datetime(2026, 10, 2, 12)
+    store.research_rows = {"midland-university": {"program_id": "midland-university", "roster": '{"total": 3}',
+                           "roster_checked_at": datetime(2026, 10, 2), "camps": '[{"end_date": "Oct 17"}, 5, "x"]',
+                           "camps_checked_at": datetime(2026, 10, 2)}}
+    got = client.get(RESEARCH_URL, headers=headers).json()["programs"][0]
+    assert got["roster"] is None and got["camps"] == []
+    store.research_rows["midland-university"].update(roster="not json", camps="7")
+    got = client.get(RESEARCH_URL, headers=headers).json()["programs"][0]
+    assert got["roster"] is None and got["camps"] == []

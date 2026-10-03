@@ -35,6 +35,33 @@ _SEASON = re.compile(r"(20\d\d)(?:-(?:20)?(\d\d))?")
 WALL_CLOCK = 20  # seconds per page, so a slow-drip server cannot hold the run
 
 
+# Program-level public facts only (no athlete column anywhere). Each part keeps its last good value and its own
+# checked time: a week where a site is down leaves last week's facts, shown with their real date.
+SCHEMA = (
+    """CREATE TABLE IF NOT EXISTS sparq_college_research (
+    program_id VARCHAR(80) PRIMARY KEY,
+    roster JSON NULL,
+    roster_checked_at DATETIME(6) NULL,
+    camps JSON NULL,
+    camps_checked_at DATETIME(6) NULL,
+    last_run_id VARCHAR(64) NULL,
+    last_notes JSON NULL,
+    updated_at DATETIME(6) NOT NULL
+)""",
+    """CREATE TABLE IF NOT EXISTS sparq_research_runs (
+    run_id VARCHAR(64) PRIMARY KEY,
+    started_at DATETIME(6) NOT NULL,
+    finished_at DATETIME(6) NULL,
+    status ENUM('running','done','stopped','failed') NOT NULL,
+    programs_done INT NOT NULL DEFAULT 0,
+    items_dropped INT NOT NULL DEFAULT 0,
+    tokens_in BIGINT NOT NULL DEFAULT 0,
+    tokens_out BIGINT NOT NULL DEFAULT 0,
+    cost_usd DECIMAL(8,4) NOT NULL DEFAULT 0
+)""",
+)
+
+
 class FetchError(Exception):
     pass
 

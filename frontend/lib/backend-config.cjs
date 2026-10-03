@@ -35,6 +35,8 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}\/sent$/.test(pathname)) return method === 'POST'
   // Emails page (drafts + sent marks, no coach contact) and the parent address for CC; owner-checked.
   if (surface === 'profile' && /^\/api\/workspace\/college-emails\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
+  // College research (camps + listed roster counts) for her saved colleges; owner-checked, read-only.
+  if (surface === 'profile' && /^\/api\/workspace\/college-research\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
   if (surface === 'profile' && /^\/api\/workspace\/parent-contact\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET' || method === 'POST'
   // My card: her ordered highlight picks; owner-checked by the backend. No public card.
   if (surface === 'profile' && /^\/api\/workspace\/card\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET' || method === 'POST'

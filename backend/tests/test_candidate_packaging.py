@@ -237,6 +237,7 @@ if surface == 'profile':
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
                   ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
                   ('GET','/api/workspace/saved-colleges/{clerk_id}'),('POST','/api/workspace/saved-colleges/{clerk_id}/{program_id}'),
+                  ('GET','/api/workspace/college-research/{clerk_id}'),
                   ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/sent'),
                   ('GET','/api/workspace/college-emails/{clerk_id}'),
                   ('GET','/api/workspace/parent-contact/{clerk_id}'),('POST','/api/workspace/parent-contact/{clerk_id}'),

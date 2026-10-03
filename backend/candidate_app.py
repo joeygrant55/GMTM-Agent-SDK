@@ -237,6 +237,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.create_outreach_draft),
             # Saves (heart) and "I sent it" marks: owner-checked, idempotent, no email text stored.
             ("GET", "/api/workspace/saved-colleges/{clerk_id}", colleges.saved_colleges),
+            # College research (camps + listed roster counts) for her saved colleges; public program facts only.
+            ("GET", "/api/workspace/college-research/{clerk_id}", colleges.college_research),
             ("POST", "/api/workspace/saved-colleges/{clerk_id}/{program_id}", colleges.save_college),
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/sent", colleges.mark_sent),
             # Emails page (drafts + sent marks) and "CC my parent" (address only; SPARQ never sends).

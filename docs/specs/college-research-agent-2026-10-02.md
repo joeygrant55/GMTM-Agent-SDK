@@ -176,3 +176,17 @@ clean checkout -> smoke -> live signed-in test.
 
 1. Camps: show every camp the college lists, with its age rules as written? (Default yes.)
 2. OpenAI account/key only matters if 0b is needed.
+
+## As built (2026-10-03, phases 0a-2)
+
+Measured changes from this spec, decided with Joey after the 3-program and 187-program runs:
+- Rosters are counted by code from the page structure (SIDEARM cards, PrestoSports tables); the model is a fallback only
+  (it miscounted one roster). Camps are flag football only. Roster candidates: newest season, then the one before.
+- Storage keeps each part with its own checked time instead of `*_state` columns: `sparq_college_research`
+  (roster, roster_checked_at, camps, camps_checked_at, last_run_id, last_notes) and `sparq_research_runs`.
+  A part is replaced only when this run read it; otherwise last week's value stays with its real date.
+- Job: `backend/scripts/college_research_job.py`; default cap $3 (measured full run $1.23 for 187 programs).
+- Home step "See camps at your colleges" is not built: one college (Dallas College, 6 campuses) lists a flag camp today.
+- The job is not in the profile backend image (no `requests`/`bs4` in requirements-candidate.txt, scripts not copied);
+  a scheduled run needs its own job service (phase 3).
+- Final measured run (bf51f57): 60 of 187 programs with a roster (57 by code), 1 real camp, 33 program pages unreadable.

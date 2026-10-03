@@ -9,6 +9,7 @@ import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
 import { badgeColors, chooseLabels, initials, mapWindow, schoolLabels } from './journey'
 import { noteChecklist, openLink, plainEmail, type CheckItem, type NoteKit } from './emailKit'
+import { CollegeResearchCards, useCollegeResearch } from './collegeResearch'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 export const primary = `inline-flex min-h-12 items-center justify-center rounded-[14px] bg-jr-lime px-6 py-3 text-base font-bold text-jr-ground hover:bg-jr-lime-hover disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -303,6 +304,9 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
+  const [saveBusy, setSaveBusy] = useState(false)
+  // Fetch research only once a save has reached the server (not during the optimistic flip).
+  const research = useCollegeResearch(userId, programId, !!detail?.program.saved && !saveBusy)
 
   useEffect(() => {
     if (!userId) return
@@ -323,6 +327,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
 
   const applySaved = useCallback((id: string, saved: boolean) => setDetail(d => d && d.program.id === id ? { ...d, program: { ...d.program, saved } } : d), [])
   const save = useSave(userId, applySaved)
+  useEffect(() => setSaveBusy(save.busy === programId), [save.busy, programId])
   const edited = !!draft && !!written && (draft.subject !== written.subject || draft.body !== written.body)
   const write = async (replace = false) => {
     if (!userId || busy) return
@@ -455,6 +460,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
           {rules.rules.map(rule => <li key={rule.text}>{rule.text}{rule.source_url && <> <ExternalLink href={rule.source_url}>{rule.source_label || 'Source'}</ExternalLink></>}</li>)}
         </ul>
       </div>}
+      {research && program.saved && <CollegeResearchCards research={research} school={program.school} />}
       <div className="flex flex-col gap-1.5 rounded-[20px] border border-jr-done-line bg-jr-done p-5">
         <span className="text-[15px] font-bold text-jr-lime">Tip</span>
         <p className="text-[15px] leading-normal text-[#E4E4E7]">Short notes get read. {program.questionnaire_link

@@ -526,6 +526,16 @@ class MySQLStore:
             sql, args = f"DELETE FROM {table} WHERE clerk_id = %s AND program_id = %s", (clerk_id.encode(), program_id)
         self._run(lambda c: c.execute(sql, args), write=True)
 
+    def research(self, program_ids):
+        """College research rows (program-level public facts) for the given program ids."""
+        if not program_ids:
+            return {}
+        def read(c):
+            c.execute("SELECT program_id, roster, roster_checked_at, camps, camps_checked_at FROM sparq_college_research "
+                      "WHERE program_id IN (" + ", ".join(["%s"] * len(program_ids)) + ")", tuple(program_ids))
+            return {r["program_id"]: r for r in c.fetchall() if r.get("program_id") in program_ids}
+        return self._run(read)
+
     def drafted(self, clerk_id):
         """{program_id: newest draft time} for one athlete (the Emails page)."""
         def read(c):
@@ -872,6 +882,55 @@ def saved_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
             "saved": [card(p, None, (athlete or {}).get("origin"), marks) for p, _ in saved],
             "saved_count": len(saved), "sent_count": sum(1 for pid in marks[1] if program(pid)),
             "origin": _origin_view(athlete)}
+
+
+def _eastern_day(value) -> Optional[str]:
+    """Naive-UTC DATETIME -> the America/New_York date as an ISO string (for checked())."""
+    from zoneinfo import ZoneInfo
+    if not isinstance(value, datetime):
+        return None
+    return value.replace(tzinfo=timezone.utc).astimezone(ZoneInfo("America/New_York")).date().isoformat()
+
+
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _safe_json(value):
+    """Stored JSON, or None if a row was hand-edited into something that does not parse."""
+    try:
+        return json.loads(value) if isinstance(value, (str, bytes)) else value
+    except ValueError:
+        return None
+
+
+def college_research(clerk_id: str = Depends(owner_id)):
+    """Camps and listed roster counts for HER saved colleges only. Program-level public facts, each part with
+    its checked date; camps that ended before today (America/New_York) are dropped at read time."""
+    from zoneinfo import ZoneInfo
+    row = _identity(clerk_id, refresh=False)
+    if row.get("gmtm_gender") != FEMALE:
+        return {"eligible": False, "notice": NOT_ELIGIBLE, "programs": []}
+    saved = [pid for pid in _marks(clerk_id)[0] if program(pid)]
+    try:
+        rows = store.research(saved)
+    except Exception as error:
+        log.warning("college_programs: research read failed (%s)", type(error).__name__)  # class only, never values
+        rows = {}
+    today = datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+    out = []
+    for pid in saved:
+        r = rows.get(pid) or {}
+        camps, roster = _safe_json(r.get("camps")), _safe_json(r.get("roster"))
+        camps = [c for c in (camps if isinstance(camps, list) else []) if isinstance(c, dict)
+                 and isinstance(c.get("end_date"), str) and _ISO_DAY.fullmatch(c["end_date"]) and c["end_date"] >= today]
+        if not (isinstance(roster, dict) and isinstance(roster.get("by_class"), dict)
+                and isinstance(roster.get("by_position"), dict) and type(roster.get("total")) is int
+                and isinstance(roster.get("season"), str) and isinstance(roster.get("source_url"), str)):
+            roster = None
+        out.append({"program_id": pid, "roster": roster,
+                    "roster_checked": _eastern_day(r.get("roster_checked_at")),
+                    "camps": camps, "camps_checked": _eastern_day(r.get("camps_checked_at"))})
+    return {"eligible": True, "notice": None, "programs": out}
 
 
 class SaveBody(BaseModel):

@@ -47,6 +47,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
         "/api/workspace/colleges/{clerk_id}/{program_id}": "get",
         "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft": ("get", "post"),
         "/api/workspace/saved-colleges/{clerk_id}": "get", "/api/workspace/saved-colleges/{clerk_id}/{program_id}": "post",
+        "/api/workspace/college-research/{clerk_id}": "get",
         "/api/workspace/colleges/{clerk_id}/{program_id}/sent": "post",
         "/api/workspace/college-emails/{clerk_id}": "get", "/api/workspace/parent-contact/{clerk_id}": ("get", "post"),
         "/api/workspace/card/{clerk_id}": ("get", "post"), "/api/workspace/card/{clerk_id}/lead": "get",

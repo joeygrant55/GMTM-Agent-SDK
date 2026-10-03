@@ -346,6 +346,29 @@ check('B6: the level ("NCAA D1") stays on one line on cards, saved colleges and 
   assert.match(fs.readFileSync(path.join(root, 'app/home/components/AthleteCareerHome.tsx'), 'utf8'), /<span className="whitespace-nowrap">\{program\.level\}<\/span>/)
 })
 
+check('College research cards: listed counts only, https links, checked dates, no recruiting promises', () => {
+  const r = transpile('app/home/components/collegeResearchText.ts')
+  const roster = { season: '2025-26', by_class: { Fr: 8, So: 12 }, by_position: { QB: 4, R: 1 }, total: 20, source_url: 'https://dscfalcons.com/r' }
+  assert.equal(r.teamSentence(roster), 'The 2025-26 roster lists 20 players: 8 freshmen, 12 sophomores.')
+  assert.equal(r.teamSentence({ ...roster, by_class: { Sr: 1 }, total: 1 }), 'The 2025-26 roster lists 1 player: 1 senior.')
+  assert.equal(r.positionLine(roster), 'By first listed position: 4 QB, 1 rusher.')
+  assert.equal(r.positionLine({ ...roster, by_position: {} }), null)
+  const src = ['collegeResearch.tsx', 'collegeResearchText.ts'].map(f => fs.readFileSync(path.join(root, 'app/home/components', f), 'utf8')).join('\n')
+  for (const word of [/\bleav(e|ing)\b/i, /\bopen spots?\b/i, /\bneeds?\b/i, /\bscholarship/i, /\bchance/i]) assert.doesNotMatch(src.replace(/^\/\/.*$/gm, ''), word)
+  const camp = { name: 'Clinic', date_text: 'Oct. 17', start_date: '2026-10-17', end_date: '2026-10-17', location: null, cost_usd: null,
+    eligibility_text: null, registration_url: 'https://register.ryzer.com/c?id=1', source_url: 'https://dallascollege.edu/camps' }
+  assert.deepEqual(r.campLink(camp), { href: 'https://register.ryzer.com/c?id=1', label: 'Register (opens register.ryzer.com)' })
+  assert.deepEqual(r.campLink({ ...camp, registration_url: 'javascript:alert(1)' }), { href: 'https://dallascollege.edu/camps', label: 'See camp page' })
+  assert.equal(r.campLink({ ...camp, registration_url: 'http://x.com', source_url: 'data:text/html,x' }), null)
+  assert.equal(r.checkedLabel('2026-10-02'), 'Oct 2, 2026')
+  assert.equal(r.checkedLabel('Oct 2'), null)
+  assert.equal(r.isOld('2026-09-01', new Date('2026-10-03T12:00:00Z')), true)
+  assert.equal(r.isOld('2026-10-01', new Date('2026-10-03T12:00:00Z')), false)
+  assert.equal(r.costLabel(null), 'Cost not listed'); assert.equal(r.costLabel(0), 'Free'); assert.equal(r.costLabel(75), '$75'); assert.equal(r.costLabel(undefined), 'Cost not listed')
+  assert.match(src, /rel="noopener noreferrer"/)
+  assert.doesNotMatch(src, /dangerouslySetInnerHTML/)
+})
+
 check('Header uses the real SPARQ logo file, not typed text (Joey 2026-10-02)', () => {
   const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
   assert.match(shell, /aria-label="SPARQ home"[^>]*><SparqLogo /)
