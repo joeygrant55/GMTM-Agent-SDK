@@ -14,7 +14,8 @@ import college_programs as cp
 import college_research as cr
 
 _HEAD = re.compile(r"(?i)\bhead\b.*\bcoach\b")
-_NOT_HEAD = re.compile(r"(?i)\b(?:assistant|asst|associate|strength|conditioning|trainer)\b")
+_HEAD_SHORT = re.compile(r"(?i)\bhead\b.*?\bcoach\b")  # the shortest "head ... coach" phrase
+_NOT_HEAD = re.compile(r"(?i)\b(?:assistant|asst|associate|strength|conditioning|trainer|former|emeritus)\b")
 _FLAG = re.compile(r"(?i)\bflag\b")
 _MENS = re.compile(r"(?i)\bmen'?s\b")
 _WOMENS = re.compile(r"(?i)\bwomen'?s\b")
@@ -26,16 +27,32 @@ _CLASS_YEAR = re.compile(r"['’]\d{2}\b")
 
 def clean_text(value: str, cap: int) -> str:
     """Untrusted page text: no email-like tokens at all, then letters, spaces and . ' - , / & ( ) only, capped."""
-    value = _AT_TEXT.sub("", value or "")  # "ann [at] gmail [dot] com" is an address too
+    value = _CLASS_YEAR.sub("", value or "")  # "Anna Taylor '25" -> "Anna Taylor" (digits are not kept)
+    value = _AT_TEXT.sub("", value)  # "ann [at] gmail [dot] com" is an address too
     value = re.sub(r"(?i)\S*[\[(]\s*at\s*[\])]\S*", "", value)
     value = " ".join(w for w in value.split() if "@" not in w and not w.lower().startswith("mailto"))
     return re.sub(r"\s+", " ", _NAME_OK.sub("", value)).strip()[:cap]
 
 
+_OTHER_SPORT = re.compile(r"(?i)\b(?:volleyball|basketball|soccer|softball|baseball|lacrosse|track|cross country|golf|tennis|"
+                          r"swimming|wrestling|cheer\w*|dance|bowling|rugby|hockey|esports|acrobatics|tumbling|rowing|"
+                          r"beach|(?<!flag[ -])football)\b")
+
+
 def is_head_title(title: str) -> bool:
     """Head coach if ANY part of a combined title ("Head Coach / Assistant AD") is a head-coach part, and that part
     is not an assistant/associate/strength/trainer role."""
-    return any(_HEAD.search(part) and not _NOT_HEAD.search(part) for part in re.split(r"[/&,;|]", title or ""))
+    title = re.sub(r"\s+", " ", title or "")  # &nbsp;, double spaces and newlines
+    def head_part(part):
+        m = _HEAD_SHORT.search(part)
+        if not m or _NOT_HEAD.search(part):
+            return False
+        # Another sport in the part: "flag" must sit inside the head-coach phrase itself
+        # ("Head Volleyball and Flag Football Coach" yes; "Head Volleyball Coach & Flag Football Coordinator" no).
+        return not _OTHER_SPORT.search(part) or bool(_FLAG.search(m.group(0)))
+    return any(head_part(part) for part in re.split(r"[/,;|]", title) + re.split(r"[/,;|&]", title))
+    # Both splits: "&" can join two jobs ("Head Coach & Assistant AD") or two sports in one job
+    # ("Head Coach Women's Beach Volleyball & Flag Football"); a head part in either reading counts.
 
 
 def decode_cfemail(hexed: str) -> Optional[str]:
@@ -91,14 +108,45 @@ def people(html: str, base: str) -> list:
                         "section": section})
     if out:
         return out
-    for card in soup.select("div.card"):
-        link = next((a for a in card.select('a[href*="/coaches/"]') if a.get_text(strip=True)), None)
-        if not link:
-            continue
+    return coach_cards(soup)
+
+
+# Card link text that is a page label, not a person. A miss is safe (not_found); a label taken as a name is not.
+_NOT_A_NAME = re.compile(r"(?i)\b(?:coach(?:es|ing)?|staff|football|flag|directory|athletics|roster|schedule|"
+                         r"recruiting|questionnaire|bio|biography|profile|read more|learn more|view|more)\b")
+_COACH_LINK = re.compile(r"/coaches/(?!index\b)[^/?#]+")
+
+
+def coach_cards(soup) -> list:
+    """One row per coach link (/coaches/<name>, PrestoSports cards, coach-bio blocks, header-less tables): the
+    smallest ancestor that holds only this coach's link; title = the first other text in it."""
+    out, seen = [], set()
+    for link in soup.find_all("a", href=True):
+        href = link["href"].split("?", 1)[0].rstrip("/")
         name = link.get_text(" ", strip=True)
-        rest = [t for t in card.stripped_strings if t != name]
-        mails = emails_in(card)
-        out.append({"name": name, "title": rest[0] if rest else "", "email": mails[0] if mails else None, "section": ""})
+        name = re.sub(r"(?i)^coach\s+", "", name)  # "Coach Jane Doe" -> "Jane Doe"
+        if not name or not _COACH_LINK.search(href) or href in seen or _NOT_A_NAME.search(name):
+            continue
+        seen.add(href)
+        box = link
+        while box.parent is not None:
+            others = {a["href"].split("?", 1)[0].rstrip("/") for a in box.parent.find_all("a", href=True)
+                      if _COACH_LINK.search(a["href"]) and a.get_text(strip=True)}
+            if others - {href} or len(box.parent.get_text(" ", strip=True)) > 600:
+                break
+            box = box.parent
+        strings = list(box.stripped_strings)
+        at = strings.index(name) if name in strings else 0
+        usable = lambda ts: [t for t in ts if t != name and "@" not in t and len(t) <= 120  # noqa: E731
+                             and not t.lower().startswith(("phone", "full bio"))]
+        rest = usable(strings[at + 1:]) or list(reversed(usable(strings[:at])))  # after the name, else just before
+        title = rest[0] if rest else ""
+        # Email only from the smallest block holding this coach's name AND title (never a neighbour's address).
+        own = link.parent
+        while own is not box and title and title not in list(own.stripped_strings):
+            own = own.parent
+        mails = emails_in(own if title else link.parent)
+        out.append({"name": name, "title": title, "email": mails[0] if mails else None, "section": ""})
     return out
 
 
@@ -123,7 +171,7 @@ def norm_name(name: str) -> str:
     text = unicodedata.normalize("NFKD", name or "")
     text = "".join(ch for ch in text if not unicodedata.combining(ch)).casefold()
     text = _CLASS_YEAR.sub("", text)
-    words = [w.strip(",.") for w in text.split()]
+    words = [w.strip(",.'’") for w in text.split()]
     words = [w for w in words if w and not cp._SUFFIX.fullmatch(w)]
     return " ".join(words)
 
@@ -178,9 +226,9 @@ def compare(program: dict, page_url: str, heads: list) -> dict:
     return {**out, "bucket": "match"}
 
 
-def coach_page(program: dict, fetcher) -> Optional[str]:
+def coach_page(program: dict, fetcher, sport_only: bool = False) -> Optional[str]:
     """staff_page_url, else the program page's own /sports/<slug>/coaches link (code-chosen, allowlisted)."""
-    if program.get("staff_page_url"):
+    if program.get("staff_page_url") and not sport_only:
         return program["staff_page_url"]
     if not program.get("program_url"):
         return None
@@ -201,6 +249,16 @@ def check_program(program: dict, fetcher=None) -> dict:
         if not page:
             return {**base, "bucket": "not_found", "note": "no_coach_page"}
         url, html = fetcher.get(page)
+        heads = head_coaches(people(html, url), url)
+        if not heads and "/sports/" not in urlsplit(url).path:
+            # Department directories are often built by JavaScript: try the sport's own coaches page.
+            try:
+                sport = coach_page(program, fetcher, sport_only=True)
+                if sport and sport != url:
+                    sport_url, sport_html = fetcher.get(sport)
+                    url, heads = sport_url, head_coaches(people(sport_html, sport_url), sport_url)
+            except cr.FetchError:
+                pass  # the directory was read: keep its result (not_found), not "unreadable"
     except cr.FetchError as e:
         return {**base, "bucket": "unreadable", "note": str(e).split(":")[0]}
-    return compare(program, url, head_coaches(people(html, url), url))
+    return compare(program, url, heads)

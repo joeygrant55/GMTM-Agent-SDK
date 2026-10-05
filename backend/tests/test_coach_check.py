@@ -206,3 +206,138 @@ def test_obfuscated_addresses_do_not_survive_in_names():
     for text in ("Ann Lee ann(at)gmail.com", "ann [at] gmail [dot] com", "Ann Lee ann (at) gmail (dot) com"):
         assert "gmail" not in cc.clean_text(text, 80), text
     assert cc.clean_text("Seán O'Brien-Smith", 80) == "Seán O'Brien-Smith"
+
+
+# ---- 187-run findings (2026-10-05): match gate 85% -> layouts, class years, other sports ----
+
+def test_class_years_do_not_make_spelling_changes():
+    hs = [{"name": "Anna Taylor '25", "title": "Interim Head Coach", "email": None, "section": ""}]
+    out = cc.compare({**PROGRAM, "head_coach_name": "Anna Taylor '25", "coach_email": None}, SPORT_PAGE, hs)
+    assert out["bucket"] == "match" and out["found_names"] == ["Anna Taylor"]
+
+
+def test_other_sport_head_coach_is_not_the_flag_head_coach():
+    assert not cc.is_head_title("Women's Volleyball Head Coach / Flag Football Coordinator / Intramural Director")
+    assert not cc.is_head_title("Head Football Coach") and cc.is_head_title("Head Flag Football Coach")
+
+
+def test_coach_bio_blocks_and_headerless_tables():
+    bio = ('<div class="coach-bio"><a href="/sports/flagfball/coaches/cplumb">Chris Plumb</a><span>Head Flag Football Coach</span>'
+           '<a href="mailto:cplumb@cottey.edu">cplumb@cottey.edu</a><span>Phone: 417</span></div>'
+           '<div class="coach-bio"><a href="/sports/flagfball/coaches/x">Ann Lee</a><span>Defensive Coordinator</span></div>')
+    got = heads(bio, "https://cotteycomets.com/sports/flagfball/coaches/index")
+    assert [(h["name"], h["title"], h["email"]) for h in got] == [("Chris Plumb", "Head Flag Football Coach", "cplumb@cottey.edu")]
+    table = ('<table><tr><th></th><th></th></tr><tbody><tr><td><a href="/sports/flag-football/roster/coaches/jazz-vinson/622">'
+             'Jazz Vinson</a></td><td>Head Coach</td><td><a href="mailto:jcvinson@barton.edu">e</a></td></tr></tbody></table>')
+    assert [h["name"] for h in heads(table, "https://bartonbulldogs.com/sports/flag-football/coaches")] == ["Jazz Vinson"]
+
+
+def test_js_directory_falls_back_to_the_sports_coaches_page():
+    pages = {"https://testhawks.com/staff-directory": "<div>loading...</div>",
+             "https://testhawks.com/sports/womens-flag-football/index": '<a href="/sports/womens-flag-football/coaches">C</a>',
+             "https://testhawks.com/sports/womens-flag-football/coaches": COACHES}
+
+    class Pages:
+        def get(self, url):
+            return url, pages[url]
+    program = {**PROGRAM, "staff_page_url": "https://testhawks.com/staff-directory"}
+    out = cc.check_program(program, fetcher=Pages())
+    assert out["bucket"] == "match" and out["source_url"].endswith("/coaches")
+
+
+def test_single_coach_page_title_is_the_text_after_the_name():
+    html = ('<div><h1>Flag Football</h1><button>Print</button><div class="coach-bio">'
+            '<a href="/sports/flagfball/coaches/cplumb">Chris Plumb</a><span>Head Flag Football Coach</span></div></div>')
+    assert cc.coach_cards(__import__("bs4").BeautifulSoup(html, "html.parser"))[0]["title"] == "Head Flag Football Coach"
+
+
+def test_no_text_fallback_a_miss_is_not_found_never_a_wrong_person():
+    html = ('<div><a href="/sports/flagfball/coaches/sb">Skeeter Benford</a><span>Assistant Coach</span></div>'
+            '<div><span>Bart Stephenson</span><span>Head Coach</span></div>')
+    assert heads(html, "https://calhoun.edu/sports/flagfball/coaches/index") == []
+    for html in ('<span>Assistant Coach</span><span>Bob Roe</span><span>Head Coach</span><span>Jane Doe</span>',
+                 '<p>Bob Roe</p><p>Head Coach</p><p>Jane Doe</p>', '<p>Bob Roe</p><p>Former Head Coach</p>'):
+        assert heads(html, "https://x.edu/sports/flagfball/coaches") == []
+
+
+# ---- fix-check of the parser changes ----
+
+@pytest.mark.parametrize("html", ["<h2>Coaching Staff</h2><h3>Head Coach</h3><p>Bart Stephenson</p>",
+                                  "<h1>Flag Football</h1><h2>Head Coach</h2><div>Bart Stephenson</div>",
+                                  "<ul><li>Staff Directory</li><li>Head Coach</li><li>Bart Stephenson</li></ul>"])
+def test_headings_are_never_names(html):
+    assert heads(html, "https://calhoun.edu/sports/flagfball/coaches/index") == []
+
+
+def test_card_title_before_the_name_and_capped():
+    card = ('<h2>Coaching Staff</h2><div class="card"><span>Head Coach</span>'
+            '<a href="/sports/flagfball/coaches/bs">Bart Stephenson</a></div>')
+    assert [(h["name"], h["title"]) for h in heads(card, "https://x.edu/sports/flagfball/coaches")] == [("Bart Stephenson", "Head Coach")]
+    news = '<div><a href="/sports/ff/coaches/cp">Chris Plumb</a><h3>Head Coach Chris Plumb signs 12 recruits for the 2027 class and more' + "x" * 80 + "</h3></div>"
+    assert heads(news, "https://x.edu/sports/ff/coaches") == []
+
+
+@pytest.mark.parametrize("title,head", [("Head Volleyball and Flag Football Coach", True),
+                                        # A safe miss (not_found) under the stricter dual-sport rule: "flag" is
+                                        # outside the "head ... coach" phrase.
+                                        ("Head Coach Women's Beach Volleyball & Flag Football", False),
+                                        ("Head Flag-Football Coach", True), ("Head Flag\xa0Football Coach", True),
+                                        ("Head Flag  Football Coach", True), ("Head Flag\n  Football Coach", True),
+                                        ("Women's Volleyball Head Coach / Flag Football Coordinator", False),
+                                        ("Head Coach (Football)", False)])
+def test_dual_sport_and_spacing(title, head):
+    assert cc.is_head_title(title) is head
+
+
+def test_failed_sport_fallback_keeps_the_directory_result():
+    class Pages:
+        def get(self, url):
+            if url.endswith("staff-directory"):
+                return url, "<div>no table</div>"
+            raise cc.cr.FetchError("status:404")
+    out = cc.check_program({**PROGRAM, "staff_page_url": "https://testhawks.com/staff-directory"}, fetcher=Pages())
+    assert out["bucket"] == "not_found" and out["source_url"].endswith("staff-directory")
+
+
+
+@pytest.mark.parametrize("title", ["Head Coach & Assistant AD", "Head Flag Football Coach & Assistant AD", "Head Coach & Athletic Trainer",
+                                   "Head Women's Flag Football Coach & Associate Head Volleyball Coach", "Director of Esports & Head Coach"])
+def test_ampersand_jobs_count(title):
+    assert cc.is_head_title(title)
+
+
+@pytest.mark.parametrize("title", ["Former Head Coach", "Head Coach Emeritus", "Head Coach (Strength & Conditioning)"])
+def test_not_current_heads(title):
+    assert not cc.is_head_title(title)
+
+
+def test_card_link_text_must_be_a_name():
+    html = '<div><a href="/sports/flagfball/coaches/staff">Coaching Staff</a><span>Head Coach</span></div>'
+    assert heads(html, "https://x.edu/sports/flagfball/coaches") == []
+    html = '<div><a href="/sports/flagfball/coaches/jd">Coach Jane Doe</a><span>Head Coach</span></div>'
+    assert [h["name"] for h in heads(html, "https://x.edu/sports/flagfball/coaches")] == ["Jane Doe"]
+
+
+# ---- final fix-check (latent false buckets) ----
+
+@pytest.mark.parametrize("title,head", [("Head Volleyball Coach & Flag Football Coordinator", False),
+                                        ("Head Women's Soccer Coach & Flag Football Coach", False),
+                                        ("Head Volleyball and Flag Football Coach", True), ("Head Coach & Assistant AD", True)])
+def test_flag_must_be_inside_the_head_phrase_when_another_sport_is_named(title, head):
+    assert cc.is_head_title(title) is head
+
+
+def test_email_never_taken_from_a_neighbours_block():
+    html = ('<div><div><a href="/sports/flagfball/coaches/jd">Jane Doe</a><span>Head Coach</span></div>'
+            '<div><span>Bob Roe</span><span>Assistant Coach</span><a href="mailto:broe@x.edu">e</a></div></div>')
+    got = heads(html, "https://x.edu/sports/flagfball/coaches")
+    assert [(h["name"], h["email"]) for h in got] == [("Jane Doe", None)]
+    own = ('<div><div><a href="/sports/flagfball/coaches/jd">Jane Doe</a><span>Head Coach</span>'
+           '<a href="mailto:jdoe@x.edu">e</a></div></div>')
+    assert heads(own, "https://x.edu/sports/flagfball/coaches")[0]["email"] == "jdoe@x.edu"
+
+
+def test_bio_links_are_not_names():
+    html = ('<div><a href="/sports/flagfball/coaches/jd">View Bio</a><span>Head Coach</span>'
+            '<a href="/sports/flagfball/coaches/jd">Jane Doe</a></div>')
+    assert [h["name"] for h in heads(html, "https://x.edu/sports/flagfball/coaches")] == ["Jane Doe"]
