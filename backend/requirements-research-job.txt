@@ -1,0 +1,11 @@
+# Weekly college research job (Dockerfile.research-job) only: the candidate runtime roots
+# plus plain HTTPS fetch and HTML parsing. Pinned to the versions tested on 2026-10-05.
+-r requirements-candidate.txt
+requests==2.34.2
+beautifulsoup4==4.15.0
+soupsieve==2.9.2
+urllib3==2.7.0
+charset-normalizer==3.5.1
+certifi==2026.7.22
+# zoneinfo fallback if the base image has no system time zone data
+tzdata==2026.2

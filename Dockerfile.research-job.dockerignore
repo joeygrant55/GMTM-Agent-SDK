@@ -1,0 +1,18 @@
+# Dockerfile-specific context: everything is excluded except these exact sources.
+**
+!Dockerfile.research-job
+!Dockerfile.research-job.dockerignore
+!backend/
+backend/**
+!backend/requirements-candidate.txt
+!backend/constraints-candidate.txt
+!backend/requirements-research-job.txt
+!backend/auth.py
+!backend/college_programs.py
+!backend/outreach_draft.py
+!backend/junior_eligibility.py
+!backend/college_research.py
+!backend/scripts/
+!backend/scripts/college_research_job.py
+!backend/scripts/college_research_probe.py
+!backend/data/college_womens_flag_2026.json

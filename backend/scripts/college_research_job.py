@@ -8,6 +8,7 @@ Without --apply nothing is written to the database; model calls are still made a
 Cap: measured full run 2026-10-02 = $1.23 for 187 programs, so the $3 default covers every program with headroom.
 """
 import json
+import os
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,27 @@ import college_research  # noqa: E402
 STALE_LOCK = timedelta(hours=6)
 
 
+def agent_run(fn, write=False):
+    """One Agent DB connection per call (same AGENT_DB_* settings as the web app; not profile_api, which pulls in
+    the whole web stack). Commits only when write=True; rolls back on any error."""
+    import pymysql
+    db = pymysql.connect(host=os.environ["AGENT_DB_HOST"], port=int(os.environ.get("AGENT_DB_PORT", "3306")),
+                         user=os.environ["AGENT_DB_USER"], password=os.environ["AGENT_DB_PASSWORD"],
+                         database=os.environ["AGENT_DB_NAME"], cursorclass=pymysql.cursors.DictCursor,
+                         connect_timeout=10, read_timeout=30, write_timeout=30)
+    try:
+        with db.cursor() as c:
+            result = fn(c)
+        if write:
+            db.commit()
+        return result
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def now_utc():
     return datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC, like every other SPARQ table
 
@@ -28,7 +50,7 @@ class Store:
     """Agent DB writes for the job. Each call opens and closes its own connection."""
 
     def __init__(self, run=None):
-        self.run = run or college_programs.MySQLStore()._run
+        self.run = run or agent_run
 
     def take_lock(self, run_id: str) -> bool:
         """Expire 'running' rows older than 6 h and insert ours (committed), then, in a new transaction that sees
@@ -90,7 +112,12 @@ def run_job(program_list, extract, store=None, cap=3.0, log=print) -> dict:
     """Fixed order over the given programs. Stops at the cap (status 'stopped') or at the first run-stopping
     failure (status 'failed'). store=None is a dry run: nothing is written."""
     run_id = now_utc().strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:8]
-    if store and not store.take_lock(run_id):
+    try:
+        locked = bool(store) and not store.take_lock(run_id)
+    except Exception as error:  # e.g. the DB is not reachable yet: nothing was spent
+        log(json.dumps({"run_id": run_id, "status": "failed", "error": type(error).__name__, "after": 0}))
+        return {"run_id": run_id, "status": "failed", "spent_usd": 0.0, "programs": 0}
+    if locked:
         log(json.dumps({"run_id": run_id, "status": "locked"}))
         return {"run_id": run_id, "status": "locked", "spent_usd": 0.0, "programs": 0}
     spent, done, status = 0.0, 0, "failed"  # anything that escapes (even Ctrl-C) is recorded as failed
@@ -145,8 +172,10 @@ def main(argv):
         program_list = [p for p in program_list if p["id"] in wanted]
         if len(program_list) != len(wanted):
             sys.exit("unknown program ids")
-    summary = run_job(program_list, extract, store=Store() if apply else None, cap=cap)
-    sys.exit(0 if summary["status"] in ("done", "stopped") else 1)
+    run_job(program_list, extract, store=Store() if apply else None, cap=cap)
+    # Always exit 0: a cron platform restarts failed containers, and each restart would be a new run with a fresh
+    # cap (Fable review 2026-10-05). The outcome is in the JSON summary line and in sparq_research_runs.
+    sys.exit(0)
 
 
 if __name__ == "__main__":

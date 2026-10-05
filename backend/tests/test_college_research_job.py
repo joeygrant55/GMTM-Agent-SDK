@@ -158,3 +158,35 @@ def test_bad_arguments_exit_before_any_paid_call(monkeypatch, args):
     with pytest.raises(SystemExit):
         job.main(args)
     assert called == []
+
+
+def test_job_image_files_and_connection_stay_minimal():
+    root = Path(__file__).resolve().parents[2]
+    docker = (root / "Dockerfile.research-job").read_text()
+    ignore = (root / "Dockerfile.research-job.dockerignore").read_text()
+    for name in ("college_research_job.py", "college_research_probe.py", "college_research.py", "college_programs.py"):
+        assert name in docker and name in ignore
+    source = Path(job.__file__).read_text()
+    assert "import profile_api" not in source and "from profile_api" not in source and "MySQLStore" not in source
+    assert job.Store().run is job.agent_run
+    body = "\n".join(line for line in docker.splitlines() if not line.startswith("#"))
+    assert "DB_HOST" not in body and "GMTM" not in body
+
+
+def test_db_unreachable_at_lock_is_a_logged_failure_with_no_spend(monkeypatch):
+    called = []
+    monkeypatch.setattr(college_research, "research_program", lambda p, e: called.append(p))
+
+    class Down(FakeStore):
+        def take_lock(self, run_id): raise OSError("dns not ready")
+
+    assert job.run_job(PROGRAMS, extract=None, store=Down(), log=lambda s: None)["status"] == "failed" and called == []
+
+
+def test_main_always_exits_zero_so_cron_never_restarts_a_paid_run(monkeypatch):
+    monkeypatch.setattr(college_research, "research_program", fake_research(fail_on="alpha-college"))
+    monkeypatch.setitem(sys.modules, "college_research_probe", type(sys)("college_research_probe"))
+    sys.modules["college_research_probe"].extract = None
+    with pytest.raises(SystemExit) as stop:
+        job.main([])
+    assert stop.value.code == 0

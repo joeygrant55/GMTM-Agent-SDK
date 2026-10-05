@@ -1,0 +1,19 @@
+# Weekly college research job (Railway cron service). Runs once and exits; serves nothing.
+# Program-level public facts only: it reads the college data file and public college pages and writes
+# sparq_college_research / sparq_research_runs in the Agent DB. No GMTM database settings are given to it.
+ARG PYTHON_IMAGE=python:3.13-slim
+FROM ${PYTHON_IMAGE}
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app/backend
+
+COPY backend/requirements-candidate.txt backend/constraints-candidate.txt backend/requirements-research-job.txt /app/dependencies/
+RUN python -m pip install --no-cache-dir --requirement /app/dependencies/requirements-research-job.txt --constraint /app/dependencies/constraints-candidate.txt && python -m pip check
+
+COPY backend/auth.py backend/college_programs.py backend/outreach_draft.py backend/junior_eligibility.py backend/college_research.py /app/backend/
+COPY backend/scripts/college_research_job.py backend/scripts/college_research_probe.py /app/backend/scripts/
+COPY backend/data/college_womens_flag_2026.json /app/backend/data/
+
+USER 10001:10001
+ENTRYPOINT ["python", "/app/backend/scripts/college_research_job.py"]
+CMD ["--apply", "--cap", "3.00"]
