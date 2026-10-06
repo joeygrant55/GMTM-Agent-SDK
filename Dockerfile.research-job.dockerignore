@@ -12,7 +12,10 @@ backend/**
 !backend/outreach_draft.py
 !backend/junior_eligibility.py
 !backend/college_research.py
+!backend/site_check.py
 !backend/scripts/
+!backend/scripts/run_job.py
 !backend/scripts/college_research_job.py
+!backend/scripts/site_check_job.py
 !backend/scripts/college_research_probe.py
 !backend/data/college_womens_flag_2026.json

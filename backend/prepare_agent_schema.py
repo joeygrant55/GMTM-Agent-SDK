@@ -332,6 +332,22 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
 )""",
         False,
     ),
+    # Daily signed-out site checks (same text as site_check.SCHEMA, test-checked).
+    (
+        'create_sparq_site_checks',
+        """CREATE TABLE IF NOT EXISTS sparq_site_checks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    run_id VARCHAR(64) NOT NULL,
+    check_name VARCHAR(80) NOT NULL,
+    ok TINYINT(1) NOT NULL,
+    status_code INT NULL,
+    ms INT NULL,
+    detail VARCHAR(300) NULL,
+    checked_at DATETIME(6) NOT NULL,
+    KEY site_checks_name_time (check_name, checked_at)
+)""",
+        False,
+    ),
 )
 
 CONVERSATION_COLUMNS = frozenset({
