@@ -19,3 +19,15 @@
 - Hudl Terms §3.2.8 (no bots), §2.3 (no account sharing); YouTube ToS (no automated access/downloads); Google
   blocks automated sign-in. Pasting a link stays allowed (GMTM already takes YouTube links). A Hudl partner
   agreement would be the legal route (Joey's business call). Hudl help pages (own-highlight download/share) unread.
+
+## 2026-10-07 update
+- Scheduled run 20261007T120500 ran on time: 11/11 ok.
+- f76aeaf adds 5 refusal checks (SPARQ handoff 401, redeem 403, authorize-without-state 400, SPARQ home -> gmtm.com,
+  SPARQ proxy 401); 15/15 pass live. Deployed to sparq-site-check (and the weekly job, same image); schedules
+  unchanged (daily 12:00 UTC, next 2026-10-08; weekly Mon 10:00 UTC, next 2026-10-12). First 15-check scheduled run:
+  2026-10-08 — confirm 15 rows.
+- No test account: Claude cannot create accounts; GMTM sign-in is an emailed code (no password), so a real signed-in
+  check would need inbox access. Joey told this on 2026-10-07; recommended skipping it.
+- Correction: Joey says athletes can already paste Hudl links and GMTM shows them natively (I had said YouTube only).
+  Open question (unmeasured): SPARQ "My card" plays only GMTM-hosted files inline; Hudl clips likely show the
+  "Watch on GMTM" link.
