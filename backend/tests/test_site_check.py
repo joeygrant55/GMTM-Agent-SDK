@@ -20,6 +20,11 @@ class Session:
     def __init__(self, responses):
         self.responses, self.calls = responses, []
 
+    def post(self, url, **kw):
+        assert kw["json"] == {}
+        self.posts = getattr(self, "posts", []) + [url]
+        return self.get(url, **kw)
+
     def get(self, url, **kw):
         assert kw["allow_redirects"] is False and "User-Agent" in kw["headers"]
         self.calls.append(url)
@@ -35,7 +40,8 @@ def good_responses():
         headers = {"content-type": (c.content_type or "text/html") + "; charset=utf-8"}
         if c.location:
             headers["location"] = {"gmtm_athlete_page": "/athletes/2/joey-grant/feed", "sparq_root": "/home",
-                                   "sparq_enter": "https://gmtm.com/sparq/authorize?state=x"}[c.name]
+                                   "sparq_enter": "https://gmtm.com/sparq/authorize?state=x",
+                                   "sparq_home_signed_out": "https://gmtm.com/"}[c.name]
         body = (c.contains or "") + (json.dumps({c.json_true: True}) if c.json_true else "")
         out[c.url] = Resp(c.status, body, headers)
     return out
@@ -129,3 +135,20 @@ def test_a_mistyped_job_name_never_runs_the_paid_research_job(value):
 def test_only_public_signed_out_urls():
     for c in sc.CHECKS:
         assert c.url.startswith("https://") and "token" not in c.url and "session=" not in c.url
+
+
+
+def test_post_checks_send_an_empty_body_and_expect_a_refusal():
+    posts = [c for c in sc.CHECKS if c.method == "POST"]
+    assert {c.name for c in posts} == {"gmtm_sparq_handoff_refuses", "gmtm_sparq_redeem_refuses"}
+    assert all(c.status in (401, 403) for c in posts)
+    c = posts[0]
+    s = Session({c.url: Resp(500, "boom", {"content-type": "application/json"})})
+    assert not sc.run_check(c, s)["ok"]
+
+
+def test_post_checks_really_post():
+    s = Session(good_responses())
+    for c in sc.CHECKS:
+        sc.run_check(c, s)
+    assert sorted(s.posts) == sorted(c.url for c in sc.CHECKS if c.method == "POST")

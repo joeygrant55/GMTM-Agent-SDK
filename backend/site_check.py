@@ -1,5 +1,6 @@
-"""Daily signed-out checks of GMTM.com and SPARQ (roadmap idea 6, part 1). Read-only HTTP GETs of public URLs, no
-redirect following, no sign-in, no model call. Results go to sparq_site_checks; Fable reads them each session
+"""Daily signed-out checks of GMTM.com and SPARQ (roadmap idea 6, part 1). HTTP GETs of public URLs plus two empty
+POSTs that must be refused (they stop before any Redis read/write: Fable review 2026-10-07); no redirect following,
+no sign-in, no model call. Results go to sparq_site_checks; Fable reads them each session
 (Joey 2026-10-06: "Fable checks daily"). Signed-in flows need a dedicated test account (not built).
 
 Every expectation below was measured on 2026-10-06.
@@ -41,6 +42,7 @@ class Check:
     contains: Optional[str] = None      # text the body must contain
     content_type: Optional[str] = None  # prefix the Content-Type must start with
     json_true: Optional[str] = None     # a JSON key that must be true
+    method: str = "GET"                 # POST checks send an empty JSON body (a refusal is the expected answer)
 
 
 CHECKS = (
@@ -55,6 +57,16 @@ CHECKS = (
     Check("sparq_session_signed_out", "https://sparq.gmtm.com/api/sparq/session", 401),
     Check("sparq_backend_health", "https://sparq-junior-production.up.railway.app/health", 200,
           content_type="application/json", json_true="configuration_ready"),
+    # Signed-in paths, checked from outside: each must refuse a visitor cleanly (not a 5xx). GMTM sign-in is an
+    # emailed one-time code (resources/email/email.resolver.js), so a real daily sign-in would need inbox access.
+    Check("gmtm_sparq_handoff_refuses", "https://api.gmtm.com/v2/sparq/handoff", 401, contains='"unauthenticated"',
+          content_type="application/json", method="POST"),
+    Check("gmtm_sparq_redeem_refuses", "https://api.gmtm.com/v2/sparq/redeem", 403, contains='"forbidden"',
+          content_type="application/json", method="POST"),
+    Check("gmtm_sparq_authorize_rejects_no_state", "https://gmtm.com/sparq/authorize", 400, content_type="text/html"),
+    Check("sparq_home_signed_out", "https://sparq.gmtm.com/home", 307, location=r"^https://gmtm\.com/$"),
+    Check("sparq_proxy_signed_out", "https://sparq.gmtm.com/api/sparq/proxy/api/athlete/evidence", 401,
+          content_type="application/json", contains="session ended"),
 )
 
 
@@ -68,7 +80,10 @@ def _probe(check: Check, session=None) -> dict:
     session = session or requests.Session()
     started = time.monotonic()
     try:
-        r = session.get(check.url, headers={"User-Agent": UA}, timeout=TIMEOUT, allow_redirects=False)
+        if check.method == "POST":
+            r = session.post(check.url, json={}, headers={"User-Agent": UA}, timeout=TIMEOUT, allow_redirects=False)
+        else:
+            r = session.get(check.url, headers={"User-Agent": UA}, timeout=TIMEOUT, allow_redirects=False)
     except requests.RequestException as error:
         return {"check_name": check.name, "ok": False, "status_code": None, "ms": None, "detail": type(error).__name__}
     ms = int((time.monotonic() - started) * 1000)
