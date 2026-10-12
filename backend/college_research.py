@@ -573,12 +573,19 @@ def research_program(program: dict, extract, fetcher=None, today=None) -> dict:
                 roster["method"] = "page_structure"
                 continue  # counted by code; the roster page is not sent to the model
             drops.append(f"roster_code:{why}")
-        result, used = extract(SYSTEM, f"source_url: {page_url}\n<page>\n{page_text(page_html)}\n</page>")
-        usage["input_tokens"] += used.get("input_tokens", 0)
-        usage["output_tokens"] += used.get("output_tokens", 0)
-        if result is None:
-            raise RuntimeError(f"non_json:{program['id']}")
-        env = Envelope.model_validate(result)  # raises on shape: run-stopping
+        prompt = f"source_url: {page_url}\n<page>\n{page_text(page_html)}\n</page>"
+        for attempt in (1, 2):  # one retry: a single malformed reply is not an outage (2026-10-12 run stopped at 177)
+            result, used = extract(SYSTEM, prompt)
+            usage["input_tokens"] += used.get("input_tokens", 0)
+            usage["output_tokens"] += used.get("output_tokens", 0)
+            try:
+                if result is None:
+                    raise RuntimeError(f"non_json:{program['id']}")
+                env = Envelope.model_validate(result)
+                break
+            except (RuntimeError, ValidationError):
+                if attempt == 2:
+                    raise  # the job skips this program (keeps last week's data) and stops only after 3 in a row
         got, dropped = validate_camps(env.camps or [], fetched, today)
         drops += [f"other_sport:{c['name']}" for c in got if not flag_camp(c, url)]
         camps += [c for c in got if flag_camp(c, url)]

@@ -476,3 +476,13 @@ def test_when_no_season_parses_the_model_sees_both_and_empty_is_rejected():
     r = cr.research_program(program, extract, today=TODAY,
                             fetcher=cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None))
     assert r["roster"]["season"] == "2025-26" and r["roster"]["method"] == "model"
+
+
+
+def test_one_malformed_reply_is_retried_once():
+    pages = {"https://testhawks.com/robots.txt": FakeResponse(404),
+             "https://testhawks.com/sports/flag-football/index": FakeResponse(200, b"page")}
+    replies = [(None, {"input_tokens": 5}), ({"camps": [], "roster": None}, {"input_tokens": 5})]
+    r = cr.research_program(PROGRAM, lambda s, u: replies.pop(0), today=TODAY,
+                            fetcher=cr.Fetcher(HOSTS, session=FakeSession(pages), sleep=lambda s: None))
+    assert replies == [] and r["usage"]["input_tokens"] == 10 and r["camps_state"] == "not_found"

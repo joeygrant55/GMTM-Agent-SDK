@@ -14,6 +14,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from pydantic import ValidationError
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import college_programs  # noqa: E402
 import college_research  # noqa: E402
@@ -121,12 +123,22 @@ def run_job(program_list, extract, store=None, cap=3.0, log=print) -> dict:
         log(json.dumps({"run_id": run_id, "status": "locked"}))
         return {"run_id": run_id, "status": "locked", "spent_usd": 0.0, "programs": 0}
     spent, done, status = 0.0, 0, "failed"  # anything that escapes (even Ctrl-C) is recorded as failed
+    skipped = failures_in_row = 0
     try:
         for p in sorted(program_list, key=lambda p: p["id"]):
             if spent >= cap:
                 status = "stopped"
                 break
-            result = college_research.research_program(p, extract)
+            try:
+                result = college_research.research_program(p, extract)
+            except (RuntimeError, ValidationError) as error:  # malformed model reply twice: skip, keep last good data
+                skipped += 1
+                failures_in_row += 1
+                log(json.dumps({"run_id": run_id, "program_id": p["id"], "skipped": type(error).__name__}))
+                if failures_in_row >= 3:
+                    raise  # three programs in a row: treat as an outage and stop the run
+                continue
+            failures_in_row = 0
             spent += result.get("cost_usd", 0.0)
             done += 1
             if store:
@@ -143,7 +155,8 @@ def run_job(program_list, extract, store=None, cap=3.0, log=print) -> dict:
                 store.finish(run_id, status)
             except Exception as error:  # never hide the original failure behind a bookkeeping error
                 log(json.dumps({"run_id": run_id, "finish_error": type(error).__name__}))
-    summary = {"run_id": run_id, "status": status, "spent_usd": round(spent, 4), "cap_usd": cap, "programs": done}
+    summary = {"run_id": run_id, "status": status, "spent_usd": round(spent, 4), "cap_usd": cap, "programs": done,
+               "skipped": skipped}
     log(json.dumps(summary))
     return summary
 

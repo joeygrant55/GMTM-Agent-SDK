@@ -206,6 +206,12 @@ def test_incomplete_or_invalid_model_output_is_never_rendered(setup, failure):
 
 def test_national_action_uses_server_source_and_expiry_blocks_before_source(setup, monkeypatch):
     client, _, _, opened, calls, plan = setup
+    # Pin the clock inside the source review window (it expired by design on 2026-10-08) so the test stays valid.
+    import profile_pathways
+    from datetime import datetime, timedelta, timezone
+    inside = datetime.fromisoformat(profile_pathways.CHECKED_AT.replace("Z", "+00:00")) + timedelta(days=1)
+    original = profile_pathways.pathway_bundle
+    monkeypatch.setattr(api, "pathway_bundle", lambda track, now=None: original(track, now=inside))
     plan["reply"] = reply(action="usaf_support")
     response = client.post("/api/athlete/debrief", json={**BODY, "track": "national_team"})
     assert response.status_code == 200, response.text

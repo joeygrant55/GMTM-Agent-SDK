@@ -44,11 +44,21 @@ def test_cap_stops_launching_new_programs(monkeypatch):
     assert store.saved == ["alpha-college", "mid-college"] and summary["status"] == "stopped" and store.finished == ["stopped"]
 
 
-def test_run_stopping_failure_is_recorded_and_stops(monkeypatch):
+def test_one_bad_program_is_skipped_and_the_run_continues(monkeypatch):
     monkeypatch.setattr(college_research, "research_program", fake_research(fail_on="mid-college"))
     store = FakeStore()
     summary = job.run_job(PROGRAMS, extract=None, store=store, log=lambda s: None)
-    assert store.saved == ["alpha-college"] and summary["status"] == "failed" and store.finished == ["failed"]
+    assert store.saved == ["alpha-college", "zeta-college"] and summary["status"] == "done" and summary["skipped"] == 1
+
+
+def test_three_bad_programs_in_a_row_stop_the_run(monkeypatch):
+    def research(p, extract):
+        raise RuntimeError("non_json")
+    monkeypatch.setattr(college_research, "research_program", research)
+    store = FakeStore()
+    many = [{"id": f"p{i}", "school": "S", "program_url": None, "staff_page_url": None} for i in range(5)]
+    summary = job.run_job(many, extract=None, store=store, log=lambda s: None)
+    assert summary["status"] == "failed" and store.finished == ["failed"] and store.saved == []
 
 
 def test_locked_run_does_nothing(monkeypatch):
@@ -131,7 +141,7 @@ def test_camps_page_error_keeps_last_weeks_camps_but_a_clean_none_replaces_them(
 
 def test_any_exception_and_interrupt_still_finish_the_run_as_failed(monkeypatch):
     def boom(p, extract):
-        raise KeyboardInterrupt
+        raise KeyboardInterrupt  # not a per-program failure: stops at once
     monkeypatch.setattr(college_research, "research_program", boom)
     store = FakeStore()
     with pytest.raises(KeyboardInterrupt):
