@@ -13,6 +13,8 @@ module.exports = {
   async headers() {
     // GMTM entry routes carry one-use codes: never cache or leak a referrer.
     const entry = [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }]
-    return [{ source: '/enter', headers: entry }, { source: '/enter/:path*', headers: entry }]
+    // Every page: no MIME sniffing, no full URL in the referrer (security audit 2026-10-13). Later rules win, so /enter keeps no-referrer.
+    const all = [{ key: 'X-Content-Type-Options', value: 'nosniff' }, { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' }]
+    return [{ source: '/:path*', headers: all }, { source: '/enter', headers: entry }, { source: '/enter/:path*', headers: entry }]
   },
 }

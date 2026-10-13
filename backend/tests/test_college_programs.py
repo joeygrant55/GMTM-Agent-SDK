@@ -223,10 +223,10 @@ def test_build_ranks_home_state_first_caps_at_12_and_caches(app):
     assert first["eligible"] is True and first["built"] is True and len(programs) == 12
     assert programs[0]["state"] == "TX" and sum(p["state"] == "TX" for p in programs) >= 10
     assert {p["level"] for p in programs} == {"NCAA D1", "NCAA D2", "NCAA D3", "NAIA", "NJCAA"}
-    assert all(p["reason"] for p in programs) and len(model.calls) == 1
+    assert all(p["reason"] for p in programs) and len(model.calls) == 12  # one small call per program
     again = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     listed = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()
-    assert again == first == listed and len(model.calls) == 1  # cached per athlete
+    assert again == first == listed and len(model.calls) == 12  # cached per athlete
     assert [p["id"] for p in cp.rank("TX")] == [p["id"] for p in cp.rank("TX")]
 
 
@@ -256,15 +256,21 @@ def test_no_numeric_fit_score_in_any_response(app):
 def test_reason_prompt_has_only_the_allowed_fields(app):
     client, store, model, _, headers, _ = app
     client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
-    (system, user), = model.calls
-    for secret in (NAME, "Avery", "Quintero", CITY, EMAIL, "@"):
-        assert secret not in user
-    sent = json.loads(user)
-    assert set(sent) == {"athlete", "programs"}
-    # Real GMTM junior drills, not the old 40/shuttle/vertical profile copy (which had a 40 and a vertical).
-    assert sent["athlete"] == {"position": "QB", "grad_year": 2028, "state": "TX", "drill_results": DRILLS}
-    assert "40-Yard" not in user and "Vertical" not in user and "33.05" not in user and "-96.75" not in user
-    assert all(set(p) == {"id", "school", "state", "level", "conference", "notes"} for p in sent["programs"])
+    assert len(model.calls) == 12 and len({system for system, _ in model.calls}) == 1
+    system = model.calls[0][0]
+    sent = {}
+    for _, user in model.calls:
+        for secret in (NAME, "Avery", "Quintero", CITY, EMAIL, "@"):
+            assert secret not in user
+        assert "40-Yard" not in user and "Vertical" not in user and "33.05" not in user and "-96.75" not in user
+        body = json.loads(user)
+        assert set(body) == {"athlete", "programs"} and len(body["programs"]) == 1
+        assert set(body["programs"][0]) == {"id", "school", "state", "level", "conference", "notes"}
+        sent[body["programs"][0]["id"]] = body["athlete"]
+    # Real GMTM junior drills, not the old 40/shuttle/vertical profile copy; every third program only.
+    ranked = [p["id"] for p in cp.rank("TX")]
+    for i, pid in enumerate(ranked):
+        assert sent[pid] == {"position": "QB", "grad_year": 2028, "state": "TX", "drill_results": DRILLS if i % 3 == 0 else []}
     for rule in ("never invent coaches, emails, rosters, scholarships, records", 'never say "verified" or "recruited"', "2 short sentences",
                  "name a drill only as it is given in drill_results"):
         assert rule in system.lower()
@@ -275,9 +281,11 @@ def test_model_failure_still_returns_programs_without_reasons(app, monkeypatch):
     model.fail = True
     body = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     assert len(body["programs"]) == 12 and all(p["reason"] is None for p in body["programs"])
-    model.fail = False  # same inputs: a missing reason is final, no new paid call
-    assert all(p["reason"] is None for p in client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()["programs"])
-    assert len(model.calls) == 1
+    # A failed call is not cached: the list reads "not built" and the next build retries.
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["built"] is False
+    model.fail = False
+    assert all(p["reason"] for p in client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()["programs"])
+    assert len(model.calls) == 24
 
 
 def test_unsafe_reasons_are_dropped():
@@ -388,14 +396,15 @@ def test_banned_reason_is_cached_not_rebuilt(app, monkeypatch):
     original = model.__call__
     def scholarship(system, user, max_tokens):
         reply = original(system, user, max_tokens)
-        reply["reasons"][0]["reason"] = "It offers a scholarship."
+        if cp.rank("TX")[0]["id"] in user:
+            reply["reasons"][0]["reason"] = "It offers a scholarship."
         return reply
     monkeypatch.setattr(cp, "model_json", scholarship)
     first = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     # Cards are shown closest first, so find the first ranked program by id.
     assert next(c for c in first["programs"] if c["id"] == cp.rank("TX")[0]["id"])["reason"] is None
     client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
-    assert len(model.calls) == 1
+    assert len(model.calls) == 12
 
 
 def test_news_release_links_are_not_confirmed():
@@ -655,7 +664,7 @@ def test_new_drill_results_make_the_saved_list_stale(app):
     cp.read_athlete(USER_ID)["drills"][0]["value"] = 3.3  # a newer, faster dash on GMTM
     assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["built"] is False
     client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
-    assert len(model.calls) == 2 and '"value": 3.3' in model.calls[-1][1]
+    assert len(model.calls) == 24 and any('"value": 3.3' in user for _, user in model.calls[12:])
 
 
 def test_distance_math():
@@ -1254,3 +1263,36 @@ def test_allowlisted_tester_keeps_the_list_even_if_male(app, monkeypatch):
     monkeypatch.setattr(junior_eligibility, "allowlist", lambda env: frozenset({USER_ID}))
     response = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers)
     assert response.json().get("eligible") is True, (response.status_code, response.text)
+
+
+def test_stream_sends_the_list_first_then_each_reason_then_saves(app):
+    client, store, model, _, headers, _ = app
+    ask = {**headers, "Accept": "application/x-ndjson"}
+    response = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=ask)
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    lines = [json.loads(line) for line in response.text.splitlines()]
+    assert lines[0]["type"] == "list" and lines[0]["built"] is True and len(lines[0]["programs"]) == 12
+    assert all(p["reason"] is None for p in lines[0]["programs"])
+    reasons = {line["id"]: line["reason"] for line in lines[1:-1]}
+    assert all(line["type"] == "reason" for line in lines[1:-1]) and lines[-1] == {"type": "done"}
+    assert set(reasons) == {p["id"] for p in lines[0]["programs"]} and all(reasons.values())
+    listed = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()
+    assert {p["id"]: p["reason"] for p in listed["programs"]} == reasons  # saved after the last reason
+    again = [json.loads(line) for line in client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=ask).text.splitlines()]
+    assert [line["type"] for line in again] == ["list", "done"] and len(model.calls) == 12  # cache hit: no new calls
+
+
+def test_reason_dashes_become_commas(monkeypatch):
+    p = cp.rank("TX")[0]
+    monkeypatch.setattr(cp, "model_json", lambda *a: {"reasons": [{"id": p["id"], "reason": "Close to home — and in your state. It fits–well."}]})
+    assert cp.explain({}, [p]) == {p["id"]: "Close to home, and in your state. It fits, well."}
+    monkeypatch.setattr(cp, "model_json", lambda *a: {"reasons": [{"id": p["id"], "reason": "It is a 2\u20133 hour drive. Try the 20-Yard Dash."}]})
+    assert cp.explain({}, [p]) == {p["id"]: "It is a 2 to 3 hour drive. Try the 20-Yard Dash."}
+
+
+def test_stream_save_failure_sends_error_not_done(app, monkeypatch):
+    client, store, model, _, headers, _ = app
+    monkeypatch.setattr(store, "save_list", lambda *a: (_ for _ in ()).throw(RuntimeError("db down")))
+    lines = [json.loads(line) for line in client.post(f"/api/workspace/trigger-matching/{SUBJECT}",
+                                                      headers={**headers, "Accept": "application/x-ndjson"}).text.splitlines()]
+    assert lines[0]["type"] == "list" and lines[-1] == {"type": "error"}

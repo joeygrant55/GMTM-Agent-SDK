@@ -70,7 +70,7 @@ function StepCard({ step, index, current }: { step: JourneyStep; index: number; 
       {step.done ? check : index + 1}
     </span>
     <span className={`text-lg font-semibold ${!step.done && !current ? 'text-[#D4D4DA]' : ''}`}>{step.title}</span>
-    <span className={`text-sm ${current ? 'font-semibold text-jr-lime' : step.done ? 'text-jr-soft' : 'text-jr-dim'}`}>{current ? 'Do this next →' : step.detail}</span>
+    <span className={`text-sm ${current ? 'font-semibold text-jr-lime' : step.done ? 'text-jr-soft' : 'text-jr-dim'}`}>{current ? [step.detail, 'Do this next →'].filter(Boolean).join(' · ') : step.detail}</span>
     <span className="sr-only">{step.done ? '(done)' : current ? '(current step)' : '(not started)'}</span>
   </>
   const box = `flex flex-col gap-2.5 rounded-[18px] p-4 sm:p-5 ${step.done ? 'border border-jr-done-line bg-jr-done' : current ? 'border-2 border-jr-lime bg-jr-raised' : 'border border-dashed border-jr-edge bg-jr-well'}`
@@ -99,7 +99,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
   const cta = !flow.current ? { href: '/home/colleges', label: 'Email another coach' }
     : flow.current.key === 'profile' ? { href: 'https://gmtm.com', label: 'Add a clip on GMTM', external: true }
       : flow.current.key === 'colleges' ? { href: '/home/colleges', label: 'Find my colleges' }
-        : flow.current.key === 'save' ? { href: '/home/colleges', label: 'Pick my colleges' }
+        : flow.current.key === 'save' ? { href: '/home/colleges', label: colleges?.sent_count ? 'Save more colleges' : 'Pick my colleges' }
           : { href: nextEmail ? `/home/colleges/${nextEmail.id}` : '/home/colleges', label: 'Email a coach' }
 
   return <div className="flex flex-col gap-10 pb-6 pt-8 md:pt-12">
@@ -109,7 +109,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
         <h1 className="break-words text-[34px] font-bold leading-[1.05] tracking-[-0.5px] sm:text-5xl lg:text-[64px] lg:leading-[1.02] lg:tracking-[-1.5px]">
           Hey {first || 'there'}.<br className="hidden sm:block" /> {colleges ? flow.headline : 'Let’s get you to your first coach email.'}
         </h1>
-        <p className="max-w-[560px] text-[17px] leading-normal text-jr-soft sm:text-[19px]">Save the colleges you like, then send a short note to one coach. Your combine numbers do the talking.</p>
+        <p className="max-w-[560px] text-[17px] leading-normal text-jr-soft sm:text-[19px]">{colleges?.sent_count ? 'Nice work. Save more colleges you like and email those coaches too.' : 'Save the colleges you like, then send a short note to one coach. Your combine numbers do the talking.'}</p>
         <div className="flex flex-col gap-3 sm:flex-row">
           {cta.external ? <a href={cta.href} target="_blank" rel="noopener noreferrer" className={primary}>{cta.label}<span className="sr-only"> (opens in a new tab)</span></a>
             : <Link href={cta.href} className={primary}>{cta.label}</Link>}

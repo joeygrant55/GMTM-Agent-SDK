@@ -28,3 +28,21 @@ Contact lists stay in the session scratchpad (0600). No emails in the repo or in
 - Connor could not get in: staff accounts (type 9) are not juniors and were not on the allow-list; the gmtm.com button shows only to type 1 athletes.
 - Joey set Railway sparq-junior SPARQ_TEST_ALLOWLIST=2,1,3 (Joey 2, Alex 1, Connor 3). Redeploy SUCCESS; is_eligible(1/2/3) = True with live settings.
 - Testers enter at sparq.gmtm.com directly. Joey holds the 19 invites until their feedback is in.
+
+## Update: Alex's tester feedback (same day)
+Alex: "finding colleges took awhile, some sort of loading indicator"; asked for a Norman/Nielsen usability audit and a security audit.
+- Cause measured: one model call wrote all 12 fit reasons, 21.6 s and 22.1 s (2 live runs).
+- Fix (Joey: "show them as they come in"): 12 parallel calls, NDJSON stream (list first, then each reason). Measured live: all 12 by 3.1 s / 3.8 s, first at ~2.4 s. Short loading panel, per-card "Writing why it fits you…". Plain JSON stays for clients without Accept: application/x-ndjson.
+- Reasons: 13-year-old wording, no em/en dash, drills on every third program only. REASON_SYSTEM is in inputs_key, so every built list reads "not built" once after deploy (saves and sent marks stay).
+- A failed model call is not cached (next build retries); unsafe text stays final. Save failure sends {"type":"error"}. Leaving the page aborts the build.
+- Usability fixes: "Open in my email" needs a valid To; 409 detail map; source links show the host; "NJCAA (2-year)"; "Show map"; Home copy after the first email; current step shows its count.
+- Security fixes: X-Content-Type-Options nosniff + Referrer-Policy on all pages; npm update nanoid/source-map-js/postcss (audit 4 -> 2; the rest needs Next 16).
+- Security finding corrected: GMTM RDS link already uses TLS (Ssl_cipher TLS_AES_256_GCM_SHA384 with pymysql 1.2.0, the prod pin). Not verified: server certificate. Tested fix: ssl_ca=AWS global bundle + verify identity connects; needs the PEM in 3 images.
+- Checks: backend 1958 passed; tsc OK; check-profile-safety OK; next build (profile surface) OK. Two Fable 5.1 adversarial reviews: no blocking issues; findings fixed.
+- Not verified: streaming through Vercel + Railway in a browser (check Network tab after deploy).
+
+## Open items (added)
+- Joey: OK to deploy (Railway sparq-junior + Vercel sparq-junior). Then: real browser check of the stream, Connor/Alex retest.
+- Fable: RDS cert verification; Next 16 upgrade; forget_athlete script (parent delete request); remove tester ids from SPARQ_TEST_ALLOWLIST after wave 1.
+- GMTM: HttpOnly on the sessionId cookie (gmtm.com repos not reviewed).
+- Not done from the usability audit: cold visit to sparq.gmtm.com bounces to gmtm.com with no message; map label overlap with the You pin; "I sent it" placement on phone; coach-email steps when only a staff page exists.

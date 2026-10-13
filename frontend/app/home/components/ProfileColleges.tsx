@@ -3,13 +3,14 @@
 // Junior colleges (profile surface only). Sourced programs, why each fits, distance
 // from her GMTM city, saves, contact rules with their sources, the coach email kit
 // (copy or open in her own email) and the Emails list. SPARQ never sends. No fit score.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
 import { badgeColors, chooseLabels, initials, mapWindow, schoolLabels } from './journey'
 import { noteChecklist, openLink, plainEmail, type CheckItem, type NoteKit } from './emailKit'
 import { CollegeResearchCards, useCollegeResearch } from './collegeResearch'
+import { hostOf } from './collegeResearchText'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 export const primary = `inline-flex min-h-12 items-center justify-center rounded-[14px] bg-jr-lime px-6 py-3 text-base font-bold text-jr-ground hover:bg-jr-lime-hover disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -40,8 +41,17 @@ export const savedURL = (userId: string, rest = '') => `${BACKEND_URL}/api/works
 const JSON_POST = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
 // Plain words for a 13-year-old. Backend detail text is never shown as is.
+// 409 details the backend sends (college_programs.py), in her words.
+const CONFLICT: Record<string, string> = {
+  'Find your colleges first.': 'Your college list changed. Go to Colleges and tap Check my list again.',
+  'Connect your GMTM profile first.': 'Open SPARQ Recruit from your GMTM profile first.',
+}
 const NETWORK = "We can't reach SPARQ Recruit right now. Check your internet and try again."
 export async function readJSON<T>(request: Promise<Response>): Promise<T> {
+  const response = await readOK(request)
+  try { return await response.json() as T } catch { throw new Error('Something went wrong on our side. Try again in a minute.') }
+}
+async function readOK(request: Promise<Response>): Promise<Response> {
   let response: Response
   try { response = await request } catch { throw new Error(NETWORK) }
   if (!response.ok) {
@@ -51,12 +61,45 @@ export async function readJSON<T>(request: Promise<Response>): Promise<T> {
         : response.status === 401 ? 'Your SPARQ Recruit time ran out. Open SPARQ Recruit from GMTM again.'
           : response.status === 403 ? "This part of SPARQ Recruit isn't open for your account."
             : response.status === 404 ? "We couldn't find that. Go back and try again."
-              : response.status === 409 ? 'Write a draft for this college first.'
+              : response.status === 409 ? (CONFLICT[detail] || 'Write a draft for this college first.')
                 : response.status === 429 ? "You've done this a lot in the last hour. Take a break and try again later."
                   : response.status === 502 ? "We couldn't write that just now. Try again in a minute."
                     : 'Something went wrong on our side. Try again in a minute.')
   }
-  try { return await response.json() as T } catch { throw new Error('Something went wrong on our side. Try again in a minute.') }
+  return response
+}
+
+// The build streams one JSON object per line: the list first, then each reason as it is written
+// (backend college_programs.build_colleges). A plain JSON reply (e.g. not eligible) is one list.
+type BuildLine = ({ type: 'list' } & CollegeList) | { type: 'reason'; id: string; reason: string | null } | { type: 'done' } | { type: 'error' }
+const NOT_SAVED = 'We could not save your list. Tap Check my list again.'
+async function readBuild(request: Promise<Response>, take: (line: BuildLine) => void): Promise<void> {
+  const response = await readOK(request)
+  if (!(response.headers.get('content-type') || '').includes('ndjson') || !response.body) {
+    take({ type: 'list', ...await response.json() as CollegeList })
+    return
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let finished = false
+  try {
+    for (;;) {
+      const { value, done } = await reader.read()
+      buffer += decoder.decode(value, { stream: !done })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        const parsed = JSON.parse(line) as BuildLine
+        if (parsed.type === 'error') throw new Error(NOT_SAVED)
+        finished = finished || parsed.type === 'done'
+        take(parsed)
+      }
+      if (done) break
+    }
+  } catch (e) { throw new Error((e as Error).message === NOT_SAVED ? NOT_SAVED : NETWORK) }
+  if (!finished) throw new Error(NETWORK)
 }
 
 export const shortDate = (iso: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso))
@@ -101,7 +144,7 @@ function ExternalLink({ href, children }: { href: string | null; children: React
 function ProgramLinks({ program }: { program: CollegeProgram }) {
   return <>
     {program.program_link ? <ExternalLink href={program.program_link}>{program.program_link_label}</ExternalLink>
-      : program.source_links.map((url, index) => <ExternalLink key={url} href={url}>Source {index + 1}</ExternalLink>)}
+      : program.source_links.map((url, index) => <ExternalLink key={url} href={url}>{hostOf(url) || `Source ${index + 1}`}</ExternalLink>)}
     <ExternalLink href={program.questionnaire_link}>Recruit questionnaire</ExternalLink>
   </>
 }
@@ -113,7 +156,7 @@ function Meta({ program }: { program: CollegeProgram }) {
   </p>
 }
 
-function ProgramCard({ program, busy, onToggle, label }: { program: CollegeProgram; busy: boolean; onToggle: () => void; label?: string }) {
+function ProgramCard({ program, busy, onToggle, label, writing }: { program: CollegeProgram; busy: boolean; onToggle: () => void; label?: string; writing?: boolean }) {
   return <article className={`flex gap-4 rounded-[20px] bg-jr-card p-4 sm:p-[18px] ${program.saved ? 'border-2 border-jr-lime' : 'border border-jr-line'}`}>
     <Badge program={program} label={label} />
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -122,7 +165,8 @@ function ProgramCard({ program, busy, onToggle, label }: { program: CollegeProgr
         <HeartButton program={program} busy={busy} onToggle={onToggle} />
       </div>
       <Meta program={program} />
-      {program.reason && <p className="mt-1 break-words text-[15px] leading-normal text-[#D4D4DA]">{program.reason}</p>}
+      {program.reason ? <p className="mt-1 break-words text-[15px] leading-normal text-[#D4D4DA]">{program.reason}</p>
+        : writing && <p aria-hidden="true" className="mt-1 text-[15px] italic text-jr-muted motion-safe:animate-pulse">Writing why it fits you…</p>}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <Link href={`/home/colleges/${program.id}`} className={`${small} bg-jr-lime font-bold text-jr-ground hover:bg-jr-lime-hover`}>Email the coach<span className="sr-only">: {program.school}</span></Link>
         {program.sent_at && <span className="rounded-full bg-jr-done px-2.5 py-1 text-xs font-semibold text-jr-lime">Emailed {shortDate(program.sent_at)}</span>}
@@ -192,6 +236,17 @@ function NotEligible({ notice, busy, onCheck }: { notice: string | null; busy: b
 }
 
 type Level = 'All' | 'NCAA' | 'NAIA' | 'NJCAA'
+// Shown until the list arrives (about 1 s: GMTM reads and ranking). Reasons then fill in card by card.
+function FindingColleges() {
+  // The tapped button unmounts; move focus here so keyboard and screen reader users are not dropped.
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => ref.current?.focus(), [])
+  return <div ref={ref} tabIndex={-1} className="mt-6 flex items-center gap-4 rounded-[20px] border border-jr-line bg-jr-card p-6 outline-none">
+    <span aria-hidden="true" className="h-7 w-7 shrink-0 rounded-full border-[3px] border-jr-edge border-t-jr-lime motion-safe:animate-spin" />
+    <p role="status" className="font-semibold text-jr-text">Finding programs that fit you…</p>
+  </div>
+}
+
 const LEVELS: Level[] = ['All', 'NCAA', 'NAIA', 'NJCAA']
 const NEAR_MI = 150
 const chip = (on: boolean) => `inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] ${focus} ${on ? 'border-jr-lime bg-jr-done font-semibold text-jr-lime' : 'border-jr-edge text-[#D4D4DA] hover:border-jr-muted'}`
@@ -205,6 +260,12 @@ export function ProfileColleges() {
   const [near, setNear] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
+  // Program ids whose reason is still being written in this build.
+  const [writing, setWriting] = useState<string[]>([])
+  const heading = useRef<HTMLHeadingElement>(null)
+  // Leaving the page stops the build (the server then saves nothing), so a quick return cannot double-build.
+  const stop = useRef<AbortController | null>(null)
+  useEffect(() => () => stop.current?.abort(), [])
   const userId = user?.id
 
   useEffect(() => {
@@ -217,9 +278,21 @@ export function ProfileColleges() {
   const build = useCallback(async () => {
     if (!userId) return
     setBusy(true); setError('')
+    const controller = new AbortController()
+    stop.current = controller
     try {
-      setList(await readJSON<CollegeList>(apiFetch(`${BACKEND_URL}/api/workspace/trigger-matching/${encodeURIComponent(userId)}`, { method: 'POST' })))
-    } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
+      await readBuild(apiFetch(`${BACKEND_URL}/api/workspace/trigger-matching/${encodeURIComponent(userId)}`, { method: 'POST', headers: { Accept: 'application/x-ndjson' }, signal: controller.signal }), line => {
+        if (line.type === 'list') {
+          const { type: _, ...next } = line
+          setList(next)
+          setWriting(next.programs.filter(p => !p.reason).map(p => p.id))
+          if (next.built) requestAnimationFrame(() => heading.current?.focus())
+        } else if (line.type === 'reason') {
+          setList(current => current && { ...current, programs: current.programs.map(p => (p.id === line.id ? { ...p, reason: line.reason } : p)) })
+          setWriting(ids => ids.filter(id => id !== line.id))
+        }
+      })
+    } catch (e) { if (!controller.signal.aborted) setError((e as Error).message) } finally { setBusy(false); setWriting([]) }
   }, [userId])
 
   const apply = useCallback((id: string, saved: boolean) => setList(current => {
@@ -239,11 +312,12 @@ export function ProfileColleges() {
   return <div className="pb-12 pt-8">
     <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <h1 className="text-[34px] font-bold leading-tight tracking-[-1px] sm:text-[44px]">College flag football</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-[34px] font-bold leading-tight tracking-[-1px] outline-none sm:text-[44px]">College flag football</h1>
         {list?.eligible && list.built && <p className="mt-2 text-[17px] text-jr-soft">{list.programs.length} programs that fit you. {hasDistances ? 'Closest first. ' : ''}Tap the heart to save.</p>}
+        {writing.length > 0 && list?.programs.length ? <p className="mt-1 text-[15px] text-jr-muted"><span role="status">Writing why each one fits you…</span> <span aria-hidden="true">{list.programs.length - writing.length} of {list.programs.length} done</span></p> : null}
       </div>
       {list?.eligible && list.built && list.programs.length > 0 && <div role="group" aria-label="Filter colleges" className="flex flex-wrap gap-2">
-        {LEVELS.map(l => <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={chip(level === l)}>{l === 'All' ? 'All levels' : l}</button>)}
+        {LEVELS.map(l => <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={chip(level === l)}>{l === 'All' ? 'All levels' : l === 'NJCAA' ? 'NJCAA (2-year)' : l}</button>)}
         {hasDistances && <button type="button" aria-pressed={near} onClick={() => setNear(v => !v)} className={chip(near)}>Within {NEAR_MI} mi</button>}
         <button type="button" aria-pressed={savedOnly} onClick={() => setSavedOnly(v => !v)} className={chip(savedOnly)}>Saved ({list.saved_count})</button>
       </div>}
@@ -252,16 +326,18 @@ export function ProfileColleges() {
     {save.error && <p role="alert" className="mt-4 text-red-300">{save.error}</p>}
     {list && !list.eligible ? <div className="mt-6"><NotEligible notice={list.notice} busy={busy} onCheck={() => void build()} /></div>
       : list && <>
-        {!list.built && <div className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6">
+        {/* First build only: a rebuild is usually a cache hit and keeps its in-place "Checking…". */}
+        {busy && !list.built && <FindingColleges />}
+        {!list.built && !busy && <div className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6">
           <p className="max-w-2xl text-jr-soft">Programs near you first, at every level. Each one comes from a school, conference or governing body page.</p>
-          <button type="button" onClick={() => void build()} disabled={busy} className={`${primary} mt-5`}>{busy ? 'Finding colleges…' : 'Find my colleges'}</button>
+          <button type="button" onClick={() => void build()} className={`${primary} mt-5`}>Find my colleges</button>
         </div>}
         {list.built && !list.programs.length && <p className="mt-6 text-jr-muted">No programs to show right now.</p>}
         {list.built && list.programs.length > 0 && <>
-          <button type="button" aria-expanded={mapOpen} aria-controls="college-map" onClick={() => setMapOpen(v => !v)} className={`${secondary} mt-6 w-full md:hidden`}>{mapOpen ? 'Hide map' : 'Map'}</button>
+          <button type="button" aria-expanded={mapOpen} aria-controls="college-map" onClick={() => setMapOpen(v => !v)} className={`${secondary} mt-6 w-full md:hidden`}>{mapOpen ? 'Hide map' : 'Show map'}</button>
           <div className="mt-4 grid items-start gap-6 md:mt-6 md:grid-cols-2">
             <div className="flex flex-col gap-3.5">
-              {shown.length ? shown.map(program => <ProgramCard key={program.id} program={program} label={labels[program.school]} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)
+              {shown.length ? shown.map(program => <ProgramCard key={program.id} program={program} writing={writing.includes(program.id)} label={labels[program.school]} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)
                 : <p className="rounded-[20px] border border-jr-line bg-jr-card p-6 text-jr-soft">{savedOnly ? 'No saved colleges yet. Tap a heart to save one.' : 'No colleges match these filters.'}</p>}
             </div>
             <div id="college-map" className={`${mapOpen ? 'block' : 'hidden'} order-first md:sticky md:top-6 md:order-none md:block`}>
@@ -375,6 +451,8 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
   const { program, coach } = detail
   const ccAddress = cc ? plainEmail(parent) : ''
   const toValid = !to.trim() || !!plainEmail(to)
+  // An empty To would open her email app with no recipient.
+  const hasTo = !!plainEmail(to)
   const checklist = noteChecklist(draft ? `${draft.subject}\n${draft.body}` : '', draft?.kit || null, ccAddress)
   const rules = detail.contact_rules[0]
   const open = draft ? openLink({ to, cc: ccAddress, subject: draft.subject, body: draft.body }) : null
@@ -402,7 +480,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
         </label>
         <p id="to-help" className="-mt-2 text-xs text-jr-dim">
           {!toValid ? 'Use one email address, like coach@school.edu.'
-            : coach.email && coach.source_checked ? <>From the school&apos;s staff page. {coach.source_checked}. </> : 'SPARQ Recruit does not have this coach’s email. '}
+            : coach.email && coach.source_checked ? <>From the school&apos;s staff page. {coach.source_checked}. </> : hasTo ? '' : 'Add the coach’s email first. '}
           {coach.staff_page_url && <a href={coach.staff_page_url} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-4 ${focus}`}>Staff page<span className="sr-only"> (opens in a new tab)</span></a>}
         </p>
         <div className="flex flex-col gap-2">
@@ -427,7 +505,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
         {open?.long && <p role="status" className="rounded-xl border border-amber-200/40 p-3 text-sm text-amber-100">Your note is long. Use Copy, then open your email and paste it.</p>}
         <div className="flex flex-wrap items-center gap-2.5">
           {open?.long && <button type="button" onClick={() => void copy()} disabled={busy} className={primary}>Copy</button>}
-          {open && toValid ? <a href={open.href} className={open.long ? `${secondary} min-h-12 px-[22px] text-base` : primary}>Open in my email</a>
+          {open && hasTo ? <a href={open.href} className={open.long ? `${secondary} min-h-12 px-[22px] text-base` : primary}>Open in my email</a>
             : <button type="button" disabled className={primary}>Open in my email</button>}
           {!open?.long && <button type="button" onClick={() => void copy()} disabled={busy || !draft} className={`${secondary} min-h-12 px-[22px] text-base`}>Copy</button>}
           {program.sent_at ? <span className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-jr-done-line bg-jr-done px-4 text-base font-semibold text-jr-lime">

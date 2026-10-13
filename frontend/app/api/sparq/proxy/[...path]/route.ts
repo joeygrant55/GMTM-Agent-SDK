@@ -6,6 +6,8 @@ import { resolveAPIRequest } from '@/lib/backend-config.cjs'
 import { NO_STORE, currentSession, json, sameOriginWrite, signedOut } from '../../server'
 
 export const dynamic = 'force-dynamic'
+// College build streams 12 parallel model calls (about 3-4 s); each call can take up to about 60 s with its one retry.
+export const maxDuration = 90
 const PREFIX = '/api/sparq/proxy'
 
 async function forward(request: NextRequest): Promise<NextResponse> {

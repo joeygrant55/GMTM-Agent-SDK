@@ -39,7 +39,10 @@ from typing import Optional
 from urllib.parse import quote, urlsplit
 
 import anthropic
-from fastapi import Depends, HTTPException
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from fastapi import Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 
 import auth
@@ -700,6 +703,7 @@ def program_facts(p: dict) -> dict:
 REASON_SYSTEM = """You help a high-school flag football athlete (age 13-17) understand why some college women's flag football programs could fit her.
 
 For each program, write exactly 2 short sentences. Be plain, encouraging and honest.
+Write for a 13-year-old: short, common words. Never use an em dash or en dash (hyphens in drill names stay).
 - Use only the facts given: the athlete's position, grad year, state and drill_results (her real combine drills, e.g. 20-Yard Dash, 5-10-5 Shuttle, Broad Jump), and each program's school, state, level, conference and notes.
 - Never invent coaches, emails, rosters, scholarships, records, rankings or recruiting interest.
 - Never say "verified" or "recruited". Do not promise anything.
@@ -711,24 +715,46 @@ Respond with ONLY JSON: {"reasons": [{"id": "<program id>", "reason": "<2 senten
 _BANNED = ("verified", "recruited", "scholarship", "ranked", "@", "http")
 
 
-def explain(facts: dict, chosen: list[dict]) -> dict[str, str]:
-    """One model call. Any failure gives no reasons; the list still shows."""
-    user = json.dumps({"athlete": facts, "programs": [program_facts(p) for p in chosen]}, indent=2)
+class ReasonFailed(Exception):
+    """The model call failed (e.g. a 429 under load). Not final: the list is not cached, so a rebuild retries."""
+
+
+def _reason(facts: dict, p: dict) -> Optional[str]:
+    """One model call for one program. Unsafe or missing text gives None (final); a failed call raises ReasonFailed."""
+    user = json.dumps({"athlete": facts, "programs": [program_facts(p)]}, indent=2)
     try:
-        parsed = model_json(REASON_SYSTEM, user, 2000)
-    except Exception:
-        return {}
+        parsed = model_json(REASON_SYSTEM, user, 400)
+    except Exception as error:
+        raise ReasonFailed from error
     items = parsed.get("reasons") if isinstance(parsed, dict) else None
-    ids = {p["id"] for p in chosen}
-    reasons = {}
     for item in items if isinstance(items, list) else []:
-        if not isinstance(item, dict):
-            continue
-        pid, text = item.get("id"), item.get("reason")
-        if pid in ids and isinstance(text, str) and 0 < len(text.strip()) <= 500 \
-                and not any(word in text.lower() for word in _BANNED):
-            reasons[pid] = text.strip()
-    return reasons
+        text = item.get("reason") if isinstance(item, dict) and item.get("id") == p["id"] else None
+        if isinstance(text, str):
+            text = re.sub(r"(?<=\d)\s*[\u2014\u2013]\s*(?=\d)", " to ", text.strip())  # "2–3 hours" -> "2 to 3 hours"
+            text = re.sub(r"\s*[\u2014\u2013]\s*", ", ", text)
+            if 0 < len(text) <= 500 and not any(word in text.lower() for word in _BANNED):
+                return text
+    return None
+
+
+def explain_each(facts: dict, chosen: list[dict]):
+    """One call per program, all at once (one call for 12 took 21.6-22.1 s, measured 2026-10-13).
+    Yields (program id, reason or None, failed) as each one finishes. Drill results go to every third
+    program only, so 12 reasons do not all repeat the same drill (usability audit 2026-10-13)."""
+    if not chosen:
+        return
+    def one(i, p):
+        try:
+            return p["id"], _reason(facts if i % 3 == 0 else {**facts, "drill_results": []}, p), False
+        except ReasonFailed:
+            return p["id"], None, True
+    with ThreadPoolExecutor(max_workers=len(chosen)) as pool:
+        for done in as_completed([pool.submit(one, i, p) for i, p in enumerate(chosen)]):
+            yield done.result()
+
+
+def explain(facts: dict, chosen: list[dict]) -> dict[str, str]:
+    return {pid: text for pid, text, _ in explain_each(facts, chosen) if text}
 
 
 # ── Routes (profile app; owner-checked; behind the junior gate + parent notice) ──
@@ -816,7 +842,8 @@ def _listing(saved, athlete: Optional[dict], marks) -> dict:
 
 
 def _inputs_key(facts: dict, chosen: list[dict]) -> str:
-    return hashlib.sha256(json.dumps([facts, [p["id"] for p in chosen], _data_hash], sort_keys=True, default=str).encode()).hexdigest()
+    # The prompt is in the key: a new reason style rebuilds old lists once.
+    return hashlib.sha256(json.dumps([facts, [p["id"] for p in chosen], _data_hash, REASON_SYSTEM], sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict]):
@@ -853,7 +880,23 @@ def _limit(kind: str, clerk_id: str, calls: int) -> None:
         raise HTTPException(429, TOO_MANY)
 
 
-def build_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
+def _lines(listing: dict, events=(), finish=None):
+    yield json.dumps({"type": "list", **listing}) + "\n"
+    for pid, text in events:
+        yield json.dumps({"type": "reason", "id": pid, "reason": text}) + "\n"
+    if finish:
+        try:
+            finish()
+        except Exception as error:
+            log.warning("college_programs: list save failed (%s)", type(error).__name__)  # class only, never values
+            yield json.dumps({"type": "error"}) + "\n"
+            return
+    yield json.dumps({"type": "done"}) + "\n"
+
+
+def build_colleges(clerk_id: str, request: Request, caller_id: str = Depends(require_identity)):
+    """JSON by default. With Accept: application/x-ndjson, the list goes first and each reason follows
+    as it is written ({"type": "list" | "reason" | "done"}); the list is saved after the last reason."""
     _owner(clerk_id, caller_id)
     _limit("build", clerk_id, BUILDS_PER_HOUR)
     row = _identity(clerk_id, refresh=True)
@@ -870,12 +913,32 @@ def build_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     saved = row.get("programs")
     marks = _marks(clerk_id)
     # Cache per athlete: same inputs (and data file) means no new model call. A missing reason is final.
+    stream = "application/x-ndjson" in request.headers.get("accept", "")
     if row.get("inputs_key") == key and saved:
-        return _listing(saved, athlete, marks)
-    reasons = explain(facts, chosen)
-    items = [{"id": p["id"], "reason": reasons.get(p["id"])} for p in chosen]
-    store.save_list(clerk_id, key, items)
-    return _listing(items, athlete, marks)
+        listing = _listing(saved, athlete, marks)
+        return StreamingResponse(_lines(listing), media_type="application/x-ndjson") if stream else listing
+    reasons: dict = {}
+    failed: list = []
+
+    def events():
+        for pid, text, fail in explain_each(facts, chosen):
+            reasons[pid] = text
+            failed.extend([pid] if fail else [])
+            yield pid, text
+
+    def finish():
+        # A failed call is not cached: the next build retries. Unsafe text (None, no failure) is final.
+        if not failed:
+            store.save_list(clerk_id, key, [{"id": p["id"], "reason": reasons.get(p["id"])} for p in chosen])
+
+    if stream:
+        # ponytail: a client that leaves mid-stream saves nothing; her next visit shows "not built" and rebuilds.
+        pending = _listing([{"id": p["id"], "reason": None} for p in chosen], athlete, marks)
+        return StreamingResponse(_lines(pending, events(), finish), media_type="application/x-ndjson")
+    for _ in events():
+        pass
+    finish()
+    return _listing([{"id": p["id"], "reason": reasons.get(p["id"])} for p in chosen], athlete, marks)
 
 
 def saved_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
