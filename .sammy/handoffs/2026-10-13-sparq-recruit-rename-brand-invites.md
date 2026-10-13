@@ -59,3 +59,4 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - A: GET /api/workspace/colleges/{id}/all (all 187, closest first, her 12 keep reasons, no model call). Saves and "I sent it" now work for any sourced program (still need a built list). UI: My 12 / See all toggle, search, 24 per page, map shows the same page.
 - Review (Fable 5.1): 1 blocking (2 route manifests in tests), 4 UX items; all fixed. Backend 1959 passed; tsc, safety check, next build OK.
 - B next: 3-tap preferences (distance, 2-year/4-year, level) + "more like this" from hearts, using only facts we have.
+- Deployed fe224c3 (Joey: "yes deploy"): Railway 1404a00e SUCCESS; Vercel sparq-junior-qd4laarb8 Ready. Live check: toggle, See all 187, search "TX", map with one page. Map labels still overlap pins (usability item 9, open).
