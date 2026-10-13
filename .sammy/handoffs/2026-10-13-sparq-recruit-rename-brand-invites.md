@@ -46,3 +46,10 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - Fable: RDS cert verification; Next 16 upgrade; forget_athlete script (parent delete request); remove tester ids from SPARQ_TEST_ALLOWLIST after wave 1.
 - GMTM: HttpOnly on the sessionId cookie (gmtm.com repos not reviewed).
 - Not done from the usability audit: cold visit to sparq.gmtm.com bounces to gmtm.com with no message; map label overlap with the You pin; "I sent it" placement on phone; coach-email steps when only a staff page exists.
+
+## Update: deployed 4e030d1 (Joey: "Deploy!", "I explicitly approve")
+- Railway sparq-junior deployment 8aeb84e1 SUCCESS; /health configuration_ready true.
+- Vercel sparq-junior production sparq-junior-koxipzpnz Ready; sparq.gmtm.com sends nosniff + strict-origin-when-cross-origin.
+- Live browser check (Joey's account, 500 px window): 12 cards at 2.31 s with "Writing why it fits you…", reasons at 4.73-5.33 s, one by one (stream not buffered). Was 22 s+.
+- GitHub push of feat/junior-pilot was blocked by the auto-mode classifier; origin is behind 4e030d1. Joey can push.
+- Seen live: GET /home/colleges showed "Loading your colleges…" for 3-6 s before the page. Not measured further.
