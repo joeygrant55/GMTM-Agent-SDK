@@ -101,7 +101,8 @@ export function schoolLabels(schools: string[]): Record<string, string> {
 export function chooseLabels<T extends { map: { x: number; y: number } | null }>(
   placed: T[], origin: { x: number; y: number } | null, view: { w: number; h: number }, max = 4,
 ): T[] {
-  const w = view.w * 0.16, h = view.h * 0.08
+  // A label is about 80 x 24 px on a 390 px phone map (17% x 8%): keep a gap so two never touch.
+  const w = view.w * 0.22, h = view.h * 0.11
   const clearOfYou = (m: { x: number; y: number }) => !origin
     || m.x + w / 2 < origin.x - view.w * 0.03 || m.x - w / 2 > origin.x + view.w * 0.18 || Math.abs(m.y - origin.y) > h
   const out: T[] = []

@@ -383,8 +383,8 @@ def test_questionnaire_link_is_inserted_by_the_server_only(app):
 
 def test_paid_calls_are_rate_limited_per_athlete(app):
     client, store, model, _, headers, _ = app
-    builds = [client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).status_code for _ in range(6)]
-    assert builds == [200] * 5 + [429]
+    builds = [client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).status_code for _ in range(11)]
+    assert builds == [200] * 10 + [429]
     url = f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft"
     drafts = [client.post(url, headers=headers).status_code for _ in range(11)]
     assert drafts == [200] * 10 + [429]
@@ -1308,3 +1308,50 @@ def test_see_all_lists_every_program_keeps_her_reasons_and_calls_no_model(app):
     every = client.get(f"/api/workspace/colleges/{SUBJECT}/all", headers=headers).json()
     reasons = {p["id"]: p["reason"] for p in every["programs"] if p["reason"]}
     assert every["built"] is True and set(reasons) == set(mine) and len(model.calls) == calls
+
+
+
+def test_answers_filter_the_list_and_the_list_stays_current(app):
+    client, store, model, _, headers, _ = app
+    post = lambda prefs: client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers, json=prefs).json()
+    two = post({"school": "2"})
+    assert two["programs"] and all(p["governing_body"] == "NJCAA" for p in two["programs"])
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["built"] is True  # not "not built"
+    naia = post({"school": "4", "level": "naia", "distance": "region"})
+    assert naia["programs"] and all(p["governing_body"] == "NAIA" for p in naia["programs"])
+    assert all(cp.REGION[p["state"]] == cp.REGION["TX"] for p in naia["programs"])
+    near = post({"distance": "near"})
+    assert all(p["distance_mi"] is None or p["distance_mi"] <= 310 for p in near["programs"])
+    assert client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers, json={"school": "3"}).status_code == 422
+    assert client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers, json={"extra": 1}).status_code == 422
+
+
+def test_similar_follows_her_saves_by_level_and_distance(app):
+    client, store, model, _, headers, _ = app
+    listed = built(client, headers)
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["similar"] == []
+    client.post(f"/api/workspace/saved-colleges/{SUBJECT}/daytona-state-college", headers=headers, json={"saved": True})
+    more = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["similar"]
+    assert len(more) == cp.SIMILAR_SHOWN and all(p["governing_body"] == "NJCAA" for p in more)
+    assert not {p["id"] for p in more} & (set(listed) | {"daytona-state-college"})
+    assert more[0]["id"] == "florida-gateway-college"  # the only other Florida NJCAA program comes first
+
+
+def test_answers_that_match_nothing_keep_her_last_list(app):
+    client, store, model, _, headers, _ = app
+    listed = built(client, headers)
+    cp_rank = cp.rank
+    try:
+        cp.rank = lambda *a, **k: []
+        assert client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers, json={"school": "2"}).json()["programs"] == []
+    finally:
+        cp.rank = cp_rank
+    after = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()
+    assert after["built"] is True and sorted(p["id"] for p in after["programs"]) == sorted(listed)
+
+
+def test_level_applies_only_to_four_year():
+    either = [p["governing_body"] for p in cp.rank("TX", prefs=cp.Prefs(school="either", level="naia"))]
+    assert "NJCAA" in either and any(b.startswith("NCAA") for b in either)  # level ignored unless 4-year
+    four = [p["governing_body"] for p in cp.rank("TX", prefs=cp.Prefs(school="4", level="naia"))]
+    assert four and set(four) == {"NAIA"}

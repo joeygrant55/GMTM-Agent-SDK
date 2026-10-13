@@ -35,13 +35,13 @@ import math
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import quote, urlsplit
 
 import anthropic
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 
@@ -600,10 +600,41 @@ def state_code(value) -> Optional[str]:
     return code if code in REGION else None
 
 
-def rank(state: Optional[str], rows: Optional[list[dict]] = None) -> list[dict]:
+NEAR_MILES = 300
+
+
+class Prefs(BaseModel):
+    """Her 3 taps (Joey 2026-10-13, option B). Only facts we have: distance, 2-year or 4-year, NCAA or NAIA."""
+    model_config = ConfigDict(extra="forbid")
+    distance: Literal["near", "region", "anywhere"] = "anywhere"
+    school: Literal["4", "2", "either"] = "either"
+    level: Literal["ncaa", "naia", "any"] = "any"
+
+
+def matches(p: dict, prefs: Optional[Prefs], state: Optional[str], origin: Optional[dict]) -> bool:
+    if not prefs:
+        return True
+    body = p["governing_body"]
+    if (prefs.school == "2") != (body == "NJCAA") and prefs.school != "either":
+        return False
+    # Level is asked only for 4-year colleges (NCAA or NAIA).
+    if prefs.school == "4" and ((prefs.level == "ncaa" and not body.startswith("NCAA")) or (prefs.level == "naia" and body != "NAIA")):
+        return False
+    if prefs.distance == "near" and origin:
+        return miles((origin["lat"], origin["lon"]), (p["lat"], p["lon"])) <= NEAR_MILES
+    if prefs.distance == "near" and state:  # no GMTM city: her state and neighbours
+        return p["state"] == state or DIVISION.get(p["state"]) == DIVISION[state]
+    if prefs.distance == "region" and state:
+        return REGION.get(p["state"]) == REGION[state]
+    return True
+
+
+def rank(state: Optional[str], rows: Optional[list[dict]] = None, prefs: Optional[Prefs] = None,
+         origin: Optional[dict] = None) -> list[dict]:
     """Home state, then neighbouring states, then region, then the rest. Inside each
-    tier, levels take turns (D1, D2, D3, NAIA, NJCAA) so every level can appear."""
-    rows = programs() if rows is None else rows
+    tier, levels take turns (D1, D2, D3, NAIA, NJCAA) so every level can appear.
+    Her answers (prefs) filter first; fewer than 12 matches shows fewer."""
+    rows = [p for p in (programs() if rows is None else rows) if matches(p, prefs, state, origin)]
 
     def tier(p):
         if not state:
@@ -818,7 +849,7 @@ def _marks(clerk_id: str):
 
 def _not_eligible() -> dict:
     return {"eligible": False, "notice": NOT_ELIGIBLE, "built": False, "programs": [], "contact_rules": [],
-            "origin": None, "saved_count": 0, "sent_count": 0}
+            "origin": None, "saved_count": 0, "sent_count": 0, "similar": []}
 
 
 def _origin_view(athlete: Optional[dict]) -> Optional[dict]:
@@ -833,10 +864,26 @@ def _cards(items, athlete: Optional[dict], marks) -> list[dict]:
     return sorted(cards, key=lambda c: (c["distance_mi"] is None, c["distance_mi"] or 0))
 
 
+SIMILAR_SHOWN = 4
+
+
+def similar(saved_ids, exclude, n: int = SIMILAR_SHOWN) -> list[dict]:
+    """More like the ones she saved: same level, closest to any saved program. Facts only, no model."""
+    liked = [p for p in map(program, saved_ids) if p]
+    if not liked:
+        return []
+    bodies = {p["governing_body"] for p in liked}
+    near = lambda c: min(miles((c["lat"], c["lon"]), (p["lat"], p["lon"])) for p in liked if p["governing_body"] == c["governing_body"])
+    pool = [c for c in programs() if c["governing_body"] in bodies and c["id"] not in exclude]
+    return sorted(pool, key=lambda c: (near(c), c["school"]))[:n]
+
+
 def _listing(saved, athlete: Optional[dict], marks, limit: Optional[int] = MAX_SHOWN) -> dict:
     items = [(program(i.get("id")), i.get("reason")) for i in saved or [] if isinstance(i, dict)]
     cards = _cards(items[:limit], athlete, marks)
+    more = similar(marks[0], {c["id"] for c in cards} | set(marks[0])) if limit == MAX_SHOWN and saved is not None else []
     return {"eligible": True, "notice": None, "built": saved is not None, "programs": cards,
+            "similar": [card(p, None, (athlete or {}).get("origin"), marks) for p in more],
             "contact_rules": contact_rules(c["governing_body"] for c in cards), "origin": _origin_view(athlete),
             "saved_count": sum(1 for pid in marks[0] if program(pid)), "sent_count": sum(1 for pid in marks[1] if program(pid))}
 
@@ -858,7 +905,9 @@ def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict]):
         # (its reasons were written from plausible facts) instead of a false "not built".
         return saved
     facts = athlete_facts(profile, athlete["drills"])
-    return saved if row.get("inputs_key") == _inputs_key(facts, rank(facts["state"])) else None
+    # Checked against the saved ids (not a fresh rank), so a list built from her answers stays current.
+    ids = [{"id": i.get("id")} for i in saved if isinstance(i, dict)]
+    return saved if row.get("inputs_key") == _inputs_key(facts, ids) else None
 
 
 def all_colleges(clerk_id: str = Depends(owner_id)):
@@ -883,7 +932,7 @@ def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     return _listing(_current_programs(clerk_id, row, athlete), athlete, _marks(clerk_id))
 
 
-BUILDS_PER_HOUR, DRAFTS_PER_HOUR, MARKS_PER_HOUR = 5, 10, 200
+BUILDS_PER_HOUR, DRAFTS_PER_HOUR, MARKS_PER_HOUR = 10, 10, 200  # builds: her answers can change a few times
 TOO_MANY = "You've done this a lot in the last hour. Take a break and try again later."
 
 
@@ -907,7 +956,8 @@ def _lines(listing: dict, events=(), finish=None):
     yield json.dumps({"type": "done"}) + "\n"
 
 
-def build_colleges(clerk_id: str, request: Request, caller_id: str = Depends(require_identity)):
+def build_colleges(clerk_id: str, request: Request, prefs: Optional[Prefs] = Body(None),
+                   caller_id: str = Depends(require_identity)):
     """JSON by default. With Accept: application/x-ndjson, the list goes first and each reason follows
     as it is written ({"type": "list" | "reason" | "done"}); the list is saved after the last reason."""
     _owner(clerk_id, caller_id)
@@ -921,7 +971,9 @@ def build_colleges(clerk_id: str, request: Request, caller_id: str = Depends(req
     athlete = _athlete(clerk_id)
     # GMTM down: build without drills; the key differs, so the next build after GMTM is back redoes the reasons.
     facts = athlete_facts(profile, (athlete or {}).get("drills"))
-    chosen = rank(facts["state"])
+    chosen = rank(facts["state"], prefs=prefs, origin=(athlete or {}).get("origin"))
+    if prefs:  # which answers juniors pick (values only, no identity)
+        log.info("college_programs: build prefs distance=%s school=%s level=%s matched=%d", prefs.distance, prefs.school, prefs.level, len(chosen))
     key = _inputs_key(facts, chosen)
     saved = row.get("programs")
     marks = _marks(clerk_id)
@@ -941,7 +993,8 @@ def build_colleges(clerk_id: str, request: Request, caller_id: str = Depends(req
 
     def finish():
         # A failed call is not cached: the next build retries. Unsafe text (None, no failure) is final.
-        if not failed:
+        # An answer set that matches nothing is shown, never saved: her last list stays.
+        if not failed and chosen:
             store.save_list(clerk_id, key, [{"id": p["id"], "reason": reasons.get(p["id"])} for p in chosen])
 
     if stream:

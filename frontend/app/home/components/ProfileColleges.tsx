@@ -30,6 +30,7 @@ export interface Origin { city: string | null; state: string | null; map: { x: n
 export interface CollegeList {
   eligible: boolean; notice: string | null; built: boolean; programs: CollegeProgram[]; contact_rules: ContactRules[]
   origin: Origin | null; saved_count: number; sent_count: number
+  similar?: CollegeProgram[]
 }
 export interface SavedColleges { eligible: boolean; notice: string | null; built: boolean; found: number; saved: CollegeProgram[]; saved_count: number; sent_count: number; origin: Origin | null }
 interface Draft { id: number; to_email: string; school: string | null; subject: string; body: string; kit: NoteKit | null }
@@ -190,18 +191,19 @@ function CollegeMap({ programs, origin, labels }: { programs: CollegeProgram[]; 
       <img src="/us-states.svg" alt="" aria-hidden="true" className="absolute max-w-none"
         style={{ width: `${10000 / view.w}%`, height: `${10000 / view.h}%`, left: `${(-view.x / view.w) * 100}%`, top: `${(-view.y / view.h) * 100}%` }} />
       <ul aria-label="Colleges on the map">
-        {placed.map(p => <li key={p.id} className="absolute -translate-x-1/2 -translate-y-1/2" style={at(p.map!)}>
+        {/* Labels sit above the dots, so a nearby dot never covers a label's text. */}
+        {placed.map(p => <li key={p.id} className={`absolute -translate-x-1/2 -translate-y-1/2 ${labelled.includes(p) ? 'z-10' : ''}`} style={at(p.map!)}>
           <Link href={`/home/colleges/${p.id}`} aria-label={`${p.school}${p.distance_mi !== null ? `, ${aboutMiles(p.distance_mi)}` : ''}`}
             style={badgeColors(p.primary_color)} className={`block rounded-lg font-bold shadow ${focus} ${labelled.includes(p) ? 'px-2 py-1 text-xs' : 'h-3 w-3 rounded-full ring-2 ring-[#101318]'}`}>
             {labelled.includes(p) ? `${labels[p.school] || initials(p.school)}${p.distance_mi !== null ? ` · ${p.distance_mi} mi` : ''}` : ''}
           </Link>
         </li>)}
       </ul>
-      {origin?.map && <div className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2" style={at(origin.map)}>
+      {origin?.map && <div className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2" style={at(origin.map)}>
         <span className="block h-4 w-4 rounded-full bg-jr-lime shadow-[0_0_0_8px_rgba(202,253,0,0.18)]" />
         <span className="absolute left-6 top-[-2px] text-[13px] font-semibold text-jr-lime">You</span>
       </div>}
-      {placed.length > labelled.length && <span className="absolute bottom-3 right-3 rounded-lg bg-jr-track px-2.5 py-1 text-xs font-semibold">+{placed.length - labelled.length} more</span>}
+      {placed.length > labelled.length && <span className="absolute bottom-3 right-3 z-30 rounded-lg bg-jr-track px-2.5 py-1 text-xs font-semibold">+{placed.length - labelled.length} more</span>}
     </div>
     <p className="border-t border-jr-line px-5 py-3 text-sm text-jr-muted">
       {origin?.city && origin.state ? `Distances from ${origin.city}, ${origin.state} (your GMTM city)` : 'Add your city on GMTM to see distances.'}
@@ -247,6 +249,37 @@ function FindingColleges() {
   </div>
 }
 
+// Her 3 taps (option B). Only facts we have; the server filters with the same values (college_programs.Prefs).
+interface Prefs { distance: 'near' | 'region' | 'anywhere'; school: '4' | '2' | 'either'; level: 'ncaa' | 'naia' | 'any' }
+const NO_PREFS: Prefs = { distance: 'anywhere', school: 'either', level: 'any' }
+const QUESTIONS: Array<{ key: keyof Prefs; ask: string; options: Array<[string, string]> }> = [
+  { key: 'distance', ask: 'How far from home?', options: [['near', 'Near me (300 mi)'], ['region', 'My part of the country'], ['anywhere', 'Anywhere']] },
+  { key: 'school', ask: 'What kind of college?', options: [['4', '4-year'], ['2', '2-year (NJCAA)'], ['either', 'Either']] },
+  { key: 'level', ask: 'Which level?', options: [['ncaa', 'NCAA'], ['naia', 'NAIA'], ['any', 'Either']] },
+]
+// Per athlete and per device (a convenience): null when this device has not seen her answers.
+const prefsKey = (userId: string) => `sparq-college-prefs:${userId}`
+function loadPrefs(userId: string): Prefs | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(prefsKey(userId)) || 'null')
+    return QUESTIONS.every(q => q.options.some(([value]) => value === saved?.[q.key])) ? saved as Prefs : null
+  } catch { return null }
+}
+const summary = (prefs: Prefs) => QUESTIONS.filter(q => q.key !== 'level' || prefs.school === '4')
+  .map(q => q.options.find(([value]) => value === prefs[q.key])![1]).join(' · ')
+
+function Answers({ prefs, onChange }: { prefs: Prefs; onChange: (next: Prefs) => void }) {
+  return <div className="flex flex-col gap-4">
+    {QUESTIONS.filter(q => q.key !== 'level' || prefs.school === '4').map(q => <div key={q.key} role="group" aria-label={q.ask}>
+      <p className="mb-2 text-[15px] font-semibold text-jr-text">{q.ask}</p>
+      <div className="flex flex-wrap gap-2">
+        {q.options.map(([value, label]) => <button key={value} type="button" aria-pressed={prefs[q.key] === value}
+          onClick={() => onChange({ ...prefs, [q.key]: value })} className={chip(prefs[q.key] === value)}>{label}</button>)}
+      </div>
+    </div>)}
+  </div>
+}
+
 const LEVELS: Level[] = ['All', 'NCAA', 'NAIA', 'NJCAA']
 const NEAR_MI = 150
 const PAGE = 24
@@ -268,6 +301,10 @@ export function ProfileColleges() {
   const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(PAGE)
   const [loadingAll, setLoadingAll] = useState(false)
+  const [prefs, setPrefs] = useState<Prefs>(NO_PREFS)
+  // The answers her list was built from, if this device knows them.
+  const [builtFrom, setBuiltFrom] = useState<Prefs | null>(null)
+  const [editing, setEditing] = useState(false)
   // Program ids whose reason is still being written in this build.
   const [writing, setWriting] = useState<string[]>([])
   const heading = useRef<HTMLHeadingElement>(null)
@@ -275,6 +312,8 @@ export function ProfileColleges() {
   const stop = useRef<AbortController | null>(null)
   useEffect(() => () => stop.current?.abort(), [])
   const userId = user?.id
+
+  useEffect(() => { if (userId) { const saved = loadPrefs(userId); setBuiltFrom(saved); setPrefs(saved || NO_PREFS) } }, [userId])
 
   useEffect(() => {
     if (!userId) return
@@ -289,11 +328,17 @@ export function ProfileColleges() {
     const controller = new AbortController()
     stop.current = controller
     try {
-      await readBuild(apiFetch(`${BACKEND_URL}/api/workspace/trigger-matching/${encodeURIComponent(userId)}`, { method: 'POST', headers: { Accept: 'application/x-ndjson' }, signal: controller.signal }), line => {
+      await readBuild(apiFetch(`${BACKEND_URL}/api/workspace/trigger-matching/${encodeURIComponent(userId)}`, {
+        method: 'POST', headers: { Accept: 'application/x-ndjson', 'Content-Type': 'application/json' }, body: JSON.stringify(prefs), signal: controller.signal,
+      }), line => {
         if (line.type === 'list') {
           const { type: _, ...next } = line
+          // Nothing matches: keep her last list on screen (the server did not replace it either).
+          if (next.eligible && !next.programs.length) { setError('No programs match those answers. Try Anywhere or Either.'); return }
+          try { localStorage.setItem(prefsKey(userId), JSON.stringify(prefs)) } catch { /* a convenience only */ }
+          setBuiltFrom(prefs)
           setList(next)
-          setAll(null); setView('mine')  // the full list carries her 12's reasons: refetch after a rebuild
+          setAll(null); setView('mine'); setEditing(false)  // the full list carries her 12's reasons: refetch after a rebuild
           setWriting(next.programs.filter(p => !p.reason).map(p => p.id))
           if (next.built) requestAnimationFrame(() => heading.current?.focus())
         } else if (line.type === 'reason') {
@@ -302,7 +347,7 @@ export function ProfileColleges() {
         }
       })
     } catch (e) { if (!controller.signal.aborted) setError((e as Error).message) } finally { setBusy(false); setWriting([]) }
-  }, [userId])
+  }, [userId, prefs])
 
   const apply = useCallback((id: string, saved: boolean) => {
     const mark = (current: CollegeList | null) => {
@@ -310,7 +355,8 @@ export function ProfileColleges() {
       const changed = current.programs.some(p => p.id === id && p.saved !== saved)
       // A college outside her 12 still counts in her 12's "Saved (n)".
       const outside = !current.programs.some(p => p.id === id)
-      return { ...current, saved_count: current.saved_count + (changed || outside ? (saved ? 1 : -1) : 0), programs: current.programs.map(p => (p.id === id ? { ...p, saved } : p)) }
+      return { ...current, saved_count: current.saved_count + (changed || outside ? (saved ? 1 : -1) : 0), programs: current.programs.map(p => (p.id === id ? { ...p, saved } : p)),
+        similar: current.similar?.map(p => (p.id === id ? { ...p, saved } : p)) }
     }
     setList(mark); setAll(mark)
   }, [])
@@ -331,7 +377,7 @@ export function ProfileColleges() {
     && (!showingAll || !words || `${p.school} ${p.city} ${p.state} ${p.conference || ''}`.toLowerCase().includes(words))), [current, level, near, savedOnly, words, showingAll])
   const hasDistances = !!current?.programs.some(p => p.distance_mi !== null)
   // Same labels as the map, so a badge and its map pin match (e.g. DSC / DSU, not DS twice).
-  const labels = useMemo(() => schoolLabels((current?.programs || []).map(p => p.school)), [current])
+  const labels = useMemo(() => schoolLabels([...(current?.programs || []), ...(current?.similar || [])].map(p => p.school)), [current])
   // The map shows the same colleges as the cards (one page of the full list, not all 187 pins).
   const page = showingAll ? shown.slice(0, limit) : shown
 
@@ -369,8 +415,22 @@ export function ProfileColleges() {
         {/* First build only: a rebuild is usually a cache hit and keeps its in-place "Checking…". */}
         {busy && !list.built && <FindingColleges />}
         {!list.built && !busy && <div className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6">
-          <p className="max-w-2xl text-jr-soft">Programs near you first, at every level. Each one comes from a school, conference or governing body page.</p>
-          <button type="button" onClick={() => void build()} className={`${primary} mt-5`}>Find my colleges</button>
+          <p className="max-w-2xl text-jr-soft">Tap your answers. We pick up to 12 programs that match and tell you why each one could fit. Each one comes from a school, conference or governing body page.</p>
+          <div className="mt-5"><Answers prefs={prefs} onChange={setPrefs} /></div>
+          <button type="button" onClick={() => void build()} className={`${primary} mt-6`}>Find my colleges</button>
+        </div>}
+        {list.built && !showingAll && <div className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-4 sm:p-5">
+          {editing ? <>
+            <Answers prefs={prefs} onChange={setPrefs} />
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" onClick={() => void build()} disabled={busy} className={primary}>{busy ? 'Updating…' : 'Update my list'}</button>
+              <button type="button" onClick={() => { setPrefs(builtFrom || NO_PREFS); setEditing(false) }} className={secondary}>Cancel</button>
+            </div>
+          </> : <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[15px] text-jr-soft">{builtFrom ? <><span className="font-semibold text-jr-text">Your answers: </span>{summary(builtFrom)}</> : 'Pick how far, what kind of college and which level.'}</p>
+            <button type="button" onClick={() => setEditing(true)} className={secondary}>Change my answers</button>
+          </div>}
+          {builtFrom && list.programs.length < 12 && !editing && <p className="mt-3 text-[15px] text-jr-muted">Only {list.programs.length} {list.programs.length === 1 ? 'program matches' : 'programs match'} your answers. Pick Anywhere or Either to see more, or tap See all.</p>}
         </div>}
         {list.built && !list.programs.length && <p className="mt-6 text-jr-muted">No programs to show right now.</p>}
         {list.built && list.programs.length > 0 && <>
@@ -385,6 +445,13 @@ export function ProfileColleges() {
               <CollegeMap programs={page} origin={list.origin} labels={labels} />
             </div>
           </div>
+          {!showingAll && !!list.similar?.length && <section aria-labelledby="similar-title" className="mt-8">
+            <h2 id="similar-title" className="text-xl font-bold">More like the ones you saved</h2>
+            <p className="mt-1 text-[15px] text-jr-muted">Same level, closest to the colleges you saved.</p>
+            <div className="mt-4 grid gap-3.5 md:grid-cols-2">
+              {list.similar.map(program => <ProgramCard key={program.id} program={program} label={labels[program.school]} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)}
+            </div>
+          </section>}
           {!showingAll && <div className="mt-6 flex flex-wrap gap-3">
             <button type="button" onClick={() => void openAll()} disabled={loadingAll} className={secondary}>{loadingAll ? 'Loading…' : 'See all colleges'}</button>
             <button type="button" onClick={() => void build()} disabled={busy} className={secondary}>{busy ? 'Checking…' : 'Check my list again'}</button>

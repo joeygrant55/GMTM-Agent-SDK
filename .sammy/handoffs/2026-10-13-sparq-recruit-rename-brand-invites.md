@@ -60,3 +60,9 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - Review (Fable 5.1): 1 blocking (2 route manifests in tests), 4 UX items; all fixed. Backend 1959 passed; tsc, safety check, next build OK.
 - B next: 3-tap preferences (distance, 2-year/4-year, level) + "more like this" from hearts, using only facts we have.
 - Deployed fe224c3 (Joey: "yes deploy"): Railway 1404a00e SUCCESS; Vercel sparq-junior-qd4laarb8 Ready. Live check: toggle, See all 187, search "TX", map with one page. Map labels still overlap pins (usability item 9, open).
+
+## Update: option B + map labels (Joey: "then let's do B"; "that's unacceptable" on the map overlap; "just do it!")
+- B: 3 taps before Find my colleges (how far: near 300 mi / my part of the country / anywhere; 4-year / 2-year / either; NCAA / NAIA only for 4-year). Server filters before rank(); fewer than 12 shows fewer; 0 matches is shown but never saved. Cache check now uses the saved ids. "More like the ones you saved": 4 same-level programs closest to her saves. Prefs per athlete in localStorage; logged as values only. Builds 10/hour.
+- Map: labels z-10 above dots, You z-20, "+N more" z-30; label gap 22% x 11%. Not done: measure real label widths in the browser (review estimate: 2 long labels can still touch at 390 px).
+- Permissions (Joey asked): added allow rules for `git push origin feat/junior-pilot` (and the git -C form). The Vercel rule existed; run `vercel deploy --cwd <dir>` without a `cd` prefix so it matches.
+- Reviews: 2 Fable 5.1 passes, no blocking issues; fixes applied. Backend 1963 passed; tsc, safety check, next build OK.
