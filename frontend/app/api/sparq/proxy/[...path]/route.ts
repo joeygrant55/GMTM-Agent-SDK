@@ -33,7 +33,7 @@ async function forward(request: NextRequest): Promise<NextResponse> {
     if (resType) out['Content-Type'] = resType
     return new NextResponse(res.body, { status: res.status, headers: out })
   } catch {
-    return json({ detail: 'SPARQ is temporarily unavailable.' }, 502)
+    return json({ detail: 'SPARQ Recruit is temporarily unavailable.' }, 502)
   }
 }
 

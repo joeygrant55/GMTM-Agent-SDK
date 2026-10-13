@@ -250,7 +250,7 @@ def _run_probe(scenario):
                 assert response.status_code == 401 and "bearer" in response.json()["detail"]
                 response = client.request(method, path, headers={"Authorization": "Bearer synthetic-token"}, **kwargs)
                 result["missing_session_secret"].append(response.status_code)
-                assert response.status_code == 503 and "SPARQ sign-in" in response.json()["detail"]
+                assert response.status_code == 503 and "SPARQ Recruit sign-in" in response.json()["detail"]
                 assert dict(attempts) == {}, f"Authentication reached external work: {dict(attempts)}"
         elif scenario == "ownership":
             result.update(_probe_ownership(client, block))

@@ -7,7 +7,7 @@ const combine = isCombineSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
 const profile = isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE)
 
 export const metadata: Metadata = {
-  title: profile ? 'SPARQ — Your athlete profile' : combine ? 'SPARQ — Your digital combine' : 'SPARQ Agent — The AI Recruiting Advisor',
+  title: profile ? 'SPARQ Recruit: Your athlete profile' : combine ? 'SPARQ — Your digital combine' : 'SPARQ Agent — The AI Recruiting Advisor',
   description: profile ? 'Understand your athletic evidence and put your profile to work.' : combine ? 'Know what to submit, get help with each activity, and keep your digital combine moving.' :
     'Built on 75,000 athlete profiles and 2,900 college programs. The recruiting consultant your family couldn\u2019t afford — for $29/month.',
 }

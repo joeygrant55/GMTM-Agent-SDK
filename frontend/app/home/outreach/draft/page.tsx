@@ -236,7 +236,7 @@ function DraftCoachEmailSession({ user }: { user: { id: string; firstName?: stri
           method: 'Email',
           contact_date: new Date().toISOString().slice(0, 10),
           status: 'Awaiting Response',
-          notes: 'Drafted via SPARQ',
+          notes: 'Drafted via SPARQ Recruit',
         }),
       })
       if (signal?.aborted) return

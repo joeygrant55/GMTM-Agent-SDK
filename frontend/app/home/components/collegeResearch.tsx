@@ -62,7 +62,7 @@ export function CollegeResearchCards({ research, school }: { research: Research;
         })}
       </ul> : <p className="text-[15px] text-jr-soft">{research.camps_checked ? `We could not find flag football camps on ${school}'s site.` : 'We have not checked this college for camps yet.'}</p>}
       {research.camps.map(c => c.source_url).filter((url, i, all) => all.indexOf(url) === i).map(url => <Source key={url} url={url} checked={research.camps_checked} />)}
-      <p className="text-xs text-jr-dim">SPARQ never signs you up. Ask a parent before you register.</p>
+      <p className="text-xs text-jr-dim">SPARQ Recruit never signs you up. Ask a parent before you register.</p>
     </div>
   </>
 }

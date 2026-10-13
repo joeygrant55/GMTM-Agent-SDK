@@ -205,7 +205,7 @@ async function portClosed() {
     const body = type.includes('application/json') ? await response.json() : await response.text();
     smoke.push({ path: '/api/sparq/proxy' + proxied, cookies: label, status: response.status, type });
     assert.equal(response.status, 401, 'Proxy without a SPARQ session answers 401 itself: ' + label);
-    assert.ok(type.includes('application/json') && /SPARQ session ended/.test(body.detail || ''), 'Proxy 401 is its own JSON, not a rewrite or proxy error');
+    assert.ok(type.includes('application/json') && /session ended/.test(body.detail || ''), 'Proxy 401 is its own JSON, not a rewrite or proxy error');
   }
   if (surface !== 'legacy') {
     const denied = await fetch(origin + '/api/sparq/proxy/api/claims/mint', { redirect: 'manual', signal: AbortSignal.timeout(10000) });

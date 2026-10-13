@@ -71,7 +71,7 @@ function ShareButton({ share }: { share: NonNullable<CardData['share']> }) {
   if (!share.profile_url) {
     return <div className="flex flex-col gap-2 rounded-[14px] border border-jr-edge p-4">
       <p className="font-semibold">Make your GMTM profile public to share it.</p>
-      <p className="text-sm text-jr-soft">Coaches can open your profile only when it is public on GMTM. Your SPARQ card stays private.</p>
+      <p className="text-sm text-jr-soft">Coaches can open your profile only when it is public on GMTM. Your SPARQ Recruit card stays private.</p>
       <a href={share.settings_url || 'https://gmtm.com/settings'} target="_blank" rel="noopener noreferrer" className={`${secondary} self-start`}>Open GMTM settings<span className="sr-only"> (opens a new tab)</span></a>
     </div>
   }

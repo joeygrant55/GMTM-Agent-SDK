@@ -47,8 +47,8 @@ export function ParentNoticeScreen({ notice, accept }: { notice: EntryNotice; ac
   if (notice.phase === 'ended') {
     return (
       <section className="mx-auto max-w-md py-16 text-center">
-        <h1 className="mb-3 text-2xl font-bold">Your SPARQ session ended</h1>
-        <p className="mb-8 text-gray-400">Open SPARQ from GMTM again to keep going.</p>
+        <h1 className="mb-3 text-2xl font-bold">Your SPARQ Recruit session ended</h1>
+        <p className="mb-8 text-gray-400">Open SPARQ Recruit from GMTM again to keep going.</p>
         <a href={GMTM_URL} className="rounded-lg bg-sparq-lime px-6 py-3 font-bold text-sparq-charcoal">Back to GMTM</a>
       </section>
     )
@@ -56,10 +56,10 @@ export function ParentNoticeScreen({ notice, accept }: { notice: EntryNotice; ac
   return (
     <section aria-labelledby="parent-notice-title" className="mx-auto max-w-lg py-16">
       <h1 id="parent-notice-title" className="mb-3 text-2xl font-bold">Before you start</h1>
-      <p className="mb-6 text-gray-300">SPARQ helps you find college flag football programs and write a note to a coach. You send any note yourself. Please make sure a parent or guardian knows you are using SPARQ.</p>
+      <p className="mb-6 text-gray-300">SPARQ Recruit helps you find college flag football programs and write a note to a coach. You send any note yourself. Please make sure a parent or guardian knows you are using SPARQ Recruit.</p>
       <label className="mb-6 flex items-start gap-3 text-gray-200">
         <input type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} className="mt-1 h-5 w-5 accent-sparq-lime" />
-        <span>My parent or guardian knows I&apos;m using SPARQ</span>
+        <span>My parent or guardian knows I&apos;m using SPARQ Recruit</span>
       </label>
       {error && <p role="alert" className="mb-4 text-sm text-red-300">That did not save. Try again.</p>}
       <button type="button" disabled={!checked || saving} onClick={async () => {

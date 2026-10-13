@@ -40,7 +40,7 @@ export const savedURL = (userId: string, rest = '') => `${BACKEND_URL}/api/works
 const JSON_POST = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
 // Plain words for a 13-year-old. Backend detail text is never shown as is.
-const NETWORK = "We can't reach SPARQ right now. Check your internet and try again."
+const NETWORK = "We can't reach SPARQ Recruit right now. Check your internet and try again."
 export async function readJSON<T>(request: Promise<Response>): Promise<T> {
   let response: Response
   try { response = await request } catch { throw new Error(NETWORK) }
@@ -48,8 +48,8 @@ export async function readJSON<T>(request: Promise<Response>): Promise<T> {
     const detail = await response.json().then(body => (typeof body?.detail === 'string' ? body.detail : ''), () => '')
     throw new Error(
       detail === 'parent_notice_required' ? 'A parent needs to read the note on your home page first.'
-        : response.status === 401 ? 'Your SPARQ time ran out. Open SPARQ from GMTM again.'
-          : response.status === 403 ? "This part of SPARQ isn't open for your account."
+        : response.status === 401 ? 'Your SPARQ Recruit time ran out. Open SPARQ Recruit from GMTM again.'
+          : response.status === 403 ? "This part of SPARQ Recruit isn't open for your account."
             : response.status === 404 ? "We couldn't find that. Go back and try again."
               : response.status === 409 ? 'Write a draft for this college first.'
                 : response.status === 429 ? "You've done this a lot in the last hour. Take a break and try again later."
@@ -402,7 +402,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
         </label>
         <p id="to-help" className="-mt-2 text-xs text-jr-dim">
           {!toValid ? 'Use one email address, like coach@school.edu.'
-            : coach.email && coach.source_checked ? <>From the school&apos;s staff page. {coach.source_checked}. </> : 'SPARQ does not have this coach’s email. '}
+            : coach.email && coach.source_checked ? <>From the school&apos;s staff page. {coach.source_checked}. </> : 'SPARQ Recruit does not have this coach’s email. '}
           {coach.staff_page_url && <a href={coach.staff_page_url} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-4 ${focus}`}>Staff page<span className="sr-only"> (opens in a new tab)</span></a>}
         </p>
         <div className="flex flex-col gap-2">
@@ -413,14 +413,14 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
           {cc && <label className={label}>Parent&apos;s email
             <input type="email" value={parent} onChange={e => { setParent(e.target.value); setParentNote('') }} onBlur={() => void saveParent()}
               placeholder="parent@example.com" autoComplete="off" aria-describedby="parent-help" className={field} />
-            <span id="parent-help" role="status" className="text-xs text-jr-dim">{parentNote || 'Saved in SPARQ only for your CC line. SPARQ never emails your parent.'}</span>
+            <span id="parent-help" role="status" className="text-xs text-jr-dim">{parentNote || 'Saved in SPARQ Recruit only for your CC line. SPARQ Recruit never emails your parent.'}</span>
           </label>}
         </div>
         {draft ? <>
           <label className={label}>Subject<input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className={field} /></label>
           <label className={label}>Your note<textarea value={draft.body} onChange={e => setDraft({ ...draft, body: e.target.value })} rows={Math.max(9, draft.body.split('\n').length + 1)} className={`${field} resize-y font-normal leading-[1.55]`} /></label>
         </> : <div className="rounded-xl border border-dashed border-jr-edge p-4">
-          <p className="text-[15px] text-jr-soft">SPARQ writes a short note from your GMTM profile: your highlights first, then your best numbers. You read it and change anything.</p>
+          <p className="text-[15px] text-jr-soft">SPARQ Recruit writes a short note from your GMTM profile: your highlights first, then your best numbers. You read it and change anything.</p>
           <button type="button" onClick={() => void write()} disabled={busy} className={`${primary} mt-4`}>{busy ? 'Writing…' : 'Write my note'}</button>
         </div>}
         {error && <p role="alert" className="text-red-300">{error}</p>}
@@ -443,7 +443,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
           <button type="button" onClick={() => void write(true)} className={secondary}>Replace</button>
         </div>}
         {copied && <p role="status" className="text-sm text-jr-soft">{copied}</p>}
-        <p className="text-sm text-jr-dim">SPARQ never sends for you. You send it from your own email.</p>
+        <p className="text-sm text-jr-dim">SPARQ Recruit never sends for you. You send it from your own email.</p>
       </div>
     </section>
 
@@ -496,7 +496,7 @@ export function ProfileEmails() {
     {error && <p role="alert" className="mt-4 text-red-300">{error}</p>}
     {data && !data.eligible && <p role="status" className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6 text-lg">{data.notice}</p>}
     {data?.eligible && (data.emails.length ? <>
-      <p className="mt-2 text-[17px] text-jr-soft">Your notes to coaches. SPARQ never sends them; you send each one from your own email.</p>
+      <p className="mt-2 text-[17px] text-jr-soft">Your notes to coaches. SPARQ Recruit never sends them; you send each one from your own email.</p>
       <ul className="mt-6 flex flex-col gap-3">
         {data.emails.map(row => <li key={row.id}>
           <Link href={`/home/colleges/${row.id}`} className={`flex items-center gap-4 rounded-[20px] border border-jr-line bg-jr-card p-4 hover:border-jr-edge ${focus}`}>
@@ -512,7 +512,7 @@ export function ProfileEmails() {
         </li>)}
       </ul>
     </> : <div className="mt-6 rounded-[20px] border border-jr-line bg-jr-card p-6">
-      <p className="text-jr-soft">No emails yet. Pick a college and SPARQ writes your first note.</p>
+      <p className="text-jr-soft">No emails yet. Pick a college and SPARQ Recruit writes your first note.</p>
       <Link href="/home/colleges" className={`${primary} mt-5`}>Find a college</Link>
     </div>)}
   </div>

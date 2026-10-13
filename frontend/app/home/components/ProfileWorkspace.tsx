@@ -24,7 +24,7 @@ const card = 'rounded-[20px] border border-jr-line bg-jr-card'
 export default function ProfileWorkspace({ view = 'home' }: { view?: ProfileView }) {
   const { user, isLoaded } = useSparqSession()
   if (!isLoaded) return <p role="status" className="mx-auto max-w-6xl px-5 py-16 text-gray-300">Loading your account…</p>
-  if (!user?.id) return <div className="mx-auto max-w-6xl px-5 py-16"><h1 className="text-3xl font-bold">Your profile is private.</h1><p className="mt-3 text-gray-300">Open SPARQ from GMTM to see your profile.</p><a href={process.env.NEXT_PUBLIC_GMTM_WEB_URL || 'https://gmtm.com'} className={`${secondary} mt-6`}>Back to GMTM</a></div>
+  if (!user?.id) return <div className="mx-auto max-w-6xl px-5 py-16"><h1 className="text-3xl font-bold">Your profile is private.</h1><p className="mt-3 text-gray-300">Open SPARQ Recruit from GMTM to see your profile.</p><a href={process.env.NEXT_PUBLIC_GMTM_WEB_URL || 'https://gmtm.com'} className={`${secondary} mt-6`}>Back to GMTM</a></div>
   return <ProfileSession key={user.id} userId={user.id} view={view} />
 }
 
@@ -70,8 +70,8 @@ function ProfileSession({ userId, view }: { userId: string; view: ProfileView })
       if (!mounted.current || controller.signal.aborted) return
       if (!response.ok) {
         const messages: Record<number, { title: string; detail: string }> = {
-          401: { title: 'Please sign in again.', detail: 'Open SPARQ from GMTM again to see your profile.' },
-          403: { title: 'This profile is not open to this account.', detail: 'Open SPARQ from your own GMTM account.' },
+          401: { title: 'Please sign in again.', detail: 'Open SPARQ Recruit from GMTM again to see your profile.' },
+          403: { title: 'This profile is not open to this account.', detail: 'Open SPARQ Recruit from your own GMTM account.' },
           409: { title: 'Your GMTM connection needs a check.', detail: 'Ask your coach or event organizer for help.' },
         }
         setProfile(null)
@@ -132,7 +132,7 @@ function ProfileSession({ userId, view }: { userId: string; view: ProfileView })
       {!workspace.loading && !workspace.error && workspace.snapshot && <p role="status" className="sr-only">Saved work loaded.</p>}
       {loading && !profile && !error && <div role="status" className="py-16"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your profile</p><h1 className="mt-4 text-3xl font-bold">Loading your profile…</h1><p className="mt-3 text-gray-400">Getting your details from GMTM.</p></div>}
       {error && <section role="alert" className="max-w-xl rounded-2xl border border-white/15 p-6 sm:p-8"><h1 className="text-2xl font-bold">{error.title}</h1><p className="mt-3 leading-relaxed text-gray-300">{error.detail}</p><div className="mt-6 flex flex-wrap gap-3"><button type="button" disabled={loading} onClick={() => void refresh()} className={secondary}>{loading ? 'Loading…' : 'Try again'}</button><a href="/enter" className={secondary}>Reconnect from GMTM</a></div></section>}
-      {!error && profile?.state === 'unlinked' && <section className="max-w-xl py-8"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your profile</p><h1 className="mt-4 text-3xl font-bold">Bring your GMTM profile with you.</h1><p className="mt-4 leading-relaxed text-gray-300">Open SPARQ from GMTM again to connect your profile.</p><a href="/enter" className={`${secondary} mt-6`}>Reconnect from GMTM</a></section>}
+      {!error && profile?.state === 'unlinked' && <section className="max-w-xl py-8"><p className="text-xs uppercase tracking-[0.18em] text-sparq-lime">Your profile</p><h1 className="mt-4 text-3xl font-bold">Bring your GMTM profile with you.</h1><p className="mt-4 leading-relaxed text-gray-300">Open SPARQ Recruit from GMTM again to connect your profile.</p><a href="/enter" className={`${secondary} mt-6`}>Reconnect from GMTM</a></section>}
       {!error && profile?.state === 'source_unavailable' && <section role="alert" className="max-w-xl py-8"><h1 className="text-3xl font-bold">We can&apos;t reach GMTM right now.</h1><p className="mt-4 leading-relaxed text-gray-300">Your results are still safe on GMTM. Try again in a moment.</p><button type="button" disabled={loading} onClick={() => void refresh()} className={`${secondary} mt-6`}>{loading ? 'Loading…' : 'Try again'}</button></section>}
       {!error && (!workspace.loading || workspace.snapshot) && workspace.error?.kind !== 'link' && !associationInvalid && profile?.state === 'ready' && <ProfileReadout key={version} userId={userId} view={view} profile={profile} refreshing={loading} onRefresh={() => void refreshAll()} workspace={workspace} />}
     </div>
@@ -263,7 +263,7 @@ function ProgressView({ colleges, collegesError, workspace }: { colleges: SavedC
   return <div className="max-w-3xl pb-6 pt-8">
     <p className="font-label text-xs uppercase tracking-[2px] text-jr-lime">Emails</p>
     <h1 className="mt-3 text-[34px] font-bold leading-tight sm:text-[44px]">Your coach emails</h1>
-    <p className="mt-2 text-jr-soft">Each saved college and whether you sent its coach an email. SPARQ never sends for you.</p>
+    <p className="mt-2 text-jr-soft">Each saved college and whether you sent its coach an email. SPARQ Recruit never sends for you.</p>
     <section aria-label="Email status" className="mt-6">
       {collegesError ? <p role="alert" className="text-amber-200">{collegesError}</p>
         : !colleges ? <p role="status" className="text-jr-muted">Loading…</p>

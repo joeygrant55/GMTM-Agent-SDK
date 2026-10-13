@@ -193,7 +193,7 @@ class CandidateBoundaryMiddleware:
                     # current GMTM entry. No entry row (gate False) is refused.
                     subject = await junior_entry.require_identity(authorization)
                     if not await junior_entry.gate(subject, scope["path"]):
-                        raise HTTPException(403, "SPARQ is not open to this account here.")
+                        raise HTTPException(403, "SPARQ Recruit is not open to this account here.")
                 except HTTPException as exc:
                     await JSONResponse({"detail": exc.detail}, status_code=exc.status_code)(scope, receive, send)
                     return

@@ -861,7 +861,7 @@ def build_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
         return _not_eligible()
     profile = store.profile(clerk_id)
     if profile is None:
-        raise HTTPException(404, "Your profile is not ready yet. Open SPARQ from GMTM again.")
+        raise HTTPException(404, "Your profile is not ready yet. Open SPARQ Recruit from GMTM again.")
     athlete = _athlete(clerk_id)
     # GMTM down: build without drills; the key differs, so the next build after GMTM is back redoes the reasons.
     facts = athlete_facts(profile, (athlete or {}).get("drills"))
@@ -1209,7 +1209,7 @@ def create_outreach_draft(clerk_id: str, program_id: str, caller_id: str = Depen
     row, p = _eligible_program(clerk_id, program_id)
     profile = store.profile(clerk_id)
     if profile is None:
-        raise HTTPException(404, "Your profile is not ready yet. Open SPARQ from GMTM again.")
+        raise HTTPException(404, "Your profile is not ready yet. Open SPARQ Recruit from GMTM again.")
     gmtm = _athlete(clerk_id) or {}
     facts = athlete_facts(profile, gmtm.get("drills"))
     sport = row.get("gmtm_sport")

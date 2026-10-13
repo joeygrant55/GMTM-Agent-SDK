@@ -369,9 +369,9 @@ check('College research cards: listed counts only, https links, checked dates, n
   assert.doesNotMatch(src, /dangerouslySetInnerHTML/)
 })
 
-check('Header uses the real SPARQ logo file, not typed text (Joey 2026-10-02)', () => {
+check('Header uses the real SPARQ logo file plus the Recruit name (Joey 2026-10-02, 2026-10-13)', () => {
   const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
-  assert.match(shell, /aria-label="SPARQ home"[^>]*><SparqLogo /)
+  assert.match(shell, /aria-label="SPARQ Recruit home"[^>]*><SparqLogo [^>]*\/><span[^>]*>Recruit<\/span>/)
   assert.doesNotMatch(shell, />SPARQ<\/Link>/)
   assert.match(fs.readFileSync(path.join(root, 'components/SparqLogo.tsx'), 'utf8'), /src="\/sparq-wordmark\.png"/)
 })

@@ -25,7 +25,7 @@ export function sameOriginWrite(request: NextRequest): boolean {
 }
 
 export function signedOut(): NextResponse {
-  const response = json({ detail: 'Your SPARQ session ended. Open SPARQ from GMTM again.' }, 401)
+  const response = json({ detail: 'Your SPARQ Recruit session ended. Open SPARQ Recruit from GMTM again.' }, 401)
   response.cookies.set(clearedSessionCookie())
   return response
 }

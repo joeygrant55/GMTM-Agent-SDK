@@ -115,7 +115,7 @@ http = _urllib_http
 
 
 class EntryUnavailable(HTTPException):
-    def __init__(self, status=503, detail="SPARQ sign-in is temporarily unavailable."):
+    def __init__(self, status=503, detail="SPARQ Recruit sign-in is temporarily unavailable."):
         super().__init__(status_code=status, detail=detail)
 
 
@@ -166,7 +166,7 @@ def redeem(code: str, state: str) -> int:
         raise EntryUnavailable(502) from None
     user_id = data.get("user_id") if isinstance(data, dict) else None
     if status != 200 or type(user_id) is not int or user_id <= 0:
-        raise HTTPException(401, "This sign-in link is not valid. Open SPARQ from GMTM again.")
+        raise HTTPException(401, "This sign-in link is not valid. Open SPARQ Recruit from GMTM again.")
     return user_id
 
 
@@ -201,22 +201,22 @@ def session_claims(token: str, audience: str) -> dict:
     try:
         secret = _setting("SPARQ_SESSION_SECRET")
     except EntryUnavailable:
-        raise HTTPException(503, "SPARQ sign-in is temporarily unavailable.") from None
+        raise HTTPException(503, "SPARQ Recruit sign-in is temporarily unavailable.") from None
     try:
         claims = jwt.decode(token, secret, algorithms=["HS256"], audience=audience,
                             options={"require": list(_CLAIMS)})
     except jwt.PyJWTError:
-        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.") from None
+        raise HTTPException(401, "Your SPARQ Recruit session ended. Open SPARQ Recruit from GMTM again.") from None
     if not all(isinstance(claims.get(k), str) and claims[k] for k in ("sub", "jti", "gsh")) \
             or len(claims["sub"]) > 255 or not _GSH.fullmatch(claims["gsh"]):
-        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.")
+        raise HTTPException(401, "Your SPARQ Recruit session ended. Open SPARQ Recruit from GMTM again.")
     return claims
 
 
 def _active(claims: dict) -> str:
     active = store.session_jti(claims["sub"])
     if not isinstance(active, str) or not hmac.compare_digest(active.encode(), claims["jti"].encode()):
-        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.")
+        raise HTTPException(401, "Your SPARQ Recruit session ended. Open SPARQ Recruit from GMTM again.")
     return claims["sub"]
 
 
@@ -229,7 +229,7 @@ def _allowlisted(claims: dict) -> str:
     sub = _active(claims)
     entry = store.latest_entry(sub)
     if entry is None or entry["user_id"] not in junior_eligibility.allowlist(os.environ):
-        raise HTTPException(403, "SPARQ is not open to this account here.")
+        raise HTTPException(403, "SPARQ Recruit is not open to this account here.")
     return sub
 
 
@@ -256,7 +256,7 @@ async def _identity(authorization, audience, check) -> str:
 class LinkConflict(HTTPException):
     """``gmtm_<id>`` already names another athlete row: data needs review."""
     def __init__(self):
-        super().__init__(409, "This athlete is connected to another SPARQ account. Contact support.")
+        super().__init__(409, "This athlete is connected to another SPARQ Recruit account. Contact support.")
 
 
 class MySQLStore:
@@ -446,9 +446,9 @@ def _gate(clerk_id: str, path: str, now: datetime) -> bool:
     if entry is None:
         return False
     if not entry["entered_at"] <= now < entry["entered_at"] + SESSION_MAX:
-        raise HTTPException(401, "Your SPARQ session ended. Open SPARQ from GMTM again.")
+        raise HTTPException(401, "Your SPARQ Recruit session ended. Open SPARQ Recruit from GMTM again.")
     if not junior_eligibility.is_eligible_cached(entry["user_id"]):
-        raise HTTPException(403, "SPARQ is open to a small group of junior flag athletes right now.")
+        raise HTTPException(403, "SPARQ Recruit is open to a small group of junior flag athletes right now.")
     if path != NOTICE_PATH and not store.notice_accepted(clerk_id):
         raise HTTPException(403, "parent_notice_required")
     return True

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export function GET() {
   const gmtm = process.env.NEXT_PUBLIC_GMTM_WEB_URL
-  if (!gmtm) return new NextResponse('SPARQ sign-in is not configured.', { status: 503, headers: ENTRY_HEADERS })
+  if (!gmtm) return new NextResponse('SPARQ Recruit sign-in is not configured.', { status: 503, headers: ENTRY_HEADERS })
   const state = randomBytes(32).toString('base64url')
   const target = new URL('/sparq/authorize', gmtm)
   target.searchParams.set('state', state)

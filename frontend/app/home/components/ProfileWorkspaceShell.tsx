@@ -34,9 +34,9 @@ function CareerShell({ children, sessionLoaded, userId }: { children: React.Reac
     <div className="min-h-[100dvh] bg-jr-ground font-display text-jr-text">
       <a href="#profile-main" className="sr-only z-50 rounded-lg bg-jr-lime p-3 text-jr-ground focus:not-sr-only focus:absolute focus:left-4 focus:top-4">Skip to profile</a>
       <header className="border-b border-jr-line">
-        <div className="mx-auto flex min-h-[72px] max-w-[1344px] items-center justify-between gap-6 px-4 md:px-8 lg:px-12">
+        <div className="mx-auto flex min-h-[72px] max-w-[1344px] items-center justify-between gap-3 px-4 md:gap-6 md:px-8 lg:px-12">
           <div className="flex items-center gap-12">
-            <Link href="/home" aria-label="SPARQ home" className={`inline-flex min-h-11 shrink-0 items-center ${focus}`}><SparqLogo className="w-[112px] md:w-[128px]" /></Link>
+            <Link href="/home" aria-label="SPARQ Recruit home" className={`inline-flex min-h-11 shrink-0 items-center ${focus}`}><SparqLogo className="w-[84px] md:w-[128px]" /><span className="ml-1.5 text-base font-semibold tracking-wide text-jr-lime md:ml-2 md:text-xl">Recruit</span></Link>
             <nav aria-label="Athlete workspace" className="hidden gap-2 md:flex">
               {TABS.map(tab => <Link key={tab.href} href={tab.href} prefetch={false} aria-current={active === tab.href ? 'page' : undefined}
                 className={`rounded-full px-4 py-2.5 text-[15px] ${focus} ${active === tab.href ? 'bg-jr-raised font-semibold text-white' : 'text-jr-muted hover:text-white'}`}>{tab.label}</Link>)}
