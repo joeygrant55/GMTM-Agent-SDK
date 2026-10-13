@@ -42,7 +42,7 @@ function CareerShell({ children, sessionLoaded, userId }: { children: React.Reac
                 className={`rounded-full px-4 py-2.5 text-[15px] ${focus} ${active === tab.href ? 'bg-jr-raised font-semibold text-white' : 'text-jr-muted hover:text-white'}`}>{tab.label}</Link>)}
             </nav>
           </div>
-          <div className="flex items-center gap-4 text-sm text-jr-muted">
+          <div className="flex items-center gap-3 whitespace-nowrap text-sm text-jr-muted md:gap-4">
             {notice.required && <SwitchAccountLink />}
             <a href="https://gmtm.com" target="_blank" rel="noopener noreferrer" aria-label="Back to GMTM (opens in a new tab)" className={`hidden min-h-11 items-center hover:text-white sm:inline-flex ${focus}`}>Back to GMTM</a>
             <button type="button" onClick={() => { void signOutOfSparq() }} className={`inline-flex min-h-11 items-center hover:text-white ${focus}`}>Sign out</button>
