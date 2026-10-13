@@ -233,7 +233,7 @@ if surface == 'profile':
                   ('GET','/api/athlete/workspace'),('PATCH','/api/athlete/workspace'),
                   ('GET','/api/athlete/parent-notice'),('POST','/api/athlete/parent-notice'),
                   ('GET','/api/workspace/colleges/{clerk_id}'),('POST','/api/workspace/trigger-matching/{clerk_id}'),
-                  ('GET','/api/workspace/colleges/{clerk_id}/{program_id}'),
+                  ('GET','/api/workspace/colleges/{clerk_id}/all'),('GET','/api/workspace/colleges/{clerk_id}/{program_id}'),
                   ('GET','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
                   ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
                   ('GET','/api/workspace/saved-colleges/{clerk_id}'),('POST','/api/workspace/saved-colleges/{clerk_id}/{program_id}'),

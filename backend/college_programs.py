@@ -833,9 +833,9 @@ def _cards(items, athlete: Optional[dict], marks) -> list[dict]:
     return sorted(cards, key=lambda c: (c["distance_mi"] is None, c["distance_mi"] or 0))
 
 
-def _listing(saved, athlete: Optional[dict], marks) -> dict:
+def _listing(saved, athlete: Optional[dict], marks, limit: Optional[int] = MAX_SHOWN) -> dict:
     items = [(program(i.get("id")), i.get("reason")) for i in saved or [] if isinstance(i, dict)]
-    cards = _cards(items[:MAX_SHOWN], athlete, marks)
+    cards = _cards(items[:limit], athlete, marks)
     return {"eligible": True, "notice": None, "built": saved is not None, "programs": cards,
             "contact_rules": contact_rules(c["governing_body"] for c in cards), "origin": _origin_view(athlete),
             "saved_count": sum(1 for pid in marks[0] if program(pid)), "sent_count": sum(1 for pid in marks[1] if program(pid))}
@@ -859,6 +859,19 @@ def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict]):
         return saved
     facts = athlete_facts(profile, athlete["drills"])
     return saved if row.get("inputs_key") == _inputs_key(facts, rank(facts["state"])) else None
+
+
+def all_colleges(clerk_id: str = Depends(owner_id)):
+    """Every sourced program, closest first (Joey 2026-10-13: "See all"). Her built 12 keep their reasons;
+    the rest show no reason. No model call."""
+    row = _identity(clerk_id, refresh=False)
+    if not row.get("womens_list"):
+        return _not_eligible()
+    athlete = _athlete(clerk_id)
+    current = _current_programs(clerk_id, row, athlete)
+    reasons = {i.get("id"): i.get("reason") for i in current or [] if isinstance(i, dict)}
+    items = [{"id": p["id"], "reason": reasons.get(p["id"])} for p in programs()]
+    return {**_listing(items, athlete, _marks(clerk_id), limit=None), "built": current is not None}
 
 
 def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
@@ -1018,15 +1031,11 @@ class SentBody(BaseModel):
 
 
 def _listed_program(clerk_id: str, program_id: str, turning_on: bool) -> dict:
-    """Turning a mark ON needs the program in her current built list (409 not built, 404 not listed).
-    Turning it off is always allowed, so a mark from an older list can still be cleared."""
+    """Turning a mark ON needs a built list (409); any sourced program counts, not only her 12, since
+    "See all" shows every program (404 only for an unknown id). Turning it off is always allowed."""
     row, p = _eligible_program(clerk_id, program_id)
-    if turning_on:
-        current = _current_programs(clerk_id, row, _athlete(clerk_id))
-        if current is None:
-            raise HTTPException(409, "Find your colleges first.")
-        if p["id"] not in {i.get("id") for i in current if isinstance(i, dict)}:
-            raise HTTPException(404, "This college is not in your list.")
+    if turning_on and _current_programs(clerk_id, row, _athlete(clerk_id)) is None:
+        raise HTTPException(409, "Find your colleges first.")
     return p
 
 

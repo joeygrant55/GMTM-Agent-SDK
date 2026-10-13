@@ -22,7 +22,7 @@ SUBJECT, USER_ID = "user_junior", 7301
 NAME, CITY, EMAIL = "Avery Quintero", "Plano", "avery@example.com"
 ROUTES = {
     ("GET", "/api/workspace/colleges/{clerk_id}"), ("POST", "/api/workspace/trigger-matching/{clerk_id}"),
-    ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}"),
+    ("GET", "/api/workspace/colleges/{clerk_id}/all"), ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}"),
     ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft"),
     ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft"),
     ("GET", "/api/workspace/saved-colleges/{clerk_id}"), ("POST", "/api/workspace/saved-colleges/{clerk_id}/{program_id}"),
@@ -546,15 +546,15 @@ def test_save_is_idempotent_and_unsave_removes(app):
     assert store.marks(SUBJECT)[0] == {} and client.get(f"/api/workspace/saved-colleges/{SUBJECT}", headers=headers).json()["saved"] == []
 
 
-def test_marks_only_for_programs_in_her_built_list(app):
+def test_marks_need_a_built_list_and_any_sourced_program(app):
     client, store, model, _, headers, _ = app
     url = lambda pid: f"/api/workspace/saved-colleges/{SUBJECT}/{pid}"
     assert client.post(url("daytona-state-college"), headers=headers, json={"saved": True}).status_code == 409  # not built
-    listed = built(client, headers)
-    assert "daytona-state-college" not in listed  # Florida school, TX list
-    assert client.post(url("daytona-state-college"), headers=headers, json={"saved": True}).status_code == 404
-    assert client.post(f"/api/workspace/colleges/{SUBJECT}/daytona-state-college/sent", headers=headers, json={"sent": True}).status_code == 404
     assert store.mark_calls == []
+    listed = built(client, headers)
+    assert "daytona-state-college" not in listed  # Florida school, TX list: saved from "See all"
+    assert client.post(url("daytona-state-college"), headers=headers, json={"saved": True}).status_code == 200
+    assert "daytona-state-college" in store.marks(SUBJECT)[0]
     # Clearing is always allowed, so a mark left from an older list can be removed.
     assert client.post(url("daytona-state-college"), headers=headers, json={"saved": False}).status_code == 200
 
@@ -1296,3 +1296,15 @@ def test_stream_save_failure_sends_error_not_done(app, monkeypatch):
     lines = [json.loads(line) for line in client.post(f"/api/workspace/trigger-matching/{SUBJECT}",
                                                       headers={**headers, "Accept": "application/x-ndjson"}).text.splitlines()]
     assert lines[0]["type"] == "list" and lines[-1] == {"type": "error"}
+
+
+
+def test_see_all_lists_every_program_keeps_her_reasons_and_calls_no_model(app):
+    client, store, model, _, headers, _ = app
+    every = client.get(f"/api/workspace/colleges/{SUBJECT}/all", headers=headers).json()
+    assert every["built"] is False and len(every["programs"]) == len(cp.programs()) and not any(p["reason"] for p in every["programs"])
+    mine = built(client, headers)
+    calls = len(model.calls)
+    every = client.get(f"/api/workspace/colleges/{SUBJECT}/all", headers=headers).json()
+    reasons = {p["id"]: p["reason"] for p in every["programs"] if p["reason"]}
+    assert every["built"] is True and set(reasons) == set(mine) and len(model.calls) == calls

@@ -53,3 +53,9 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - Live browser check (Joey's account, 500 px window): 12 cards at 2.31 s with "Writing why it fits you…", reasons at 4.73-5.33 s, one by one (stream not buffered). Was 22 s+.
 - GitHub push of feat/junior-pilot was blocked by the auto-mode classifier; origin is behind 4e030d1. Joey can push.
 - Seen live: GET /home/colleges showed "Loading your colleges…" for 3-6 s before the page. Not measured further.
+
+## Update: "See all colleges" (option A; Joey: "a and b both, start with A")
+- Joey asked if the 12 use intelligence. Answer: no. rank() is a fixed rule (home state, neighbors, region; levels take turns). AI only writes the reason text. Data: 187 programs, 35 states; no size, cost or academics.
+- A: GET /api/workspace/colleges/{id}/all (all 187, closest first, her 12 keep reasons, no model call). Saves and "I sent it" now work for any sourced program (still need a built list). UI: My 12 / See all toggle, search, 24 per page, map shows the same page.
+- Review (Fable 5.1): 1 blocking (2 route manifests in tests), 4 UX items; all fixed. Backend 1959 passed; tsc, safety check, next build OK.
+- B next: 3-tap preferences (distance, 2-year/4-year, level) + "more like this" from hearts, using only facts we have.

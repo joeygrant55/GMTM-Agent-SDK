@@ -249,6 +249,8 @@ function FindingColleges() {
 
 const LEVELS: Level[] = ['All', 'NCAA', 'NAIA', 'NJCAA']
 const NEAR_MI = 150
+const PAGE = 24
+const seg = (on: boolean) => `inline-flex min-h-11 flex-1 items-center justify-center rounded-full px-5 text-[15px] sm:flex-none ${focus} ${on ? 'bg-jr-lime font-bold text-jr-ground' : 'text-[#D4D4DA] hover:text-white'}`
 const chip = (on: boolean) => `inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] ${focus} ${on ? 'border-jr-lime bg-jr-done font-semibold text-jr-lime' : 'border-jr-edge text-[#D4D4DA] hover:border-jr-muted'}`
 
 export function ProfileColleges() {
@@ -260,6 +262,12 @@ export function ProfileColleges() {
   const [near, setNear] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
+  // "See all" (Joey 2026-10-13): her 12 first, every sourced program one tap away. No model call.
+  const [view, setView] = useState<'mine' | 'all'>('mine')
+  const [all, setAll] = useState<CollegeList | null>(null)
+  const [search, setSearch] = useState('')
+  const [limit, setLimit] = useState(PAGE)
+  const [loadingAll, setLoadingAll] = useState(false)
   // Program ids whose reason is still being written in this build.
   const [writing, setWriting] = useState<string[]>([])
   const heading = useRef<HTMLHeadingElement>(null)
@@ -285,6 +293,7 @@ export function ProfileColleges() {
         if (line.type === 'list') {
           const { type: _, ...next } = line
           setList(next)
+          setAll(null); setView('mine')  // the full list carries her 12's reasons: refetch after a rebuild
           setWriting(next.programs.filter(p => !p.reason).map(p => p.id))
           if (next.built) requestAnimationFrame(() => heading.current?.focus())
         } else if (line.type === 'reason') {
@@ -295,33 +304,64 @@ export function ProfileColleges() {
     } catch (e) { if (!controller.signal.aborted) setError((e as Error).message) } finally { setBusy(false); setWriting([]) }
   }, [userId])
 
-  const apply = useCallback((id: string, saved: boolean) => setList(current => {
-    if (!current) return current
-    const changed = current.programs.some(p => p.id === id && p.saved !== saved)
-    return { ...current, saved_count: current.saved_count + (changed ? (saved ? 1 : -1) : 0), programs: current.programs.map(p => (p.id === id ? { ...p, saved } : p)) }
-  }), [])
+  const apply = useCallback((id: string, saved: boolean) => {
+    const mark = (current: CollegeList | null) => {
+      if (!current) return current
+      const changed = current.programs.some(p => p.id === id && p.saved !== saved)
+      // A college outside her 12 still counts in her 12's "Saved (n)".
+      const outside = !current.programs.some(p => p.id === id)
+      return { ...current, saved_count: current.saved_count + (changed || outside ? (saved ? 1 : -1) : 0), programs: current.programs.map(p => (p.id === id ? { ...p, saved } : p)) }
+    }
+    setList(mark); setAll(mark)
+  }, [])
   const save = useSave(userId, apply)
 
-  const shown = useMemo(() => (list?.programs || []).filter(p =>
-    (level === 'All' || p.level.startsWith(level)) && (!near || (p.distance_mi !== null && p.distance_mi <= NEAR_MI)) && (!savedOnly || p.saved)), [list, level, near, savedOnly])
-  const hasDistances = !!list?.programs.some(p => p.distance_mi !== null)
+  const openAll = useCallback(async () => {
+    setView('all'); setLimit(PAGE)
+    if (all || !userId || loadingAll) return
+    setLoadingAll(true); setError('')
+    try { setAll(await readJSON<CollegeList>(apiFetch(collegesURL(userId, '/all')))) } catch (e) { setError((e as Error).message); setView('mine') } finally { setLoadingAll(false) }
+  }, [all, userId, loadingAll])
+
+  const current = view === 'all' && all ? all : list
+  const showingAll = view === 'all' && !!all
+  const words = search.trim().toLowerCase()
+  const shown = useMemo(() => (current?.programs || []).filter(p =>
+    (level === 'All' || p.level.startsWith(level)) && (!near || (p.distance_mi !== null && p.distance_mi <= NEAR_MI)) && (!savedOnly || p.saved)
+    && (!showingAll || !words || `${p.school} ${p.city} ${p.state} ${p.conference || ''}`.toLowerCase().includes(words))), [current, level, near, savedOnly, words, showingAll])
+  const hasDistances = !!current?.programs.some(p => p.distance_mi !== null)
   // Same labels as the map, so a badge and its map pin match (e.g. DSC / DSU, not DS twice).
-  const labels = useMemo(() => schoolLabels((list?.programs || []).map(p => p.school)), [list])
+  const labels = useMemo(() => schoolLabels((current?.programs || []).map(p => p.school)), [current])
+  // The map shows the same colleges as the cards (one page of the full list, not all 187 pins).
+  const page = showingAll ? shown.slice(0, limit) : shown
 
   if (!isLoaded || (!list && !error)) return <p role="status" className="py-16 text-center text-jr-muted">Loading your colleges…</p>
   return <div className="pb-12 pt-8">
     <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <h1 ref={heading} tabIndex={-1} className="text-[34px] font-bold leading-tight tracking-[-1px] outline-none sm:text-[44px]">College flag football</h1>
-        {list?.eligible && list.built && <p className="mt-2 text-[17px] text-jr-soft">{list.programs.length} programs that fit you. {hasDistances ? 'Closest first. ' : ''}Tap the heart to save.</p>}
+        {list?.eligible && list.built && <p className="mt-2 text-[17px] text-jr-soft">{showingAll
+          ? `All ${all!.programs.length} college flag football programs we track. ${hasDistances ? 'Closest first. ' : ''}Tap the heart to save.`
+          : `${list.programs.length} programs to start with. ${hasDistances ? 'Closest first. ' : ''}Tap the heart to save.`}</p>}
         {writing.length > 0 && list?.programs.length ? <p className="mt-1 text-[15px] text-jr-muted"><span role="status">Writing why each one fits you…</span> <span aria-hidden="true">{list.programs.length - writing.length} of {list.programs.length} done</span></p> : null}
       </div>
-      {list?.eligible && list.built && list.programs.length > 0 && <div role="group" aria-label="Filter colleges" className="flex flex-wrap gap-2">
+      {list?.eligible && list.built && list.programs.length > 0 && <div className="flex flex-col gap-3 lg:items-end">
+      <div role="group" aria-label="Which colleges" className="flex w-full rounded-full border border-jr-edge p-1 sm:w-auto">
+        <button type="button" aria-pressed={!showingAll} onClick={() => setView('mine')} className={`${seg(!showingAll)}`}>My {list.programs.length}</button>
+        <button type="button" aria-pressed={showingAll} onClick={() => void openAll()} disabled={loadingAll} className={`${seg(showingAll)}`}>{loadingAll ? 'Loading…' : `See all${all ? ` ${all.programs.length}` : ''}`}</button>
+      </div>
+      <div role="group" aria-label="Filter colleges" className="flex flex-wrap gap-2">
         {LEVELS.map(l => <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={chip(level === l)}>{l === 'All' ? 'All levels' : l === 'NJCAA' ? 'NJCAA (2-year)' : l}</button>)}
         {hasDistances && <button type="button" aria-pressed={near} onClick={() => setNear(v => !v)} className={chip(near)}>Within {NEAR_MI} mi</button>}
-        <button type="button" aria-pressed={savedOnly} onClick={() => setSavedOnly(v => !v)} className={chip(savedOnly)}>Saved ({list.saved_count})</button>
+        <button type="button" aria-pressed={savedOnly} onClick={() => setSavedOnly(v => !v)} className={chip(savedOnly)}>Saved ({showingAll ? all!.saved_count : list.programs.filter(p => p.saved).length})</button>
+      </div>
+      {showingAll && <label className="w-full text-sm text-jr-muted">Search by school, city or state
+        <input type="search" value={search} onChange={e => { setSearch(e.target.value); setLimit(PAGE) }} placeholder="e.g. Ottawa or TX"
+          className={`mt-1.5 block min-h-11 w-full rounded-xl border border-jr-edge bg-jr-well px-4 text-base text-jr-text placeholder:text-jr-dim ${focus}`} />
+      </label>}
       </div>}
     </div>
+    {loadingAll && <p role="status" className="mt-4 text-jr-muted">Loading all colleges…</p>}
     {error && <p role="alert" className="mt-4 text-red-300">{error}</p>}
     {save.error && <p role="alert" className="mt-4 text-red-300">{save.error}</p>}
     {list && !list.eligible ? <div className="mt-6"><NotEligible notice={list.notice} busy={busy} onCheck={() => void build()} /></div>
@@ -337,16 +377,20 @@ export function ProfileColleges() {
           <button type="button" aria-expanded={mapOpen} aria-controls="college-map" onClick={() => setMapOpen(v => !v)} className={`${secondary} mt-6 w-full md:hidden`}>{mapOpen ? 'Hide map' : 'Show map'}</button>
           <div className="mt-4 grid items-start gap-6 md:mt-6 md:grid-cols-2">
             <div className="flex flex-col gap-3.5">
-              {shown.length ? shown.map(program => <ProgramCard key={program.id} program={program} writing={writing.includes(program.id)} label={labels[program.school]} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)
+              {page.length ? page.map(program => <ProgramCard key={program.id} program={program} writing={writing.includes(program.id)} label={labels[program.school]} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />)
                 : <p className="rounded-[20px] border border-jr-line bg-jr-card p-6 text-jr-soft">{savedOnly ? 'No saved colleges yet. Tap a heart to save one.' : 'No colleges match these filters.'}</p>}
+              {showingAll && shown.length > limit && <button type="button" onClick={() => setLimit(n => n + PAGE)} className={secondary}>Show more ({shown.length - limit} left)</button>}
             </div>
             <div id="college-map" className={`${mapOpen ? 'block' : 'hidden'} order-first md:sticky md:top-6 md:order-none md:block`}>
-              <CollegeMap programs={shown} origin={list.origin} labels={labels} />
+              <CollegeMap programs={page} origin={list.origin} labels={labels} />
             </div>
           </div>
-          <div className="mt-6"><button type="button" onClick={() => void build()} disabled={busy} className={secondary}>{busy ? 'Checking…' : 'Check my list again'}</button></div>
+          {!showingAll && <div className="mt-6 flex flex-wrap gap-3">
+            <button type="button" onClick={() => void openAll()} disabled={loadingAll} className={secondary}>{loadingAll ? 'Loading…' : 'See all colleges'}</button>
+            <button type="button" onClick={() => void build()} disabled={busy} className={secondary}>{busy ? 'Checking…' : 'Check my list again'}</button>
+          </div>}
         </>}
-        <ContactPanel rules={list.contact_rules} />
+        <ContactPanel rules={(current || list).contact_rules} />
       </>}
   </div>
 }

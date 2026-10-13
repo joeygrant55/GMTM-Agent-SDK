@@ -232,6 +232,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             # Reviewed recruiting set (junior pilot): owner-checked by the URL clerk_id.
             ("GET", "/api/workspace/colleges/{clerk_id}", colleges.list_colleges),
             ("POST", "/api/workspace/trigger-matching/{clerk_id}", colleges.build_colleges),
+            # "See all": registered before {program_id}, which would otherwise take "all".
+            ("GET", "/api/workspace/colleges/{clerk_id}/all", colleges.all_colleges),
             ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}", colleges.college_detail),
             ("GET", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.get_outreach_draft),
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft", colleges.create_outreach_draft),

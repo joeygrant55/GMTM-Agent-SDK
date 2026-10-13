@@ -44,6 +44,7 @@ def test_profile_manifest_is_explicit_and_excludes_legacy_and_combine_work(profi
         "/health": "get",
         "/gmtm-entry/exchange": "post", "/gmtm-entry/sign-out": "post", "/api/athlete/parent-notice": ("get", "post"),
         "/api/workspace/colleges/{clerk_id}": "get", "/api/workspace/trigger-matching/{clerk_id}": "post",
+        "/api/workspace/colleges/{clerk_id}/all": "get",
         "/api/workspace/colleges/{clerk_id}/{program_id}": "get",
         "/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft": ("get", "post"),
         "/api/workspace/saved-colleges/{clerk_id}": "get", "/api/workspace/saved-colleges/{clerk_id}/{program_id}": "post",

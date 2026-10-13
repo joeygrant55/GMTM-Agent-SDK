@@ -490,7 +490,7 @@ check('Map and badges: schools that share initials get unique labels in one list
   assert.deepEqual(more, { 'Manhattan University': 'Man', 'Mercyhurst University': 'Mer', 'Marymount University': 'Marym', 'Marywood University': 'Maryw' })
   assert.equal(initials('Daytona State College'), 'DS')
   const colleges = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
-  assert.match(colleges, /<CollegeMap programs=\{shown\} origin=\{list\.origin\} labels=\{labels\} \/>/)
+  assert.match(colleges, /<CollegeMap programs=\{page\} origin=\{list\.origin\} labels=\{labels\} \/>/)
   assert.match(colleges, /\$\{labels\[p\.school\] \|\| initials\(p\.school\)\}/)
 })
 
