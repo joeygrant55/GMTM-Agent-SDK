@@ -66,3 +66,5 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - Map: labels z-10 above dots, You z-20, "+N more" z-30; label gap 22% x 11%. Not done: measure real label widths in the browser (review estimate: 2 long labels can still touch at 390 px).
 - Permissions (Joey asked): added allow rules for `git push origin feat/junior-pilot` (and the git -C form). The Vercel rule existed; run `vercel deploy --cwd <dir>` without a `cd` prefix so it matches.
 - Reviews: 2 Fable 5.1 passes, no blocking issues; fixes applied. Backend 1963 passed; tsc, safety check, next build OK.
+- Deployed 99fce92: Railway ba4807d0 SUCCESS; Vercel sparq-junior-50cv04g0m Ready (vercel deploy --cwd ran without a block). Live check on Joey's account: map labels clear; answers "Near me · 4-year · NAIA" -> 8 NAIA programs with reasons; "More like the ones you saved" -> 4 NJCAA near Daytona. Joey's test list is now built from those answers.
+- Open: /home/colleges first load took about 9 s ("Loading your colleges…"); not measured. Likely GMTM reads in list_colleges (_identity + _athlete).
