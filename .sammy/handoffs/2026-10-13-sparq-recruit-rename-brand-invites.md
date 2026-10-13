@@ -68,3 +68,15 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - Reviews: 2 Fable 5.1 passes, no blocking issues; fixes applied. Backend 1963 passed; tsc, safety check, next build OK.
 - Deployed 99fce92: Railway ba4807d0 SUCCESS; Vercel sparq-junior-50cv04g0m Ready (vercel deploy --cwd ran without a block). Live check on Joey's account: map labels clear; answers "Near me · 4-year · NAIA" -> 8 NAIA programs with reasons; "More like the ones you saved" -> 4 NJCAA near Daytona. Joey's test list is now built from those answers.
 - Open: /home/colleges first load took about 9 s ("Loading your colleges…"); not measured. Likely GMTM reads in list_colleges (_identity + _athlete).
+
+## Update: Colleges page load (Joey: "keep going, deploy when done")
+- Measured before: GET colleges made about 8 DB connections one after the other. From a laptop via the Railway proxy: 7.3 s (3 runs). Live in the browser: 2.0-2.1 s. Page shown at 3.1 s (warm reload) to 5.0 s (first visit).
+- Also measured: after the parent-notice gate, the colleges fetch started 0.73 s after its chunk loaded (lazy `dynamic(ssr:false)` page; React 18 Suspense reveal delay is part of it).
+- Fix 1 (dceb257): `_reads()` runs identity, athlete, marks and profile at the same time for colleges, /all and saved-colleges. The identity row is written only when it changes, or on a first visit (save_list is an UPDATE; review found that a first visit with no GMTM gender and no sport would never save her list). ponytail: up to 4 agent-DB connections per request.
+- Fix 2 (559508b): the junior pages import their component statically. Combine/legacy builds carry about 31 kB gz more on /home and /home/colleges (accepted).
+- Reviews: 2 Fable 5.1 passes. Fixes applied: the first-visit row bug, a profile-read warning log, the college-research test mock, an unused import.
+- Checks: backend 1965 passed (new tests fail without the fix); tsc, check-profile-safety (35), next build OK.
+- Deployed: Railway 0a663ee2 SUCCESS; Vercel sparq-junior-hhqelmhik Ready.
+- Measured after, live (Joey's account): colleges request 1.05 s (5 runs, was 2.0 s). Warm reload: the list shows at 2.2 s (was 3.1 s); gap from notice to fetch 8 ms (was 730 ms). Home, Emails, My card, Colleges, college detail all render.
+- Not measured: a female athlete's request (Joey is male + tester, so his GET also reads GMTM identity; hers skips it and should be faster). The tab was in the background during the measurements.
+- Next: Home waits for /athlete/evidence (1.0 s) before card, materials and saved-colleges (1.0 s each); Home shows at about 2.8 s.
