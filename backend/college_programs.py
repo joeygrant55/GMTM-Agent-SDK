@@ -815,7 +815,9 @@ def _identity(clerk_id: str, refresh: bool) -> dict:
             except (TypeError, ValueError):
                 gender = None
             sport = str(ident.get("sport") or "")[:100] or None
-            store.save_identity(clerk_id, gender, sport)
+            # No write on every page load. Always write a first row: save_list is an UPDATE and needs it.
+            if not row or (gender, sport) != (row.get("gmtm_gender"), row.get("gmtm_sport")):
+                store.save_identity(clerk_id, gender, sport)
             row = {**row, "gmtm_gender": gender, "gmtm_sport": sport}
     womens = row.get("gmtm_gender") != MALE
     if not womens:
@@ -893,11 +895,33 @@ def _inputs_key(facts: dict, chosen: list[dict]) -> str:
     return hashlib.sha256(json.dumps([facts, [p["id"] for p in chosen], _data_hash, REASON_SYSTEM], sort_keys=True, default=str).encode()).hexdigest()
 
 
-def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict]):
+_READ = object()
+
+
+def _reads(clerk_id: str):
+    """The page reads at the same time: (row, athlete, marks, profile). One after the other they took
+    7.3 s from a laptop and 2.0 s live (measured 2026-10-13); each opens its own DB connection.
+    ponytail: up to 4 agent-DB connections per request at once; 40 busy requests could pass MySQL's
+    151 default. Add a semaphore or a pool if the pilot grows past that."""
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        jobs = [pool.submit(_identity, clerk_id, False), pool.submit(_athlete, clerk_id),
+                pool.submit(_marks, clerk_id), pool.submit(store.profile, clerk_id)]
+        row, athlete, marks = (job.result() for job in jobs[:3])
+        try:
+            profile = jobs[3].result()
+        except Exception as error:
+            log.warning("college_programs: profile read failed (%s)", type(error).__name__)  # class only, never values
+            profile = _READ  # as before: re-read (and fail) only if a saved list needs it
+        return row, athlete, marks, profile
+
+
+def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict], profile=_READ):
     """The saved list only if it was built from today's facts (e.g. not a since-dropped 2011
     grad year, or older drill results). Otherwise None: the athlete sees "not built" and rebuilds."""
     saved = row.get("programs")
-    profile = store.profile(clerk_id) if saved is not None else None
+    if saved is None:
+        return None
+    profile = store.profile(clerk_id) if profile is _READ else profile
     if profile is None:
         return None
     if athlete is None:
@@ -913,23 +937,21 @@ def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict]):
 def all_colleges(clerk_id: str = Depends(owner_id)):
     """Every sourced program, closest first (Joey 2026-10-13: "See all"). Her built 12 keep their reasons;
     the rest show no reason. No model call."""
-    row = _identity(clerk_id, refresh=False)
+    row, athlete, marks, profile = _reads(clerk_id)
     if not row.get("womens_list"):
         return _not_eligible()
-    athlete = _athlete(clerk_id)
-    current = _current_programs(clerk_id, row, athlete)
+    current = _current_programs(clerk_id, row, athlete, profile)
     reasons = {i.get("id"): i.get("reason") for i in current or [] if isinstance(i, dict)}
     items = [{"id": p["id"], "reason": reasons.get(p["id"])} for p in programs()]
-    return {**_listing(items, athlete, _marks(clerk_id), limit=None), "built": current is not None}
+    return {**_listing(items, athlete, marks, limit=None), "built": current is not None}
 
 
 def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     _owner(clerk_id, caller_id)
-    row = _identity(clerk_id, refresh=False)
+    row, athlete, marks, profile = _reads(clerk_id)
     if not row.get("womens_list"):
         return _not_eligible()
-    athlete = _athlete(clerk_id)
-    return _listing(_current_programs(clerk_id, row, athlete), athlete, _marks(clerk_id))
+    return _listing(_current_programs(clerk_id, row, athlete, profile), athlete, marks)
 
 
 BUILDS_PER_HOUR, DRAFTS_PER_HOUR, MARKS_PER_HOUR = 10, 10, 200  # builds: her answers can change a few times
@@ -1010,12 +1032,10 @@ def build_colleges(clerk_id: str, request: Request, prefs: Optional[Prefs] = Bod
 def saved_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     """Everything Home needs for the journey: list built, how many found, saved programs, sent count."""
     _owner(clerk_id, caller_id)
-    row = _identity(clerk_id, refresh=False)
+    row, athlete, marks, profile = _reads(clerk_id)
     if not row.get("womens_list"):
         return {**_not_eligible(), "found": 0, "saved": []}
-    athlete = _athlete(clerk_id)
-    marks = _marks(clerk_id)
-    current = _current_programs(clerk_id, row, athlete)
+    current = _current_programs(clerk_id, row, athlete, profile)
     saved = sorted(((program(pid), at) for pid, at in marks[0].items() if program(pid)), key=lambda x: x[1], reverse=True)
     return {"eligible": True, "notice": None, "built": current is not None,
             "found": len([i for i in current or [] if isinstance(i, dict) and program(i.get("id"))][:MAX_SHOWN]),

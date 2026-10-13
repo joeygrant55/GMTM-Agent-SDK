@@ -5,6 +5,7 @@ read_athlete (GMTM) and model_json (model). junior_entry.store is a MemoryStore.
 """
 from datetime import datetime, timezone
 import json
+import threading
 
 from fastapi.testclient import TestClient
 import pytest
@@ -214,6 +215,32 @@ def test_gender_fix_on_gmtm_is_picked_up_by_the_next_build(app):
     body = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     assert body["eligible"] is True and len(body["programs"]) == 12
     assert store.rows[SUBJECT]["gmtm_sport"] == "Flag Football"
+
+
+def test_page_reads_run_together_and_unchanged_identity_is_not_rewritten(app, monkeypatch):
+    client, store, model, identity, headers, _ = app
+    identity["gender"] = 1  # male rows re-read GMTM on every GET
+    monkeypatch.setattr(elig, "allowlist", lambda env: frozenset({USER_ID}))  # a tester, like Joey
+    writes, gate = [], threading.Barrier(2, timeout=5)
+    real = store.save_identity
+    monkeypatch.setattr(store, "save_identity", lambda *a: (writes.append(a), real(*a)))
+    # The GMTM athlete read and the marks read must overlap, or this barrier times out.
+    monkeypatch.setattr(cp, "read_athlete", lambda uid: (gate.wait(), {"drills": [], "origin": dict(ORIGIN)})[1])
+    monkeypatch.setattr(store, "marks", lambda clerk_id: (gate.wait(), ({}, {}))[1])
+    for url in (f"colleges/{SUBJECT}", f"colleges/{SUBJECT}/all", f"saved-colleges/{SUBJECT}"):
+        assert client.get(f"/api/workspace/{url}", headers=headers).json()["eligible"] is True
+        assert not gate.broken  # the readers swallow errors, so check the barrier itself
+        gate.reset()
+    assert len(writes) == 1  # first read saves gender 1; the next two see no change
+
+
+def test_first_visit_with_no_gmtm_gender_or_sport_still_gets_a_row_so_the_list_saves(app):
+    client, store, model, identity, headers, _ = app
+    identity.update(gender=None, sport=None)
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is True
+    assert SUBJECT in store.rows
+    client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers)
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["built"] is True
 
 
 def test_build_ranks_home_state_first_caps_at_12_and_caches(app):
@@ -1260,7 +1287,7 @@ def test_allowlisted_tester_keeps_the_list_even_if_male(app, monkeypatch):
     identity["gender"] = 1
     assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is False
     import junior_eligibility
-    monkeypatch.setattr(junior_eligibility, "allowlist", lambda env: frozenset({USER_ID}))
+    monkeypatch.setattr(elig, "allowlist", lambda env: frozenset({USER_ID}))
     response = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers)
     assert response.json().get("eligible") is True, (response.status_code, response.text)
 
