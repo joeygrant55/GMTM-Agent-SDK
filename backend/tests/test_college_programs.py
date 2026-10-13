@@ -136,12 +136,13 @@ class Model:
 @pytest.fixture
 def app(profile_app, monkeypatch, session):
     monkeypatch.setattr(auth, "_rate_buckets", {})
+    monkeypatch.delenv("SPARQ_TEST_ALLOWLIST", raising=False)  # tests never depend on the real shell
     entries = MemoryStore()
     entries.record_entry(SUBJECT, USER_ID, datetime.now(timezone.utc))
     entries.accept_notice(SUBJECT, datetime.now(timezone.utc))
     monkeypatch.setattr(junior_entry, "store", entries)
     monkeypatch.setattr(elig, "reader", lambda uid: (True, datetime(2011, 1, 1).date()))
-    store, model, identity = CollegeStore(), Model(), {"gender": 1, "sport": "Flag Football", "visibility": 2}
+    store, model, identity = CollegeStore(), Model(), {"gender": 0, "sport": "Flag Football", "visibility": 2}  # GMTM 0 = female
     athlete = {"drills": [dict(d) for d in DRILLS], "origin": dict(ORIGIN)}
     monkeypatch.setattr(cp, "store", store)
     monkeypatch.setattr(cp, "read_athlete", lambda uid: athlete if uid == USER_ID else None)
@@ -189,10 +190,9 @@ def test_parent_notice_still_gates_college_routes(app):
     assert response.status_code == 403 and response.json()["detail"] == "parent_notice_required"
 
 
-@pytest.mark.parametrize("gender", [0, 2, None, "x"])
-def test_only_gmtm_gender_1_gets_a_list(app, gender):
+def test_gmtm_male_does_not_get_the_womens_list(app):
     client, store, model, identity, headers, _ = app
-    identity["gender"] = gender
+    identity["gender"] = 1  # GMTM 1 = male (Registration gender_category; Joey's own account is 1)
     for response in (client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers),
                      client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers)):
         assert response.status_code == 200
@@ -207,9 +207,9 @@ def test_only_gmtm_gender_1_gets_a_list(app, gender):
 
 def test_gender_fix_on_gmtm_is_picked_up_by_the_next_build(app):
     client, store, model, identity, headers, _ = app
-    identity["gender"] = 2
-    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is False
     identity["gender"] = 1
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is False
+    identity["gender"] = 0
     assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is True  # GET re-reads GMTM
     body = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
     assert body["eligible"] is True and len(body["programs"]) == 12
@@ -591,10 +591,10 @@ def test_save_rejects_a_loose_body(app, body):
 
 def test_save_unknown_program_or_ineligible_is_refused(app):
     client, store, model, identity, headers, _ = app
-    identity["gender"] = 2
+    identity["gender"] = 1
     assert client.post(f"/api/workspace/saved-colleges/{SUBJECT}/daytona-state-college", headers=headers, json={"saved": True}).status_code == 403
     assert client.get(f"/api/workspace/saved-colleges/{SUBJECT}", headers=headers).json()["eligible"] is False
-    identity["gender"] = 1
+    identity["gender"] = 0
     assert client.post(f"/api/workspace/saved-colleges/{SUBJECT}/no-such-school", headers=headers, json={"saved": True}).status_code == 404
     assert store.mark_calls == []
 
@@ -858,7 +858,7 @@ def test_emails_page_lists_drafts_and_sent_sorted_without_contact(app):
     assert [(e["id"], e["status"]) for e in emails] == [(c, "draft"), (b, "draft"), (a, "sent")]
     assert emails[2]["sent_at"].startswith("2026-10-02T12:") and emails[0]["sent_at"] is None and emails[0]["drafted_at"]
     assert set(emails[0]) == {"id", "school", "city", "state", "level", "primary_color", "status", "drafted_at", "sent_at"}
-    identity["gender"], store.rows[SUBJECT]["gmtm_gender"] = 2, 2  # not eligible on GMTM: nothing listed
+    identity["gender"], store.rows[SUBJECT]["gmtm_gender"] = 1, 1  # male on GMTM: nothing listed
     assert client.get(f"/api/workspace/college-emails/{SUBJECT}", headers=headers).json()["emails"] == []
 
 
@@ -941,7 +941,7 @@ def test_private_or_unknown_gmtm_profile_gets_no_profile_link(app, visibility):
 
 def test_profile_link_dropped_when_gmtm_visibility_read_fails(app, monkeypatch):
     client, store, *_ , headers, _ = app
-    store.rows[SUBJECT] = {"gmtm_gender": 1}  # eligible as stored, so only the visibility read reaches GMTM
+    store.rows[SUBJECT] = {"gmtm_gender": 0}  # female as stored, so only the visibility read reaches GMTM
     monkeypatch.setattr(cp, "read_identity", lambda uid: (_ for _ in ()).throw(RuntimeError("down")))
     body = client.post(f"/api/workspace/colleges/{SUBJECT}/alabama-state-university/outreach-draft", headers=headers).json()["draft"]
     assert body["kit"]["profile_url"] is None
@@ -1217,8 +1217,8 @@ def test_research_not_eligible_and_store_failure_are_safe(app, monkeypatch):
     monkeypatch.setattr(store, "research", lambda ids: (_ for _ in ()).throw(RuntimeError("db down")))
     got = client.get(RESEARCH_URL, headers=headers).json()["programs"][0]
     assert got["roster"] is None and got["camps"] == []
-    identity["gender"] = 0
-    store.rows[SUBJECT]["gmtm_gender"] = 0
+    identity["gender"] = 1
+    store.rows[SUBJECT]["gmtm_gender"] = 1
     assert client.get(RESEARCH_URL, headers=headers).json() == {"eligible": False, "notice": cp.NOT_ELIGIBLE, "programs": []}
 
 
@@ -1233,3 +1233,24 @@ def test_research_read_side_drops_malformed_rows(app):
     store.research_rows["midland-university"].update(roster="not json", camps="7")
     got = client.get(RESEARCH_URL, headers=headers).json()["programs"][0]
     assert got["roster"] is None and got["camps"] == []
+
+
+
+@pytest.mark.parametrize("gender", [0, 2, None, "x"])
+def test_everyone_not_marked_male_gets_the_womens_list(app, gender):
+    """GMTM 0 = female, 2 = prefer not to say, None/unreadable: all see the list (measured cohort 2026-10-13:
+    55 x 0, 67 x 2, 18 x 1 among junior flag athletes 13-17)."""
+    client, store, model, identity, headers, _ = app
+    identity["gender"] = gender
+    body = client.post(f"/api/workspace/trigger-matching/{SUBJECT}", headers=headers).json()
+    assert body["eligible"] is True and len(body["programs"]) == 12
+
+
+def test_allowlisted_tester_keeps_the_list_even_if_male(app, monkeypatch):
+    client, store, model, identity, headers, _ = app
+    identity["gender"] = 1
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["eligible"] is False
+    import junior_eligibility
+    monkeypatch.setattr(junior_eligibility, "allowlist", lambda env: frozenset({USER_ID}))
+    response = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers)
+    assert response.json().get("eligible") is True, (response.status_code, response.text)

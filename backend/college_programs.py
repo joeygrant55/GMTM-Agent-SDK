@@ -11,7 +11,7 @@ Contact rules below come from ``college-womens-flag-2026.md`` (same date) and ke
 its source links. The NJCAA first-contact date was not verified, so it is not shown.
 
 Rules for this module:
-- Girls first: a list is built only when the stored GMTM gender is 1 (female).
+- Girls first: a list is built only when the stored GMTM gender is not 1 (male), or the athlete is an allowlisted tester.
 - Matching is deterministic (home state, then neighbouring states, then region,
   with a mix of levels). No web search, no live research, no numeric fit score.
 - The one model call per list build receives only position, grad year, state,
@@ -52,7 +52,10 @@ log = logging.getLogger(__name__)
 DATA_FILE = Path(__file__).resolve().parent / "data" / "college_womens_flag_2026.json"
 MODEL = "claude-sonnet-4-6"
 MAX_SHOWN = 12
-FEMALE = 1
+# GMTM users.gender: 0 = female, 1 = male, 2 = prefer not to say (gmtm.com Registration gender_category;
+# gmtm-api-v2 camps.resolver.js:6363). Measured 2026-10-13: Joey (user 2, male) = 1. The women's college list is
+# shown to everyone not marked male; testers on SPARQ_TEST_ALLOWLIST always see it.
+MALE = 1
 NOT_ELIGIBLE = ("College flag football is a women's sport at most schools today. "
                 "Your profile, footage and results are here. "
                 "If your GMTM profile gender is wrong, update it on GMTM.")
@@ -742,9 +745,11 @@ def owner_id(clerk_id: str, caller_id: str = Depends(require_identity)) -> str:
 
 
 def _identity(clerk_id: str, refresh: bool) -> dict:
+    """GMTM gender + sport, with row["womens_list"] = may this athlete see the women's college list."""
     row = store.load(clerk_id) or {}
-    # Anyone not yet eligible is re-read from GMTM, so a gender fix there shows up here.
-    if refresh or row.get("gmtm_gender") != FEMALE:
+    # Male or unknown is re-read from GMTM each time, so a gender fix there shows up here.
+    user_id = None
+    if refresh or row.get("gmtm_gender") in (MALE, None):
         user_id = store.gmtm_user_id(clerk_id)
         ident = read_identity(user_id) if user_id else None
         if ident:
@@ -755,7 +760,13 @@ def _identity(clerk_id: str, refresh: bool) -> dict:
             sport = str(ident.get("sport") or "")[:100] or None
             store.save_identity(clerk_id, gender, sport)
             row = {**row, "gmtm_gender": gender, "gmtm_sport": sport}
-    return row
+    womens = row.get("gmtm_gender") != MALE
+    if not womens:
+        import os
+        from junior_eligibility import allowlist
+        user_id = user_id or store.gmtm_user_id(clerk_id)
+        womens = bool(user_id) and user_id in allowlist(os.environ)  # testers (e.g. Joey) keep the full product
+    return {**row, "womens_list": womens}
 
 
 def _athlete(clerk_id: str) -> Optional[dict]:
@@ -826,7 +837,7 @@ def _current_programs(clerk_id: str, row: dict, athlete: Optional[dict]):
 def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     _owner(clerk_id, caller_id)
     row = _identity(clerk_id, refresh=False)
-    if row.get("gmtm_gender") != FEMALE:
+    if not row.get("womens_list"):
         return _not_eligible()
     athlete = _athlete(clerk_id)
     return _listing(_current_programs(clerk_id, row, athlete), athlete, _marks(clerk_id))
@@ -846,7 +857,7 @@ def build_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     _owner(clerk_id, caller_id)
     _limit("build", clerk_id, BUILDS_PER_HOUR)
     row = _identity(clerk_id, refresh=True)
-    if row.get("gmtm_gender") != FEMALE:
+    if not row.get("womens_list"):
         return _not_eligible()
     profile = store.profile(clerk_id)
     if profile is None:
@@ -871,7 +882,7 @@ def saved_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     """Everything Home needs for the journey: list built, how many found, saved programs, sent count."""
     _owner(clerk_id, caller_id)
     row = _identity(clerk_id, refresh=False)
-    if row.get("gmtm_gender") != FEMALE:
+    if not row.get("womens_list"):
         return {**_not_eligible(), "found": 0, "saved": []}
     athlete = _athlete(clerk_id)
     marks = _marks(clerk_id)
@@ -908,7 +919,7 @@ def college_research(clerk_id: str = Depends(owner_id)):
     its checked date; camps that ended before today (America/New_York) are dropped at read time."""
     from zoneinfo import ZoneInfo
     row = _identity(clerk_id, refresh=False)
-    if row.get("gmtm_gender") != FEMALE:
+    if not row.get("womens_list"):
         return {"eligible": False, "notice": NOT_ELIGIBLE, "programs": []}
     saved = [pid for pid in _marks(clerk_id)[0] if program(pid)]
     try:
@@ -1146,7 +1157,7 @@ def place_block(body: str, block: str) -> str:
 
 def _eligible_program(clerk_id: str, program_id: str) -> tuple[dict, dict]:
     row = _identity(clerk_id, refresh=False)
-    if row.get("gmtm_gender") != FEMALE:
+    if not row.get("womens_list"):
         raise HTTPException(403, NOT_ELIGIBLE)
     p = program(program_id)
     if p is None:
@@ -1247,7 +1258,7 @@ def college_emails(clerk_id: str, caller_id: str = Depends(require_identity)):
     newest first in each. No coach contact and no email text in this list."""
     _owner(clerk_id, caller_id)
     row = _identity(clerk_id, refresh=False)
-    if row.get("gmtm_gender") != FEMALE:
+    if not row.get("womens_list"):
         return {"eligible": False, "notice": NOT_ELIGIBLE, "emails": []}
     drafted, sent = store.drafted(clerk_id), _marks(clerk_id)[1]
     items = [{"id": p["id"], "school": p["school"], "city": p["city"], "state": p["state"], "level": LEVELS[p["governing_body"]],
