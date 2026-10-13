@@ -1,8 +1,8 @@
-import dynamic from 'next/dynamic'
 import { notFound } from 'next/navigation'
 import { isProfileSurface } from '@/lib/backend-config.cjs'
 
-const ProfileEmails = dynamic(() => import('../components/ProfileColleges').then(m => m.ProfileEmails), { ssr: false })
+// A static import: a lazy page waits for React's Suspense reveal delay (about 0.7 s measured live, 2026-10-13).
+import { ProfileEmails } from '../components/ProfileColleges'
 
 // Profile surface only (the middleware also denies it elsewhere on restricted surfaces).
 export default function Page() {

@@ -46,7 +46,7 @@ function load(id,from=''){
  if(id==='@/components/SignOutButton')return{__esModule:true,default:()=>React.createElement('button',{'aria-label':'Sign out'},'Sign out')};
  if(id==='next/navigation')return{useSearchParams:()=>new URLSearchParams(window.__query||'')};
  if(id==='next/link')return{__esModule:true,default:({children,...props})=>React.createElement('a',props,children)};
- if(id==='next/dynamic')return{__esModule:true,default:loader=>{let component=null,promise=null;return function Dynamic(props){const[C,setC]=React.useState(()=>component);React.useEffect(()=>{let active=true;(promise||=loader()).then(m=>{component=m.default||m;if(active)setC(()=>component)});return()=>{active=false}},[]);return C?React.createElement(C,props):null}}};
+ if(id==='app/home/components/ProfileColleges')return{ProfileColleges:()=>null};if(id==='next/dynamic')return{__esModule:true,default:loader=>{let component=null,promise=null;return function Dynamic(props){const[C,setC]=React.useState(()=>component);React.useEffect(()=>{let active=true;(promise||=loader()).then(m=>{component=m.default||m;if(active)setC(()=>component)});return()=>{active=false}},[]);return C?React.createElement(C,props):null}}};
  if(id.startsWith('@/'))id=id.slice(2);else if(id.startsWith('.')){const parts=(from.slice(0,from.lastIndexOf('/')+1)+id).split('/'),out=[];for(const part of parts){if(part==='..')out.pop();else if(part!=='.')out.push(part)}id=out.join('/')}
  if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;if(!modules[id])throw Error('Missing module '+id);modules[id](x=>load(x,id),m,m.exports);return m.exports;
 }

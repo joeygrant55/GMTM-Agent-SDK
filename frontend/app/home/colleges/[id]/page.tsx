@@ -2,12 +2,13 @@
 
 import { apiFetch } from '@/app/_lib/api'
 import { isProfileSurface } from '@/lib/backend-config.cjs'
-import dynamic from 'next/dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+// A static import: a lazy page waits for React's Suspense reveal delay (about 0.7 s measured live, 2026-10-13).
+import { ProfileCollegeDetail } from '../../components/ProfileColleges'
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://focused-essence-production-9809.up.railway.app'
 
@@ -103,7 +104,6 @@ const DEPTH_COLORS: Record<string, string> = {
   'developmental': 'text-blue-400',
 }
 
-const ProfileCollegeDetail = dynamic(() => import('../../components/ProfileColleges').then(m => m.ProfileCollegeDetail), { ssr: false })
 
 // The junior app (profile surface) shows a sourced program; others keep the legacy detail.
 export default function CollegeDetailPage() {

@@ -11,6 +11,8 @@ import { useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSparqSession } from '@/app/_lib/useSparqSession'
 import { supportedCombineEvent } from '../components/currentCombine'
+// A static import: a lazy page waits for React's Suspense reveal delay (about 0.7 s measured live, 2026-10-13).
+import { ProfileColleges } from '../components/ProfileColleges'
 
 interface College {
   id: number
@@ -400,5 +402,4 @@ function CollegeSession({ ownerId }: { ownerId: string }) {
 
 
 // The junior app (profile surface) has its own sourced colleges view; others keep this one.
-const ProfileColleges = dynamic(() => import('../components/ProfileColleges').then(m => m.ProfileColleges), { ssr: false })
 export default isProfileSurface(process.env.NEXT_PUBLIC_APP_SURFACE) ? ProfileColleges : dynamic(() => Promise.resolve(CollegesPage), { ssr: false })

@@ -1,8 +1,8 @@
-import dynamic from 'next/dynamic'
 import { notFound } from 'next/navigation'
 import { isProfileSurface } from '@/lib/backend-config.cjs'
 
-const ProfileWorkspace = dynamic(() => import('../components/ProfileWorkspace'), { ssr: false })
+// A static import: a lazy page waits for React's Suspense reveal delay (about 0.7 s measured live, 2026-10-13).
+import ProfileWorkspace from '../components/ProfileWorkspace'
 
 // My card. Profile surface only (the middleware also denies it elsewhere on restricted surfaces).
 export default function Page() {
