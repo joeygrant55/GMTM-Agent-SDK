@@ -1,5 +1,3 @@
-import SparqLogo from '@/components/SparqLogo'
-
 export const dynamic = 'force-dynamic'
 
 export default function EntryUnavailablePage({ searchParams }: { searchParams: { reason?: string } }) {
@@ -9,7 +7,7 @@ export default function EntryUnavailablePage({ searchParams }: { searchParams: {
   return (
     <main className="min-h-screen bg-sparq-charcoal flex items-center justify-center px-4 text-center">
       <div className="max-w-md">
-        <SparqLogo className="mx-auto mb-6 w-[168px]" />
+        <img src="/sparq-recruit-white.svg" alt="SPARQ Recruit" width={150} height={16} className="mx-auto mb-6 block h-auto w-[220px]" />
         <h1 className="text-2xl font-bold text-white mb-3">{linked ? 'This account is already connected' : retry ? 'Let’s try that again' : 'SPARQ Recruit is not open to you yet'}</h1>
         <p className="text-gray-400 mb-8">
           {linked

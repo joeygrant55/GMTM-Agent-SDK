@@ -57,7 +57,7 @@ function candidatePagePolicy(pathname, method, surface = 'combine') {
   if (/^\/api\/sparq\/(?:session|sign-out|proxy\/[^?#]*)$/.test(pathname)) return 'api'
   // No generic filename exemption: dynamic legacy paths can have static suffixes.
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) return 'deny'
-  if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico'].includes(pathname)) return 'asset'
+  if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico', '/sparq-recruit-white.svg', '/sparq-recruit-icon.svg', '/sparq-recruit-32.png', '/apple-touch-icon.png', '/sparq-recruit-email-header.png'].includes(pathname)) return 'asset'
   // Bundled continental US outline for the colleges map (no tile server).
   if (surface === 'profile' && pathname === '/us-states.svg') return 'asset'
   if (pathname === '/') return 'home'

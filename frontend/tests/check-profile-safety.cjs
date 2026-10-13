@@ -369,11 +369,12 @@ check('College research cards: listed counts only, https links, checked dates, n
   assert.doesNotMatch(src, /dangerouslySetInnerHTML/)
 })
 
-check('Header uses the real SPARQ logo file plus the Recruit name (Joey 2026-10-02, 2026-10-13)', () => {
+check('Header uses the approved SPARQ Recruit lockup (Codex pack, Joey 2026-10-13)', () => {
   const shell = fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspaceShell.tsx'), 'utf8')
-  assert.match(shell, /aria-label="SPARQ Recruit home"[^>]*><SparqLogo [^>]*\/><span[^>]*>Recruit<\/span>/)
+  assert.match(shell, /aria-label="SPARQ Recruit home"[^>]*><img src="\/sparq-recruit-white\.svg" alt="SPARQ Recruit"/)
+  for (const f of ['public/sparq-recruit-white.svg', 'public/sparq-recruit-icon.svg'])
+    assert.doesNotMatch(fs.readFileSync(path.join(root, f), 'utf8'), /<image|<script|<style|<text|href=|url\(|<foreignObject|<!ENTITY|\son[a-z]+=/i, f + ' is plain outlined shapes only')
   assert.doesNotMatch(shell, />SPARQ<\/Link>/)
-  assert.match(fs.readFileSync(path.join(root, 'components/SparqLogo.tsx'), 'utf8'), /src="\/sparq-wordmark\.png"/)
 })
 
 check('GMTM users/undefined posters: only the exact legacy UUID form (CDN serves it, measured 2026-10-02)', () => {
