@@ -19,7 +19,7 @@ COPY backend/junior_entry.py backend/junior_eligibility.py /app/backend/
 
 COPY backend/college_programs.py backend/outreach_draft.py /app/backend/
 
-COPY backend/data/college_womens_flag_2026.json /app/backend/data/
+COPY backend/data/college_womens_flag_2026.json backend/data/college_scorecard_2026.json /app/backend/data/
 
 USER 10001:10001
 EXPOSE 8000

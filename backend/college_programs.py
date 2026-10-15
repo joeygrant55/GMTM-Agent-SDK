@@ -53,6 +53,8 @@ from junior_eligibility import plausible_grad_year
 log = logging.getLogger(__name__)
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "college_womens_flag_2026.json"
+# U.S. Dept. of Education College Scorecard facts per program id (backend/scripts/build_college_scorecard.py).
+SCORECARD_FILE = DATA_FILE.parent / "college_scorecard_2026.json"
 MODEL = "claude-sonnet-4-6"
 MAX_SHOWN = 12
 # GMTM users.gender: 0 = female, 1 = male, 2 = prefer not to say (gmtm.com Registration gender_category;
@@ -196,6 +198,7 @@ def about_miles(value: float) -> int:
 
 
 _programs: Optional[list[dict]] = None
+_scorecard: dict = {}
 _data_hash = ""
 REQUIRED = ("school", "city", "state", "governing_body", "verified_on")
 
@@ -222,13 +225,46 @@ def load_programs(raw: bytes) -> list[dict]:
     return rows
 
 
+_SCORECARD_NUMBERS = ("avg_net_price", "undergrad_size", "admission_rate", "grad_rate")
+_OWNERSHIP = {"public": "Public", "private nonprofit": "Private", "private for-profit": "For-profit"}
+
+
+def load_scorecard(raw: bytes, ids: set) -> dict:
+    """Program id -> the few College Scorecard facts a card shows. A bad file stops startup."""
+    data = json.loads(raw)
+    out = {}
+    for pid, row in (data.get("programs") or {}).items():
+        url = row.get("scorecard_url") if isinstance(row, dict) else None
+        if pid not in ids or any(row.get(k) is not None and not isinstance(row[k], (int, float)) for k in _SCORECARD_NUMBERS) \
+                or any(row.get(k) is not None and not isinstance(row[k], str) for k in ("ownership", "locale")) \
+                or not (isinstance(url, str) and url.startswith("https://collegescorecard.ed.gov/")):
+            raise ValueError(f"College Scorecard row {pid!r} is not valid.")
+        out[pid] = {"net_price": row.get("avg_net_price"), "undergrads": row.get("undergrad_size"),
+                    "admission_rate": row.get("admission_rate"), "open_admission": row.get("open_admission") is True,
+                    "grad_rate": row.get("grad_rate"),
+                    "ownership": _OWNERSHIP.get(row.get("ownership")), "locale": row.get("locale"),
+                    # Dallas College reports its campuses as one school: the numbers cover all of them.
+                    "whole_system": row.get("whole_system") is True, "url": url}
+    return out
+
+
 def programs() -> list[dict]:
-    """The sourced list, loaded on first use (and checked at app startup)."""
-    global _programs, _data_hash
+    """The sourced list, loaded on first use (and checked at app startup). Closed schools stay in the
+    file for the record but are never shown, ranked or saved (Siena Heights closed after 2025-26)."""
+    global _programs, _data_hash, _scorecard
     if _programs is None:
         raw = DATA_FILE.read_bytes()
-        _programs, _data_hash = load_programs(raw), hashlib.sha256(raw).hexdigest()
+        rows = load_programs(raw)
+        _scorecard = load_scorecard(SCORECARD_FILE.read_bytes(), {r["id"] for r in rows})
+        _programs, _data_hash = [r for r in rows if not r.get("closed")], hashlib.sha256(raw).hexdigest()
     return _programs
+
+
+def contact_kind(p: dict) -> str:
+    """What she can do to reach the coach (no address on cards): email, questionnaire, staff page or nothing yet."""
+    # The same domain check as the email kit (coach_email()): a personal address is never "Email ready".
+    return "email" if coach_email(p) else "questionnaire" if https(p.get("questionnaire_url")) \
+        else "staff" if https(p.get("staff_page_url")) else "none"
 
 
 def program(program_id: str) -> Optional[dict]:
@@ -697,7 +733,8 @@ def card(p: dict, reason: Optional[str] = None, origin: Optional[dict] = None, m
         "source_links": [] if confirmed else [u for u in map(https, p.get("source_urls") or []) if u],
         "questionnaire_link": https(p.get("questionnaire_url")),
         "source_checked": f"Source checked {checked(p['verified_on'])}",
-        "notes": p.get("notes"), "reason": reason,
+        "notes": p.get("notes"), "fact": p.get("fact"), "reason": reason,
+        "contact": contact_kind(p), "school_facts": _scorecard.get(p["id"]),
         "starts": p.get("starts"), "primary_color": p.get("primary_color"),
         # Coach contact is not on cards: only college_detail serves it (coach()).
         "map": map_point(p.get("lat"), p.get("lon")),
@@ -850,7 +887,7 @@ def _marks(clerk_id: str):
 
 
 def _not_eligible() -> dict:
-    return {"eligible": False, "notice": NOT_ELIGIBLE, "built": False, "programs": [], "contact_rules": [],
+    return {"eligible": False, "notice": NOT_ELIGIBLE, "built": False, "programs": [], "tracked": [], "contact_rules": [],
             "origin": None, "saved_count": 0, "sent_count": 0, "similar": []}
 
 
@@ -884,9 +921,13 @@ def _listing(saved, athlete: Optional[dict], marks, limit: Optional[int] = MAX_S
     items = [(program(i.get("id")), i.get("reason")) for i in saved or [] if isinstance(i, dict)]
     cards = _cards(items[:limit], athlete, marks)
     more = similar(marks[0], {c["id"] for c in cards} | set(marks[0])) if limit == MAX_SHOWN and saved is not None else []
-    return {"eligible": True, "notice": None, "built": saved is not None, "programs": cards,
+    # Her board: saved or emailed programs outside her 12 (found on the map), so My list shows them all.
+    shown = {c["id"] for c in cards}
+    tracked = _cards([(program(pid), None) for pid in dict.fromkeys([*marks[0], *marks[1]]) if pid not in shown], athlete, marks) \
+        if limit == MAX_SHOWN else []
+    return {"eligible": True, "notice": None, "built": saved is not None, "programs": cards, "tracked": tracked,
             "similar": [card(p, None, (athlete or {}).get("origin"), marks) for p in more],
-            "contact_rules": contact_rules(c["governing_body"] for c in cards), "origin": _origin_view(athlete),
+            "contact_rules": contact_rules(c["governing_body"] for c in [*cards, *tracked]), "origin": _origin_view(athlete),
             "saved_count": sum(1 for pid in marks[0] if program(pid)), "sent_count": sum(1 for pid in marks[1] if program(pid))}
 
 

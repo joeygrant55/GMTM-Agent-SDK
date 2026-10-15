@@ -275,9 +275,9 @@ def test_no_numeric_fit_score_in_any_response(app):
               client.get(f"/api/workspace/colleges/{SUBJECT}/midland-university", headers=headers).json()]
     for body in bodies:
         assert not any("score" in key.lower() or "rank" in key.lower() for key, _ in walk(body))
-        # Only distance and map position are numbers; never a fit number.
+        # Only distance, map position, counts and College Scorecard school facts are numbers; never a fit number.
         numeric = {k for k, v in walk(body) if isinstance(v, (int, float)) and not isinstance(v, bool)}
-        assert numeric <= {"distance_mi", "x", "y", "saved_count", "sent_count"}
+        assert numeric <= {"distance_mi", "x", "y", "saved_count", "sent_count", "net_price", "undergrads", "admission_rate", "grad_rate"}
 
 
 def test_reason_prompt_has_only_the_allowed_fields(app):
@@ -451,7 +451,7 @@ def test_data_rows_are_checked_at_load():
     for bad in ([], [{"school": "A"}], [{**json.loads(good)[0], "governing_body": "NCAA"}], json.loads(good) * 2):
         with pytest.raises(ValueError):
             cp.load_programs(json.dumps(bad))
-    assert len(cp.programs()) == 187
+    assert len(cp.programs()) == 186  # 187 rows; Siena Heights is closed
 
 
 def test_d3_has_no_eligibility_center_rule():
@@ -996,7 +996,7 @@ def test_coach_email_only_on_the_school_domain():
     assert cp.coach({**base, "coach_email": "a@goteam.com"})["email"] == "a@goteam.com"  # athletics host
     assert cp.coach({**base, "coach_email": "a@yahoo.com"})["email"] is None
     served = [cp.coach(p)["email"] for p in cp.programs() if p.get("coach_email")]
-    assert sum(e is None for e in served) == 2 and len(served) == 111
+    assert sum(e is None for e in served) == 2 and len(served) == 110  # Siena Heights (closed) had the 111th
 
 
 def test_unknown_title_is_coach_not_head_coach():
@@ -1382,3 +1382,70 @@ def test_level_applies_only_to_four_year():
     assert "NJCAA" in either and any(b.startswith("NCAA") for b in either)  # level ignored unless 4-year
     four = [p["governing_body"] for p in cp.rank("TX", prefs=cp.Prefs(school="4", level="naia"))]
     assert four and set(four) == {"NAIA"}
+
+
+def test_saved_program_outside_her_12_is_on_her_board(app):
+    client, store, model, _, headers, _ = app
+    built(client, headers)
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()["tracked"] == []
+    assert client.post(f"/api/workspace/saved-colleges/{SUBJECT}/daytona-state-college", headers=headers, json={"saved": True}).status_code == 200
+    body = client.get(f"/api/workspace/colleges/{SUBJECT}", headers=headers).json()
+    assert [c["id"] for c in body["tracked"]] == ["daytona-state-college"] and body["tracked"][0]["saved"] is True
+    assert "daytona-state-college" not in [c["id"] for c in body["programs"]]
+    assert "NJCAA" in [r["governing_body"] for r in body["contact_rules"]]
+    # The full list never repeats her board.
+    assert client.get(f"/api/workspace/colleges/{SUBJECT}/all", headers=headers).json()["tracked"] == []
+
+
+def test_cards_carry_the_school_fact_contact_kind_and_scorecard_facts(app):
+    client, store, model, _, headers, _ = app
+    built(client, headers)
+    cards = client.get(f"/api/workspace/colleges/{SUBJECT}/all", headers=headers).json()["programs"]
+    by_id = {c["id"]: c for c in cards}
+    warner = by_id["warner-university"]
+    assert warner["contact"] == "email" and "coach_email" not in warner and "@" not in json.dumps(warner)
+    assert warner["school_facts"] == {"net_price": 19778, "undergrads": 756, "admission_rate": 0.4281, "open_admission": False, "grad_rate": 0.3092,
+                                      "ownership": "Private", "locale": "Rural", "whole_system": False,
+                                      "url": "https://collegescorecard.ed.gov/school/?138275"}
+    assert by_id["keiser-university"]["school_facts"] is None  # no College Scorecard row with data for this campus
+    assert all(c["contact"] in {"email", "questionnaire", "staff", "none"} for c in cards)
+    assert sum(c["school_facts"] is not None for c in cards) >= 180
+
+
+def test_scorecard_rows_are_checked_at_load():
+    row = {"avg_net_price": 1, "undergrad_size": 2, "admission_rate": None, "grad_rate": 0.5,
+           "ownership": "public", "locale": "City", "scorecard_url": "https://collegescorecard.ed.gov/school/?1", "note": None}
+    good = json.dumps({"programs": {"a": row}})
+    assert cp.load_scorecard(good, {"a"})["a"]["ownership"] == "Public"
+    for bad in ({"b": row}, {"a": {**row, "avg_net_price": "1"}}, {"a": {**row, "scorecard_url": "http://collegescorecard.ed.gov/x"}}):
+        with pytest.raises(ValueError):
+            cp.load_scorecard(json.dumps({"programs": bad}), {"a"})
+
+
+def test_closed_school_is_never_shown_ranked_or_saved(app):
+    client, store, model, _, headers, _ = app
+    assert cp.program("siena-heights-university") is None
+    assert "siena-heights-university" not in {p["id"] for p in cp.rank("MI")}
+    built(client, headers)
+    ids = [c["id"] for c in client.get(f"/api/workspace/colleges/{SUBJECT}/all", headers=headers).json()["programs"]]
+    assert len(ids) == 186 and "siena-heights-university" not in ids
+    assert client.post(f"/api/workspace/saved-colleges/{SUBJECT}/siena-heights-university", headers=headers, json={"saved": True}).status_code == 404
+
+
+def test_email_ready_only_when_the_kit_has_the_address():
+    for p in cp.programs():
+        assert (cp.contact_kind(p) == "email") == bool(cp.coach_email(p)), p["id"]
+    jcsu = next(p for p in cp.programs() if p.get("coach_email") == "coachanika.harris@gmail.com")
+    assert cp.contact_kind(jcsu) != "email"
+
+
+def test_school_facts_reach_the_detail_page_and_flag_only_real_cases(app):
+    client, store, model, _, headers, _ = app
+    built(client, headers)
+    detail = client.get(f"/api/workspace/colleges/{SUBJECT}/warner-university", headers=headers).json()
+    assert detail["program"]["school_facts"]["url"] == "https://collegescorecard.ed.gov/school/?138275"
+    facts = [cp._scorecard[p["id"]] for p in cp.programs() if p["id"] in cp._scorecard]
+    # "Everyone who applies" only for Scorecard open admission; "all campuses" only for Dallas College.
+    assert all(f["open_admission"] == (f["admission_rate"] is None) for f in facts)
+    assert {p["id"] for p in cp.programs() if (cp._scorecard.get(p["id"]) or {}).get("whole_system")} == {
+        f"dallas-college-{c}" for c in ("brookhaven", "cedar-valley", "eastfield", "mountain-view", "north-lake", "richland")}

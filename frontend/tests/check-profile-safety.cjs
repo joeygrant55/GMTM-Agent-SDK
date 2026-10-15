@@ -248,7 +248,7 @@ check('No map tile server or third-party geocoder: local SVG map, CSP connect-sr
   assert.equal(csp.split('; ').find(part => part.startsWith('connect-src ')), "connect-src 'self'")
   const hosts = /openstreetmap|tile\.|mapbox|maps\.googleapis|arcgis|nominatim|leaflet|carto/i
   assert.ok(!hosts.test(csp))
-  const ui = ['ProfileColleges.tsx', 'AthleteCareerHome.tsx', 'ProfileWorkspace.tsx'].map(n => fs.readFileSync(path.join(root, 'app/home/components', n), 'utf8')).join('\n')
+  const ui = ['ProfileColleges.tsx', 'CollegeMap.tsx', 'AthleteCareerHome.tsx', 'ProfileWorkspace.tsx'].map(n => fs.readFileSync(path.join(root, 'app/home/components', n), 'utf8')).join('\n')
   assert.ok(!hosts.test(ui))
   assert.match(ui, /src="\/us-states\.svg"/)
   const svg = fs.readFileSync(path.join(root, 'public/us-states.svg'), 'utf8')
@@ -490,8 +490,10 @@ check('Map and badges: schools that share initials get unique labels in one list
   assert.deepEqual(more, { 'Manhattan University': 'Man', 'Mercyhurst University': 'Mer', 'Marymount University': 'Marym', 'Marywood University': 'Maryw' })
   assert.equal(initials('Daytona State College'), 'DS')
   const colleges = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
-  assert.match(colleges, /<CollegeMap programs=\{page\} origin=\{list\.origin\} labels=\{labels\} \/>/)
-  assert.match(colleges, /\$\{labels\[p\.school\] \|\| initials\(p\.school\)\}/)
+  // Cards use the list's unique badge labels; the map and the list share one filtered set.
+  assert.match(colleges, /label=\{labels\[program\.school\]\}/)
+  assert.match(colleges, /<CollegeMap programs=\{rows\}/)
+  assert.match(colleges, /const listed = \[\.\.\.inView\]/)
 })
 
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))

@@ -12,7 +12,7 @@ RUN python -m pip install --no-cache-dir --requirement /app/dependencies/require
 
 COPY backend/auth.py backend/college_programs.py backend/outreach_draft.py backend/junior_eligibility.py backend/college_research.py backend/site_check.py /app/backend/
 COPY backend/scripts/run_job.py backend/scripts/college_research_job.py backend/scripts/college_research_probe.py backend/scripts/site_check_job.py /app/backend/scripts/
-COPY backend/data/college_womens_flag_2026.json /app/backend/data/
+COPY backend/data/college_womens_flag_2026.json backend/data/college_scorecard_2026.json /app/backend/data/
 
 USER 10001:10001
 # SPARQ_JOB picks the job: research (default, weekly) or site_check (daily); see backend/scripts/run_job.py.
