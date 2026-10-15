@@ -80,3 +80,12 @@ Alex: "finding colleges took awhile, some sort of loading indicator"; asked for 
 - Measured after, live (Joey's account): colleges request 1.05 s (5 runs, was 2.0 s). Warm reload: the list shows at 2.2 s (was 3.1 s); gap from notice to fetch 8 ms (was 730 ms). Home, Emails, My card, Colleges, college detail all render.
 - Not measured: a female athlete's request (Joey is male + tester, so his GET also reads GMTM identity; hers skips it and should be faster). The tab was in the background during the measurements.
 - Next: Home waits for /athlete/evidence (1.0 s) before card, materials and saved-colleges (1.0 s each); Home shows at about 2.8 s.
+
+## Update 2026-10-15: signed-out visit fixed (Joey: "go")
+- Before: a visit to sparq.gmtm.com with no GMTM cookie went to gmtm.com/ (home page, no message). This hit invite clicks from a signed-out phone.
+- Fix 27642bc: every invalid session redirects to /enter -> gmtm.com/sparq/authorize -> /sign-in?next=... (sign-in modal) -> back into SPARQ. Retry, session-ended and private-profile buttons go to /enter ("Sign in again"). Spec updated.
+- Checks: check-sparq-session 50, check-gmtm-entry 19, check-profile-safety, check-candidate-policy, tsc, next build OK. Fable 5.1 review: no blocking issue; its retry-link finding fixed.
+- Deployed: Vercel sparq-junior-47lpjfues Ready (frontend only; backend unchanged). Live: /home and /home/colleges 307 -> /enter; curl -L ends at gmtm.com/sign-in?next=/sparq/authorize?state=..., 3 hops, page query signin=true.
+- Not verified: a full sign-in in a browser (needs a password). Joey or a tester: open sparq.gmtm.com signed out, sign in, confirm you land in SPARQ Recruit.
+- Open (review, not blocking): legacy/combine Vercel projects need NEXT_PUBLIC_GMTM_WEB_URL before they get this commit (/enter returns 503 without it); "Sign out" does not sign out of GMTM (old behavior); <Link href="/enter"> without prefetch={false} on legacy pages.
+- Joey: the 19 invite drafts are ready to send.
