@@ -13,10 +13,10 @@ export default function EntryUnavailablePage({ searchParams }: { searchParams: {
           {linked
             ? 'Your GMTM account is already connected to a SPARQ Recruit account. Contact support@gmtm.com.'
             : retry
-            ? 'This sign-in link expired or was already used. Open SPARQ Recruit from GMTM again.'
+            ? 'This sign-in link expired or was already used. Sign in again to open SPARQ Recruit.'
             : 'SPARQ Recruit is open to a small group of junior flag athletes right now. Thanks for your interest. Keep building your GMTM profile.'}
         </p>
-        <a href={gmtm} className="px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg">Back to GMTM</a>
+        <a href={retry ? '/enter' : gmtm} className="px-6 py-3 bg-sparq-lime text-sparq-charcoal font-bold rounded-lg">{retry ? 'Sign in again' : 'Back to GMTM'}</a>
       </div>
     </main>
   )

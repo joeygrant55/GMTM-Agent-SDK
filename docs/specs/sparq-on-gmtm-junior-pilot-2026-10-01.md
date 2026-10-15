@@ -59,7 +59,7 @@ Review R1 found 3 blockers and 7 high-severity issues. R1-n names each finding t
 2. **Session lifetime (R1-5).**
    - The SPARQ session lasts at most 24 h (token `exp` and the entry gate).
    - Every `/enter` replaces the current session: the backend keeps one active `jti` per user, so the older token gets 401.
-   - Every page load requires `sha256(current GMTM sessionId) == gsh`. On a mismatch, an expired token or a missing GMTM cookie, the middleware clears the cookie. It sends the browser to `/enter` when a GMTM cookie exists (so user B replaces user A), otherwise to GMTM.
+   - Every page load requires `sha256(current GMTM sessionId) == gsh`. On a mismatch, an expired token or a missing GMTM cookie, the middleware clears the cookie. It sends the browser to `/enter` (so user B replaces user A, and a signed-out visitor gets the GMTM sign-in page and then comes back). Changed 2026-10-15; before, a visitor with no GMTM cookie went to the GMTM home page with no message.
    - Sign-out (`POST /api/sparq/sign-out`) ends the `jti` on the backend, clears the cookie and goes to GMTM.
    - The header shows "Not you? Switch", which goes to GMTM.
 3. **Who gets in (R1-8, R1-11, R1-12).**

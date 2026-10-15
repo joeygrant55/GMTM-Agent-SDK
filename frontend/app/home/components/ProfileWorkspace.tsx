@@ -24,7 +24,7 @@ const card = 'rounded-[20px] border border-jr-line bg-jr-card'
 export default function ProfileWorkspace({ view = 'home' }: { view?: ProfileView }) {
   const { user, isLoaded } = useSparqSession()
   if (!isLoaded) return <p role="status" className="mx-auto max-w-6xl px-5 py-16 text-gray-300">Loading your account…</p>
-  if (!user?.id) return <div className="mx-auto max-w-6xl px-5 py-16"><h1 className="text-3xl font-bold">Your profile is private.</h1><p className="mt-3 text-gray-300">Open SPARQ Recruit from GMTM to see your profile.</p><a href={process.env.NEXT_PUBLIC_GMTM_WEB_URL || 'https://gmtm.com'} className={`${secondary} mt-6`}>Back to GMTM</a></div>
+  if (!user?.id) return <div className="mx-auto max-w-6xl px-5 py-16"><h1 className="text-3xl font-bold">Your profile is private.</h1><p className="mt-3 text-gray-300">Sign in with GMTM to see your profile.</p><a href="/enter" className={`${secondary} mt-6`}>Sign in with GMTM</a></div>
   return <ProfileSession key={user.id} userId={user.id} view={view} />
 }
 

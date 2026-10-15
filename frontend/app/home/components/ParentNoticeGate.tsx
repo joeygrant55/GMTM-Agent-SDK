@@ -48,8 +48,8 @@ export function ParentNoticeScreen({ notice, accept }: { notice: EntryNotice; ac
     return (
       <section className="mx-auto max-w-md py-16 text-center">
         <h1 className="mb-3 text-2xl font-bold">Your SPARQ Recruit session ended</h1>
-        <p className="mb-8 text-gray-400">Open SPARQ Recruit from GMTM again to keep going.</p>
-        <a href={GMTM_URL} className="rounded-lg bg-sparq-lime px-6 py-3 font-bold text-sparq-charcoal">Back to GMTM</a>
+        <p className="mb-8 text-gray-400">Sign in again to keep going.</p>
+        <a href="/enter" className="rounded-lg bg-sparq-lime px-6 py-3 font-bold text-sparq-charcoal">Sign in again</a>
       </section>
     )
   }

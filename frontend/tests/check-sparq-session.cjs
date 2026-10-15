@@ -89,7 +89,7 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
   })
   for (const [name, opts, location] of [
     ['GMTM session mismatch (gsh)', { token: sign(), raw: 'another-gmtm-user' }, 'https://sparq.example/enter'],
-    ['missing GMTM cookie', { token: sign(), raw: null }, 'https://gmtm.example/'],
+    ['missing GMTM cookie', { token: sign(), raw: null }, 'https://sparq.example/enter'],
     ['expired token', { token: sign({ exp: now() - 1 }) }, 'https://sparq.example/enter'],
     ['wrong-secret token', { token: sign({}, { secret: 'w'.repeat(40) }) }, 'https://sparq.example/enter'],
     ['empty token', { token: '' }, 'https://sparq.example/enter'],
@@ -102,12 +102,12 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
     for (const flag of ['Path=/', 'Secure', 'HttpOnly']) assert.ok(c.includes(flag), flag)
     assert.equal(res.headers.get('cache-control'), 'no-store')
   })
-  await check('Middleware with no session goes to /enter (GMTM cookie) or GMTM (none), nothing to clear', async () => {
+  await check('Middleware with no session goes to /enter, with or without a GMTM cookie, nothing to clear', async () => {
     let res = await run(request('https://sparq.example/home/colleges', {}))
     assert.equal(res.headers.get('location'), 'https://sparq.example/enter')
     assert.ok(!cookieOf(res, '__Host-sparq-session'))
     res = await run(request('https://sparq.example/home', { raw: null }))
-    assert.equal(res.headers.get('location'), 'https://gmtm.example/')
+    assert.equal(res.headers.get('location'), 'https://sparq.example/enter')
   })
   await check('Middleware lets the /enter bridge and /api/sparq routes through without a session', async () => {
     for (const url of ['https://sparq.example/enter', 'https://sparq.example/enter/callback?code=c&state=s', 'https://sparq.example/enter/unavailable', 'https://sparq.example/api/sparq/session', 'https://sparq.example/api/sparq/proxy/api/athlete/evidence']) {
@@ -145,7 +145,7 @@ const request = (url, { token, raw = RAW, gsh, method = 'GET', body, headers = m
       assert.equal(res.headers.get('location'), 'https://legacy.example/enter', p)
     }
     assert.equal((await legacyMw(request('https://legacy.example/home', { token: sign() }), {})).headers.get('location'), null)
-    assert.equal((await legacyMw(request('https://legacy.example/home', { raw: null }), {})).headers.get('location'), 'https://gmtm.example/')
+    assert.equal((await legacyMw(request('https://legacy.example/home', { raw: null }), {})).headers.get('location'), 'https://legacy.example/enter')
   })
   await check('Legacy proxy forwards legacy routes (incl. PUT/DELETE) with the session bearer', async () => {
     const legacyServer = load('app/api/sparq/server.ts', {}, legacyEnv)

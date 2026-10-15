@@ -31,15 +31,14 @@ function sessionResponse(request: NextRequest, gsh: string | null) {
 }
 
 // Every protected page needs a SPARQ session bound to the browser's current GMTM
-// session. Otherwise clear it and re-enter (GMTM cookie present: a new GMTM user
-// replaces the old one) or go back to GMTM.
+// session. Otherwise clear it and re-enter: /enter goes to GMTM, which asks a
+// signed-out visitor to sign in and then sends her back here.
 async function sessionMiddleware(request: NextRequest, needsSession: boolean) {
   const gsh = await gmtmSessionHash(request.headers.get('cookie'))
   if (needsSession) {
     const token = request.cookies.get(SESSION_COOKIE)?.value
     if (!await verifySession(token, process.env.SPARQ_SESSION_SECRET, gsh)) {
-      const target = gsh ? new URL('/enter', request.url) : new URL('/', process.env.NEXT_PUBLIC_GMTM_WEB_URL || 'https://gmtm.com')
-      const response = NextResponse.redirect(target)
+      const response = NextResponse.redirect(new URL('/enter', request.url))
       response.headers.set('Cache-Control', 'no-store')
       if (token !== undefined) response.cookies.set(clearedSessionCookie())
       return response
