@@ -20,3 +20,18 @@
 - Joey: OK to deploy d1d4946 (Vercel only). Then measure live again.
 - Each backend read is ~0.3-1 s alone: every query opens a new MySQL connection (combine_api._get_agent_db/_get_gmtm_db).
   Connection reuse is a separate, wider change.
+
+## Home speed: deployed (Joey "go ahead and deploy")
+- c2cd2df on Vercel sparq-junior-mabc155os: Ready on sparq.gmtm.com. Railway unchanged.
+- Live (Joey's account): all 4 reads now start together. All data at 2.6 s and 1.8 s on 2 warm loads (before 2.8 s, 2.9 s).
+  Each read is slower when they run together, so the gain is smaller than the 1.9 s estimate. Small sample.
+
+## Wave 1 step report
+- backend/scripts/wave1_report.py: read-only (READ ONLY transaction, SELECT only, ROLLBACK). Counts per step and A1..An rows,
+  no names, emails or ids. Days are US Eastern and include step times, not only sign-ins (a 24 h session writes one entry).
+- Run (ids file stays in the scratchpad, never in the repo): see the script docstring. `--demo` is the self-check.
+- Proof: Joey's account shows every step, Saved 2 / Drafts 3 / Sent 1, which matches his live page (Warner saved, Daytona emailed).
+  The 19 invitees: all "Not signed in" on 2026-10-16 (invites not sent).
+- Fable review: safe to commit; fixed: day count (step times + Eastern days), "Furthest step" label, refusal label, shared-subject
+  warning, error output without host/user, empty or bad ids file.
+- Suggested first 5 invites (Joey sends): A1, A3, A5, A7, A8 (most recent on GMTM, ages 13 to 17).
