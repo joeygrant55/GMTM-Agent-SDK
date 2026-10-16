@@ -19,6 +19,7 @@ lib64/
 !/frontend/lib/backend-config.d.cts
 !/frontend/lib/sparq-session.cjs
 !/frontend/lib/sparq-session.d.cts
+!/frontend/lib/college-photo-ids.json
 parts/
 sdist/
 var/
