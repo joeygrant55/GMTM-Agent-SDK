@@ -450,7 +450,7 @@ export function ProfileColleges() {
         {list.built && <>
           <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-md">
             <Tile value={picked.length} label="Picked for you" />
-            <Tile value={board.filter(p => p.saved).length} label="Saved" />
+            <Tile value={savedRows.length} label="Saved" />
             <Tile value={emailed.length} label="Emailed" on />
           </div>
           <section aria-labelledby="next-title" className="mt-5 flex flex-col gap-3 rounded-[22px] border-2 border-jr-lime bg-jr-card p-5 lg:flex-row lg:items-center lg:gap-6">
