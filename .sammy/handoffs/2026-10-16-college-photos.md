@@ -20,7 +20,13 @@
 - Local test page (real components, real fixtures) in GMTM chrome, desktop and 390 px frames.
 - Fable reviews: first found 8 issues, all fixed; second review of the fixes in this commit.
 
+## Deployed (Joey "Deploy", 2026-10-16)
+- 0490d4c (includes 50b0ac8) on Vercel sparq-junior-gbatje93z: Ready, aliased to sparq.gmtm.com. Railway unchanged (a785a4f9).
+- Live curl: /college-photos/daytona-state-college.webp 200 image/webp; warner-university (no photo) 404.
+- Live test in GMTM chrome on Joey's account: Saved tile 0, Emailed 1 (Daytona saved+emailed, tile fix works);
+  Daytona row has a photo and "20 on the 2025-26 roster"; Warner card shows the WU badge; 5 of 5 list photos load after scroll (lazy);
+  Daytona school page shows the hero photo and the credit "Photo: Ebyabe, CC BY 2.5".
+
 ## Open
-- Joey: OK to deploy (Vercel only; backend unchanged). Includes 50b0ac8.
 - 70 schools have no free photo (Warner, Keiser among them). Options: ask schools, or more Commons search.
 - Research (roster, camps) exists only for saved schools that the research job checked.
