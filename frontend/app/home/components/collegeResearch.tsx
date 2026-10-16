@@ -35,6 +35,21 @@ export function useCollegeResearch(userId: string | undefined, programId: string
   return research
 }
 
+// Research for every saved college on her board, by program id. `ids`: the saved ids, joined (a stable key).
+export function useBoardResearch(userId: string | undefined, ids: string) {
+  const [byId, setById] = useState<Record<string, Research>>({})
+  useEffect(() => {
+    if (!userId || !ids) { setById({}); return }
+    let live = true
+    apiFetch(`${BACKEND_URL}/api/workspace/college-research/${encodeURIComponent(userId)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(body => { if (live) setById(Object.fromEntries((body?.programs || []).filter((p: Research) => p?.program_id).map((p: Research) => [p.program_id, p]))) },
+        () => { /* the board works without it */ })
+    return () => { live = false }
+  }, [userId, ids])
+  return byId
+}
+
 // Shown only for a saved college (research exists only for saved ones). Missing data says so plainly.
 export function CollegeResearchCards({ research, school }: { research: Research; school: string }) {
   const roster = research.roster

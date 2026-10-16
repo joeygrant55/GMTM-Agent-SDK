@@ -49,3 +49,9 @@ export function campLink(camp: Camp): { href: string; label: string } | null {
   return src ? { href: src, label: 'See camp page' } : null
 }
 export const costLabel = (cost: number | null | undefined) => (typeof cost !== 'number' || !Number.isFinite(cost) ? 'Cost not listed' : cost === 0 ? 'Free' : `$${Math.round(cost)}`)
+// From the school's own site (saved schools only): the listed roster size and the next camp.
+export function siteFacts(research: Research | undefined): string[] {
+  if (!research) return []
+  const camp = research.camps[0]
+  return [research.roster ? `${research.roster.total} on the ${research.roster.season} roster` : null, camp ? `Camp: ${camp.date_text}` : null].filter((x): x is string => !!x)
+}

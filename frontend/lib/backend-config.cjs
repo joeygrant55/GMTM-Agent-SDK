@@ -51,6 +51,7 @@ function resolveAPIRequest(input, origin, surface, method = 'GET') {
   if (isRestrictedSurface(surface) && !candidateAPIAllowed(url.pathname, method.toUpperCase(), url.search, surface)) throw new Error('This API operation is unavailable in the selected surface')
   return url.href
 }
+const COLLEGE_PHOTOS = new Set(require('./college-photo-ids.json'))
 function candidatePagePolicy(pathname, method, surface = 'combine') {
   // Same-origin SPARQ routes: session read, sign-out and the backend proxy.
   // Each handler checks its own method, session and (proxy) candidateAPIAllowed.
@@ -60,6 +61,9 @@ function candidatePagePolicy(pathname, method, surface = 'combine') {
   if (pathname.startsWith('/_next/static/') || pathname === '/_next/webpack-hmr' || ['/sparq-logo.jpg', '/sparq-wordmark.png', '/favicon.ico', '/sparq-recruit-white.svg', '/sparq-recruit-icon.svg', '/sparq-recruit-32.png', '/apple-touch-icon.png', '/sparq-recruit-email-header.png'].includes(pathname)) return 'asset'
   // Bundled continental US outline for the colleges map (no tile server).
   if (surface === 'profile' && pathname === '/us-states.svg') return 'asset'
+  // Campus photos from Wikimedia Commons (backend/scripts/build_college_photos.py): only the listed ids.
+  const photo = /^\/college-photos\/([a-z0-9-]{1,80})\.webp$/.exec(pathname)
+  if (surface === 'profile' && photo && COLLEGE_PHOTOS.has(photo[1])) return 'asset'
   if (pathname === '/') return 'home'
   if (['/home', '/home/inbox'].includes(pathname)) return 'page'
   // GMTM entry bridge: GMTM is the only sign-in (no self sign-up) on every surface.

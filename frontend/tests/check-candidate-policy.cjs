@@ -53,6 +53,8 @@ for (const p of ['/home/colleges','/home/colleges/alabama-state-university','/ho
  check('Combine denies page '+p,()=>assert.equal(policy.candidatePagePolicy(p,'GET','combine'),'deny'))
 }
 check('Profile serves the bundled US map as a static asset; combine does not',()=>{assert.equal(policy.candidatePagePolicy('/us-states.svg','GET','profile'),'asset');assert.equal(policy.candidatePagePolicy('/us-states.svg','GET','combine'),'deny')})
+check('Profile serves listed campus photos only; an unlisted id and combine are denied',()=>{assert.equal(policy.candidatePagePolicy('/college-photos/edward-waters-university.webp','GET','profile'),'asset');assert.equal(policy.candidatePagePolicy('/college-photos/edward-waters-university.webp','GET','combine'),'deny');assert.equal(policy.candidatePagePolicy('/college-photos/warner-university.webp','GET','profile'),'deny')})
+for (const p of ['/college-photos/','/college-photos/x.jpg','/college-photos/Bad.webp','/college-photos/a/b.webp','/college-photos/../x.webp','/college-photos/x.webp/y']) check('Profile denies photo path '+p,()=>assert.equal(policy.candidatePagePolicy(p,'GET','profile'),'deny'))
 for (const p of ['/home/colleges/Bad_ID','/home/colleges/a/b','/home/colleges/','/home/progress/','/home/footage/x','/home/emails/','/home/emails/x','/home/card/','/home/card/x','/card/1','/home/card/user_fixture','/us-states.svg/x']) check('Profile denies page '+p,()=>assert.equal(policy.candidatePagePolicy(p,'GET','profile'),'deny'))
 const code = ts.transpileModule(fs.readFileSync(apiFile,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText
 let tokens = 0, requests = []

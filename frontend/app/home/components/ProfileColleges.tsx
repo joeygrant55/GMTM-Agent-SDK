@@ -10,8 +10,9 @@ import { apiFetch, BACKEND_URL } from '@/app/_lib/api'
 import { badgeColors, initials, schoolLabels } from './journey'
 import { CollegeMap } from './CollegeMap'
 import { noteChecklist, openLink, plainEmail, type CheckItem, type NoteKit } from './emailKit'
-import { CollegeResearchCards, useCollegeResearch } from './collegeResearch'
-import { hostOf } from './collegeResearchText'
+import { CollegeResearchCards, useBoardResearch, useCollegeResearch } from './collegeResearch'
+import { hostOf, siteFacts, type Research } from './collegeResearchText'
+import { PHOTOS } from './collegePhotos'
 
 const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-jr-lime'
 export const primary = `inline-flex min-h-12 items-center justify-center rounded-[14px] bg-jr-lime px-6 py-3 text-base font-bold text-jr-ground hover:bg-jr-lime-hover disabled:cursor-wait disabled:opacity-50 ${focus}`
@@ -177,9 +178,52 @@ const stripe = (p: Pick<CollegeProgram, 'primary_color'>) => ({ boxShadow: `inse
 const FOLLOW_UP_DAYS = 14
 const followUpOn = (iso: string) => new Date(new Date(iso).getTime() + FOLLOW_UP_DAYS * 86400000)
 
+// Campus photo from Wikimedia Commons (decorative: the school name is next to it). None: nothing shown.
+function CampusPhoto({ id, className }: { id: string; className: string }) {
+  const credit = PHOTOS[id]
+  if (!credit) return null
+  return <img src={`/college-photos/${id}.webp`} alt="" loading="lazy" decoding="async" title={`Photo: ${credit.author}, ${credit.license}`} className={`bg-jr-well object-cover ${className}`} />
+}
+// A row's small image: the campus photo, or the school's initials when there is none.
+function Thumb({ program }: { program: CollegeProgram }) {
+  return PHOTOS[program.id] ? <CampusPhoto id={program.id} className="h-11 w-11 shrink-0 self-start rounded-xl" /> : <span className="self-start"><Badge program={program} size="sm" /></span>
+}
+// The free license asks for the author, the source and the license.
+function PhotoCredit({ id, className = '' }: { id: string; className?: string }) {
+  const c = PHOTOS[id]
+  if (!c) return null
+  return <p className={`text-[11px] leading-snug text-jr-dim ${className}`}>
+    Photo: <a href={c.page} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-2 ${focus}`}>{c.author}<span className="sr-only"> on Wikimedia Commons (opens in a new tab)</span></a>
+    {', '}{c.license_url ? <a href={c.license_url} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-2 ${focus}`}>{c.license}<span className="sr-only"> (opens in a new tab)</span></a> : c.license}
+  </p>
+}
+// Why it fits: 3 lines first, the rest on a tap.
+// "Read more" only when the text does not fit in 3 lines at this width (measured, not counted).
+function Reason({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const [long, setLong] = useState(false)
+  const box = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const el = box.current
+    if (!el || open || typeof ResizeObserver === 'undefined') return
+    const measure = () => setLong(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [text, open])
+  return <div>
+    <p ref={box} className={`break-words text-[15px] leading-normal text-[#D4D4DA] ${open ? '' : 'line-clamp-3'}`}>{text}</p>
+    {long && <button type="button" aria-expanded={open} onClick={() => setOpen(o => !o)} className={`min-h-11 text-sm font-semibold text-jr-lime ${focus}`}>{open ? 'Show less' : 'Read more'}</button>}
+  </div>
+}
+
 function ProgramCard({ program, busy, onToggle, label, writing, rule }: { program: CollegeProgram; busy: boolean; onToggle: () => void; label?: string; writing?: boolean; rule?: string }) {
-  return <article className={`flex gap-4 rounded-[20px] bg-jr-card p-4 sm:p-[18px] ${program.saved ? 'border-2 border-jr-lime' : 'border border-jr-line'}`}>
-    <Badge program={program} label={label} size="sm" />
+  const photo = !!PHOTOS[program.id]
+  return <article className={`flex flex-col overflow-hidden rounded-[20px] bg-jr-card ${program.saved ? 'border-2 border-jr-lime' : 'border border-jr-line'}`}>
+    <CampusPhoto id={program.id} className="h-36 w-full sm:h-40" />
+    <div className="flex gap-4 p-4 sm:p-[18px]">
+    {!photo && <Badge program={program} label={label} size="sm" />}
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <div className="flex justify-between gap-3">
         <h3 className="break-words text-lg font-bold leading-snug">{program.school}</h3>
@@ -187,7 +231,7 @@ function ProgramCard({ program, busy, onToggle, label, writing, rule }: { progra
       </div>
       <Meta program={program} />
       {program.fact && <p className="text-sm font-semibold text-jr-text">{program.fact}</p>}
-      {program.reason ? <p className="break-words text-[15px] leading-normal text-[#D4D4DA]">{program.reason}</p>
+      {program.reason ? <Reason key={program.reason} text={program.reason} />
         : writing && <p aria-hidden="true" className="text-[15px] italic text-jr-muted motion-safe:animate-pulse">Writing why it fits you…</p>}
       {rule && <p className="text-sm text-jr-muted"><b className="font-semibold text-jr-soft">{program.level} rule:</b> {rule}</p>}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -195,14 +239,18 @@ function ProgramCard({ program, busy, onToggle, label, writing, rule }: { progra
         <ContactChip kind={program.contact} />
         <ProgramLinks program={program} />
       </div>
+      <PhotoCredit id={program.id} className="mt-1" />
+    </div>
     </div>
   </article>
 }
 
 // One school on her board (Saved or Emailed): opens its email kit; the heart stays on the row.
-function BoardRow({ program, busy, onToggle, now }: { program: CollegeProgram; busy: boolean; onToggle: () => void; now: number }) {
+function BoardRow({ program, busy, onToggle, now, research }: { program: CollegeProgram; busy: boolean; onToggle: () => void; now: number; research?: Research }) {
   const due = program.sent_at ? followUpOn(program.sent_at) : null
+  const facts = siteFacts(research)
   return <li className="flex items-center gap-3 rounded-2xl border border-jr-line bg-jr-card p-3 pl-4" style={stripe(program)}>
+    <Thumb program={program} />
     <Link href={`/home/colleges/${program.id}`} className={`flex min-w-0 flex-1 flex-col gap-1 rounded-lg ${focus}`}>
       <span className="break-words font-semibold leading-snug">{program.school}</span>
       <span className="text-[13px] text-jr-muted">{[program.level, program.distance_mi !== null ? `${program.distance_mi} mi` : null, priceLine(program)].filter(Boolean).join(' · ')}</span>
@@ -212,6 +260,7 @@ function BoardRow({ program, busy, onToggle, now }: { program: CollegeProgram; b
           <span className="rounded-full bg-jr-done px-2.5 py-1 text-xs font-semibold text-jr-lime">{due.getTime() <= now ? 'Follow up now' : `Follow up ${shortDate(due.toISOString())}`}</span>
         </> : <ContactChip kind={program.contact} />}
       </span>
+      {facts.length > 0 && <span className="text-[13px] text-[#D4D4DA]">{facts.join(' · ')}<span className="sr-only">. From the school&apos;s site.</span></span>}
     </Link>
     <HeartButton program={program} busy={busy} onToggle={onToggle} />
   </li>
@@ -413,6 +462,7 @@ export function ProfileColleges() {
   const rules = useMemo(() => Object.fromEntries((list?.contact_rules || []).map(r => [r.governing_body, r.rules[0]?.text])), [list])
   const labels = useMemo(() => schoolLabels([...(list?.programs || []), ...(list?.similar || [])].map(p => p.school)), [list])
   const step = nextStep(board, now)
+  const research = useBoardResearch(userId, board.filter(p => p.saved).map(p => p.id).sort().join(','))
 
   // Explore: one filter set drives both the map and the list.
   const words = search.trim().toLowerCase()
@@ -488,11 +538,11 @@ export function ProfileColleges() {
               <button type="button" onClick={() => void build()} disabled={busy} className={secondary}>{busy ? 'Checking…' : 'Check my list again'}</button>
             </Column>
             <Column id="col-saved" title="Saved" count={savedRows.length} className="order-2">
-              {savedRows.length ? <ul className="flex flex-col gap-2.5">{savedRows.map(p => <BoardRow key={p.id} program={p} now={now} busy={save.busy === p.id} onToggle={() => void save.toggle(p)} />)}</ul>
+              {savedRows.length ? <ul className="flex flex-col gap-2.5">{savedRows.map(p => <BoardRow key={p.id} program={p} now={now} research={research[p.id]} busy={save.busy === p.id} onToggle={() => void save.toggle(p)} />)}</ul>
                 : <p className="rounded-2xl border border-dashed border-jr-edge p-4 text-sm text-jr-soft">Tap the heart on a college to save it here.</p>}
             </Column>
             <Column id="col-emailed" title="Emailed" count={emailed.length} className="order-1 lg:order-3">
-              {emailed.length ? <ul className="flex flex-col gap-2.5">{emailed.map(p => <BoardRow key={p.id} program={p} now={now} busy={save.busy === p.id} onToggle={() => void save.toggle(p)} />)}</ul>
+              {emailed.length ? <ul className="flex flex-col gap-2.5">{emailed.map(p => <BoardRow key={p.id} program={p} now={now} research={research[p.id]} busy={save.busy === p.id} onToggle={() => void save.toggle(p)} />)}</ul>
                 : <p className="rounded-2xl border border-dashed border-jr-edge p-4 text-sm text-jr-soft">When you send a coach email, tap I sent it. The school moves here.</p>}
               <p className="text-sm leading-normal text-jr-muted">Coaches get many emails. If a coach does not answer in 2 weeks, send one short follow-up.</p>
             </Column>
@@ -506,6 +556,7 @@ export function ProfileColleges() {
       <CollegeMap programs={rows} origin={all.origin?.map || null} selected={selected} onSelect={setSelected} onView={onView} zoomTo={zoomTo}>
         {chosen && <section aria-label={`Picked on the map: ${chosen.school}`} onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}
           className="absolute inset-x-2 bottom-2 z-50 flex flex-col gap-1.5 rounded-2xl border border-jr-edge bg-jr-card p-4 shadow-[0_-10px_30px_-10px_#000] sm:inset-x-auto sm:left-3 sm:w-[340px]">
+          <CampusPhoto id={chosen.id} className="-mx-4 -mt-4 h-24 w-[calc(100%+2rem)] max-w-none rounded-t-2xl sm:h-28" />
           <div className="flex items-start justify-between gap-3">
             <h2 className="break-words text-lg font-bold leading-snug">{chosen.school}</h2>
             <button type="button" aria-label="Close" onClick={() => setSelected(null)} className={`h-11 w-11 shrink-0 rounded-xl bg-jr-track text-lg ${focus}`}>×</button>
@@ -517,6 +568,7 @@ export function ProfileColleges() {
             <HeartButton program={chosen} busy={save.busy === chosen.id} onToggle={() => void save.toggle(chosen)} />
             <Link href={`/home/colleges/${chosen.id}`} className={`${primary} flex-1`}>Open school</Link>
           </div>
+          <PhotoCredit id={chosen.id} />
         </section>}
       </CollegeMap>
       <section aria-labelledby="explore-list" className="flex min-w-0 flex-col gap-3">
@@ -534,6 +586,7 @@ export function ProfileColleges() {
         <h2 id="explore-list" className="text-xl font-bold">{listed.length} {listed.length === 1 ? 'school' : 'schools'}{sync ? ' on the map' : ''}{all.origin?.map ? ', closest first' : ''}</h2>
         {listed.length ? <ul className="flex flex-col gap-2.5">
           {listed.slice(0, limit).map(p => <li key={p.id} className={`flex items-center gap-3 rounded-2xl border bg-jr-card p-3 pl-4 ${selected === p.id ? 'border-jr-lime' : 'border-jr-line'}`} style={stripe(p)}>
+            <Thumb program={p} />
             <button type="button" onClick={() => { setSelected(p.id); setZoomTo({ id: p.id, at: Date.now() }) }}
               className={`flex min-w-0 flex-1 flex-col gap-1 rounded-lg text-left ${focus}`}>
               <span className="break-words font-semibold leading-snug">{p.school}</span>
@@ -684,6 +737,10 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
   return <div className="grid items-start gap-7 pb-12 pt-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
     <section aria-labelledby="kit-title" className="flex min-w-0 flex-col gap-[18px]">
       {back}
+      {PHOTOS[program.id] && <figure className="flex flex-col gap-1.5">
+        <CampusPhoto id={program.id} className="h-44 w-full rounded-[20px] sm:h-60" />
+        <figcaption><PhotoCredit id={program.id} /></figcaption>
+      </figure>}
       <div className="flex items-center gap-4">
         <Badge program={program} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">

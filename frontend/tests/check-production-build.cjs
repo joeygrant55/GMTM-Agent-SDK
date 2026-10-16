@@ -176,25 +176,33 @@ async function portClosed() {
     const response = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
     smoke.push({ path: route, status: response.status }); assert.equal(response.status, 404, 'Production route boundary: ' + route);
   }
-  // No SPARQ session: back to GMTM (no GMTM cookie) or to the /enter bridge (GMTM cookie).
-  for (const [cookie, expected] of [[null, 'https://gmtm.example.invalid/'], ['sessionId=synthetic-gmtm-session', origin + '/enter']]) {
+  // No SPARQ session: always the /enter bridge (27642bc); /enter sends a signed-out visitor to GMTM sign-in.
+  for (const [cookie, expected] of [[null, origin + '/enter'], ['sessionId=synthetic-gmtm-session', origin + '/enter']]) {
     const response = await fetch(origin + '/home/inbox?event_id=1318', { redirect: 'manual', headers: cookie ? { cookie } : {}, signal: AbortSignal.timeout(10000) });
     const location = response.headers.get('location');
     smoke.push({ path: '/home/inbox?event_id=1318', gmtmCookie: !!cookie, status: response.status, location });
     const target = location ? new URL(location, origin) : null;
-    if (![302, 303, 307, 308].includes(response.status) || !target || (cookie ? target.pathname !== '/enter' : target.href !== expected)) throw Error('Unauthenticated GMTM redirect unconfirmed; inspect start.log and denials.');
+    if (![302, 303, 307, 308].includes(response.status) || !target || target.href !== expected) throw Error('Unauthenticated GMTM redirect unconfirmed; inspect start.log and denials.');
   }
   if (surface === 'profile') {
-    // Every redesigned page needs a session (redirect to GMTM); the bundled map is a public static asset.
+    // Every redesigned page needs a session (redirect to the /enter bridge); the bundled map is a public static asset.
     for (const route of ['/home', '/home/colleges', '/home/colleges/daytona-state-college', '/home/progress', '/home/footage', '/home/emails', '/home/card']) {
       const response = await fetch(origin + route, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
       smoke.push({ path: route, status: response.status, location: response.headers.get('location') });
-      assert.ok([302, 303, 307, 308].includes(response.status) && response.headers.get('location') === 'https://gmtm.example.invalid/', 'Signed-out page goes to GMTM: ' + route);
+      assert.ok([302, 303, 307, 308].includes(response.status) && new URL(response.headers.get('location') || '', origin).href === origin + '/enter', 'Signed-out page goes to /enter: ' + route);
     }
     const map = await fetch(origin + '/us-states.svg', { redirect: 'manual', signal: AbortSignal.timeout(10000) });
     const svg = await map.text();
     smoke.push({ path: '/us-states.svg', status: map.status, type: map.headers.get('content-type') });
     assert.ok(map.status === 200 && /image\/svg\+xml/.test(map.headers.get('content-type') || '') && svg.startsWith('<svg'), 'Bundled map is served');
+    // Listed campus photos are public static files; an unlisted id is 404.
+    const photo = await fetch(origin + '/college-photos/edward-waters-university.webp', { redirect: 'manual', signal: AbortSignal.timeout(10000) });
+    const bytes = Buffer.from(await photo.arrayBuffer());
+    smoke.push({ path: '/college-photos/edward-waters-university.webp', status: photo.status, type: photo.headers.get('content-type') });
+    assert.ok(photo.status === 200 && /image\/webp/.test(photo.headers.get('content-type') || '') && bytes.subarray(8, 12).toString() === 'WEBP', 'Campus photo is served');
+    const unlisted = await fetch(origin + '/college-photos/warner-university.webp', { redirect: 'manual', signal: AbortSignal.timeout(10000) });
+    smoke.push({ path: '/college-photos/warner-university.webp', status: unlisted.status });
+    assert.equal(unlisted.status, 404, 'Unlisted campus photo is 404');
   }
   // The same-origin proxy is the only browser route to the backend. Without a session it
   // answers itself (401 JSON) and never forwards; a path outside the surface policy is 404.

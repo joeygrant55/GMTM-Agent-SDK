@@ -496,4 +496,34 @@ check('Map and badges: schools that share initials get unique labels in one list
   assert.match(colleges, /const listed = \[\.\.\.inView\]/)
 })
 
+check('Campus photos: one Commons photo per listed id, free license, credit links https, served from self only', () => {
+  const { PHOTOS } = transpile('app/home/components/collegePhotos.ts')
+  const dir = path.join(root, 'public/college-photos')
+  const files = fs.readdirSync(dir).sort()
+  assert.deepEqual(files, Object.keys(PHOTOS).sort().map(id => `${id}.webp`))
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'lib/college-photo-ids.json'), 'utf8')), Object.keys(PHOTOS).sort())
+  assert.ok(files.length > 80, `only ${files.length} photos`)
+  for (const [id, c] of Object.entries(PHOTOS)) {
+    assert.equal(policy.candidatePagePolicy(`/college-photos/${id}.webp`, 'GET', 'profile'), 'asset', id)
+    assert.ok(c.page.startsWith('https://commons.wikimedia.org/wiki/File:'), id)
+    assert.ok(c.license_url === null || c.license_url.startsWith('https://'), id)
+    assert.match(c.license, /^(CC BY(-SA)? [0-9.]+|CC0|Public domain|No restrictions|Attribution)$/, id)
+    assert.ok(c.author && c.author.length <= 60, id)
+    const bytes = fs.readFileSync(path.join(dir, `${id}.webp`))
+    assert.ok(bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP' && bytes.length < 160000, id)
+  }
+  const colleges = fs.readFileSync(path.join(root, 'app/home/components/ProfileColleges.tsx'), 'utf8')
+  assert.match(colleges, /<img src=\{`\/college-photos\/\$\{id\}\.webp`\} alt="" loading="lazy" decoding="async" title=\{`Photo: \$\{credit\.author\}, \$\{credit\.license\}`\}/)
+  assert.ok(!/<img[^>]+src=\{?["'`]https?:/.test(colleges), 'no remote image hosts')
+})
+
+check('Board site facts: listed roster count with its season and the camp date only', () => {
+  const { siteFacts } = transpile('app/home/components/collegeResearchText.ts')
+  assert.deepEqual(siteFacts(undefined), [])
+  const research = { program_id: 'x', roster: { season: '2026', by_class: {}, by_position: {}, total: 24, source_url: 'https://a.edu' }, roster_checked: '2026-10-01', camps: [{ name: 'Camp', date_text: 'Nov 8', start_date: '2026-11-08', end_date: '2026-11-08', location: null, cost_usd: null, eligibility_text: null, registration_url: null, source_url: 'https://a.edu' }], camps_checked: '2026-10-01' }
+  assert.deepEqual(siteFacts(research), ['24 on the 2026 roster', 'Camp: Nov 8'])
+  assert.deepEqual(siteFacts({ ...research, roster: null, camps: [] }), [])
+  assert.ok(!/open spot|need|leav/i.test(siteFacts(research).join(' ')))
+})
+
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))
