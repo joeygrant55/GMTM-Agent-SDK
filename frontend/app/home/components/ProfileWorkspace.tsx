@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSparqSession } from '@/app/_lib/useSparqSession'
-import { apiFetch } from '@/app/_lib/api'
+import { apiFetch, prefetchAPI } from '@/app/_lib/api'
 import Link from 'next/link'
 import { evidenceDate, knownSport, ProfileEvidence, readProfileEvidence } from './profileEvidence'
 import ProfileMaterialsPanel, { useProfileMaterials } from './ProfileMaterialsPanel'
@@ -10,7 +10,7 @@ import { ProfileMaterialItem } from './profileMaterials'
 import AthleteCareerHome, { drillResults, featuredClip, playableClips, Poster } from './AthleteCareerHome'
 import { CareerGoal, useCareerWorkspace, workLabels } from './careerWorkspace'
 import { aboutMiles, Badge, readJSON, SavedColleges, savedURL, shortDate } from './ProfileColleges'
-import MyCard, { leadClip, useCard } from './MyCard'
+import MyCard, { cardURL, leadClip, useCard } from './MyCard'
 import { schoolLabels } from './journey'
 
 export type ProfileView = 'home' | 'card' | 'footage' | 'progress'
@@ -47,6 +47,8 @@ function ProfileSession({ userId, view }: { userId: string; view: ProfileView })
   const [error, setError] = useState<{ title: string; detail: string; scope?: boolean } | null>(null)
   const active = useRef<AbortController | null>(null)
   const mounted = useRef(false)
+  const viewRef = useRef(view)
+  viewRef.current = view
 
   const refresh = useCallback(async () => {
     if (!mounted.current || active.current) return
@@ -55,6 +57,9 @@ function ProfileSession({ userId, view }: { userId: string; view: ProfileView })
     setLoading(true)
     setProfile(null)
     setError(null)
+    // The same reads ProfileReadout makes once the evidence is ready; it still checks every answer.
+    try { prefetchAPI(['/api/athlete/materials', savedURL(userId), ...viewRef.current === 'home' ? [cardURL(userId) + '/lead'] : []]) }
+    catch { /* a refused URL: the readers fetch for themselves and show their own error */ }
     const timer = window.setTimeout(() => {
       controller.abort()
       if (mounted.current && active.current === controller) {
@@ -94,7 +99,7 @@ function ProfileSession({ userId, view }: { userId: string; view: ProfileView })
         if (mounted.current) setLoading(false)
       }
     }
-  }, [])
+  }, [userId])
 
   const scopeLost = useCallback(() => {
     active.current?.abort(); active.current = null

@@ -18,6 +18,24 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
   // Validate before the request. Never forward to a caller-supplied origin or
   // follow a redirect outside the supported API surface.
   const url = resolveAPIRequest(input, BACKEND_URL, process.env.NEXT_PUBLIC_APP_SURFACE, init.method || 'GET')
+  const method = (init.method || 'GET').toUpperCase()
+  const ready = early.get(url)
+  early.delete(url)
+  if (ready && method === 'GET' && !init.body && Date.now() - ready.at < EARLY_MS) return ready.response
   const backend = new URL(url)
   return fetch('/api/sparq/proxy' + backend.pathname + backend.search, { ...init, credentials: 'same-origin', redirect: 'error' })
+}
+
+// Home starts its other reads together with the evidence read, not after it (measured 2026-10-16:
+// they waited about 1 s). The first plain GET of the same URL within 10 s takes the response, once.
+// The taker's init (headers, cache, signal) is not applied to a prefetched response.
+const EARLY_MS = 10000
+const early = new Map<string, { at: number; response: Promise<Response> }>()
+export function prefetchAPI(inputs: string[]) {
+  early.clear()
+  for (const input of inputs) {
+    const response = apiFetch(input, { cache: 'no-store' })
+    response.catch(() => {}) // the reader that takes it sees the error; an unused one stays quiet
+    early.set(resolveAPIRequest(input, BACKEND_URL, process.env.NEXT_PUBLIC_APP_SURFACE, 'GET'), { at: Date.now(), response })
+  }
 }

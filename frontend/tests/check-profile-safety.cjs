@@ -526,4 +526,41 @@ check('Board site facts: listed roster count with its season and the camp date o
   assert.ok(!/open spot|need|leav/i.test(siteFacts(research).join(' ')))
 })
 
+check('Home early reads: one prefetched GET per URL, used once within 10 s; writes and late reads fetch fresh', () => {
+  const ts = require(path.join(process.env.SPARQ_TEST_NODE_MODULES || path.join(root, 'node_modules'), 'typescript'))
+  const env = { NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL, NEXT_PUBLIC_APP_SURFACE: process.env.NEXT_PUBLIC_APP_SURFACE }
+  Object.assign(process.env, { NEXT_PUBLIC_BACKEND_URL: 'https://api.example.com', NEXT_PUBLIC_APP_SURFACE: 'profile' })
+  const calls = [], realFetch = global.fetch, realNow = Date.now
+  let now = 1000
+  global.fetch = (url, init) => { calls.push([url, init.method || 'GET']); return Promise.resolve({ ok: true, url }) }
+  Date.now = () => now
+  try {
+    const module = { exports: {} }
+    new Function('exports', 'module', 'require', ts.transpileModule(fs.readFileSync(path.join(root, 'app/_lib/api.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(module.exports, module, id => {
+      if (id !== '@/lib/backend-config.cjs') throw Error('unexpected import ' + id); return policy })
+    const { apiFetch, prefetchAPI } = module.exports
+    const saved = 'https://api.example.com/api/workspace/saved-colleges/user_1'
+    prefetchAPI(['/api/athlete/materials', saved])
+    assert.equal(calls.length, 2, 'both reads start at once')
+    const first = apiFetch(saved)
+    apiFetch('/api/athlete/materials', { cache: 'no-store' })
+    assert.equal(calls.length, 2, 'the readers take the prefetched responses')
+    apiFetch(saved)
+    assert.equal(calls.length, 3, 'a second read of the same URL fetches fresh')
+    prefetchAPI([saved]); prefetchAPI(['/api/athlete/materials']); apiFetch(saved)
+    assert.equal(calls.length, 6, 'a new prefetch drops the earlier entries')
+    prefetchAPI([saved]); apiFetch(saved + '/college-a', { method: 'POST', body: '{}' })
+    assert.deepEqual(calls.at(-1), ['/api/sparq/proxy/api/workspace/saved-colleges/user_1/college-a', 'POST'], 'a write is never served from a prefetch')
+    now += 10001; apiFetch(saved)
+    assert.equal(calls.length, 9, 'a prefetched read older than 10 s is not used')
+    assert.throws(() => prefetchAPI(['https://evil.example/api/athlete/materials']), /configured origin/)
+    first.then(r => assert.equal(r.url, '/api/sparq/proxy/api/workspace/saved-colleges/user_1', 'the reader gets the prefetched response'))
+    // Only ProfileSession.refresh prefetches: it runs after the parent-notice gate, like the evidence read.
+    const callers = ['app'].flatMap(function walk(dir) { return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap(e =>
+      e.isDirectory() ? walk(path.join(dir, e.name)) : /\.tsx?$/.test(e.name) && /prefetchAPI\(/.test(fs.readFileSync(path.join(root, dir, e.name), 'utf8')) ? [path.join(dir, e.name)] : []) })
+    assert.deepEqual(callers.sort(), ['app/_lib/api.ts', 'app/home/components/ProfileWorkspace.tsx'])
+    assert.equal(fs.readFileSync(path.join(root, 'app/home/components/ProfileWorkspace.tsx'), 'utf8').match(/prefetchAPI\(/g).length, 1)
+  } finally { global.fetch = realFetch; Date.now = realNow; for (const [k, v] of Object.entries(env)) v === undefined ? delete process.env[k] : process.env[k] = v }
+})
+
 console.log(JSON.stringify({ status: 'passed', checks: checks.length, names: checks }, null, 2))
