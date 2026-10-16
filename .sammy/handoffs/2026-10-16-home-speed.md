@@ -35,3 +35,7 @@
 - Fable review: safe to commit; fixed: day count (step times + Eastern days), "Furthest step" label, refusal label, shared-subject
   warning, error output without host/user, empty or bad ids file.
 - Suggested first 5 invites (Joey sends): A1, A3, A5, A7, A8 (most recent on GMTM, ages 13 to 17).
+
+## Wave 1 first 5 sent
+- Joey sent 5 invites on 2026-10-16 about 14:27 EDT (from the 19-list: A1, A3, A5, A7, A8). Ids file: scratchpad wave1_first5.json (0600).
+- Baseline report at 14:27 EDT: 0 of 5 signed in. Next: report on 2026-10-17 morning, then day 3 and day 7.
