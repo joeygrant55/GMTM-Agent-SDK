@@ -170,7 +170,7 @@ export default function AthleteCareerHome({ profile, snapshot, loading, error, f
                 <span className={`shrink-0 rounded-full px-2.5 py-1.5 text-[13px] ${program.sent_at ? 'bg-jr-done font-semibold text-jr-lime' : 'bg-jr-track text-[#D4D4DA]'}`}>{program.sent_at ? `Emailed ${shortDate(program.sent_at)}` : 'Not emailed'}</span>
               </Link>
             </li>)}
-          </ul> : <p className="rounded-2xl border border-jr-line bg-jr-card p-5 text-jr-soft">No saved colleges yet. Tap the heart on a college to save it.</p>}
+          </ul> : <p className="rounded-2xl border border-jr-line bg-jr-card p-5 text-jr-soft">No saved colleges yet. Tap Save on a college to save it.</p>}
       </div>
     </section>
     {hero && <p className="sr-only">Featured clip added {evidenceDate(hero.recorded_at)}.</p>}

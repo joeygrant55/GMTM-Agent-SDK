@@ -126,10 +126,11 @@ export function Badge({ program, size = 'md', label }: { program: Pick<CollegePr
 function HeartIcon({ on }: { on: boolean }) {
   return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" fill={on ? '#CAFD00' : 'none'} stroke={on ? '#CAFD00' : '#D4D4DA'} strokeWidth="2"><path d="M12 21s-7-4.4-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.6-9.5 9-9.5 9z" /></svg>
 }
-export function HeartButton({ program, busy, onToggle }: { program: CollegeProgram; busy: boolean; onToggle: () => void }) {
+// `labeled`: the heart with the word Save (college cards). Rows keep the icon only.
+export function HeartButton({ program, busy, onToggle, labeled = false }: { program: CollegeProgram; busy: boolean; onToggle: () => void; labeled?: boolean }) {
   return <button type="button" aria-pressed={program.saved} aria-label={program.saved ? `Saved: ${program.school}. Tap to remove.` : `Save ${program.school}`}
     disabled={busy} onClick={onToggle}
-    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl disabled:opacity-50 ${focus} ${program.saved ? 'bg-jr-done' : 'border border-jr-edge'}`}><HeartIcon on={program.saved} /></button>
+    className={`flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl disabled:opacity-50 ${focus} ${labeled ? 'px-3 text-sm font-semibold' : 'w-11'} ${program.saved ? 'bg-jr-done text-jr-lime' : 'border border-jr-edge text-jr-text'}`}><HeartIcon on={program.saved} />{labeled && <span aria-hidden="true">{program.saved ? 'Saved' : 'Save'}</span>}</button>
 }
 
 // Saves are optimistic and roll back if the server says no.
@@ -226,8 +227,8 @@ function ProgramCard({ program, busy, onToggle, label, writing, rule }: { progra
     {!photo && <Badge program={program} label={label} size="sm" />}
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <div className="flex justify-between gap-3">
-        <h3 className="break-words text-lg font-bold leading-snug">{program.school}</h3>
-        <HeartButton program={program} busy={busy} onToggle={onToggle} />
+        <h3 className="min-w-0 break-words text-lg font-bold leading-snug">{program.school}</h3>
+        <HeartButton program={program} busy={busy} onToggle={onToggle} labeled />
       </div>
       <Meta program={program} />
       {program.fact && <p className="text-sm font-semibold text-jr-text">{program.fact}</p>}
@@ -276,8 +277,8 @@ export function nextStep(board: CollegeProgram[], now: number): Step {
   const ready = waiting.find(p => p.contact === 'email')
   if (ready) return { title: `Email the coach at ${ready.school}`, detail: `You saved ${ready.school}, and the coach email is ready.`, href: `/home/colleges/${ready.id}`, cta: 'Write my email' }
   if (waiting[0]) return { title: `Write to ${waiting[0].school}`, detail: waiting[0].contact === 'questionnaire' ? 'Fill out their recruit questionnaire, then send a short note.' : 'Find the coach on the staff page, then send a short note.', href: `/home/colleges/${waiting[0].id}`, cta: 'Start my note' }
-  if (board.some(p => p.sent_at)) return { title: 'Save your next college', detail: 'Tap the heart on a college you like. Then write to its coach next.', href: null, cta: null }
-  return { title: 'Save the colleges you like', detail: 'Tap the heart on 3 colleges. Then you email one coach at a time.', href: null, cta: null }
+  if (board.some(p => p.sent_at)) return { title: 'Save your next college', detail: 'Tap Save on a college you like. Then write to its coach next.', href: '#col-picked', cta: 'See my colleges' }
+  return { title: 'Save the colleges you like', detail: 'Tap Save on 3 colleges. Then you email one coach at a time.', href: '#col-picked', cta: 'See my colleges' }
 }
 
 function ContactPanel({ rules }: { rules: ContactRules[] }) {
@@ -363,7 +364,7 @@ function Tile({ value, label, on }: { value: number; label: string; on?: boolean
 
 function Column({ id, title, count, children, className = '' }: { id: string; title: string; count: number; children: React.ReactNode; className?: string }) {
   return <section aria-labelledby={id} className={`flex min-w-0 flex-col gap-3 ${className}`}>
-    <h2 id={id} className="flex items-baseline justify-between text-xl font-bold">{title}<span className="text-sm font-medium text-jr-dim">{count}</span></h2>
+    <h2 id={id} tabIndex={-1} className="flex scroll-mt-4 items-baseline justify-between text-xl font-bold outline-none">{title}<span className="text-sm font-medium text-jr-dim">{count}</span></h2>
     {children}
   </section>
 }
@@ -509,7 +510,10 @@ export function ProfileColleges() {
               <h2 id="next-title" className="text-[22px] font-bold leading-snug">{step.title}</h2>
               <p className="text-[15px] text-jr-soft">{step.detail}</p>
             </div>
-            {step.href && step.cta && <Link href={step.href} className={primary}>{step.cta}</Link>}
+            {step.href && step.cta && (step.href.startsWith('#')
+              // A #hash link would break Back (the App Router ignores a history entry it did not make): scroll instead.
+              ? <button type="button" className={primary} onClick={() => { const to = document.getElementById(step.href!.slice(1)); to?.scrollIntoView({ behavior: 'smooth' }); to?.focus({ preventScroll: true }) }}>{step.cta}</button>
+              : <Link href={step.href} className={primary}>{step.cta}</Link>)}
           </section>
 
           <div className="mt-8 grid items-start gap-8 lg:grid-cols-3 lg:gap-6">
@@ -537,11 +541,11 @@ export function ProfileColleges() {
               </>}
               <button type="button" onClick={() => void build()} disabled={busy} className={secondary}>{busy ? 'Checking…' : 'Check my list again'}</button>
             </Column>
-            <Column id="col-saved" title="Saved" count={savedRows.length} className="order-2">
+            <Column id="col-saved" title="Saved" count={savedRows.length} className={savedRows.length ? 'order-2' : 'order-4 lg:order-2'}>
               {savedRows.length ? <ul className="flex flex-col gap-2.5">{savedRows.map(p => <BoardRow key={p.id} program={p} now={now} research={research[p.id]} busy={save.busy === p.id} onToggle={() => void save.toggle(p)} />)}</ul>
-                : <p className="rounded-2xl border border-dashed border-jr-edge p-4 text-sm text-jr-soft">Tap the heart on a college to save it here.</p>}
+                : <p className="rounded-2xl border border-dashed border-jr-edge p-4 text-sm text-jr-soft">Tap Save on a college to save it here.</p>}
             </Column>
-            <Column id="col-emailed" title="Emailed" count={emailed.length} className="order-1 lg:order-3">
+            <Column id="col-emailed" title="Emailed" count={emailed.length} className={emailed.length ? 'order-1 lg:order-3' : 'order-5 lg:order-3'}>
               {emailed.length ? <ul className="flex flex-col gap-2.5">{emailed.map(p => <BoardRow key={p.id} program={p} now={now} research={research[p.id]} busy={save.busy === p.id} onToggle={() => void save.toggle(p)} />)}</ul>
                 : <p className="rounded-2xl border border-dashed border-jr-edge p-4 text-sm text-jr-soft">When you send a coach email, tap I sent it. The school moves here.</p>}
               <p className="text-sm leading-normal text-jr-muted">Coaches get many emails. If a coach does not answer in 2 weeks, send one short follow-up.</p>
