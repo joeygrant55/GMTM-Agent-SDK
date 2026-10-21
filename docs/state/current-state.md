@@ -2,6 +2,10 @@ Superseded 2026-10-01 by spec rev 4: GMTM sign-in only, Clerk removed. See docs/
 
 # SPARQ Agent current work
 
+## Pre-wave-2 sprint — October 21, 2026
+
+Committed b6af2e6 (not deployed): email step on phones + staff-page-only schools, funnel step marks, RDS certificate check. Waiting for Joey: deploy (+ create sparq_step_marks), remove SPARQ_TEST_ALLOWLIST, merge gmtm.com PR #406, deploy saintlings.app robots, wave 2 drafts (blocked on a PII-read approval). See the [handoff](../../.sammy/handoffs/2026-10-21-pre-wave2.md).
+
 Updated: 2026-09-23. This is a routing pointer; implementation evidence belongs in the active task's dated handoff.
 
 ## Adult pilot access and current opportunities — September 23, 2026
