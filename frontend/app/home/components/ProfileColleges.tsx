@@ -47,6 +47,11 @@ interface Draft { id: number; to_email: string; school: string | null; subject: 
 const https = (url: string | null | undefined): string | null => (typeof url === 'string' && url.startsWith('https://') ? url : null)
 const collegesURL = (userId: string, rest = '') => `${BACKEND_URL}/api/workspace/colleges/${encodeURIComponent(userId)}${rest}`
 const parentURL = (userId: string) => `${BACKEND_URL}/api/workspace/parent-contact/${encodeURIComponent(userId)}`
+// Funnel step for the wave report: the step name only (the server adds the day). It never blocks her.
+const markStep = (userId: string, step: 'school_page' | 'email_opened') => {
+  apiFetch(`${BACKEND_URL}/api/workspace/steps/${encodeURIComponent(userId)}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step }), keepalive: true }).catch(() => {})
+}
 export const savedURL = (userId: string, rest = '') => `${BACKEND_URL}/api/workspace/saved-colleges/${encodeURIComponent(userId)}${rest}`
 const JSON_POST = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
@@ -644,6 +649,21 @@ function Check({ item }: { item: CheckItem }) {
   </li>
 }
 
+// No sourced coach address (79 of 186 programs, measured 2026-10-21): how to find one, or what else she can do.
+function FindCoach({ coach, program }: { coach: Coach; program: CollegeProgram }) {
+  const who = coach.names.length ? coach.names.map(n => `Coach ${n}`).join(' or ') : 'the women’s flag football coach'
+  const page = coach.staff_page_url || program.program_link
+  return <div id="find-coach" className="flex flex-col gap-2 rounded-xl border border-jr-edge p-4">
+    <h2 className="text-base font-bold">Find the coach&apos;s email</h2>
+    {page ? <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-[15px] leading-normal text-[#D4D4DA]">
+      <li><ExternalLink href={page}>{coach.staff_page_url ? 'Open the staff page' : 'Open the program page'}</ExternalLink></li>
+      <li>Find {who}.{coach.staff_page_url ? '' : ' Look for Staff, Coaches or Contact.'}</li>
+      <li>Copy the email address. Paste it in To below.</li>
+    </ol> : <p className="text-[15px] leading-normal text-[#D4D4DA]">SPARQ Recruit has no coach email for this school yet. Ask your coach or a parent to help you find it.</p>}
+    {program.questionnaire_link && <p className="text-[15px] leading-normal text-[#D4D4DA]">You can also fill in the <ExternalLink href={program.questionnaire_link}>recruit questionnaire</ExternalLink>. Coaches read those too.</p>}
+  </div>
+}
+
 // The coach email kit: To (sourced coach address), CC my parent, subject and note from SPARQ's
 // draft, then Open in my email / Copy / I sent it. SPARQ never sends.
 export function ProfileCollegeDetail({ programId }: { programId: string }) {
@@ -663,8 +683,19 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
   const [saveBusy, setSaveBusy] = useState(false)
+  // She opened her email app or copied the note: on a phone, ask "Did you send it?" at the bottom of the screen.
+  // Kept per tab and per account, because a phone can reload the page while she is in her email app.
+  const openedKey = `sparq-opened-${userId}-${programId}`
+  const [opened, setOpened] = useState(() => { try { return sessionStorage.getItem(openedKey) === '1' } catch { return false } })
+  const noteOpened = () => {
+    if (userId && !opened) markStep(userId, 'email_opened')
+    setOpened(true)
+    try { sessionStorage.setItem(openedKey, '1') } catch { /* private mode: the bar still shows until she leaves */ }
+  }
   // Fetch research only once a save has reached the server (not during the optimistic flip).
   const research = useCollegeResearch(userId, programId, !!detail?.program.saved && !saveBusy)
+
+  useEffect(() => { if (userId && programId) markStep(userId, 'school_page') }, [userId, programId])
 
   useEffect(() => {
     if (!userId) return
@@ -702,6 +733,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
     try {
       await navigator.clipboard.writeText(draft.subject ? `Subject: ${draft.subject}\n\n${draft.body}` : draft.body)
       setCopied('Copied. Nothing has been sent.')
+      noteOpened()
     } catch { setCopied('Copy is not available. Select the text and copy it.') }
   }
   // "I sent it": only a date is kept, never the email text. Needs a draft first.
@@ -738,7 +770,8 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
   const checklist = noteChecklist(draft ? `${draft.subject}\n${draft.body}` : '', draft?.kit || null, ccAddress)
   const rules = detail.contact_rules[0]
   const open = draft ? openLink({ to, cc: ccAddress, subject: draft.subject, body: draft.body }) : null
-  return <div className="grid items-start gap-7 pb-12 pt-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+  const askSent = opened && !!draft && !program.sent_at
+  return <div className={`grid items-start gap-7 pt-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] ${askSent ? 'pb-20 lg:pb-12' : 'pb-12'}`}>
     <section aria-labelledby="kit-title" className="flex min-w-0 flex-col gap-[18px]">
       {back}
       {PHOTOS[program.id] && <figure className="flex flex-col gap-1.5">
@@ -753,7 +786,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
             {coach.names.length === 1 ? `${coach.role} · ${program.school}`
               : coach.names.length > 1 ? `${coach.role}: ${coach.names.join(' and ')} · ${program.school}` : program.school}
           </p>
-          {!coach.names.length && <ExternalLink href={coach.staff_page_url}>Find the coach on the staff page</ExternalLink>}
+          {!coach.names.length && coach.email && <ExternalLink href={coach.staff_page_url}>Find the coach on the staff page</ExternalLink>}
         </div>
         <HeartButton program={program} busy={save.busy === program.id} onToggle={() => void save.toggle(program)} />
       </div>
@@ -761,6 +794,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
       <SchoolFacts program={program} />
 
       <div className="flex flex-col gap-4 rounded-[20px] border border-jr-line bg-jr-card p-4 sm:p-[22px]">
+        {!coach.email && !hasTo && <FindCoach coach={coach} program={program} />}
         <label className={label}>To
           <input type="email" value={to} onChange={e => setTo(e.target.value)} placeholder="Add the coach's email from the staff page"
             aria-invalid={!toValid} aria-describedby="to-help" autoComplete="off" className={field} />
@@ -792,7 +826,7 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
         {open?.long && <p role="status" className="rounded-xl border border-amber-200/40 p-3 text-sm text-amber-100">Your note is long. Use Copy, then open your email and paste it.</p>}
         <div className="flex flex-wrap items-center gap-2.5">
           {open?.long && <button type="button" onClick={() => void copy()} disabled={busy} className={primary}>Copy</button>}
-          {open && hasTo ? <a href={open.href} className={open.long ? `${secondary} min-h-12 px-[22px] text-base` : primary}>Open in my email</a>
+          {open && hasTo ? <a href={open.href} onClick={noteOpened} className={open.long ? `${secondary} min-h-12 px-[22px] text-base` : primary}>Open in my email</a>
             : <button type="button" disabled className={primary}>Open in my email</button>}
           {!open?.long && <button type="button" onClick={() => void copy()} disabled={busy || !draft} className={`${secondary} min-h-12 px-[22px] text-base`}>Copy</button>}
           {program.sent_at ? <span className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-jr-done-line bg-jr-done px-4 text-base font-semibold text-jr-lime">
@@ -810,6 +844,16 @@ export function ProfileCollegeDetail({ programId }: { programId: string }) {
         {copied && <p role="status" className="text-sm text-jr-soft">{copied}</p>}
         <p className="text-sm text-jr-dim">SPARQ Recruit never sends for you. You send it from your own email.</p>
       </div>
+      {askSent && <>
+        {/* Phones and tablets: above the tab bar (<768px), else at the bottom. The grid's pb-20 keeps the page end visible. */}
+        <div role="region" aria-label="Did you send it" className="fixed inset-x-0 bottom-[calc(52px+max(env(safe-area-inset-bottom),12px))] z-30 border-t border-jr-line bg-[#0F0F12] px-4 py-3 md:bottom-0 md:pb-[max(env(safe-area-inset-bottom),12px)] lg:hidden">
+          <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
+            <p className="text-[15px] font-semibold text-[#E4E4E7]">Did you send it?</p>
+            <button type="button" onClick={() => void markSent(true)} disabled={busy}
+              className={`inline-flex min-h-12 items-center rounded-xl border border-jr-done-line bg-jr-done px-[22px] text-base font-semibold text-jr-lime disabled:opacity-50 ${focus}`}>I sent it ✓</button>
+          </div>
+        </div>
+      </>}
     </section>
 
     <aside className="flex flex-col gap-4 lg:pt-11">

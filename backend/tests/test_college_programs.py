@@ -3,7 +3,7 @@
 Every outside effect is a fake: college_programs.store (Agent DB), read_identity and
 read_athlete (GMTM) and model_json (model). junior_entry.store is a MemoryStore.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 import threading
 
@@ -58,6 +58,7 @@ class CollegeStore:
         self.mark_calls = []
         self.parents = {}
         self.cards = {}
+        self.steps = set()
         self.profiles = {SUBJECT: {"clerk_id": SUBJECT, "name": NAME, "position": "QB", "class_year": 2028, "state": state,
                                  "city": CITY, "email": EMAIL,
                                  "combine_metrics": json.dumps({"fortyYardDash": 5.4, "vertical": 21, "weight": 120})}}
@@ -107,6 +108,7 @@ class CollegeStore:
         return {pid: dict(r) for pid, r in self.research_rows.items() if pid in program_ids}
 
     def card_picks(self, clerk_id): return list(self.cards.get(clerk_id, []))
+    def mark_step(self, clerk_id, step, day): self.steps.add((clerk_id, step, day))
 
     def set_card_picks(self, clerk_id, film_ids):
         if film_ids:
@@ -651,6 +653,32 @@ def test_sent_needs_a_draft_is_idempotent_and_stores_no_text(app):
     assert detail["sent_at"] == first["sent_at"]
     assert client.post(sent, headers=headers, json={"sent": False}).json()["sent_at"] is None
     assert store.marks(SUBJECT)[1] == {}
+
+
+def test_step_marks_store_only_the_step_and_a_day_and_fail_soft(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    url = f"/api/workspace/steps/{SUBJECT}"
+    for _ in range(2):
+        assert client.post(url, headers=headers, json={"step": "school_page"}).json() == {"ok": True}
+    assert client.post(url, headers=headers, json={"step": "email_opened"}).json() == {"ok": True}
+    assert {(c, s) for c, s, _ in store.steps} == {(SUBJECT, "school_page"), (SUBJECT, "email_opened")}
+    assert all(isinstance(d, date) and not isinstance(d, datetime) for *_, d in store.steps)
+    for body in (None, {}, {"step": "sent"}, {"step": "school_page", "program_id": "x"}, {"step": 1}):
+        assert client.post(url, headers=headers, json=body).status_code == 422, body
+    assert client.post(url, json={"step": "school_page"}).status_code == 401
+    assert client.post("/api/workspace/steps/user_other", headers=headers, json={"step": "school_page"}).status_code == 403
+    monkeypatch.setattr(store, "mark_step", lambda *a: (_ for _ in ()).throw(RuntimeError("1146 table missing")))
+    assert client.post(url, headers=headers, json={"step": "school_page"}).json() == {"ok": False}
+    assert len(store.steps) == 2
+
+
+def test_step_marks_have_their_own_rate_limit(app, monkeypatch):
+    client, store, *_ , headers, _ = app
+    monkeypatch.setattr(cp, "STEPS_PER_HOUR", 2)
+    url = f"/api/workspace/steps/{SUBJECT}"
+    assert [client.post(url, headers=headers, json={"step": "school_page"}).status_code for _ in range(3)] == [200, 200, 429]
+    pid = built(client, headers)[0]
+    assert client.post(f"/api/workspace/saved-colleges/{SUBJECT}/{pid}", headers=headers, json={"saved": True}).status_code == 200
 
 
 def test_marks_are_rate_limited(app, monkeypatch):

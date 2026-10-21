@@ -26,6 +26,7 @@ CREATE TABLE sparq_college_lists (clerk_id BLOB);
 CREATE TABLE sparq_saved_colleges (clerk_id BLOB, program_id TEXT);
 CREATE TABLE sparq_sent_emails (clerk_id BLOB, program_id TEXT);
 CREATE TABLE sparq_card_clips (clerk_id BLOB);
+CREATE TABLE sparq_step_marks (clerk_id BLOB, step TEXT, day TEXT);
 CREATE TABLE sparq_sessions (clerk_id BLOB);
 CREATE TABLE claim_tokens (id INTEGER PRIMARY KEY, user_id INT, clerk_id BLOB);
 CREATE TABLE athlete_workspaces (clerk_id BLOB, gmtm_user_id INT);
@@ -107,7 +108,7 @@ def seed(db, uid, tag):
         prof = ins("INSERT INTO sparq_profiles (clerk_id) VALUES (?)", s)
         ins("INSERT INTO college_targets (sparq_profile_id) VALUES (?)", prof)
         ins("INSERT INTO outreach_log (sparq_profile_id) VALUES (?)", prof)
-        for table in ("agent_sessions", "sparq_parent_notices", "sparq_college_lists", "sparq_card_clips", "sparq_sessions"):
+        for table in ("agent_sessions", "sparq_parent_notices", "sparq_college_lists", "sparq_card_clips", "sparq_sessions", "sparq_step_marks"):
             ins(f"INSERT INTO {table} (clerk_id) VALUES (?)", s)
         ins("INSERT INTO sparq_parent_contact VALUES (?, ?)", s, f"parent-{tag}@example.com")
         for table in ("sparq_saved_colleges", "sparq_sent_emails"):
@@ -180,7 +181,7 @@ def test_error_mid_delete_rolls_back_everything():
     db = make()
     before = dump(db)
     with pytest.raises(RuntimeError):
-        fa.run(Conn(db, fail_on="DELETE FROM sparq_entries"), HER, delete=True)  # after 20 earlier deletes
+        fa.run(Conn(db, fail_on="DELETE FROM sparq_entries"), HER, delete=True)  # after 21 earlier deletes
     assert dump(db) == before
 
 

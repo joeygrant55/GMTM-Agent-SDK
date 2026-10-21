@@ -29,6 +29,7 @@ SOURCES = (
     "backend/profile_owner.py",
     "backend/junior_entry.py", "backend/junior_eligibility.py",
     "backend/college_programs.py", "backend/outreach_draft.py", "backend/data/college_womens_flag_2026.json", "backend/data/college_scorecard_2026.json",
+    "backend/rds_tls.py", "backend/data/rds-global-bundle.pem",
 )
 
 

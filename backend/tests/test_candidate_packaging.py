@@ -238,7 +238,7 @@ if surface == 'profile':
                   ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/outreach-draft'),
                   ('GET','/api/workspace/saved-colleges/{clerk_id}'),('POST','/api/workspace/saved-colleges/{clerk_id}/{program_id}'),
                   ('GET','/api/workspace/college-research/{clerk_id}'),
-                  ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/sent'),
+                  ('POST','/api/workspace/colleges/{clerk_id}/{program_id}/sent'),('POST','/api/workspace/steps/{clerk_id}'),
                   ('GET','/api/workspace/college-emails/{clerk_id}'),
                   ('GET','/api/workspace/parent-contact/{clerk_id}'),('POST','/api/workspace/parent-contact/{clerk_id}'),
                   ('GET','/api/workspace/card/{clerk_id}'),('GET','/api/workspace/card/{clerk_id}/lead'),('POST','/api/workspace/card/{clerk_id}')})
@@ -306,7 +306,7 @@ def test_separate_profile_packaging_preserves_the_original_combine_source_set():
         "backend/combine_api.py", "backend/combine_context.py", "backend/combine_help_api.py",
         "backend/combine_model.py", "backend/combine_requirements.py", "backend/combine_results.py",
         "backend/model_usage.py", "backend/profile_api.py", "backend/workspace_bootstrap.py",
-        "backend/start_candidate.py",
+        "backend/start_candidate.py", "backend/rds_tls.py", "backend/data/rds-global-bundle.pem",
     }
     assert set(packager.SOURCES) == original_combine
     assert set(profile_packager.SOURCES) - original_combine == {

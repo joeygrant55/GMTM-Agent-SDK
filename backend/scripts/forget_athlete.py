@@ -10,8 +10,8 @@ are printed. If a subject is linked to more than one GMTM id, it stops and chang
     ... forget_athlete.py <gmtm user id> --delete   # one transaction; re-counts, prints a receipt to keep
 
 Needs MYSQL_PUBLIC_URL (railway run injects it) and pymysql. No audit table exists, so keep the printed receipt.
-Limits: a Clerk-era subject with no link row to her GMTM id cannot be found (pilot athletes all entered via GMTM).
-A Clerk account that claimed her combine token (claim_tokens) counts as hers and its SPARQ rows go too.
+Limits: an older sign-in subject with no link row to her GMTM id cannot be found (pilot athletes all entered via GMTM).
+An older sign-in account that claimed her combine token (claim_tokens) counts as hers and its SPARQ rows go too.
 Not covered (not SPARQ's database): her browser storage, Railway logs, SendGrid, model providers, GMTM media.
 """
 import re
@@ -44,6 +44,7 @@ TABLES = [
     ('sparq_saved_colleges', 'clerk_id IN {S}'),
     ('sparq_sent_emails', 'clerk_id IN {S}'),
     ('sparq_card_clips', 'clerk_id IN {S}'),
+    ('sparq_step_marks', 'clerk_id IN {S}'),
     ('sparq_sessions', 'clerk_id IN {S}'),
     ('claim_tokens', 'user_id = {U} OR clerk_id IN {S}'),
     ('athlete_workspaces', 'gmtm_user_id = {U} OR clerk_id IN {S}'),

@@ -19,6 +19,8 @@ from typing import Optional
 
 import anthropic
 import pymysql
+
+from rds_tls import ssl_args
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
@@ -89,6 +91,7 @@ def _get_gmtm_db():
         database="gmtm",
         port=3306,
         cursorclass=pymysql.cursors.DictCursor,
+        **ssl_args(),
     )
 
 

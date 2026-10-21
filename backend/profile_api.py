@@ -10,6 +10,8 @@ import json
 import threading
 import pymysql
 
+from rds_tls import ssl_args
+
 from combine_results import get_combine_results
 from auth import require_identity, assert_owner
 
@@ -112,6 +114,7 @@ def _get_gmtm_db():
         port=3306,
         cursorclass=pymysql.cursors.DictCursor,
         connect_timeout=5, read_timeout=10, write_timeout=10,
+        **ssl_args(),
     )
 
 

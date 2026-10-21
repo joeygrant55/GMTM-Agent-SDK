@@ -12,6 +12,11 @@ RUN python -m pip install --no-cache-dir --requirement /app/dependencies/require
 # Only the candidate import/handler closure; no environment, tests, agents or legacy entry.
 COPY backend/auth.py backend/candidate_app.py backend/junior_entry.py backend/junior_eligibility.py backend/combine_api.py backend/combine_context.py backend/combine_help_api.py backend/combine_model.py backend/combine_requirements.py backend/combine_results.py backend/model_usage.py backend/profile_api.py backend/workspace_bootstrap.py backend/start_candidate.py /app/backend/
 
+
+# GMTM RDS certificate check (rds_tls.py): the AWS RDS CA bundle.
+COPY backend/rds_tls.py /app/backend/
+COPY backend/data/rds-global-bundle.pem /app/backend/data/
+
 USER 10001:10001
 EXPOSE 8000
 ENTRYPOINT ["python", "/app/backend/start_candidate.py"]

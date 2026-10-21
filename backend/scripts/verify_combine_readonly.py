@@ -104,8 +104,10 @@ def connect_readonly(env, source, driver):
                        user=env["AGENT_DB_USER"], password=env["AGENT_DB_PASSWORD"],
                        database=env["AGENT_DB_NAME"])
     else:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from rds_tls import ssl_args  # GMTM RDS: verify the server certificate and host name
         options = dict(host=env["DB_HOST"], port=3306, user=env["DB_USER"],
-                       password=env["DB_PASSWORD"], database="gmtm")
+                       password=env["DB_PASSWORD"], database="gmtm", **ssl_args())
     return ReadConnection(driver.connect(**options, cursorclass=driver.cursors.DictCursor,
         connect_timeout=5, read_timeout=10, write_timeout=10, autocommit=False,
         local_infile=False))

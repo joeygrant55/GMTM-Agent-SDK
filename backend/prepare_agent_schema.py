@@ -302,6 +302,16 @@ STATEMENTS: tuple[tuple[str, str, bool], ...] = (
 )""",
         False,
     ),
+    (
+        'create_sparq_step_marks',
+        """CREATE TABLE IF NOT EXISTS sparq_step_marks (
+    clerk_id VARBINARY(255) NOT NULL,
+    step VARCHAR(32) NOT NULL,
+    day DATE NOT NULL,
+    PRIMARY KEY (clerk_id, step, day)
+)""",
+        False,
+    ),
     # College research (program-level public facts; same text as college_research.SCHEMA, test-checked).
     (
         'create_sparq_college_research',

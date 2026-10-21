@@ -33,6 +33,8 @@ function candidateAPIAllowed(pathname, method, search = '', surface = 'combine')
   if (surface === 'profile' && /^\/api\/workspace\/saved-colleges\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
   if (surface === 'profile' && /^\/api\/workspace\/saved-colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}$/.test(pathname)) return method === 'POST'
   if (surface === 'profile' && /^\/api\/workspace\/colleges\/[A-Za-z0-9_-]{1,256}\/[a-z0-9-]{1,80}\/sent$/.test(pathname)) return method === 'POST'
+  // Funnel step marks for the wave report (step name only; the backend adds the day). Owner-checked.
+  if (surface === 'profile' && /^\/api\/workspace\/steps\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'POST'
   // Emails page (drafts + sent marks, no coach contact) and the parent address for CC; owner-checked.
   if (surface === 'profile' && /^\/api\/workspace\/college-emails\/[A-Za-z0-9_-]{1,256}$/.test(pathname)) return method === 'GET'
   // College research (camps + listed roster counts) for her saved colleges; owner-checked, read-only.

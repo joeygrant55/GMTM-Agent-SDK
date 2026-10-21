@@ -21,6 +21,7 @@ SOURCES = (
     "backend/combine_model.py", "backend/combine_requirements.py", "backend/combine_results.py",
     "backend/model_usage.py", "backend/profile_api.py", "backend/workspace_bootstrap.py",
     "backend/start_candidate.py",
+    "backend/rds_tls.py", "backend/data/rds-global-bundle.pem",
 )
 
 

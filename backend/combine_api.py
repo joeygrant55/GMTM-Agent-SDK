@@ -11,6 +11,8 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 import pymysql
 
+from rds_tls import ssl_args
+
 from auth import require_identity
 from combine_requirements import (
     MAX_TASKS, SourceDefinitionError, parse_activities, project_activity,
@@ -43,7 +45,7 @@ def _get_gmtm_db():
     return pymysql.connect(
         host=host, user=user, password=os.getenv("DB_PASSWORD"),
         database="gmtm", port=3306, cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=5, read_timeout=10, write_timeout=10,
+        connect_timeout=5, read_timeout=10, write_timeout=10, **ssl_args(),
     )
 
 

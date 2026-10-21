@@ -99,6 +99,13 @@ SCHEMA = (
     film_ids JSON NOT NULL,
     updated_at DATETIME(6) NOT NULL
 )""",
+    # Funnel steps between pages (Joey 2026-10-21): the step name and a US Eastern day only, one row per day.
+    """CREATE TABLE IF NOT EXISTS sparq_step_marks (
+    clerk_id VARBINARY(255) NOT NULL,
+    step VARCHAR(32) NOT NULL,
+    day DATE NOT NULL,
+    PRIMARY KEY (clerk_id, step, day)
+)""",
 )
 
 LEVELS = {"NCAA-D1": "NCAA D1", "NCAA-D2": "NCAA D2", "NCAA-D3": "NCAA D3", "NAIA": "NAIA", "NJCAA": "NJCAA"}
@@ -568,6 +575,11 @@ class MySQLStore:
             sql, args = f"DELETE FROM {table} WHERE clerk_id = %s AND program_id = %s", (clerk_id.encode(), program_id)
         self._run(lambda c: c.execute(sql, args), write=True)
 
+    def mark_step(self, clerk_id, step, day):
+        """One row per athlete, step and day; a repeat that day changes nothing."""
+        self._run(lambda c: c.execute("INSERT IGNORE INTO sparq_step_marks (clerk_id, step, day) VALUES (%s, %s, %s)",
+                                      (clerk_id.encode(), step, day)), write=True)
+
     def research(self, program_ids):
         """College research rows (program-level public facts) for the given program ids."""
         if not program_ids:
@@ -995,7 +1007,7 @@ def list_colleges(clerk_id: str, caller_id: str = Depends(require_identity)):
     return _listing(_current_programs(clerk_id, row, athlete, profile), athlete, marks)
 
 
-BUILDS_PER_HOUR, DRAFTS_PER_HOUR, MARKS_PER_HOUR = 10, 10, 200  # builds: her answers can change a few times
+BUILDS_PER_HOUR, DRAFTS_PER_HOUR, MARKS_PER_HOUR, STEPS_PER_HOUR = 10, 10, 200, 600  # builds: her answers can change a few times
 TOO_MANY = "You've done this a lot in the last hour. Take a break and try again later."
 
 
@@ -1142,6 +1154,12 @@ class SaveBody(BaseModel):
 class SentBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sent: StrictBool
+
+
+class StepBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # school_page: she opened a college's page (the email kit). email_opened: she tapped Open in my email or Copy.
+    step: Literal["school_page", "email_opened"]
 
 
 def _listed_program(clerk_id: str, program_id: str, turning_on: bool) -> dict:
@@ -1490,6 +1508,19 @@ def mark_sent(program_id: str, body: SentBody, clerk_id: str = Depends(owner_id)
         raise HTTPException(409, "Write a draft for this college first.")
     store.set_mark("sparq_sent_emails", clerk_id, p["id"], body.sent)
     return {"program_id": p["id"], "sent_at": _iso(_marks(clerk_id)[1].get(p["id"]))}
+
+
+def mark_step(body: StepBody, clerk_id: str = Depends(owner_id)):
+    """A funnel step for the wave report: the step name and today's US Eastern date, nothing else.
+    Fails soft: a lost step mark never blocks her."""
+    _limit("step", clerk_id, STEPS_PER_HOUR)  # own bucket: page views never use up saves or "I sent it"
+    try:
+        from zoneinfo import ZoneInfo
+        store.mark_step(clerk_id, body.step, datetime.now(ZoneInfo("America/New_York")).date())
+    except Exception as error:
+        log.warning("college_programs: step mark failed (%s)", type(error).__name__)  # class only, never values
+        return {"ok": False}
+    return {"ok": True}
 
 
 # ── My card (owner-only; no public page: a minor's card is never served without her session) ──

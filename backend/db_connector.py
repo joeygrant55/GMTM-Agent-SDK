@@ -10,6 +10,8 @@ from typing import Any, Iterable, Optional
 
 import pymysql
 
+from rds_tls import ssl_args
+
 
 class _ReadOnlyGmtmDb:
     def execute_query(self, sql: str, params: Optional[Iterable[Any]] = None) -> list[dict]:
@@ -23,6 +25,7 @@ class _ReadOnlyGmtmDb:
             port=int(os.environ.get("DB_PORT", 3306)),
             cursorclass=pymysql.cursors.DictCursor,
             read_timeout=15,
+            **ssl_args(),
         )
         try:
             with conn.cursor() as c:

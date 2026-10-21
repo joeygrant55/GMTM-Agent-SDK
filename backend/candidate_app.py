@@ -243,6 +243,8 @@ def create_app(*, surface: str = "combine") -> FastAPI:
             ("GET", "/api/workspace/college-research/{clerk_id}", colleges.college_research),
             ("POST", "/api/workspace/saved-colleges/{clerk_id}/{program_id}", colleges.save_college),
             ("POST", "/api/workspace/colleges/{clerk_id}/{program_id}/sent", colleges.mark_sent),
+            # Funnel step marks (step name + day only) for the wave report.
+            ("POST", "/api/workspace/steps/{clerk_id}", colleges.mark_step),
             # Emails page (drafts + sent marks) and "CC my parent" (address only; SPARQ never sends).
             ("GET", "/api/workspace/college-emails/{clerk_id}", colleges.college_emails),
             ("GET", "/api/workspace/parent-contact/{clerk_id}", colleges.get_parent_contact),

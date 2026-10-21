@@ -21,6 +21,11 @@ COPY backend/college_programs.py backend/outreach_draft.py /app/backend/
 
 COPY backend/data/college_womens_flag_2026.json backend/data/college_scorecard_2026.json /app/backend/data/
 
+
+# GMTM RDS certificate check (rds_tls.py): the AWS RDS CA bundle.
+COPY backend/rds_tls.py /app/backend/
+COPY backend/data/rds-global-bundle.pem /app/backend/data/
+
 USER 10001:10001
 EXPOSE 8000
 ENTRYPOINT ["python", "/app/backend/start_profile_candidate.py"]

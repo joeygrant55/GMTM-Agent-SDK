@@ -6,12 +6,13 @@ Exit 1 if any athlete with drill data returns zero results or any rank exceeds i
 import os, sys, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pymysql
+from rds_tls import ssl_args
 from combine_results import get_combine_results, format_for_prompt
 
 
 def connect():
     return pymysql.connect(host=os.environ["DB_HOST"], user=os.environ["DB_USER"], password=os.environ["DB_PASSWORD"],
-                           database="gmtm", port=int(os.environ.get("DB_PORT", 3306)), cursorclass=pymysql.cursors.DictCursor)
+                           database="gmtm", port=int(os.environ.get("DB_PORT", 3306)), cursorclass=pymysql.cursors.DictCursor, **ssl_args())
 
 
 def main(event_ids):

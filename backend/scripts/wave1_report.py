@@ -23,8 +23,10 @@ STEPS = [  # (key, label), in the order an athlete meets them
     ('notice', 'Parent notice accepted'),
     ('list', 'College list built'),
     ('card', 'Picked My card clips'),
+    ('school_page', 'Opened a school page'),
     ('saved', 'Saved a college'),
     ('drafted', 'Drafted a coach email'),
+    ('email_opened', 'Opened her email or copied'),
     ('sent', 'Marked an email sent'),
 ]
 # One refusal word covers age outside 13-17, no birth date on file and no junior event (junior_eligibility.py).
@@ -56,10 +58,11 @@ def athlete_rows(ids, data):
         done = {
             'signed_in': d.get('entries', 0) > 0, 'notice': bool(d.get('notice')), 'list': bool(d.get('list')),
             'saved': d.get('saved', 0) > 0, 'drafted': d.get('drafted', 0) > 0, 'sent': d.get('sent', 0) > 0,
-            'card': d.get('card', 0) > 0,
+            'card': d.get('card', 0) > 0, 'school_page': d.get('school_page', 0) > 0, 'email_opened': d.get('email_opened', 0) > 0,
         }
         # A visit inside one 24 h session writes no new entry, so a day counts when she signed in or did a step.
-        days = {eastern_day(at) for at in d.get('active', []) if at}
+        # Step marks store an Eastern date already; database times are UTC datetimes.
+        days = {at if type(at) is date else eastern_day(at) for at in d.get('active', []) if at}
         out.append({'label': f'A{n}', 'done': done, 'refused': d.get('refused', []), 'days': len(days),
                     'last': max(days) if days else None, 'saved': d.get('saved', 0), 'drafted': d.get('drafted', 0), 'sent': d.get('sent', 0)})
     return out
@@ -73,10 +76,10 @@ def report(rows):
     refused = [r for r in rows if r['refused'] and not r['done']['signed_in']]
     lines.append(f'{REFUSED}: {len(refused)}')
     lines.append('')
-    lines.append('Athlete  Furthest step            Saved  Drafts  Sent  Days  Last active')
+    lines.append('Athlete  Furthest step               Saved  Drafts  Sent  Days  Last active')
     for r in rows:
         furthest = next((label for key, label in reversed(STEPS) if r['done'][key]), 'Stopped at sign-in' if r['refused'] else 'Not signed in')
-        lines.append(f'{r["label"]:<8} {furthest:<24} {r["saved"]:>5} {r["drafted"]:>7} {r["sent"]:>5} {r["days"]:>5}  {r["last"] or "-"}')
+        lines.append(f'{r["label"]:<8} {furthest:<27} {r["saved"]:>5} {r["drafted"]:>7} {r["sent"]:>5} {r["days"]:>5}  {r["last"] or "-"}')
     return '\n'.join(lines)
 
 
@@ -141,6 +144,16 @@ def read_data(ids):
                 for uid in data:
                     for key in schools:
                         data[uid][key] = len(data[uid].pop(key + '_ids', ()))
+                # Step marks (since 2026-10-21): one row per step and Eastern day; the value is the number of days.
+                try:
+                    c.execute(f'SELECT clerk_id, step, day FROM sparq_step_marks WHERE clerk_id IN ({held})', subjects)
+                    for row in c.fetchall():
+                        if (uid := owner_of(row)) is not None and row['step'] in ('school_page', 'email_opened'):
+                            data[uid][row['step']] = data[uid].get(row['step'], 0) + 1
+                            data[uid]['active'].append(row['day'])
+                except Exception as error:
+                    if not (error.args and error.args[0] == 1146):  # 1146: the table is not created yet
+                        raise
             c.execute('ROLLBACK')
     finally:
         conn.close()
@@ -152,19 +165,24 @@ def demo():
     ids = [11, 22, 33, 44]
     t = lambda d, h: datetime(2026, 10, d, h)  # UTC
     data = {
-        11: {'entries': 1, 'active': [t(17, 20), t(18, 19), t(19, 1)], 'refused': [], 'notice': 1, 'list': 1, 'saved': 3, 'drafted': 2, 'sent': 1, 'card': 2},
+        11: {'entries': 1, 'active': [t(17, 20), t(18, 19), t(19, 1)], 'refused': [], 'notice': 1, 'list': 1, 'saved': 3, 'drafted': 2, 'sent': 1, 'card': 2,
+             'school_page': 2, 'email_opened': 1},
+        # 44 opened a school page on an Eastern date (a step mark) and stopped there.
+        44: {'entries': 1, 'active': [t(17, 20), date(2026, 10, 19)], 'refused': [], 'notice': 1, 'list': 1, 'school_page': 1},
         22: {'entries': 2, 'active': [t(17, 23), t(18, 0)], 'refused': [], 'notice': 1, 'list': 1},  # 7 pm and 8 pm ET: one day
         33: {'entries': 0, 'active': [], 'refused': ['ineligible']},
     }
     text = report(athlete_rows(ids, data))
     lines = text.splitlines()
-    assert 'Invited: 4' in text and 'Signed in: 2' in text and 'Saved a college: 1' in text and 'Marked an email sent: 1' in text
+    assert 'Opened a school page: 2' in text and 'Opened her email or copied: 1' in text
+    assert 'Opened a school page' in lines[-1] and lines[-1].split()[-2:] == ['2', '2026-10-19']
+    assert 'Invited: 4' in text and 'Signed in: 3' in text and 'Saved a college: 1' in text and 'Marked an email sent: 1' in text
     # 11: Oct 17 4 pm ET, Oct 18 3 pm ET (same 24 h session, no new entry), Oct 18 9 pm ET -> 2 days, last Oct 18.
-    assert 'Active on 2 or more days: 1' in text and f'{REFUSED}: 1' in text
+    assert 'Active on 2 or more days: 2' in text and f'{REFUSED}: 1' in text
     assert [line.split()[0] for line in lines[-4:]] == ['A1', 'A2', 'A3', 'A4']
     assert 'Marked an email sent' in lines[-4] and lines[-4].split()[-2:] == ['2', '2026-10-18']
     assert 'College list built' in lines[-3] and lines[-3].split()[-2:] == ['1', '2026-10-17']
-    assert 'Stopped at sign-in' in lines[-2] and 'Not signed in' in lines[-1]
+    assert 'Stopped at sign-in' in lines[-2]
     print('demo ok')
 
 
@@ -180,6 +198,7 @@ if __name__ == '__main__':
             sys.exit(f'The database read failed ({type(error).__name__} {code}).')
         print(f'SPARQ Recruit wave 1, read {date.today()}')
         print(report(athlete_rows(ids, data)))
+        print('Step marks (school page, email opened) start 2026-10-21. Earlier visits are not counted.')
         if clash:
             print(f'Check by hand: a SPARQ subject is linked to more than one invitee ({", ".join(clash)}); its rows are not counted.')
     else:
